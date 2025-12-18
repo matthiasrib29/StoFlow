@@ -9,7 +9,7 @@
           :src="getProductImageUrl(product)"
           :alt="product.title"
           class="w-full h-52 object-cover transition-transform duration-300 group-hover:scale-105"
-        />
+        >
         <div class="absolute top-3 right-3">
           <Badge
             :value="product.is_active ? 'Actif' : 'Inactif'"
@@ -23,7 +23,7 @@
             :class="isSelected ? 'bg-primary-400 border-primary-400' : 'bg-white/90 border-gray-300 hover:border-primary-400'"
             @click.stop="$emit('toggle-selection', product)"
           >
-            <i v-if="isSelected" class="pi pi-check text-secondary-900 text-xs font-bold"></i>
+            <i v-if="isSelected" class="pi pi-check text-secondary-900 text-xs font-bold"/>
           </div>
         </div>
       </div>

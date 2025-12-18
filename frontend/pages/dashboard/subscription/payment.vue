@@ -20,12 +20,12 @@
         <Card class="shadow-md modern-rounded">
           <template #title>
             <div class="flex items-center gap-3">
-              <i class="pi pi-credit-card text-primary-400 text-xl"></i>
+              <i class="pi pi-credit-card text-primary-400 text-xl"/>
               <span class="text-xl font-bold text-secondary-900">Informations de paiement</span>
             </div>
           </template>
           <template #content>
-            <form @submit.prevent="handlePayment" class="space-y-6">
+            <form class="space-y-6" @submit.prevent="handlePayment">
               <!-- Card Number -->
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -36,8 +36,8 @@
                   placeholder="1234 5678 9012 3456"
                   class="w-full"
                   maxlength="19"
-                  @input="formatCardNumber"
                   required
+                  @input="formatCardNumber"
                 />
               </div>
 
@@ -65,8 +65,8 @@
                     placeholder="MM/YY"
                     class="w-full"
                     maxlength="5"
-                    @input="formatExpiryDate"
                     required
+                    @input="formatExpiryDate"
                   />
                 </div>
                 <div>
@@ -132,8 +132,8 @@
                 <Select
                   v-model="country"
                   :options="countries"
-                  optionLabel="name"
-                  optionValue="code"
+                  option-label="name"
+                  option-value="code"
                   placeholder="Sélectionnez un pays"
                   class="w-full"
                   required
@@ -142,7 +142,7 @@
 
               <!-- Terms -->
               <div class="flex items-start gap-3">
-                <Checkbox v-model="acceptTerms" :binary="true" inputId="terms" />
+                <Checkbox v-model="acceptTerms" :binary="true" input-id="terms" />
                 <label for="terms" class="text-sm text-gray-700">
                   J'accepte les <a href="#" class="text-primary-400 hover:underline">conditions générales</a>
                   et la <a href="#" class="text-primary-400 hover:underline">politique de confidentialité</a>
@@ -161,7 +161,7 @@
 
               <!-- Security Notice -->
               <div class="flex items-center justify-center gap-2 text-sm text-gray-500">
-                <i class="pi pi-lock"></i>
+                <i class="pi pi-lock"/>
                 <span>Paiement sécurisé - Vos données sont protégées</span>
               </div>
             </form>
@@ -180,7 +180,7 @@
               <!-- Item -->
               <div class="p-4 bg-secondary-50 rounded-lg">
                 <div class="flex items-start gap-3">
-                  <i :class="[itemIcon, 'text-primary-400 text-xl']"></i>
+                  <i :class="[itemIcon, 'text-primary-400 text-xl']"/>
                   <div class="flex-1">
                     <h4 class="font-semibold text-secondary-900 mb-1">{{ itemDescription }}</h4>
                     <p class="text-sm text-gray-600">{{ itemDetails }}</p>
@@ -209,15 +209,15 @@
               <!-- Features -->
               <div class="pt-4 space-y-2">
                 <div class="flex items-center gap-2 text-sm text-gray-600">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Activation immédiate</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-600">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Support client 24/7</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-600">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Annulation possible</span>
                 </div>
               </div>
@@ -305,8 +305,8 @@ const goBack = () => {
 }
 
 const formatCardNumber = (event: any) => {
-  let value = event.target.value.replace(/\s/g, '')
-  let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value
+  const value = event.target.value.replace(/\s/g, '')
+  const formattedValue = value.match(/.{1,4}/g)?.join(' ') || value
   cardNumber.value = formattedValue
 }
 

@@ -18,7 +18,7 @@
         <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-4">
             <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-              <i class="pi pi-box text-primary-500 text-xl"></i>
+              <i class="pi pi-box text-primary-500 text-xl"/>
             </div>
             <span class="text-xs font-semibold text-primary-500 bg-primary-50 px-3 py-1 rounded-full">+12%</span>
           </div>
@@ -29,7 +29,7 @@
         <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-4">
             <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-              <i class="pi pi-send text-secondary-700 text-xl"></i>
+              <i class="pi pi-send text-secondary-700 text-xl"/>
             </div>
             <span class="text-xs font-semibold text-secondary-700 bg-secondary-50 px-3 py-1 rounded-full">Live</span>
           </div>
@@ -40,7 +40,7 @@
         <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-4">
             <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-              <i class="pi pi-check-circle text-primary-500 text-xl"></i>
+              <i class="pi pi-check-circle text-primary-500 text-xl"/>
             </div>
             <span class="text-xs font-semibold text-primary-500 bg-primary-50 px-3 py-1 rounded-full">+8%</span>
           </div>
@@ -51,7 +51,7 @@
         <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-4">
             <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-              <i class="pi pi-link text-secondary-700 text-xl"></i>
+              <i class="pi pi-link text-secondary-700 text-xl"/>
             </div>
             <span class="text-xs font-semibold text-secondary-700 bg-secondary-50 px-3 py-1 rounded-full">{{ publicationsStore.connectedIntegrations.length }}/4</span>
           </div>
@@ -76,7 +76,7 @@
       <div class="bg-gradient-to-r from-primary-400 to-primary-500 rounded-2xl p-8 shadow-lg">
         <div class="flex items-start gap-6">
           <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-            <i class="pi pi-bolt text-secondary-900 text-3xl"></i>
+            <i class="pi pi-bolt text-secondary-900 text-3xl"/>
           </div>
           <div class="flex-1 text-secondary-900">
             <h3 class="text-2xl font-bold mb-3">

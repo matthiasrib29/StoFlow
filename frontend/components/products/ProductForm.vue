@@ -1,9 +1,9 @@
 <template>
-  <form @submit.prevent="handleSubmit" class="space-y-8">
+  <form class="space-y-8" @submit.prevent="handleSubmit">
     <!-- ===== INFORMATIONS DE BASE ===== -->
     <div class="bg-white rounded-lg shadow-sm p-6">
       <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-        <i class="pi pi-info-circle"></i>
+        <i class="pi pi-info-circle"/>
         Informations de base
       </h3>
 
@@ -15,12 +15,12 @@
           <InputText
             id="title"
             :model-value="modelValue.title"
-            @update:model-value="handleFieldUpdate('title', $event)"
-            @blur="validation.touch('title')"
             placeholder="Ex: Levi's 501 Vintage"
             class="w-full"
             :class="{ 'p-invalid': validation.hasError('title') }"
             required
+            @update:model-value="handleFieldUpdate('title', $event)"
+            @blur="validation.touch('title')"
           />
           <small v-if="validation.hasError('title')" class="p-error">
             {{ validation.getError('title') }}
@@ -34,13 +34,13 @@
           <Textarea
             id="description"
             :model-value="modelValue.description"
-            @update:model-value="handleFieldUpdate('description', $event)"
-            @blur="validation.touch('description')"
             placeholder="Décrivez votre produit en détail..."
             rows="5"
             class="w-full"
             :class="{ 'p-invalid': validation.hasError('description') }"
             required
+            @update:model-value="handleFieldUpdate('description', $event)"
+            @blur="validation.touch('description')"
           />
           <small v-if="validation.hasError('description')" class="p-error">
             {{ validation.getError('description') }}
@@ -57,14 +57,14 @@
           <InputNumber
             id="price"
             :model-value="modelValue.price"
-            @update:model-value="updateField('price', $event)"
             mode="currency"
             currency="EUR"
             locale="fr-FR"
             class="w-full"
             :min="0"
-            :minFractionDigits="2"
+            :min-fraction-digits="2"
             placeholder="Laissez vide pour calcul auto"
+            @update:model-value="updateField('price', $event)"
           />
           <p v-if="calculatedPrice" class="text-xs text-green-600 mt-1">
             💡 Prix suggéré: {{ calculatedPrice }}€
@@ -78,10 +78,10 @@
           <InputNumber
             id="stock_quantity"
             :model-value="modelValue.stock_quantity"
-            @update:model-value="updateField('stock_quantity', $event)"
             class="w-full"
             :min="0"
-            showButtons
+            show-buttons
+            @update:model-value="updateField('stock_quantity', $event)"
           />
         </div>
       </div>
@@ -90,7 +90,7 @@
     <!-- ===== ATTRIBUTS OBLIGATOIRES ===== -->
     <div class="bg-white rounded-lg shadow-sm p-6">
       <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-        <i class="pi pi-tag"></i>
+        <i class="pi pi-tag"/>
         Attributs obligatoires
       </h3>
 
@@ -102,16 +102,16 @@
           <AutoComplete
             id="brand"
             :model-value="modelValue.brand"
-            @update:model-value="handleFieldUpdate('brand', $event)"
-            @blur="validation.touch('brand')"
-            @complete="handleBrandSearch"
             :suggestions="brandSuggestionLabels"
             placeholder="Ex: Levi's, Nike, Zara..."
             class="w-full"
             :class="{ 'p-invalid': validation.hasError('brand') }"
             required
-            :minLength="1"
+            :min-length="1"
             :delay="50"
+            @update:model-value="handleFieldUpdate('brand', $event)"
+            @blur="validation.touch('brand')"
+            @complete="handleBrandSearch"
           />
           <small v-if="validation.hasError('brand')" class="p-error">
             {{ validation.getError('brand') }}
@@ -125,16 +125,16 @@
           <Select
             id="category"
             :model-value="modelValue.category"
-            @update:model-value="handleFieldUpdate('category', $event)"
-            @blur="validation.touch('category')"
             :options="categories"
-            optionLabel="label"
-            optionValue="value"
+            option-label="label"
+            option-value="value"
             placeholder="Sélectionner une catégorie"
             class="w-full"
             :class="{ 'p-invalid': validation.hasError('category') }"
             required
             :loading="loadingCategories"
+            @update:model-value="handleFieldUpdate('category', $event)"
+            @blur="validation.touch('category')"
           />
           <small v-if="validation.hasError('category')" class="p-error">
             {{ validation.getError('category') }}

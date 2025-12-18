@@ -3,12 +3,12 @@
     <Card class="w-full max-w-2xl border-2 border-secondary-900 shadow-xl">
       <template #title>
         <div class="flex items-center gap-2 bg-primary-400 -mx-6 -mt-6 px-6 py-4 mb-4">
-          <i class="pi pi-user-plus text-secondary-900 text-2xl"></i>
+          <i class="pi pi-user-plus text-secondary-900 text-2xl"/>
           <span class="text-secondary-900 font-bold text-2xl">Créer un compte</span>
         </div>
       </template>
       <template #content>
-        <form @submit.prevent="handleRegister" class="space-y-4">
+        <form class="space-y-4" @submit.prevent="handleRegister">
           <!-- Type de compte -->
           <div class="mb-6">
             <label class="block text-sm font-medium mb-3">
@@ -16,31 +16,31 @@
             </label>
             <div class="flex gap-4">
               <div
-                @click="accountType = 'individual'"
                 :class="[
                   'flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all',
                   accountType === 'individual'
                     ? 'border-primary-400 bg-primary-50'
                     : 'border-gray-300 hover:border-primary-400'
                 ]"
+                @click="accountType = 'individual'"
               >
                 <div class="flex items-center gap-2 mb-2">
-                  <i class="pi pi-user text-2xl" :class="accountType === 'individual' ? 'text-primary-600' : 'text-gray-400'"></i>
+                  <i class="pi pi-user text-2xl" :class="accountType === 'individual' ? 'text-primary-600' : 'text-gray-400'"/>
                   <span class="font-bold">Particulier</span>
                 </div>
                 <p class="text-sm text-gray-600">Pour usage personnel</p>
               </div>
               <div
-                @click="accountType = 'professional'"
                 :class="[
                   'flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all',
                   accountType === 'professional'
                     ? 'border-primary-400 bg-primary-50'
                     : 'border-gray-300 hover:border-primary-400'
                 ]"
+                @click="accountType = 'professional'"
               >
                 <div class="flex items-center gap-2 mb-2">
-                  <i class="pi pi-briefcase text-2xl" :class="accountType === 'professional' ? 'text-primary-600' : 'text-gray-400'"></i>
+                  <i class="pi pi-briefcase text-2xl" :class="accountType === 'professional' ? 'text-primary-600' : 'text-gray-400'"/>
                   <span class="font-bold">Professionnel</span>
                 </div>
                 <p class="text-sm text-gray-600">Pour votre entreprise</p>
@@ -119,7 +119,7 @@
               v-model="password"
               placeholder="••••••••"
               class="w-full"
-              toggleMask
+              toggle-mask
               :feedback="true"
               required
               :disabled="authStore.isLoading"
@@ -135,7 +135,7 @@
           <!-- Informations professionnelles (conditionnelles) -->
           <div v-if="accountType === 'professional'" class="space-y-4 p-4 bg-gray-50 rounded-lg border">
             <h3 class="font-bold text-secondary-900 mb-3">
-              <i class="pi pi-briefcase mr-2"></i>
+              <i class="pi pi-briefcase mr-2"/>
               Informations professionnelles
             </h3>
 
@@ -180,8 +180,8 @@
               id="businessType"
               v-model="businessType"
               :options="businessTypeOptions"
-              optionLabel="label"
-              optionValue="value"
+              option-label="label"
+              option-value="value"
               placeholder="Sélectionnez votre activité"
               class="w-full"
               required
@@ -198,8 +198,8 @@
               id="estimatedProducts"
               v-model="estimatedProducts"
               :options="estimatedProductsOptions"
-              optionLabel="label"
-              optionValue="value"
+              option-label="label"
+              option-value="value"
               placeholder="Combien de produits gérez-vous ?"
               class="w-full"
               required
@@ -209,7 +209,7 @@
 
           <div v-if="authStore.error" class="p-3 bg-secondary-50 border border-primary-200 rounded-lg">
             <p class="text-secondary-600 text-sm">
-              <i class="pi pi-exclamation-triangle mr-2"></i>
+              <i class="pi pi-exclamation-triangle mr-2"/>
               {{ authStore.error }}
             </p>
           </div>

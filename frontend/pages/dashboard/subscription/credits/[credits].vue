@@ -22,7 +22,7 @@
           <template #title>
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <i class="pi pi-sparkles text-primary-400 text-2xl"></i>
+                <i class="pi pi-sparkles text-primary-400 text-2xl"/>
                 <span class="text-xl font-bold text-secondary-900">Pack sélectionné</span>
               </div>
               <Tag v-if="selectedPack?.popular" value="POPULAIRE" severity="success" class="text-xs font-bold" />
@@ -57,20 +57,20 @@
               <!-- Exemples d'utilisation -->
               <div class="bg-white rounded-lg p-4">
                 <h4 class="font-semibold text-secondary-900 mb-3 flex items-center gap-2">
-                  <i class="pi pi-lightbulb text-primary-400"></i>
+                  <i class="pi pi-lightbulb text-primary-400"/>
                   Ce que vous pouvez faire avec {{ selectedPack?.credits }} crédits
                 </h4>
                 <div class="space-y-2">
                   <div class="flex items-center gap-2 text-sm text-gray-700">
-                    <i class="pi pi-check-circle text-green-600"></i>
+                    <i class="pi pi-check-circle text-green-600"/>
                     <span><strong>~{{ Math.floor((selectedPack?.credits || 0) / 5) }}</strong> descriptions complètes de produits</span>
                   </div>
                   <div class="flex items-center gap-2 text-sm text-gray-700">
-                    <i class="pi pi-check-circle text-green-600"></i>
+                    <i class="pi pi-check-circle text-green-600"/>
                     <span><strong>~{{ Math.floor((selectedPack?.credits || 0) / 2) }}</strong> optimisations de titres</span>
                   </div>
                   <div class="flex items-center gap-2 text-sm text-gray-700">
-                    <i class="pi pi-check-circle text-green-600"></i>
+                    <i class="pi pi-check-circle text-green-600"/>
                     <span><strong>~{{ Math.floor((selectedPack?.credits || 0) / 3) }}</strong> traductions multilingues</span>
                   </div>
                 </div>
@@ -83,7 +83,7 @@
         <Card class="shadow-md modern-rounded">
           <template #title>
             <div class="flex items-center gap-3">
-              <i class="pi pi-th-large text-primary-400 text-xl"></i>
+              <i class="pi pi-th-large text-primary-400 text-xl"/>
               <span class="text-xl font-bold text-secondary-900">Autres packs disponibles</span>
             </div>
           </template>
@@ -117,7 +117,7 @@
         <Card class="shadow-md modern-rounded">
           <template #title>
             <div class="flex items-center gap-3">
-              <i class="pi pi-info-circle text-primary-400 text-xl"></i>
+              <i class="pi pi-info-circle text-primary-400 text-xl"/>
               <span class="text-xl font-bold text-secondary-900">Informations importantes</span>
             </div>
           </template>
@@ -172,7 +172,7 @@
               <!-- Économies -->
               <div v-if="savingsComparedToSmallest > 0" class="p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div class="flex items-center gap-2 text-green-700 mb-1">
-                  <i class="pi pi-check-circle"></i>
+                  <i class="pi pi-check-circle"/>
                   <span class="font-semibold text-sm">Vous économisez</span>
                 </div>
                 <div class="text-2xl font-bold text-green-600">{{ savingsComparedToSmallest.toFixed(2) }}€</div>
@@ -182,19 +182,19 @@
               <!-- Avantages -->
               <div class="space-y-2">
                 <div class="flex items-center gap-2 text-sm text-gray-700">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Activation immédiate</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-700">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Pas d'expiration</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-700">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Cumulable avec abonnement</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-700">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Remboursable sous 14 jours</span>
                 </div>
               </div>
@@ -206,7 +206,7 @@
                 <Button
                   label="Procéder au paiement"
                   icon="pi pi-arrow-right"
-                  iconPos="right"
+                  icon-pos="right"
                   class="w-full bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
                   size="large"
                   @click="proceedToPayment"
@@ -223,7 +223,7 @@
 
               <!-- Sécurité -->
               <div class="flex items-center justify-center gap-2 text-xs text-gray-500 pt-2">
-                <i class="pi pi-lock"></i>
+                <i class="pi pi-lock"/>
                 <span>Paiement 100% sécurisé</span>
               </div>
             </div>

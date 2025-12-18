@@ -5,7 +5,7 @@
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-4">
           <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-lg border border-gray-100 p-2">
-            <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-full h-full object-contain" />
+            <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-full h-full object-contain" >
           </div>
           <div>
             <h1 class="text-3xl font-bold text-secondary-900 mb-1">Etsy</h1>
@@ -56,7 +56,7 @@
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
               <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
-                <i class="pi pi-send text-orange-600 text-xl"></i>
+                <i class="pi pi-send text-orange-600 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ stats.activePublications }}</h3>
@@ -66,7 +66,7 @@
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
               <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-                <i class="pi pi-eye text-primary-600 text-xl"></i>
+                <i class="pi pi-eye text-primary-600 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ stats.totalViews }}</h3>
@@ -76,7 +76,7 @@
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
               <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-                <i class="pi pi-check-circle text-secondary-700 text-xl"></i>
+                <i class="pi pi-check-circle text-secondary-700 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ stats.totalSales }}</h3>
@@ -86,7 +86,7 @@
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
               <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-                <i class="pi pi-euro text-primary-600 text-xl"></i>
+                <i class="pi pi-euro text-primary-600 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ formatCurrency(stats.totalRevenue) }}</h3>
@@ -129,7 +129,7 @@
         <Card v-else class="shadow-sm modern-rounded border border-gray-100">
           <template #content>
             <div class="text-center py-8">
-              <i class="pi pi-link text-gray-300 text-6xl mb-4"></i>
+              <i class="pi pi-link text-gray-300 text-6xl mb-4"/>
               <h3 class="text-xl font-bold text-secondary-900 mb-2">Connectez votre boutique Etsy</h3>
               <p class="text-gray-600 mb-6">Commencez à vendre vos créations sur Etsy en un clic</p>
               <Button
@@ -151,11 +151,11 @@
           :rows="10"
           :loading="loading"
           class="modern-table"
-          stripedRows
+          striped-rows
         >
           <template #empty>
             <div class="text-center py-8">
-              <i class="pi pi-inbox text-gray-300 text-5xl mb-3"></i>
+              <i class="pi pi-inbox text-gray-300 text-5xl mb-3"/>
               <p class="text-gray-600">Aucune publication sur Etsy pour le moment</p>
             </div>
           </template>
@@ -168,9 +168,9 @@
                   :src="data.product.image_url"
                   :alt="data.product.title"
                   class="w-12 h-12 rounded-lg object-cover"
-                />
-                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center" v-else>
-                  <i class="pi pi-image text-gray-400"></i>
+                >
+                <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <i class="pi pi-image text-gray-400"/>
                 </div>
                 <div>
                   <p class="font-semibold text-secondary-900">{{ data.product.title }}</p>
@@ -189,7 +189,7 @@
           <Column field="views" header="Vues" sortable>
             <template #body="{ data }">
               <div class="flex items-center gap-2">
-                <i class="pi pi-eye text-gray-400 text-sm"></i>
+                <i class="pi pi-eye text-gray-400 text-sm"/>
                 <span>{{ data.views || 0 }}</span>
               </div>
             </template>
@@ -214,30 +214,30 @@
             <template #body="{ data }">
               <div class="flex gap-2">
                 <Button
+                  v-tooltip.top="'Voir sur Etsy'"
                   icon="pi pi-external-link"
                   class="bg-gray-100 hover:bg-gray-200 text-secondary-900 border-0"
                   size="small"
                   rounded
                   text
-                  v-tooltip.top="'Voir sur Etsy'"
                   @click="openPublication(data)"
                 />
                 <Button
+                  v-tooltip.top="'Modifier le prix'"
                   icon="pi pi-euro"
                   class="bg-primary-100 hover:bg-primary-200 text-primary-700 border-0"
                   size="small"
                   rounded
                   text
-                  v-tooltip.top="'Modifier le prix'"
                   @click="editPrice(data)"
                 />
                 <Button
+                  v-tooltip.top="'Supprimer'"
                   icon="pi pi-trash"
                   class="bg-red-100 hover:bg-red-200 text-red-700 border-0"
                   size="small"
                   rounded
                   text
-                  v-tooltip.top="'Supprimer'"
                   @click="confirmDelete(data)"
                 />
               </div>
@@ -331,7 +331,7 @@
             locale="fr-FR"
             class="w-full"
             :min="0"
-            :maxFractionDigits="2"
+            :max-fraction-digits="2"
           />
         </div>
       </div>

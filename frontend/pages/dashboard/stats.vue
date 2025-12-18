@@ -12,8 +12,8 @@
         <Select
           v-model="selectedPeriod"
           :options="periods"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           class="w-48"
         />
       </div>
@@ -24,7 +24,7 @@
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-            <i class="pi pi-euro text-primary-600 text-xl"></i>
+            <i class="pi pi-euro text-primary-600 text-xl"/>
           </div>
           <span class="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">+15%</span>
         </div>
@@ -35,7 +35,7 @@
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-            <i class="pi pi-shopping-cart text-secondary-700 text-xl"></i>
+            <i class="pi pi-shopping-cart text-secondary-700 text-xl"/>
           </div>
           <span class="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">+8%</span>
         </div>
@@ -46,7 +46,7 @@
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-            <i class="pi pi-eye text-primary-600 text-xl"></i>
+            <i class="pi pi-eye text-primary-600 text-xl"/>
           </div>
           <span class="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">+23%</span>
         </div>
@@ -57,7 +57,7 @@
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-            <i class="pi pi-percentage text-secondary-700 text-xl"></i>
+            <i class="pi pi-percentage text-secondary-700 text-xl"/>
           </div>
         </div>
         <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ kpis.conversionRate }}%</h3>
@@ -103,7 +103,7 @@
       <template #content>
         <h3 class="text-lg font-bold text-secondary-900 mb-4">Top produits</h3>
 
-        <DataTable :value="topProducts" class="modern-table" stripedRows>
+        <DataTable :value="topProducts" class="modern-table" striped-rows>
           <Column header="#" style="width: 60px">
             <template #body="{ index }">
               <div class="flex items-center justify-center">
@@ -123,9 +123,9 @@
                   :src="data.image"
                   :alt="data.name"
                   class="w-12 h-12 rounded-lg object-cover"
-                />
-                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center" v-else>
-                  <i class="pi pi-image text-gray-400"></i>
+                >
+                <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <i class="pi pi-image text-gray-400"/>
                 </div>
                 <div>
                   <p class="font-semibold text-secondary-900">{{ data.name }}</p>
@@ -138,7 +138,7 @@
           <Column field="views" header="Vues" sortable>
             <template #body="{ data }">
               <div class="flex items-center gap-2">
-                <i class="pi pi-eye text-gray-400 text-sm"></i>
+                <i class="pi pi-eye text-gray-400 text-sm"/>
                 <span class="font-semibold">{{ data.views.toLocaleString() }}</span>
               </div>
             </template>
@@ -161,7 +161,7 @@
               <div class="flex items-center gap-2">
                 <ProgressBar
                   :value="data.conversionRate"
-                  :showValue="false"
+                  :show-value="false"
                   class="w-24 h-2"
                 />
                 <span class="text-sm font-semibold">{{ data.conversionRate }}%</span>

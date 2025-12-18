@@ -16,22 +16,22 @@
           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
           active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
         >
-          <i class="pi pi-home text-lg"></i>
+          <i class="pi pi-home text-lg"/>
           <span>Accueil</span>
         </NuxtLink>
 
         <!-- Produits avec sous-menu -->
         <div>
           <button
-            @click="toggleProductsMenu"
             class="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
             :class="{ 'bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100': isProductsRoute }"
+            @click="toggleProductsMenu"
           >
             <div class="flex items-center gap-3">
-              <i class="pi pi-box text-lg"></i>
+              <i class="pi pi-box text-lg"/>
               <span>Produits</span>
             </div>
-            <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', productsMenuOpen ? 'rotate-180' : 'rotate-0']"></i>
+            <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', productsMenuOpen ? 'rotate-180' : 'rotate-0']"/>
           </button>
 
           <!-- Sous-menu avec animation slide -->
@@ -52,7 +52,7 @@
                 class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                 active-class="bg-primary-50 text-secondary-900 font-semibold"
               >
-                <i class="pi pi-list text-sm"></i>
+                <i class="pi pi-list text-sm"/>
                 <span>Liste des produits</span>
               </NuxtLink>
 
@@ -61,7 +61,7 @@
                 class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                 active-class="bg-primary-50 text-secondary-900 font-semibold"
               >
-                <i class="pi pi-plus text-sm"></i>
+                <i class="pi pi-plus text-sm"/>
                 <span>Créer un produit</span>
               </NuxtLink>
             </div>
@@ -76,15 +76,15 @@
               class="flex-1 flex items-center gap-3 px-4 py-3 rounded-l-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
               active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
             >
-              <i class="pi pi-shopping-bag text-lg"></i>
+              <i class="pi pi-shopping-bag text-lg"/>
               <span>Plateformes</span>
             </NuxtLink>
             <button
-              @click="togglePlatformsMenu"
               class="px-3 py-3 rounded-r-xl hover:bg-gray-50 transition-all text-gray-600"
               :class="{ 'bg-primary-50 text-secondary-900': platformsMenuOpen }"
+              @click="togglePlatformsMenu"
             >
-              <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', platformsMenuOpen ? 'rotate-180' : 'rotate-0']"></i>
+              <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', platformsMenuOpen ? 'rotate-180' : 'rotate-0']"/>
             </button>
           </div>
 
@@ -106,7 +106,7 @@
                 class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                 active-class="bg-primary-50 text-secondary-900 font-semibold"
               >
-                <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-4 h-4 object-contain" />
+                <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-4 h-4 object-contain" >
                 <span>Vinted</span>
               </NuxtLink>
 
@@ -115,7 +115,7 @@
                 class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                 active-class="bg-primary-50 text-secondary-900 font-semibold"
               >
-                <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-4 h-4 object-contain" />
+                <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-4 h-4 object-contain" >
                 <span>eBay</span>
               </NuxtLink>
 
@@ -124,7 +124,7 @@
                 class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                 active-class="bg-primary-50 text-secondary-900 font-semibold"
               >
-                <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-4 h-4 object-contain" />
+                <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-4 h-4 object-contain" >
                 <span>Etsy</span>
               </NuxtLink>
 
@@ -133,7 +133,7 @@
                 class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                 active-class="bg-primary-50 text-secondary-900 font-semibold"
               >
-                <img src="/images/platforms/facebook-logo.png" alt="Facebook" class="w-4 h-4 object-contain" />
+                <img src="/images/platforms/facebook-logo.png" alt="Facebook" class="w-4 h-4 object-contain" >
                 <span>Facebook Marketplace</span>
               </NuxtLink>
             </div>
@@ -146,7 +146,7 @@
           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
           active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
         >
-          <i class="pi pi-send text-lg"></i>
+          <i class="pi pi-send text-lg"/>
           <span>Publications</span>
         </NuxtLink>
 
@@ -156,7 +156,7 @@
           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
           active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
         >
-          <i class="pi pi-chart-bar text-lg"></i>
+          <i class="pi pi-chart-bar text-lg"/>
           <span>Statistiques</span>
         </NuxtLink>
 
@@ -166,7 +166,7 @@
           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
           active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
         >
-          <i class="pi pi-star text-lg"></i>
+          <i class="pi pi-star text-lg"/>
           <span>Abonnement</span>
         </NuxtLink>
 
@@ -176,7 +176,7 @@
           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
           active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
         >
-          <i class="pi pi-cog text-lg"></i>
+          <i class="pi pi-cog text-lg"/>
           <span>Paramètres</span>
         </NuxtLink>
       </nav>
@@ -185,7 +185,7 @@
       <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100 bg-gray-50">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-            <i class="pi pi-user text-primary-600"></i>
+            <i class="pi pi-user text-primary-600"/>
           </div>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold truncate text-secondary-900">{{ authStore?.user?.full_name }}</p>
@@ -219,10 +219,10 @@
                 to="/dashboard"
                 class="text-gray-500 hover:text-secondary-900 transition-colors duration-200"
               >
-                <i class="pi pi-home text-xs"></i>
+                <i class="pi pi-home text-xs"/>
               </NuxtLink>
-              <template v-for="(crumb, index) in breadcrumbs" :key="crumb.path || crumb.label">
-                <i class="pi pi-chevron-right text-gray-400 text-xs"></i>
+              <template v-for="crumb in breadcrumbs" :key="crumb.path || crumb.label">
+                <i class="pi pi-chevron-right text-gray-400 text-xs"/>
                 <NuxtLink
                   v-if="crumb.path"
                   :to="crumb.path"
@@ -243,7 +243,7 @@
           <!-- Locale Selector -->
           <div class="flex items-center gap-4">
             <div class="flex items-center gap-2 text-sm text-gray-600">
-              <i class="pi pi-globe"></i>
+              <i class="pi pi-globe"/>
               <span class="font-medium">Langue :</span>
             </div>
             <LocaleSelector />

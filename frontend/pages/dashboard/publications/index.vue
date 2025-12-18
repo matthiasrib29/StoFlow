@@ -9,7 +9,7 @@
     <Card class="mb-6">
       <template #content>
         <div class="flex items-center gap-4 p-4 bg-primary-50 border border-primary-200 rounded-lg">
-          <i class="pi pi-info-circle text-primary-600 text-3xl"></i>
+          <i class="pi pi-info-circle text-primary-600 text-3xl"/>
           <div>
             <p class="text-primary-900 font-medium">Fonctionnalité en développement</p>
             <p class="text-primary-700 text-sm mt-1">
@@ -25,7 +25,7 @@
       <Card>
         <template #title>
           <div class="flex items-center gap-2">
-            <i class="pi pi-send text-primary-600"></i>
+            <i class="pi pi-send text-primary-600"/>
             <span>Publication automatique</span>
           </div>
         </template>
@@ -39,7 +39,7 @@
       <Card>
         <template #title>
           <div class="flex items-center gap-2">
-            <i class="pi pi-sync text-primary-600"></i>
+            <i class="pi pi-sync text-primary-600"/>
             <span>Synchronisation en temps réel</span>
           </div>
         </template>
@@ -53,7 +53,7 @@
       <Card>
         <template #title>
           <div class="flex items-center gap-2">
-            <i class="pi pi-chart-line text-primary-600"></i>
+            <i class="pi pi-chart-line text-primary-600"/>
             <span>Suivi des performances</span>
           </div>
         </template>
@@ -67,7 +67,7 @@
       <Card>
         <template #title>
           <div class="flex items-center gap-2">
-            <i class="pi pi-cog text-primary-600"></i>
+            <i class="pi pi-cog text-primary-600"/>
             <span>Gestion des templates</span>
           </div>
         </template>

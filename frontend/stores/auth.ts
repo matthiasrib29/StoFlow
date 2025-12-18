@@ -156,7 +156,7 @@ export const useAuthStore = defineStore('auth', {
         this.isAuthenticated = true
 
         // Stocker dans localStorage
-        if (process.client) {
+        if (import.meta.client) {
           localStorage.setItem('token', data.access_token)
           localStorage.setItem('refresh_token', data.refresh_token)
           localStorage.setItem('user', JSON.stringify(user))
@@ -236,7 +236,7 @@ export const useAuthStore = defineStore('auth', {
         this.isAuthenticated = true
 
         // Stocker dans localStorage
-        if (process.client) {
+        if (import.meta.client) {
           localStorage.setItem('token', data.access_token)
           localStorage.setItem('refresh_token', data.refresh_token)
           localStorage.setItem('user', JSON.stringify(user))
@@ -268,7 +268,7 @@ export const useAuthStore = defineStore('auth', {
       this.isAuthenticated = false
       this.error = null
 
-      if (process.client) {
+      if (import.meta.client) {
         localStorage.removeItem('token')
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('user')
@@ -287,7 +287,7 @@ export const useAuthStore = defineStore('auth', {
      * Appelé au démarrage de l'app pour restaurer la session
      */
     loadFromStorage() {
-      if (process.client) {
+      if (import.meta.client) {
         const token = localStorage.getItem('token')
         const refreshToken = localStorage.getItem('refresh_token')
         const userStr = localStorage.getItem('user')
@@ -355,7 +355,7 @@ export const useAuthStore = defineStore('auth', {
         // Mettre à jour seulement l'access token
         this.token = data.access_token
 
-        if (process.client) {
+        if (import.meta.client) {
           localStorage.setItem('token', data.access_token)
 
           // Synchroniser avec le plugin navigateur (SSO)
