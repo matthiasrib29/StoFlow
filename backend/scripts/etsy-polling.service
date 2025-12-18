@@ -1,0 +1,30 @@
+[Unit]
+Description=Etsy Polling Service for Stoflow
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
+
+[Service]
+Type=simple
+User=maribeiro
+Group=maribeiro
+WorkingDirectory=/home/maribeiro/Stoflow/Stoflow_BackEnd
+Environment="PATH=/home/maribeiro/Stoflow/Stoflow_BackEnd/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/home/maribeiro/Stoflow/Stoflow_BackEnd"
+
+# Démarrer le service de polling
+ExecStart=/home/maribeiro/Stoflow/Stoflow_BackEnd/venv/bin/python -m services.etsy_polling_cron
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+
+# Logging
+StandardOutput=append:/home/maribeiro/Stoflow/Stoflow_BackEnd/logs/etsy_polling.log
+StandardError=append:/home/maribeiro/Stoflow/Stoflow_BackEnd/logs/etsy_polling_error.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

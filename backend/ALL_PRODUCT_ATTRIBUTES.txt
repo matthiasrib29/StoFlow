@@ -1,0 +1,799 @@
+================================================================================
+TOUTES LES TABLES PRODUCT_ATTRIBUTES - STOFLOW
+================================================================================
+Date: 2025-12-17
+================================================================================
+
+BRANDS (189 values)
+--------------------------------------------------------------------------------
+2pac
+3sixteen
+a.p.c.
+acne studios
+acronym
+adidas
+aem'kei nyc
+affliction
+akademiks
+anchor blue
+and wander
+arc'teryx
+arc’teryx
+arm jeans
+auralee
+avirex
+bape
+bastard
+battenwear
+baz 40
+ben davis
+bershka
+big train
+blind
+blueskin
+brixton
+bugle boy
+burberrys
+butter goods
+calvin klein
+carhartt
+celio
+champion
+chaps
+chevignon
+citizens of humanity
+coogi
+corteiz
+crooks & castles
+denham
+denime
+dickies
+diesel
+dime
+divided
+dynam
+ecko unltd
+ecko unltd.
+ed hardy
+edwin
+element
+energie
+engineered garments
+enyce
+evisu
+foot korner
+frame
+freeman
+freenote cloth
+fubu
+full count
+g-star raw
+g-unit
+gant jeans
+gap
+goldwin
+gramicci
+guess
+hawk
+heron preston
+homecore
+houdini
+huf
+hugo boss
+indigofera
+iron heart
+izac
+izod
+jackwolfskin
+japan blue
+jizo
+jnco
+kangaroo poo
+kapital
+karl kani
+keegan
+kiabi
+kiko kostadinov
+klättermusen
+kolapso
+lacoste
+lagerfeld
+lee
+lee cooper
+left field nyc
+lemaire
+levi's
+levi's made & crafted
+levi's vintage clothing
+maharishi
+maison mihara yasuhiro
+majestic
+marni
+mecca
+mlb
+momotaro
+mont bell
+montbell
+naked & famous denim
+napapijri
+nascar
+neighborhood
+nfl
+nigel cabourn
+nike
+no fear
+norrøna
+nudie jeans
+nylaus
+obey
+oni arai
+orslow
+our legacy
+outback
+palace
+pass port
+passport
+pelle pelle
+pepe jeans
+phat farm
+poetic collective
+pointer
+polar skate
+polar skate co.
+pop trading company
+puma
+pure blue japan
+rag & bone
+ralph lauren
+rare humans
+red pepper
+reebok
+reell
+rica lewis
+robin's jean
+rocawear
+rogue territory
+roy jeans
+résolute
+samurai
+sean john
+service works
+snow peak
+sohk
+south pole
+southpole
+stan ray
+starter
+state property
+studio d'artisan
+stuka
+stüssy
+sugar cane
+sunnei
+supreme
+tcb jeans
+tela genova
+tellason
+the flat head
+the north face
+timberland
+tommy hilfiger
+tribal
+true religion
+unbranded
+under armour
+universal works
+vans
+veilance
+victorinox
+vokal
+volcom
+warehouse
+wrangler
+wrung
+wtaps
+wu-wear
+yardsale
+zoo york
+
+CATEGORIES (65 values)
+--------------------------------------------------------------------------------
+bermuda
+bikini
+blazer
+blouse
+bodysuit
+bomber
+bottoms
+bustier
+camisole
+cape
+cardigan
+cargo-pants
+chinos
+clothing
+coat
+corset
+crop-top
+culottes
+dress
+dress-pants
+dresses-jumpsuits
+fleece
+formalwear
+half-zip
+hoodie
+jacket
+jeans
+joggers
+jumpsuit
+kimono
+leggings
+outerwear
+overalls
+overshirt
+pants
+parka
+polo
+poncho
+puffer
+raincoat
+romper
+shirt
+shorts
+skirt
+sports-bra
+sports-jersey
+sports-leggings
+sports-shorts
+sports-top
+sportswear
+suit
+suit-vest
+sweater
+sweatshirt
+swimsuit
+t-shirt
+tank-top
+top
+tops
+tracksuit
+trench
+tuxedo
+vest
+windbreaker
+womens-suit
+
+CLOSURES (7 values)
+--------------------------------------------------------------------------------
+button fly
+buttons
+elastic
+laces
+pull-on
+zip fly
+zipper
+
+COLORS (32 values)
+--------------------------------------------------------------------------------
+beige
+black
+blue
+brown
+burgundy
+camel
+charcoal
+cognac
+coral
+cream
+fuchsia
+gold
+gray
+green
+khaki
+lavender
+light-blue
+mint
+multicolor
+mustard
+navy
+olive
+orange
+pink
+purple
+red
+silver
+tan
+teal
+turquoise
+white
+yellow
+
+CONDITIONS (4 values)
+--------------------------------------------------------------------------------
+excellent
+fair
+good
+poor
+
+CONDITION_SUPS (33 values)
+--------------------------------------------------------------------------------
+acceptable condition
+damaged button
+damaged patch
+excellent condition
+faded
+frayed hems
+general wear
+good condition
+hem undone
+hemmed/shortened
+knee wear
+light discoloration
+like new
+marked discoloration
+missing button
+missing patch
+multiple holes
+multiple stains
+pilling
+resewn
+seam to fix
+single stain
+small hole
+snag
+stretched
+tapered
+torn
+very good condition
+vintage patina
+vintage wear
+waist altered
+worn
+zipper to replace
+
+DECADES (10 values)
+--------------------------------------------------------------------------------
+2000s
+2010s
+2020s
+50s
+60s
+70s
+80s
+90s
+modern
+vintage
+
+FITS (11 values)
+--------------------------------------------------------------------------------
+athletic
+baggy
+bootcut
+flare
+loose
+oversized
+regular
+relaxed
+skinny
+slim
+straight
+
+GENDERS (5 values)
+--------------------------------------------------------------------------------
+boys
+girls
+men
+unisex
+women
+
+LENGTHS (12 values)
+--------------------------------------------------------------------------------
+ankle
+capri
+cropped
+extra long
+floor length
+knee length
+long
+maxi
+midi
+mini
+regular
+short
+
+MATERIALS (24 values)
+--------------------------------------------------------------------------------
+acrylic
+cashmere
+corduroy
+cotton
+denim
+elastane
+flannel
+fleece
+hemp
+leather
+linen
+lyocell
+modal
+nylon
+polyester
+rayon
+satin
+silk
+spandex
+suede
+tweed
+velvet
+viscose
+wool
+
+NECKLINES (19 values)
+--------------------------------------------------------------------------------
+boat neck
+collared
+cowl neck
+crew neck
+halter
+henley
+hood
+mandarin collar
+mock neck
+notch lapel
+off-shoulder
+peak lapel
+polo collar
+round neck
+scoop neck
+shawl collar
+square neck
+turtleneck
+v-neck
+
+ORIGINS (48 values)
+--------------------------------------------------------------------------------
+australia
+bahrain
+bangladesh
+belgium
+brazil
+brunei
+cambodia
+canada
+china
+colombia
+costa rica
+dominican republic
+egypt
+el salvador
+france
+germany
+guatemala
+haiti
+honduras
+hong kong
+india
+indonesia
+italy
+japan
+jordan
+kenya
+malaysia
+malta
+mauritius
+mexico
+morocco
+netherlands
+nicaragua
+norway
+pakistan
+philippines
+poland
+portugal
+slovakia
+south korea
+spain
+taiwan
+tunisia
+turkey
+turkmenistan
+united kingdom
+usa
+vietnam
+
+PATTERNS (20 values)
+--------------------------------------------------------------------------------
+abstract
+animal print
+camouflage
+checkered
+color block
+embroidered
+floral
+geometric
+graphic
+herringbone
+houndstooth
+ombre
+paisley
+plaid
+polka dot
+printed
+solid
+striped
+tie-dye
+tropical
+
+RISES (6 values)
+--------------------------------------------------------------------------------
+high-rise
+low-rise
+mid-rise
+regular rise
+super low-rise
+ultra high-rise
+
+SEASONS (5 values)
+--------------------------------------------------------------------------------
+all season
+autumn
+spring
+summer
+winter
+
+SIZES (117 values)
+--------------------------------------------------------------------------------
+3XL
+4XL
+L
+M
+S
+W11/L1
+W11/L11
+W111/L11
+W22/L28
+W22/L32
+W24
+W24/L26
+W24/L28
+W24/L30
+W24/L32
+W24/L34
+W24/L36
+W26
+W26/L26
+W26/L28
+W26/L30
+W26/L32
+W26/L34
+W26/L36
+W26/L38
+W28
+W28/L14
+W28/L24
+W28/L26
+W28/L28
+W28/L30
+W28/L32
+W28/L34
+W28/L36
+W28/L38
+W30
+W30/L22
+W30/L24
+W30/L26
+W30/L28
+W30/L30
+W30/L32
+W30/L34
+W30/L36
+W30/L38
+W32
+W32/L22
+W32/L26
+W32/L28
+W32/L30
+W32/L32
+W32/L34
+W32/L36
+W32/L38
+W34
+W34/L26
+W34/L28
+W34/L30
+W34/L32
+W34/L34
+W34/L36
+W34/L38
+W34/L40
+W36
+W36/L26
+W36/L28
+W36/L30
+W36/L32
+W36/L34
+W36/L36
+W38
+W38/L26
+W38/L28
+W38/L30
+W38/L32
+W38/L34
+W38/L36
+W38/L38
+W40
+W40/L28
+W40/L30
+W40/L32
+W40/L34
+W40/L36
+W40/L38
+W42
+W42/L26
+W42/L28
+W42/L30
+W42/L32
+W42/L34
+W42/L36
+W44
+W44/L26
+W44/L30
+W44/L32
+W44/L34
+W46
+W46/L28
+W46/L30
+W46/L32
+W46/L34
+W48/L30
+W48/L32
+W48/L34
+W50/L32
+W50/L34
+W52
+W52/L32
+W52/L36
+W54/L32
+W56/L32
+XL
+XS
+XXL
+XXS
+one-size
+
+SLEEVE_LENGTHS (4 values)
+--------------------------------------------------------------------------------
+3/4 sleeve
+long sleeve
+short sleeve
+sleeveless
+
+SPORTS (28 values)
+--------------------------------------------------------------------------------
+american football
+baseball
+basketball
+boxing
+climbing
+crossfit
+cycling
+dance
+equestrian
+fitness
+football/soccer
+golf
+gymnastics
+hiking
+hockey
+martial arts
+motorsport
+pilates
+rugby
+running
+skateboarding
+ski
+snowboard
+surfing
+swimming
+tennis
+volleyball
+yoga
+
+TRENDS (22 values)
+--------------------------------------------------------------------------------
+athleisure
+bohemian
+cottagecore
+dark academia
+geek chic
+gothic
+grunge
+japanese streetwear
+minimalist
+modern
+normcore
+preppy
+punk
+retro
+skater
+sportswear
+streetwear
+techwear
+vintage
+western
+workwear
+y2k
+
+UNIQUE_FEATURES (66 values)
+--------------------------------------------------------------------------------
+acid wash
+appliqué
+bar tacks
+beaded
+belt loops
+bleached
+brass rivets
+button detail
+chain detail
+chain stitching
+coin pocket
+contrast stitching
+copper rivets
+cuffed
+custom design
+darted
+deadstock fabric
+decorative pockets
+distressed
+double stitch
+embossed buttons
+embroidered
+fading
+flat felled seams
+fly
+frayed
+garment dyed
+gradient
+hand embroidered
+hand painted
+hidden rivets
+jacron patch
+lace detail
+leather label
+leather patch
+lined
+original buttons
+padded
+painted
+paneled
+paper patch
+patchwork
+pleated
+printed
+raw denim
+raw hem
+reinforced seams
+ripped
+rope dyed
+sanforized
+selvage denim
+selvedge
+sequined
+shuttle loom
+single stitch
+stone washed
+studded
+triple stitch
+unsanforized
+vintage hardware
+vintage wash
+waistband
+whiskering
+woven label
+yoke
+zipper detail
+
+================================================================================
+TOTAL: 727 values across 21 tables
+================================================================================

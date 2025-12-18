@@ -1,0 +1,494 @@
+"""
+Stripe API Routes
+
+Routes pour la gestion des paiements via Stripe.
+
+Business Rules (2025-12-10):
+- Checkout Sessions pour subscriptions (abonnements récurrents)
+- Checkout Sessions pour one-time payments (crédits IA)
+- Webhooks pour synchroniser les paiements
+- Customer Portal pour gérer les abonnements
+- Grace period de 3 jours pour échecs de paiement
+
+Author: Claude
+Date: 2025-12-10
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+import stripe
+from typing import Literal
+
+from api.dependencies import get_current_user
+from models.public.user import User, SubscriptionTier
+from models.public.subscription_quota import SubscriptionQuota
+from models.public.ai_credit import AICredit
+from shared.database import get_db
+from shared.stripe_config import (
+    AI_CREDIT_PACKS,
+    STRIPE_SUCCESS_URL,
+    STRIPE_CANCEL_URL,
+    STRIPE_WEBHOOK_SECRET,
+    validate_stripe_config,
+)
+
+router = APIRouter(prefix="/stripe", tags=["Stripe"])
+
+
+# ===== SCHEMAS =====
+
+class CheckoutSessionRequest(BaseModel):
+    """Requête pour créer une session Stripe Checkout."""
+    payment_type: Literal["subscription", "credits"]
+    tier: SubscriptionTier | None = None  # Pour subscriptions
+    credits: int | None = None  # Pour achats de crédits
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "payment_type": "subscription",
+                    "tier": "pro"
+                },
+                {
+                    "payment_type": "credits",
+                    "credits": 500
+                }
+            ]
+        }
+    }
+
+
+class CheckoutSessionResponse(BaseModel):
+    """Réponse avec l'URL de la session Checkout."""
+    session_id: str
+    url: str
+
+
+class CustomerPortalResponse(BaseModel):
+    """Réponse avec l'URL du Customer Portal."""
+    url: str
+
+
+# ===== ROUTES =====
+
+@router.post(
+    "/create-checkout-session",
+    response_model=CheckoutSessionResponse,
+    status_code=status.HTTP_200_OK
+)
+def create_checkout_session(
+    request: CheckoutSessionRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Crée une session Stripe Checkout pour un abonnement ou un achat de crédits.
+
+    Business Rules (2025-12-10):
+    - payment_type='subscription': Créer une subscription Stripe récurrente
+    - payment_type='credits': Créer un paiement one-time pour crédits IA
+    - Utilise les prix depuis la DB (subscriptions) ou config (crédits)
+    - Stocke user_id et metadata dans la session pour le webhook
+
+    Args:
+        request: Type de paiement et détails
+        current_user: Utilisateur authentifié
+        db: Session DB
+
+    Returns:
+        CheckoutSessionResponse: URL de la session Checkout
+
+    Raises:
+        HTTPException: 400 si paramètres invalides
+        HTTPException: 500 si erreur Stripe
+    """
+    try:
+        # Valider la configuration Stripe
+        validate_stripe_config()
+
+        # Créer ou récupérer le Stripe Customer
+        if not current_user.stripe_customer_id:
+            # Créer un nouveau customer Stripe
+            customer = stripe.Customer.create(
+                email=current_user.email,
+                metadata={
+                    "user_id": str(current_user.id),
+                    "username": current_user.username,
+                }
+            )
+            current_user.stripe_customer_id = customer.id
+            db.commit()
+        else:
+            customer_id = current_user.stripe_customer_id
+
+        # Paramètres communs
+        checkout_params = {
+            "customer": current_user.stripe_customer_id,
+            "mode": None,  # Sera défini selon le type
+            "success_url": STRIPE_SUCCESS_URL,
+            "cancel_url": STRIPE_CANCEL_URL,
+            "metadata": {
+                "user_id": str(current_user.id),
+                "payment_type": request.payment_type,
+            }
+        }
+
+        # === SUBSCRIPTION ===
+        if request.payment_type == "subscription":
+            if not request.tier:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Le paramètre 'tier' est requis pour un abonnement"
+                )
+
+            # Récupérer le quota pour ce tier
+            quota = db.query(SubscriptionQuota).filter(
+                SubscriptionQuota.tier == request.tier
+            ).first()
+
+            if not quota:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Tier '{request.tier.value}' non trouvé"
+                )
+
+            # Vérifier que ce n'est pas le tier FREE
+            if request.tier == SubscriptionTier.FREE:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Impossible de créer une session Checkout pour le tier FREE"
+                )
+
+            # Créer le line item pour l'abonnement
+            checkout_params["mode"] = "subscription"
+            checkout_params["line_items"] = [
+                {
+                    "price_data": {
+                        "currency": "eur",
+                        "product_data": {
+                            "name": f"Abonnement Stoflow {request.tier.value.upper()}",
+                            "description": (
+                                f"{quota.max_products} produits, "
+                                f"{quota.max_platforms} plateformes, "
+                                f"{quota.ai_credits_monthly} crédits IA/mois"
+                            ),
+                        },
+                        "unit_amount": int(quota.price * 100),  # Convertir en centimes
+                        "recurring": {
+                            "interval": "month",
+                        },
+                    },
+                    "quantity": 1,
+                }
+            ]
+            checkout_params["metadata"]["tier"] = request.tier.value
+
+        # === CREDITS ===
+        elif request.payment_type == "credits":
+            if not request.credits:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Le paramètre 'credits' est requis pour un achat de crédits"
+                )
+
+            # Vérifier que le pack existe
+            if request.credits not in AI_CREDIT_PACKS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Pack de {request.credits} crédits non disponible"
+                )
+
+            pack = AI_CREDIT_PACKS[request.credits]
+
+            # Créer le line item pour les crédits
+            checkout_params["mode"] = "payment"
+            checkout_params["line_items"] = [
+                {
+                    "price_data": {
+                        "currency": "eur",
+                        "product_data": {
+                            "name": pack["name"],
+                            "description": pack["description"],
+                        },
+                        "unit_amount": int(pack["price"] * 100),  # Convertir en centimes
+                    },
+                    "quantity": 1,
+                }
+            ]
+            checkout_params["metadata"]["credits"] = str(request.credits)
+
+        # Créer la session Checkout
+        session = stripe.checkout.Session.create(**checkout_params)
+
+        return CheckoutSessionResponse(
+            session_id=session.id,
+            url=session.url
+        )
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur Stripe: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la création de la session: {str(e)}"
+        )
+
+
+@router.post(
+    "/customer-portal",
+    response_model=CustomerPortalResponse,
+    status_code=status.HTTP_200_OK
+)
+def create_customer_portal_session(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Crée une session Customer Portal pour gérer l'abonnement.
+
+    Le Customer Portal permet à l'utilisateur de:
+    - Mettre à jour son moyen de paiement
+    - Annuler son abonnement
+    - Voir l'historique des factures
+
+    Args:
+        current_user: Utilisateur authentifié
+        db: Session DB
+
+    Returns:
+        CustomerPortalResponse: URL du Customer Portal
+
+    Raises:
+        HTTPException: 400 si pas de Stripe Customer ID
+        HTTPException: 500 si erreur Stripe
+    """
+    try:
+        if not current_user.stripe_customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Aucun abonnement Stripe trouvé"
+            )
+
+        # Créer une session Customer Portal
+        session = stripe.billing_portal.Session.create(
+            customer=current_user.stripe_customer_id,
+            return_url=f"{STRIPE_SUCCESS_URL.split('?')[0].replace('/success', '')}",
+        )
+
+        return CustomerPortalResponse(url=session.url)
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur Stripe: {str(e)}"
+        )
+
+
+@router.post(
+    "/webhook",
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False  # Ne pas afficher dans la doc Swagger
+)
+async def stripe_webhook(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Webhook pour recevoir les événements Stripe.
+
+    Business Rules (2025-12-10):
+    - checkout.session.completed: Marquer le paiement comme réussi
+      - Pour subscription: Mettre à jour le tier de l'utilisateur
+      - Pour credits: Ajouter les crédits au compte
+    - customer.subscription.updated: Mettre à jour le tier si changement
+    - customer.subscription.deleted: Rétrograder au tier FREE
+    - invoice.payment_failed: Gérer les échecs (grace period de 3 jours)
+
+    IMPORTANT:
+    - Vérifier la signature du webhook pour la sécurité
+    - Idempotence: gérer les webhooks en double
+    - Logging des événements
+
+    Args:
+        request: Requête HTTP brute (pour signature)
+        db: Session DB
+
+    Returns:
+        dict: {"status": "success"}
+
+    Raises:
+        HTTPException: 400 si signature invalide
+    """
+    import logging
+    from datetime import datetime, timedelta
+
+    logger = logging.getLogger(__name__)
+
+    # Récupérer le payload brut et la signature
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    try:
+        # Vérifier la signature du webhook
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError as e:
+        # Payload invalide
+        logger.error(f"Invalid payload: {e}")
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError as e:
+        # Signature invalide
+        logger.error(f"Invalid signature: {e}")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # Logger l'événement
+    logger.info(f"Received Stripe event: {event['type']} - {event['id']}")
+
+    # Traiter les différents types d'événements
+    event_type = event["type"]
+    data = event["data"]["object"]
+
+    try:
+        # === CHECKOUT SESSION COMPLETED ===
+        if event_type == "checkout.session.completed":
+            session = data
+            user_id = int(session["metadata"]["user_id"])
+            payment_type = session["metadata"]["payment_type"]
+
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                logger.error(f"User {user_id} not found for checkout session {session['id']}")
+                return {"status": "error", "message": "User not found"}
+
+            # SUBSCRIPTION
+            if payment_type == "subscription":
+                tier_value = session["metadata"]["tier"]
+                new_tier = SubscriptionTier(tier_value)
+
+                # Récupérer le quota
+                quota = db.query(SubscriptionQuota).filter(
+                    SubscriptionQuota.tier == new_tier
+                ).first()
+
+                if quota:
+                    user.subscription_tier = new_tier
+                    user.subscription_tier_id = quota.id
+
+                    # Stocker le subscription ID Stripe
+                    if "subscription" in session:
+                        user.stripe_subscription_id = session["subscription"]
+
+                    db.commit()
+                    logger.info(f"User {user_id} upgraded to {new_tier.value}")
+
+            # CREDITS
+            elif payment_type == "credits":
+                credits = int(session["metadata"]["credits"])
+
+                # Récupérer ou créer l'enregistrement AI credits
+                ai_credit = db.query(AICredit).filter(AICredit.user_id == user_id).first()
+
+                if not ai_credit:
+                    ai_credit = AICredit(
+                        user_id=user_id,
+                        ai_credits_purchased=credits,
+                        ai_credits_used_this_month=0,
+                        last_reset_date=datetime.now()
+                    )
+                    db.add(ai_credit)
+                else:
+                    ai_credit.ai_credits_purchased += credits
+
+                db.commit()
+                logger.info(f"User {user_id} purchased {credits} AI credits")
+
+        # === SUBSCRIPTION UPDATED ===
+        elif event_type == "customer.subscription.updated":
+            subscription = data
+            customer_id = subscription["customer"]
+
+            # Trouver l'utilisateur par customer_id
+            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+            if not user:
+                logger.error(f"User not found for customer {customer_id}")
+                return {"status": "error", "message": "User not found"}
+
+            # Vérifier le statut de la subscription
+            if subscription["status"] in ["active", "trialing"]:
+                # La subscription est active, s'assurer que le tier est correct
+                logger.info(f"Subscription active for user {user.id}")
+            elif subscription["status"] in ["past_due", "unpaid"]:
+                # Grace period: ne pas rétrograder immédiatement
+                logger.warning(f"Subscription past_due for user {user.id} - grace period active")
+            elif subscription["status"] in ["canceled", "incomplete_expired"]:
+                # Rétrograder au tier FREE
+                free_quota = db.query(SubscriptionQuota).filter(
+                    SubscriptionQuota.tier == SubscriptionTier.FREE
+                ).first()
+                if free_quota:
+                    user.subscription_tier = SubscriptionTier.FREE
+                    user.subscription_tier_id = free_quota.id
+                    db.commit()
+                    logger.info(f"User {user.id} downgraded to FREE (subscription canceled)")
+
+        # === SUBSCRIPTION DELETED ===
+        elif event_type == "customer.subscription.deleted":
+            subscription = data
+            customer_id = subscription["customer"]
+
+            # Trouver l'utilisateur par customer_id
+            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+            if not user:
+                logger.error(f"User not found for customer {customer_id}")
+                return {"status": "error", "message": "User not found"}
+
+            # Rétrograder au tier FREE
+            free_quota = db.query(SubscriptionQuota).filter(
+                SubscriptionQuota.tier == SubscriptionTier.FREE
+            ).first()
+            if free_quota:
+                user.subscription_tier = SubscriptionTier.FREE
+                user.subscription_tier_id = free_quota.id
+                user.stripe_subscription_id = None
+                db.commit()
+                logger.info(f"User {user.id} downgraded to FREE (subscription deleted)")
+
+        # === INVOICE PAYMENT FAILED ===
+        elif event_type == "invoice.payment_failed":
+            invoice = data
+            customer_id = invoice["customer"]
+
+            # Trouver l'utilisateur par customer_id
+            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+            if not user:
+                logger.error(f"User not found for customer {customer_id}")
+                return {"status": "error", "message": "User not found"}
+
+            # Grace period de 3 jours
+            # Stripe va automatiquement retry, on log juste l'événement
+            logger.warning(f"Payment failed for user {user.id} - grace period of 3 days")
+
+            # TODO: Envoyer un email de notification à l'utilisateur
+
+        # === INVOICE PAYMENT SUCCEEDED ===
+        elif event_type == "invoice.payment_succeeded":
+            invoice = data
+            customer_id = invoice["customer"]
+
+            # Trouver l'utilisateur par customer_id
+            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+            if user:
+                logger.info(f"Payment succeeded for user {user.id}")
+
+        return {"status": "success"}
+
+    except Exception as e:
+        logger.error(f"Error processing webhook {event['type']}: {e}")
+        # Retourner 200 pour éviter que Stripe ne retry indéfiniment
+        return {"status": "error", "message": str(e)}

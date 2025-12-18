@@ -1,0 +1,47 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: stoflow_postgres
+    environment:
+      POSTGRES_DB: stoflow_db
+      POSTGRES_USER: stoflow_user
+      POSTGRES_PASSWORD: stoflow_dev_password_2024
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    ports:
+      - "5433:5432"  # Port 5432 déjà utilisé, on utilise 5433
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stoflow_user -d stoflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stoflow_network
+
+  # pgAdmin (optionnel, pour visualiser la BDD)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: stoflow_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@stoflow.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - stoflow_network
+    profiles:
+      - tools  # Démarrer avec: docker compose --profile tools up
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  stoflow_network:
+    driver: bridge

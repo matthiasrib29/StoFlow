@@ -1,0 +1,31 @@
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+
+# Database
+sqlalchemy==2.0.35
+alembic==1.14.0
+psycopg2-binary==2.9.9
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.1
+pydantic==2.10.1
+pydantic-settings==2.6.1
+email-validator==2.3.0
+
+# OpenAI
+openai==1.54.3
+
+# HTTP Client (pour Vinted)
+httpx==0.27.2
+requests==2.32.3
+
+# Utils
+python-dateutil==2.9.0
+pillow==11.0.0
+
+# Task Scheduling (pour Etsy polling)
+apscheduler==3.10.4

@@ -1,0 +1,462 @@
+/**
+ * PollingManager - Gère le LONG POLLING vers le backend Stoflow
+ *
+ * Fonctionnalités :
+ * - LONG POLLING: la requête reste ouverte jusqu'à 30s côté backend
+ * - Si tâche disponible → retour immédiat, exécution, puis nouvelle requête
+ * - Si timeout (30s) → nouvelle requête immédiate
+ * - Quasi temps réel avec moins de requêtes qu'un polling classique
+ *
+ * TODO (désactivé pour l'instant):
+ * - AUTO-PAUSE quand l'utilisateur navigue sur Vinted
+ */
+
+import { BackgroundLogger } from '../utils/logger';
+import { StoflowAPI } from '../api/StoflowAPI';
+import { ENV } from '../config/environment';
+
+// Config (utilise ENV pour les valeurs configurables)
+const LONG_POLL_TIMEOUT = ENV.LONG_POLL_TIMEOUT; // Configurable via VITE_LONG_POLL_TIMEOUT
+const ERROR_RETRY_DELAY = 5000; // 5 secondes avant retry en cas d'erreur
+const CONNECTION_CHECK_INTERVAL = 60000; // Vérifier la connexion Vinted toutes les 60s
+const MIN_POLL_INTERVAL = 1000; // Minimum 1s entre les requêtes (évite surcharge)
+const DEFAULT_POLL_INTERVAL = 5000; // 5s par défaut si backend ne spécifie pas
+
+export class PollingManager {
+  private isPolling: boolean = false;
+  private shouldStop: boolean = false;
+
+  // Connection status tracking
+  private wasConnected: boolean = true;
+  private lastConnectionCheck: number = 0;
+
+  // Pause when Vinted tab is active (disabled for now)
+  private isPaused: boolean = false;
+  private resumeTimeoutId: number | null = null;
+  private readonly RESUME_DELAY_MS: number = 3000;
+
+  /**
+   * Démarre le long polling
+   */
+  start(): void {
+    if (this.isPolling) {
+      BackgroundLogger.debug('[Long Polling] Déjà en cours');
+      return;
+    }
+
+    BackgroundLogger.debug('[Long Polling] 🚀 Démarrage');
+    this.isPolling = true;
+    this.shouldStop = false;
+
+    // TODO: Activer plus tard - Auto-pause quand onglet Vinted actif
+    // this.setupTabListener();
+
+    // Démarrer la boucle de long polling
+    this.longPollingLoop();
+  }
+
+  /**
+   * Arrête le long polling
+   */
+  stop(): void {
+    BackgroundLogger.debug('[Long Polling] ⏹️ Arrêt');
+    this.isPolling = false;
+    this.shouldStop = true;
+    this.isPaused = false;
+
+    if (this.resumeTimeoutId) {
+      clearTimeout(this.resumeTimeoutId);
+      this.resumeTimeoutId = null;
+    }
+  }
+
+  /**
+   * Boucle principale de long polling
+   * Fait une requête, attend la réponse (jusqu'à 30s), traite, recommence
+   */
+  private async longPollingLoop(): Promise<void> {
+    while (this.isPolling && !this.shouldStop) {
+      // Skip if paused
+      if (this.isPaused) {
+        await this.sleep(1000);
+        continue;
+      }
+
+      try {
+        // Long polling request (attend jusqu'à 30s côté backend)
+        BackgroundLogger.debug('[Long Polling] 📡 Attente de tâches...');
+        const response = await StoflowAPI.getTasksWithLongPolling(LONG_POLL_TIMEOUT);
+
+        // Traiter les tâches si présentes
+        if (response.has_pending_tasks && response.tasks.length > 0) {
+          BackgroundLogger.debug(`[Long Polling] ✅ ${response.tasks.length} tâche(s) reçue(s)`);
+          await this.executeTasks(response.tasks);
+        }
+
+        // Vérification périodique de la connexion Vinted
+        await this.periodicConnectionCheck();
+
+        // Respecter l'intervalle recommandé par le backend (backoff)
+        const nextInterval = response.next_poll_interval_ms || DEFAULT_POLL_INTERVAL;
+        const waitTime = Math.max(nextInterval, MIN_POLL_INTERVAL);
+
+        if (waitTime > 0) {
+          BackgroundLogger.debug(`[Long Polling] ⏳ Prochain poll dans ${waitTime}ms`);
+          await this.sleep(waitTime);
+        }
+
+      } catch (error) {
+        BackgroundLogger.error('[Long Polling] ❌ Erreur:', error);
+
+        // Attendre avant de réessayer en cas d'erreur
+        BackgroundLogger.debug(`[Long Polling] ⏳ Retry dans ${ERROR_RETRY_DELAY}ms...`);
+        await this.sleep(ERROR_RETRY_DELAY);
+      }
+    }
+
+    BackgroundLogger.debug('[Long Polling] Boucle terminée');
+  }
+
+  /**
+   * Helper: sleep async
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Vérifie périodiquement si l'utilisateur est toujours connecté à Vinted
+   * Si déconnecté, notifie le backend automatiquement
+   */
+  private async periodicConnectionCheck(): Promise<void> {
+    const now = Date.now();
+
+    // Ne vérifier que toutes les 60 secondes
+    if (now - this.lastConnectionCheck < CONNECTION_CHECK_INTERVAL) {
+      return;
+    }
+
+    this.lastConnectionCheck = now;
+    BackgroundLogger.debug('[Long Polling] 🔍 Vérification connexion Vinted...');
+
+    try {
+      const vintedTabs = await chrome.tabs.query({ url: 'https://www.vinted.fr/*' });
+
+      if (vintedTabs.length === 0) {
+        BackgroundLogger.debug('[Long Polling] Aucun onglet Vinted ouvert');
+        return;
+      }
+
+      const response = await chrome.tabs.sendMessage(vintedTabs[0].id!, {
+        action: 'GET_VINTED_USER_INFO'
+      });
+
+      const isConnected = !!(response?.success && response?.data?.userId && response?.data?.login);
+
+      // Détecter une déconnexion
+      if (this.wasConnected && !isConnected) {
+        BackgroundLogger.warn('[Long Polling] ⚠️ Déconnexion Vinted détectée!');
+        try {
+          await StoflowAPI.notifyVintedDisconnect();
+          BackgroundLogger.debug('[Long Polling] ✅ Backend notifié');
+        } catch (notifyError) {
+          BackgroundLogger.error('[Long Polling] ❌ Erreur notification:', notifyError);
+        }
+      }
+
+      this.wasConnected = isConnected;
+
+    } catch (error) {
+      BackgroundLogger.debug('[Long Polling] Erreur check connexion:', error);
+    }
+  }
+
+  /**
+   * Exécute les tâches reçues du backend
+   *
+   * RATE LIMITING (2025-12-18):
+   * - Chaque tâche peut avoir un execute_delay_ms
+   * - Le plugin DOIT attendre ce délai AVANT d'exécuter
+   * - Cela évite le flood des APIs externes (Vinted, eBay, etc.)
+   */
+  private async executeTasks(tasks: any[]): Promise<void> {
+    for (const task of tasks) {
+      // ===== RATE LIMITING: Attendre execute_delay_ms avant exécution =====
+      // CRITIQUE: Ce délai évite le ban Vinted en cas de tâches accumulées
+      const executeDelay = task.execute_delay_ms || 0;
+      if (executeDelay > 0) {
+        BackgroundLogger.debug(
+          `[Long Polling] ⏳ Rate limit: attente ${executeDelay}ms avant tâche #${task.id}`
+        );
+        await this.sleep(executeDelay);
+      }
+
+      BackgroundLogger.debug(`[Long Polling] Exécution tâche #${task.id}: ${task.task_type || 'HTTP'}`);
+
+      try {
+        const result = await this.executeTask(task);
+        BackgroundLogger.debug(`[Long Polling] ✅ Tâche ${task.id} terminée`);
+
+        await StoflowAPI.reportTaskComplete(task.id, {
+          success: true,
+          result: result || {}
+        });
+      } catch (error: any) {
+        BackgroundLogger.error(`[Long Polling] ❌ Erreur tâche ${task.id}:`, error);
+
+        // Always include HTTP status code if available
+        const errorDetails: Record<string, any> = {
+          stack: error.stack
+        };
+
+        // Extract status from various error formats
+        if (error.status) {
+          errorDetails.status_code = error.status;
+        }
+        if (error.statusText) {
+          errorDetails.status_text = error.statusText;
+        }
+        if (error.response?.status) {
+          errorDetails.status_code = error.response.status;
+        }
+
+        await StoflowAPI.reportTaskComplete(task.id, {
+          success: false,
+          error_message: error.message || String(error),
+          error_details: errorDetails
+        });
+      }
+    }
+  }
+
+  /**
+   * Exécute une tâche spécifique
+   */
+  private async executeTask(task: any): Promise<any> {
+    // Tâche spéciale: extraction userId/login depuis DOM
+    if (task.task_type === 'get_vinted_user_info') {
+      return await this.executeGetVintedUserInfo();
+    }
+
+    // Tâches HTTP
+    if (task.http_method && task.path) {
+      BackgroundLogger.debug(`[Long Polling] ${task.http_method} ${task.path}`);
+
+      // Si c'est une page HTML, faire un fetch direct
+      if (task.path.includes('/items/') && !task.path.includes('/api/')) {
+        return await this.executeHtmlFetch(task.path);
+      }
+
+      // Trouver un onglet Vinted actif
+      const vintedTabs = await chrome.tabs.query({ url: 'https://www.vinted.fr/*' });
+
+      if (vintedTabs.length === 0) {
+        const error: any = new Error('Aucun onglet Vinted ouvert. Ouvrez www.vinted.fr pour exécuter les tâches.');
+        error.status = 503; // Service Unavailable
+        error.statusText = 'No Vinted Tab';
+        throw error;
+      }
+
+      // Construire l'URL avec les query params
+      const params = task.params || {};
+      let url = task.path;
+
+      // Ajouter les query params à l'URL si présents
+      if (Object.keys(params).length > 0) {
+        const urlObj = new URL(url);
+        for (const [key, value] of Object.entries(params)) {
+          if (value !== undefined && value !== null) {
+            urlObj.searchParams.set(key, String(value));
+          }
+        }
+        url = urlObj.toString();
+        BackgroundLogger.debug(`[Long Polling] URL avec params: ${url}`);
+      }
+
+      const body = task.payload?.body || task.payload?.data || null;
+
+      // Essayer d'envoyer au content script avec gestion d'erreur améliorée
+      let response;
+      try {
+        response = await chrome.tabs.sendMessage(vintedTabs[0].id!, {
+          action: 'EXECUTE_VINTED_API',
+          url: url,
+          method: task.http_method,
+          body: body
+        });
+      } catch (sendError: any) {
+        // Content script non chargé ou tab invalide
+        BackgroundLogger.error('[Long Polling] Content script non accessible:', sendError.message);
+        const error: any = new Error(
+          'Content script Vinted non chargé. Rechargez la page Vinted (F5) puis réessayez.'
+        );
+        error.status = 503;
+        error.statusText = 'Content Script Unavailable';
+        throw error;
+      }
+
+      if (!response.success) {
+        // Create error with HTTP status code for proper backend handling
+        const error: any = new Error(response.error || 'Erreur requête Vinted API');
+        error.status = response.status || 500;
+        error.statusText = response.statusText || 'Error';
+        throw error;
+      }
+
+      return {
+        status: response.status || 200,
+        data: response.data
+      };
+    }
+
+    throw new Error('Type de tâche non supporté');
+  }
+
+  /**
+   * Fetch HTML direct
+   */
+  private async executeHtmlFetch(url: string): Promise<any> {
+    const vintedTabs = await chrome.tabs.query({ url: 'https://www.vinted.fr/*' });
+
+    if (vintedTabs.length === 0) {
+      const error: any = new Error('Aucun onglet Vinted ouvert. Ouvrez www.vinted.fr pour exécuter les tâches.');
+      error.status = 503;
+      error.statusText = 'No Vinted Tab';
+      throw error;
+    }
+
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(vintedTabs[0].id!, {
+        action: 'FETCH_HTML_PAGE',
+        url: url
+      });
+    } catch (sendError: any) {
+      BackgroundLogger.error('[Long Polling] Content script non accessible (HTML):', sendError.message);
+      const error: any = new Error(
+        'Content script Vinted non chargé. Rechargez la page Vinted (F5) puis réessayez.'
+      );
+      error.status = 503;
+      error.statusText = 'Content Script Unavailable';
+      throw error;
+    }
+
+    if (!response?.success) {
+      // Create error with HTTP status code for proper backend handling
+      const error: any = new Error(response?.error || 'Erreur fetch HTML');
+      error.status = response?.status || 500;
+      error.statusText = response?.statusText || 'Error';
+      throw error;
+    }
+
+    return {
+      status: response.status || 200,
+      data: response.data
+    };
+  }
+
+  /**
+   * Extraction userId/login depuis DOM Vinted
+   */
+  private async executeGetVintedUserInfo(): Promise<any> {
+    const vintedTabs = await chrome.tabs.query({ url: 'https://www.vinted.fr/*' });
+
+    if (vintedTabs.length === 0) {
+      const error: any = new Error('Aucun onglet Vinted ouvert');
+      error.status = 503;
+      error.statusText = 'No Vinted Tab';
+      throw error;
+    }
+
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(vintedTabs[0].id!, {
+        action: 'GET_VINTED_USER_INFO'
+      });
+    } catch (sendError: any) {
+      BackgroundLogger.error('[Long Polling] Content script non accessible (UserInfo):', sendError.message);
+      const error: any = new Error('Content script Vinted non chargé. Rechargez la page Vinted.');
+      error.status = 503;
+      error.statusText = 'Content Script Unavailable';
+      throw error;
+    }
+
+    if (!response?.success) {
+      throw new Error(response?.error || 'Impossible d\'extraire les infos Vinted');
+    }
+
+    return {
+      connected: !!(response.data?.userId && response.data?.login),
+      userId: response.data?.userId || null,
+      login: response.data?.login || null,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // ===== PAUSE FUNCTIONALITY (disabled for now) =====
+
+  /**
+   * Configure le listener pour détecter quand un onglet Vinted devient actif
+   */
+  private setupTabListener(): void {
+    chrome.tabs.onActivated.addListener(async (activeInfo) => {
+      try {
+        const tab = await chrome.tabs.get(activeInfo.tabId);
+        const isVintedTab = tab.url?.includes('vinted.fr') || false;
+
+        if (isVintedTab) {
+          this.pauseForVintedTab();
+        } else if (this.isPaused) {
+          this.resumeWithDelay();
+        }
+      } catch (error) {
+        BackgroundLogger.debug('[Long Polling] Error checking tab:', error);
+      }
+    });
+
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      if (changeInfo.url) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0]?.id === tabId) {
+            const isVintedTab = changeInfo.url?.includes('vinted.fr') || false;
+            if (isVintedTab) {
+              this.pauseForVintedTab();
+            } else if (this.isPaused) {
+              this.resumeWithDelay();
+            }
+          }
+        });
+      }
+    });
+
+    BackgroundLogger.debug('[Long Polling] Tab listener configured');
+  }
+
+  private pauseForVintedTab(): void {
+    if (this.resumeTimeoutId) {
+      clearTimeout(this.resumeTimeoutId);
+      this.resumeTimeoutId = null;
+    }
+
+    if (!this.isPaused) {
+      this.isPaused = true;
+      BackgroundLogger.debug('[Long Polling] ⏸️ Pause - Onglet Vinted actif');
+    }
+  }
+
+  private resumeWithDelay(): void {
+    if (this.resumeTimeoutId) {
+      clearTimeout(this.resumeTimeoutId);
+    }
+
+    BackgroundLogger.debug(`[Long Polling] ⏳ Reprise dans ${this.RESUME_DELAY_MS}ms...`);
+
+    this.resumeTimeoutId = setTimeout(() => {
+      this.resumeTimeoutId = null;
+      if (this.isPolling) {
+        this.isPaused = false;
+        BackgroundLogger.debug('[Long Polling] ▶️ Reprise');
+      }
+    }, this.RESUME_DELAY_MS) as unknown as number;
+  }
+}

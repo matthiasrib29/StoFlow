@@ -1,0 +1,91 @@
+{
+  "manifest_version": 3,
+  "name": "Stoflow - Multi-Marketplace Manager",
+  "version": "1.0.6",
+  "description": "Import, publish and sync your products across Vinted, eBay and Etsy",
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "permissions": [
+    "storage",
+    "cookies",
+    "alarms",
+    "notifications",
+    "scripting",
+    "activeTab",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "https://www.vinted.fr/*",
+    "https://www.vinted.com/*",
+    "https://www.ebay.fr/*",
+    "https://www.etsy.com/*",
+    "https://api.stoflow.com/*",
+    "http://localhost:3000/*",
+    "http://localhost:8000/*"
+  ],
+
+  "background": {
+    "scripts": ["src/background/index.ts"],
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+
+  "options_ui": {
+    "page": "src/options/index.html",
+    "open_in_tab": true
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://www.vinted.fr/*"],
+      "js": ["src/content/vinted.ts"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.ebay.fr/*"],
+      "js": ["src/content/ebay.ts"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.etsy.com/*"],
+      "js": ["src/content/etsy.ts"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://localhost:3000/*"],
+      "js": ["src/content/stoflow-web.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["src/content/stoflow-vinted-api.js"],
+      "matches": ["https://www.vinted.fr/*", "https://www.vinted.com/*"]
+    }
+  ],
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "stoflow@stoflow.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

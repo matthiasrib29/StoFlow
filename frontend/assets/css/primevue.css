@@ -1,0 +1,64 @@
+@import 'primevue/resources/themes/lara-light-blue/theme.css';
+@import 'primevue/resources/primevue.css';
+
+/* 🎨 Thème personnalisé Stoflow - Jaune (#facc15) & Noir (#1a1a1a) */
+:root {
+  /* Couleur primaire : Jaune */
+  --p-primary-50: #fefce8;
+  --p-primary-100: #fef9c3;
+  --p-primary-200: #fef08a;
+  --p-primary-300: #fde047;
+  --p-primary-400: #facc15;
+  --p-primary-500: #eab308;
+  --p-primary-600: #ca8a04;
+  --p-primary-700: #a16207;
+  --p-primary-800: #854d0e;
+  --p-primary-900: #713f12;
+  --p-primary-950: #713f12;
+
+  /* Surface / Background : Noir et gris */
+  --p-surface-0: #ffffff;
+  --p-surface-50: #f8f8f8;
+  --p-surface-100: #f0f0f0;
+  --p-surface-200: #e4e4e4;
+  --p-surface-300: #d1d1d1;
+  --p-surface-400: #b4b4b4;
+  --p-surface-500: #9a9a9a;
+  --p-surface-600: #818181;
+  --p-surface-700: #6a6a6a;
+  --p-surface-800: #5a5a5a;
+  --p-surface-900: #1a1a1a;
+  --p-surface-950: #0a0a0a;
+
+  /* Remplacer toutes les couleurs de succès par jaune */
+  --p-green-50: #fefce8;
+  --p-green-100: #fef9c3;
+  --p-green-200: #fef08a;
+  --p-green-300: #fde047;
+  --p-green-400: #facc15;
+  --p-green-500: #eab308;
+  --p-green-600: #ca8a04;
+  --p-green-700: #a16207;
+  --p-green-800: #854d0e;
+  --p-green-900: #713f12;
+  --p-green-950: #713f12;
+
+  /* Boutons */
+  --p-button-primary-background: #facc15;
+  --p-button-primary-hover-background: #eab308;
+  --p-button-primary-active-background: #ca8a04;
+  --p-button-primary-border-color: #facc15;
+  --p-button-primary-hover-border-color: #eab308;
+  --p-button-primary-color: #1a1a1a;
+  --p-button-primary-hover-color: #1a1a1a;
+
+  /* Bouton succès (même couleur que primary) */
+  --p-button-success-background: #facc15;
+  --p-button-success-hover-background: #eab308;
+  --p-button-success-border-color: #facc15;
+  --p-button-success-color: #1a1a1a;
+
+  /* Focus */
+  --p-focus-ring-color: #facc15;
+  --p-focus-ring-shadow: 0 0 0 0.2rem rgba(250, 204, 21, 0.2);
+}

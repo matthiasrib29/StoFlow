@@ -1,0 +1,315 @@
+<template>
+  <div class="min-h-screen flex items-center justify-center bg-white py-8 px-4">
+    <Card class="w-full max-w-2xl border-2 border-secondary-900 shadow-xl">
+      <template #title>
+        <div class="flex items-center gap-2 bg-primary-400 -mx-6 -mt-6 px-6 py-4 mb-4">
+          <i class="pi pi-user-plus text-secondary-900 text-2xl"></i>
+          <span class="text-secondary-900 font-bold text-2xl">Créer un compte</span>
+        </div>
+      </template>
+      <template #content>
+        <form @submit.prevent="handleRegister" class="space-y-4">
+          <!-- Type de compte -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium mb-3">
+              Type de compte *
+            </label>
+            <div class="flex gap-4">
+              <div
+                @click="accountType = 'individual'"
+                :class="[
+                  'flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all',
+                  accountType === 'individual'
+                    ? 'border-primary-400 bg-primary-50'
+                    : 'border-gray-300 hover:border-primary-400'
+                ]"
+              >
+                <div class="flex items-center gap-2 mb-2">
+                  <i class="pi pi-user text-2xl" :class="accountType === 'individual' ? 'text-primary-600' : 'text-gray-400'"></i>
+                  <span class="font-bold">Particulier</span>
+                </div>
+                <p class="text-sm text-gray-600">Pour usage personnel</p>
+              </div>
+              <div
+                @click="accountType = 'professional'"
+                :class="[
+                  'flex-1 p-4 border-2 rounded-lg cursor-pointer transition-all',
+                  accountType === 'professional'
+                    ? 'border-primary-400 bg-primary-50'
+                    : 'border-gray-300 hover:border-primary-400'
+                ]"
+              >
+                <div class="flex items-center gap-2 mb-2">
+                  <i class="pi pi-briefcase text-2xl" :class="accountType === 'professional' ? 'text-primary-600' : 'text-gray-400'"></i>
+                  <span class="font-bold">Professionnel</span>
+                </div>
+                <p class="text-sm text-gray-600">Pour votre entreprise</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Informations de base -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="fullName" class="block text-sm font-medium mb-2">
+                Votre nom complet *
+              </label>
+              <InputText
+                id="fullName"
+                v-model="fullName"
+                placeholder="John Doe"
+                class="w-full"
+                required
+                :disabled="authStore.isLoading"
+              />
+            </div>
+
+            <div>
+              <label for="businessName" class="block text-sm font-medium mb-2">
+                Nom de votre boutique{{ accountType === 'professional' ? ' *' : '' }}
+              </label>
+              <InputText
+                id="businessName"
+                v-model="businessName"
+                placeholder="Ma Super Boutique"
+                class="w-full"
+                :required="accountType === 'professional'"
+                :disabled="authStore.isLoading"
+              />
+            </div>
+          </div>
+
+          <!-- Email et mot de passe -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="email" class="block text-sm font-medium mb-2">
+                Email *
+              </label>
+              <InputText
+                id="email"
+                v-model="email"
+                type="email"
+                placeholder="votre@email.com"
+                class="w-full"
+                required
+                :disabled="authStore.isLoading"
+              />
+            </div>
+
+            <div>
+              <label for="phone" class="block text-sm font-medium mb-2">
+                Téléphone
+              </label>
+              <InputText
+                id="phone"
+                v-model="phone"
+                placeholder="+33 6 12 34 56 78"
+                class="w-full"
+                :disabled="authStore.isLoading"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-medium mb-2">
+              Mot de passe *
+            </label>
+            <Password
+              id="password"
+              v-model="password"
+              placeholder="••••••••"
+              class="w-full"
+              toggleMask
+              :feedback="true"
+              required
+              :disabled="authStore.isLoading"
+            >
+              <template #footer>
+                <p class="text-xs text-gray-500 mt-2">
+                  Minimum 12 caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial
+                </p>
+              </template>
+            </Password>
+          </div>
+
+          <!-- Informations professionnelles (conditionnelles) -->
+          <div v-if="accountType === 'professional'" class="space-y-4 p-4 bg-gray-50 rounded-lg border">
+            <h3 class="font-bold text-secondary-900 mb-3">
+              <i class="pi pi-briefcase mr-2"></i>
+              Informations professionnelles
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label for="siret" class="block text-sm font-medium mb-2">
+                  SIRET
+                </label>
+                <InputText
+                  id="siret"
+                  v-model="siret"
+                  placeholder="12345678901234"
+                  class="w-full"
+                  :disabled="authStore.isLoading"
+                  maxlength="14"
+                />
+                <small class="text-xs text-gray-500">14 chiffres (France uniquement)</small>
+              </div>
+
+              <div>
+                <label for="vatNumber" class="block text-sm font-medium mb-2">
+                  Numéro de TVA
+                </label>
+                <InputText
+                  id="vatNumber"
+                  v-model="vatNumber"
+                  placeholder="FR12345678901"
+                  class="w-full"
+                  :disabled="authStore.isLoading"
+                />
+                <small class="text-xs text-gray-500">TVA intracommunautaire</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Type d'activité -->
+          <div>
+            <label for="businessType" class="block text-sm font-medium mb-2">
+              Type d'activité *
+            </label>
+            <Select
+              id="businessType"
+              v-model="businessType"
+              :options="businessTypeOptions"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Sélectionnez votre activité"
+              class="w-full"
+              required
+              :disabled="authStore.isLoading"
+            />
+          </div>
+
+          <!-- Nombre de produits estimé -->
+          <div>
+            <label for="estimatedProducts" class="block text-sm font-medium mb-2">
+              Nombre de produits estimé *
+            </label>
+            <Select
+              id="estimatedProducts"
+              v-model="estimatedProducts"
+              :options="estimatedProductsOptions"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Combien de produits gérez-vous ?"
+              class="w-full"
+              required
+              :disabled="authStore.isLoading"
+            />
+          </div>
+
+          <div v-if="authStore.error" class="p-3 bg-secondary-50 border border-primary-200 rounded-lg">
+            <p class="text-secondary-600 text-sm">
+              <i class="pi pi-exclamation-triangle mr-2"></i>
+              {{ authStore.error }}
+            </p>
+          </div>
+
+          <Button
+            type="submit"
+            label="Créer mon compte"
+            icon="pi pi-user-plus"
+            class="w-full bg-secondary-900 hover:bg-secondary-800 border-0 font-bold"
+            :loading="authStore.isLoading"
+          />
+        </form>
+      </template>
+      <template #footer>
+        <div class="text-center text-sm text-secondary-900 border-t-2 border-primary-400 pt-4">
+          Déjà un compte ?
+          <NuxtLink to="/login" class="text-primary-600 hover:text-primary-700 underline font-bold">
+            Se connecter
+          </NuxtLink>
+        </div>
+      </template>
+    </Card>
+  </div>
+</template>
+
+<script setup lang="ts">
+import type { RegisterData } from '~/stores/auth'
+
+const authStore = useAuthStore()
+const router = useRouter()
+const { showSuccess, showError } = useAppToast()
+
+// Type de compte
+const accountType = ref<'individual' | 'professional'>('individual')
+
+// Champs de base
+const fullName = ref('')
+const businessName = ref('')
+const email = ref('')
+const password = ref('')
+const phone = ref('')
+
+// Champs professionnels
+const siret = ref('')
+const vatNumber = ref('')
+
+// Type d'activité
+const businessType = ref('')
+const businessTypeOptions = [
+  { label: 'Revente', value: 'resale' },
+  { label: 'Dropshipping', value: 'dropshipping' },
+  { label: 'Artisanat', value: 'artisan' },
+  { label: 'Commerce de détail', value: 'retail' },
+  { label: 'Autre', value: 'other' }
+]
+
+// Nombre de produits
+const estimatedProducts = ref('')
+const estimatedProductsOptions = [
+  { label: '0-50 produits', value: '0-50' },
+  { label: '50-200 produits', value: '50-200' },
+  { label: '200-500 produits', value: '200-500' },
+  { label: '500+ produits', value: '500+' }
+]
+
+const handleRegister = async () => {
+  try {
+    // Préparer les données d'inscription
+    const registerData: RegisterData = {
+      email: email.value,
+      password: password.value,
+      full_name: fullName.value,
+      business_name: businessName.value || undefined,
+      account_type: accountType.value,
+      business_type: businessType.value as any || undefined,
+      estimated_products: estimatedProducts.value as any || undefined,
+      phone: phone.value || undefined,
+      country: 'FR',
+      language: 'fr'
+    }
+
+    // Ajouter les champs professionnels si le type est 'professional'
+    if (accountType.value === 'professional') {
+      registerData.siret = siret.value || undefined
+      registerData.vat_number = vatNumber.value || undefined
+    }
+
+    await authStore.register(registerData)
+
+    showSuccess('Compte créé', 'Bienvenue sur Stoflow !')
+    router.push('/dashboard')
+  } catch (error: any) {
+    showError('Erreur', error.message || 'Impossible de créer le compte')
+  }
+}
+
+// Rediriger si déjà connecté
+onMounted(() => {
+  if (authStore.isAuthenticated) {
+    router.push('/dashboard')
+  }
+})
+</script>

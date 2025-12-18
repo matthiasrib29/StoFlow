@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  test_db:
+    image: postgres:15-alpine
+    container_name: stoflow_test_db
+    environment:
+      POSTGRES_DB: stoflow_test
+      POSTGRES_USER: stoflow_test
+      POSTGRES_PASSWORD: test_password_123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5434:5432"  # Port différent de la prod (5432) et du port 5433 déjà utilisé
+
+    # Utilise tmpfs pour performance (données en RAM)
+    tmpfs:
+      - /var/lib/postgresql/data
+
+    # Healthcheck pour savoir quand la DB est prête
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stoflow_test -d stoflow_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+    # Restart automatique si crash
+    restart: unless-stopped
+
+    # Configuration PostgreSQL optimisée pour tests
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "fsync=off"  # Plus rapide pour tests (non-prod seulement!)
+      - "-c"
+      - "synchronous_commit=off"  # Plus rapide
+      - "-c"
+      - "full_page_writes=off"  # Plus rapide
+      - "-c"
+      - "log_statement=none"  # Moins de logs
+
+networks:
+  default:
+    name: stoflow_test_network

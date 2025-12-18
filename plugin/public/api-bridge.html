@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StoFlow API Bridge</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        pre {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .test-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        #response {
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 StoFlow API Bridge</h1>
+        <p>Pont HTTP entre le backend et le plugin StoFlow</p>
+
+        <div id="status" class="status warning">
+            ⏳ Initialisation...
+        </div>
+
+        <div class="info">
+            <strong>📡 Endpoint HTTP:</strong><br>
+            <code>POST http://localhost:5173/api/plugin/execute</code><br><br>
+
+            <strong>📝 Format de la requête:</strong>
+            <pre>{
+  "action": "EXECUTE_HTTP_REQUEST",
+  "request": {
+    "url": "https://www.vinted.fr/api/v2/users/current",
+    "method": "GET",
+    "headers": {...},
+    "body": {...}
+  }
+}</pre>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Tests</h3>
+            <button onclick="testGetUserData()">👤 Récupérer User Data</button>
+            <button onclick="testGetProducts()">📦 Récupérer Produits</button>
+            <button onclick="testHealthCheck()">❤️ Health Check</button>
+
+            <div id="response"></div>
+        </div>
+    </div>
+
+    <script>
+        const EXTENSION_ID = chrome.runtime.id;
+        let isPluginAvailable = false;
+
+        // Vérifier que le plugin est chargé
+        async function checkPlugin() {
+            try {
+                const response = await chrome.runtime.sendMessage({ action: 'PING' });
+                if (response && response.pong) {
+                    isPluginAvailable = true;
+                    updateStatus('success', '✅ Plugin StoFlow connecté et prêt');
+                    return true;
+                }
+            } catch (error) {
+                isPluginAvailable = false;
+                updateStatus('error', '❌ Plugin StoFlow non disponible. Rechargez l\'extension.');
+                return false;
+            }
+        }
+
+        function updateStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+        }
+
+        function showResponse(data) {
+            const responseEl = document.getElementById('response');
+            responseEl.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // API HTTP Server (Express-like)
+        // Cette page écoute les requêtes POST du backend
+        window.addEventListener('message', async (event) => {
+            // Sécurité: vérifier l'origine
+            if (event.origin !== window.location.origin) {
+                return;
+            }
+
+            const { type, payload, requestId } = event.data;
+
+            if (type === 'BACKEND_REQUEST') {
+                console.log('📥 Requête backend reçue:', payload);
+
+                try {
+                    // Transmettre au plugin
+                    const response = await chrome.runtime.sendMessage(payload);
+
+                    console.log('📤 Réponse du plugin:', response);
+
+                    // Retourner au backend
+                    window.postMessage({
+                        type: 'BACKEND_RESPONSE',
+                        requestId: requestId,
+                        payload: response
+                    }, '*');
+
+                } catch (error) {
+                    console.error('❌ Erreur:', error);
+
+                    window.postMessage({
+                        type: 'BACKEND_RESPONSE',
+                        requestId: requestId,
+                        payload: {
+                            success: false,
+                            error: error.message
+                        }
+                    }, '*');
+                }
+            }
+        });
+
+        // API HTTP exposée pour le backend
+        async function executePluginCommand(command) {
+            if (!isPluginAvailable) {
+                throw new Error('Plugin non disponible');
+            }
+
+            try {
+                const response = await chrome.runtime.sendMessage(command);
+                return response;
+            } catch (error) {
+                console.error('Erreur execution:', error);
+                throw error;
+            }
+        }
+
+        // Exposer l'API globalement pour les requêtes HTTP
+        window.StoflowAPI = {
+            execute: executePluginCommand,
+            isReady: () => isPluginAvailable
+        };
+
+        // Tests
+        async function testGetUserData() {
+            showResponse({ loading: true });
+
+            try {
+                const response = await executePluginCommand({
+                    action: 'GET_USER_DATA'
+                });
+
+                showResponse(response);
+            } catch (error) {
+                showResponse({ error: error.message });
+            }
+        }
+
+        async function testGetProducts() {
+            showResponse({ loading: true });
+
+            try {
+                // D'abord récupérer user data pour les tokens
+                const userData = await executePluginCommand({
+                    action: 'GET_USER_DATA'
+                });
+
+                if (!userData || !userData.user_id) {
+                    showResponse({ error: 'User data non disponible' });
+                    return;
+                }
+
+                // Puis récupérer les produits
+                const response = await executePluginCommand({
+                    action: 'EXECUTE_HTTP_REQUEST',
+                    request: {
+                        url: `https://www.vinted.fr/api/v2/wardrobe/${userData.user_id}/items?page=1&per_page=20`,
+                        method: 'GET',
+                        headers: {
+                            'X-CSRF-Token': userData.csrf_token,
+                            'X-Anon-Id': userData.anon_id
+                        }
+                    }
+                });
+
+                showResponse(response);
+            } catch (error) {
+                showResponse({ error: error.message });
+            }
+        }
+
+        async function testHealthCheck() {
+            showResponse({ loading: true });
+
+            const health = {
+                plugin_available: isPluginAvailable,
+                extension_id: EXTENSION_ID,
+                timestamp: new Date().toISOString(),
+                browser: navigator.userAgent
+            };
+
+            showResponse(health);
+        }
+
+        // Init au chargement
+        window.addEventListener('load', async () => {
+            await checkPlugin();
+
+            // Re-check toutes les 5 secondes
+            setInterval(checkPlugin, 5000);
+        });
+
+        console.log('🌐 StoFlow API Bridge initialisé');
+        console.log('📡 Prêt à recevoir des commandes du backend');
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test SSO Stoflow</title>
+</head>
+<body>
+    <h1>Test SSO Stoflow</h1>
+    <p>Cette page teste le content script du plugin</p>
+
+    <script>
+        // Simuler le token dans localStorage
+        localStorage.setItem('token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test');
+        console.log('Token set in localStorage');
+        console.log('Waiting for content script...');
+
+        // Attendre 2 secondes puis vérifier
+        setTimeout(() => {
+            console.log('If you see a Stoflow SSO message above, the content script works!');
+        }, 2000);
+    </script>
+</body>
+</html>
