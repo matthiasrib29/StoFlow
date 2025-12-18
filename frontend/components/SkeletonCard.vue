@@ -8,7 +8,7 @@
       v-if="showImage"
       class="skeleton skeleton-image"
       :style="{ height: imageHeight }"
-    ></div>
+    />
 
     <!-- Content skeleton -->
     <div :class="['skeleton-content', contentClass]">
@@ -16,7 +16,7 @@
       <div
         class="skeleton skeleton-title"
         :style="{ width: titleWidth, height: titleHeight }"
-      ></div>
+      />
 
       <!-- Lines -->
       <div
@@ -24,7 +24,7 @@
         :key="index"
         class="skeleton skeleton-line"
         :style="{ width, height: lineHeight, marginTop: lineSpacing }"
-      ></div>
+      />
 
       <!-- Actions/Buttons skeleton -->
       <div v-if="showActions" class="skeleton-actions">
@@ -32,7 +32,7 @@
           v-for="n in actionsCount"
           :key="n"
           class="skeleton skeleton-action"
-        ></div>
+        />
       </div>
     </div>
   </div>

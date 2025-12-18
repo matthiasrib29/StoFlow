@@ -3,12 +3,12 @@
     <Card class="w-full max-w-md border-2 border-secondary-900 shadow-xl">
       <template #title>
         <div class="flex items-center gap-2 bg-primary-400 -mx-6 -mt-6 px-6 py-4 mb-4">
-          <i class="pi pi-sign-in text-secondary-900 text-2xl"></i>
+          <i class="pi pi-sign-in text-secondary-900 text-2xl"/>
           <span class="text-secondary-900 font-bold text-2xl">Se connecter</span>
         </div>
       </template>
       <template #content>
-        <form @submit.prevent="handleLogin" class="space-y-4">
+        <form class="space-y-4" @submit.prevent="handleLogin">
           <div>
             <label for="email" class="block text-sm font-medium mb-2">
               Email
@@ -34,7 +34,7 @@
               placeholder="••••••••"
               class="w-full"
               :feedback="false"
-              toggleMask
+              toggle-mask
               required
               :disabled="authStore.isLoading"
             />
@@ -42,7 +42,7 @@
 
           <div v-if="authStore.error" class="p-3 bg-secondary-50 border border-primary-200 rounded-lg">
             <p class="text-secondary-600 text-sm">
-              <i class="pi pi-exclamation-triangle mr-2"></i>
+              <i class="pi pi-exclamation-triangle mr-2"/>
               {{ authStore.error }}
             </p>
           </div>

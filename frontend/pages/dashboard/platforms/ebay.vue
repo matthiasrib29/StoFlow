@@ -5,7 +5,7 @@
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-4">
           <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-lg border border-gray-100 p-2">
-            <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-full h-full object-contain" />
+            <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-full h-full object-contain" >
           </div>
           <div>
             <h1 class="text-3xl font-bold text-secondary-900 mb-1">eBay</h1>
@@ -39,10 +39,10 @@
           />
           <template v-else>
             <Button
+              v-tooltip.bottom="'Synchroniser'"
               icon="pi pi-refresh"
               class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0"
               :loading="ebayStore.isSyncing"
-              v-tooltip.bottom="'Synchroniser'"
               @click="handleSync"
             />
             <Button
@@ -58,10 +58,10 @@
 
       <!-- Sync Status Bar -->
       <div v-if="ebayStore.isConnected && ebayStore.syncSettings.lastSyncAt" class="flex items-center gap-2 text-sm text-gray-600">
-        <i class="pi pi-clock"></i>
+        <i class="pi pi-clock"/>
         <span>Dernière synchronisation: {{ formatRelativeTime(ebayStore.syncSettings.lastSyncAt) }}</span>
         <span v-if="ebayStore.isSyncing" class="text-primary-600 font-medium">
-          <i class="pi pi-spin pi-spinner mr-1"></i>Synchronisation en cours...
+          <i class="pi pi-spin pi-spinner mr-1"/>Synchronisation en cours...
         </span>
       </div>
     </div>
@@ -71,7 +71,7 @@
       <template #content>
         <div class="text-center py-12">
           <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-blue-100 flex items-center justify-center">
-            <i class="pi pi-link text-blue-500 text-5xl"></i>
+            <i class="pi pi-link text-blue-500 text-5xl"/>
           </div>
           <h2 class="text-2xl font-bold text-secondary-900 mb-3">Connectez votre compte eBay</h2>
           <p class="text-gray-600 mb-6 max-w-md mx-auto">
@@ -80,17 +80,17 @@
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto mb-8">
             <div class="p-4 rounded-xl bg-gray-50">
-              <i class="pi pi-send text-blue-500 text-2xl mb-2"></i>
+              <i class="pi pi-send text-blue-500 text-2xl mb-2"/>
               <h4 class="font-semibold text-secondary-900 mb-1">Publication facile</h4>
               <p class="text-sm text-gray-600">Publiez vos produits en un clic</p>
             </div>
             <div class="p-4 rounded-xl bg-gray-50">
-              <i class="pi pi-sync text-blue-500 text-2xl mb-2"></i>
+              <i class="pi pi-sync text-blue-500 text-2xl mb-2"/>
               <h4 class="font-semibold text-secondary-900 mb-1">Sync automatique</h4>
               <p class="text-sm text-gray-600">Stock et prix toujours à jour</p>
             </div>
             <div class="p-4 rounded-xl bg-gray-50">
-              <i class="pi pi-chart-line text-blue-500 text-2xl mb-2"></i>
+              <i class="pi pi-chart-line text-blue-500 text-2xl mb-2"/>
               <h4 class="font-semibold text-secondary-900 mb-1">Statistiques</h4>
               <p class="text-sm text-gray-600">Analysez vos performances</p>
             </div>
@@ -118,7 +118,7 @@
         <div class="stat-card bg-white rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-3">
             <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-              <i class="pi pi-send text-blue-600 text-lg"></i>
+              <i class="pi pi-send text-blue-600 text-lg"/>
             </div>
             <span class="text-xs text-green-600 font-medium">+5 ce mois</span>
           </div>
@@ -129,7 +129,7 @@
         <div class="stat-card bg-white rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-3">
             <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-              <i class="pi pi-eye text-purple-600 text-lg"></i>
+              <i class="pi pi-eye text-purple-600 text-lg"/>
             </div>
           </div>
           <h3 class="text-2xl font-bold text-secondary-900 mb-1">{{ formatNumber(ebayStore.stats.totalViews) }}</h3>
@@ -139,7 +139,7 @@
         <div class="stat-card bg-white rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-3">
             <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-              <i class="pi pi-check-circle text-green-600 text-lg"></i>
+              <i class="pi pi-check-circle text-green-600 text-lg"/>
             </div>
           </div>
           <h3 class="text-2xl font-bold text-secondary-900 mb-1">{{ ebayStore.stats.totalSales }}</h3>
@@ -149,7 +149,7 @@
         <div class="stat-card bg-white rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-3">
             <div class="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
-              <i class="pi pi-euro text-primary-600 text-lg"></i>
+              <i class="pi pi-euro text-primary-600 text-lg"/>
             </div>
           </div>
           <h3 class="text-2xl font-bold text-secondary-900 mb-1">{{ formatCurrency(ebayStore.stats.totalRevenue) }}</h3>
@@ -284,7 +284,7 @@
                       <span class="text-sm text-gray-600">Taux de conversion</span>
                       <span class="text-sm font-semibold text-secondary-900">{{ ebayStore.stats.conversionRate }}%</span>
                     </div>
-                    <ProgressBar :value="ebayStore.stats.conversionRate * 10" :showValue="false" class="h-2" />
+                    <ProgressBar :value="ebayStore.stats.conversionRate * 10" :show-value="false" class="h-2" />
                   </div>
 
                   <div>
@@ -292,7 +292,7 @@
                       <span class="text-sm text-gray-600">Impressions</span>
                       <span class="text-sm font-semibold text-secondary-900">{{ formatNumber(ebayStore.stats.impressions) }}</span>
                     </div>
-                    <ProgressBar :value="70" :showValue="false" class="h-2" />
+                    <ProgressBar :value="70" :show-value="false" class="h-2" />
                   </div>
 
                   <div>
@@ -300,7 +300,7 @@
                       <span class="text-sm text-gray-600">Watchers actifs</span>
                       <span class="text-sm font-semibold text-secondary-900">{{ ebayStore.stats.totalWatchers }}</span>
                     </div>
-                    <ProgressBar :value="45" :showValue="false" class="h-2" />
+                    <ProgressBar :value="45" :show-value="false" class="h-2" />
                   </div>
 
                   <Divider />
@@ -329,7 +329,7 @@
             :rows="10"
             :loading="loading"
             class="modern-table"
-            stripedRows
+            striped-rows
           >
             <template #empty>
               <EmptyState
@@ -349,9 +349,9 @@
                     :src="data.product.image_url"
                     :alt="data.product.title"
                     class="w-12 h-12 rounded-lg object-cover"
-                  />
-                  <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center" v-else>
-                    <i class="pi pi-image text-gray-400"></i>
+                  >
+                  <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <i class="pi pi-image text-gray-400"/>
                   </div>
                   <div>
                     <p class="font-semibold text-secondary-900">{{ data.product?.title }}</p>
@@ -370,7 +370,7 @@
             <Column field="views" header="Vues" sortable>
               <template #body="{ data }">
                 <div class="flex items-center gap-2">
-                  <i class="pi pi-eye text-gray-400 text-sm"></i>
+                  <i class="pi pi-eye text-gray-400 text-sm"/>
                   <span>{{ data.views || 0 }}</span>
                 </div>
               </template>
@@ -389,30 +389,30 @@
               <template #body="{ data }">
                 <div class="flex gap-2">
                   <Button
+                    v-tooltip.top="'Voir sur eBay'"
                     icon="pi pi-external-link"
                     class="bg-gray-100 hover:bg-gray-200 text-secondary-900 border-0"
                     size="small"
                     rounded
                     text
-                    v-tooltip.top="'Voir sur eBay'"
                     @click="openPublication(data)"
                   />
                   <Button
+                    v-tooltip.top="'Modifier le prix'"
                     icon="pi pi-euro"
                     class="bg-primary-100 hover:bg-primary-200 text-primary-700 border-0"
                     size="small"
                     rounded
                     text
-                    v-tooltip.top="'Modifier le prix'"
                     @click="editPrice(data)"
                   />
                   <Button
+                    v-tooltip.top="'Supprimer'"
                     icon="pi pi-trash"
                     class="bg-red-100 hover:bg-red-200 text-red-700 border-0"
                     size="small"
                     rounded
                     text
-                    v-tooltip.top="'Supprimer'"
                     @click="confirmDelete(data)"
                   />
                 </div>
@@ -430,7 +430,7 @@
                 <div class="flex items-center justify-between mb-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                      <i class="pi pi-truck text-blue-600"></i>
+                      <i class="pi pi-truck text-blue-600"/>
                     </div>
                     <div>
                       <h3 class="text-lg font-bold text-secondary-900">Politiques d'expédition</h3>
@@ -494,7 +494,7 @@
                 <div class="flex items-center justify-between mb-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
-                      <i class="pi pi-replay text-orange-600"></i>
+                      <i class="pi pi-replay text-orange-600"/>
                     </div>
                     <div>
                       <h3 class="text-lg font-bold text-secondary-900">Politiques de retour</h3>
@@ -563,7 +563,7 @@
                 <div class="flex items-center justify-between mb-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-                      <i class="pi pi-credit-card text-green-600"></i>
+                      <i class="pi pi-credit-card text-green-600"/>
                     </div>
                     <div>
                       <h3 class="text-lg font-bold text-secondary-900">Politiques de paiement</h3>
@@ -598,7 +598,7 @@
                   </Column>
                   <Column field="immediatePay" header="Paiement immédiat">
                     <template #body="{ data }">
-                      <i :class="data.immediatePay ? 'pi pi-check text-green-600' : 'pi pi-times text-gray-400'"></i>
+                      <i :class="data.immediatePay ? 'pi pi-check text-green-600' : 'pi pi-times text-gray-400'"/>
                     </template>
                   </Column>
                 </DataTable>
@@ -627,9 +627,9 @@
               </div>
 
               <Tree
+                v-model:selection-keys="selectedCategoryKeys"
                 :value="ebayStore.categories"
-                v-model:selectionKeys="selectedCategoryKeys"
-                selectionMode="checkbox"
+                selection-mode="checkbox"
                 :loading="ebayStore.isLoadingCategories"
                 class="w-full"
               >
@@ -677,8 +677,8 @@
                     <Select
                       v-model="syncSettings.syncInterval"
                       :options="syncIntervals"
-                      optionLabel="label"
-                      optionValue="value"
+                      option-label="label"
+                      option-value="value"
                       class="w-full"
                     />
                   </div>
@@ -723,8 +723,8 @@
                     <Select
                       v-model="listingSettings.defaultListingType"
                       :options="listingTypes"
-                      optionLabel="label"
-                      optionValue="value"
+                      option-label="label"
+                      option-value="value"
                       placeholder="Sélectionnez un type"
                       class="w-full"
                     />
@@ -735,8 +735,8 @@
                     <Select
                       v-model="listingSettings.defaultDuration"
                       :options="durations"
-                      optionLabel="label"
-                      optionValue="value"
+                      option-label="label"
+                      option-value="value"
                       placeholder="Sélectionnez une durée"
                       class="w-full"
                     />
@@ -747,8 +747,8 @@
                     <Select
                       v-model="listingSettings.defaultShippingPolicy"
                       :options="ebayStore.shippingPolicies"
-                      optionLabel="name"
-                      optionValue="id"
+                      option-label="name"
+                      option-value="id"
                       placeholder="Sélectionnez une politique"
                       class="w-full"
                     />
@@ -759,8 +759,8 @@
                     <Select
                       v-model="listingSettings.defaultReturnPolicy"
                       :options="ebayStore.returnPolicies"
-                      optionLabel="name"
-                      optionValue="id"
+                      option-label="name"
+                      option-value="id"
                       placeholder="Sélectionnez une politique"
                       class="w-full"
                     />
@@ -805,7 +805,7 @@
             locale="fr-FR"
             class="w-full"
             :min="0"
-            :maxFractionDigits="2"
+            :max-fraction-digits="2"
           />
         </div>
       </div>
@@ -849,8 +849,8 @@
           <Select
             v-model="newShippingPolicy.type"
             :options="shippingTypes"
-            optionLabel="label"
-            optionValue="value"
+            option-label="label"
+            option-value="value"
             class="w-full"
           />
         </div>
@@ -921,8 +921,8 @@
           <Select
             v-model="newReturnPolicy.shippingCostPaidBy"
             :options="[{ label: 'Acheteur', value: 'buyer' }, { label: 'Vendeur', value: 'seller' }]"
-            optionLabel="label"
-            optionValue="value"
+            option-label="label"
+            option-value="value"
             class="w-full"
           />
         </div>

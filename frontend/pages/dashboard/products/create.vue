@@ -16,7 +16,7 @@
     <!-- Photo Section Title (scrolls away) -->
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-lg font-bold text-secondary-900 flex items-center gap-2">
-        <i class="pi pi-images"></i>
+        <i class="pi pi-images"/>
         Photos du produit * <span class="font-normal text-sm text-gray-600">(minimum 1 requise)</span>
         <span class="text-sm font-normal ml-2">{{ photos.length }}/20</span>
       </h3>
@@ -27,8 +27,8 @@
         label="Ajouter des photos"
         icon="pi pi-plus"
         class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
-        @click="openPhotoSelector"
         :disabled="photos.length >= 20"
+        @click="openPhotoSelector"
       />
     </div>
 

@@ -44,20 +44,20 @@
     <!-- Table View -->
     <div v-else-if="viewMode === 'table'" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <DataTable
-        :value="filteredProducts"
         v-model:selection="selectedProducts"
-        dataKey="id"
+        :value="filteredProducts"
+        data-key="id"
         :paginator="true"
         :rows="10"
-        :rowsPerPageOptions="[5, 10, 20, 50]"
-        paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-        currentPageReportTemplate="{first}-{last} sur {totalRecords}"
+        :rows-per-page-options="[5, 10, 20, 50]"
+        paginator-template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+        current-page-report-template="{first}-{last} sur {totalRecords}"
         class="products-table"
       >
         <template #empty>
           <div class="text-center py-16">
             <div class="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
-              <i class="pi pi-box text-4xl text-gray-300"></i>
+              <i class="pi pi-box text-4xl text-gray-300"/>
             </div>
             <p class="text-secondary-900 font-semibold text-lg mb-1">Aucun produit</p>
             <p class="text-gray-400 text-sm mb-6">Commencez par créer votre premier produit</p>
@@ -70,7 +70,7 @@
           </div>
         </template>
 
-        <Column selectionMode="multiple" headerStyle="width: 3rem" />
+        <Column selection-mode="multiple" header-style="width: 3rem" />
 
         <Column field="image_url" header="" style="width: 70px">
           <template #body="slotProps">
@@ -78,7 +78,7 @@
               :src="getProductImageUrl(slotProps.data)"
               :alt="slotProps.data.title"
               class="w-12 h-12 object-cover rounded-lg"
-            />
+            >
           </template>
         </Column>
 
@@ -129,7 +129,7 @@
               <span
                 class="w-2 h-2 rounded-full"
                 :class="slotProps.data.is_active ? 'bg-green-500' : 'bg-gray-300'"
-              ></span>
+              />
               {{ slotProps.data.is_active ? 'Actif' : 'Inactif' }}
             </span>
           </template>
@@ -142,13 +142,13 @@
                 class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                 @click="editProduct(slotProps.data)"
               >
-                <i class="pi pi-pencil text-sm"></i>
+                <i class="pi pi-pencil text-sm"/>
               </button>
               <button
                 class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                 @click="confirmDelete(slotProps.data)"
               >
-                <i class="pi pi-trash text-sm"></i>
+                <i class="pi pi-trash text-sm"/>
               </button>
             </div>
           </template>
@@ -195,7 +195,7 @@
       :modal="true"
     >
       <div class="flex items-center gap-4">
-        <i class="pi pi-exclamation-triangle text-5xl text-secondary-500"></i>
+        <i class="pi pi-exclamation-triangle text-5xl text-secondary-500"/>
         <div>
           <p class="text-secondary-900">
             Êtes-vous sûr de vouloir supprimer
@@ -215,8 +215,8 @@
           label="Supprimer"
           icon="pi pi-trash"
           class="bg-secondary-500 hover:bg-secondary-600 text-white border-0"
-          @click="handleDelete"
           :loading="isDeleting"
+          @click="handleDelete"
         />
       </template>
     </Dialog>
@@ -229,7 +229,7 @@
       :modal="true"
     >
       <div class="flex items-center gap-4">
-        <i class="pi pi-exclamation-triangle text-5xl text-secondary-500"></i>
+        <i class="pi pi-exclamation-triangle text-5xl text-secondary-500"/>
         <div>
           <p class="text-secondary-900">
             Êtes-vous sûr de vouloir supprimer
@@ -249,8 +249,8 @@
           label="Supprimer tout"
           icon="pi pi-trash"
           class="bg-secondary-500 hover:bg-secondary-600 text-white border-0"
-          @click="handleBulkDelete"
           :loading="isDeleting"
+          @click="handleBulkDelete"
         />
       </template>
     </Dialog>

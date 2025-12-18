@@ -5,7 +5,7 @@
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-4">
           <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-lg border border-gray-100 p-2">
-            <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-full h-full object-contain" />
+            <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-full h-full object-contain" >
           </div>
           <div>
             <h1 class="text-3xl font-bold text-secondary-900 mb-1">Vinted</h1>
@@ -59,7 +59,7 @@
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
               <div class="w-12 h-12 rounded-xl bg-cyan-100 flex items-center justify-center">
-                <i class="pi pi-send text-cyan-600 text-xl"></i>
+                <i class="pi pi-send text-cyan-600 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ stats.activePublications }}</h3>
@@ -69,7 +69,7 @@
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
               <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-                <i class="pi pi-eye text-primary-600 text-xl"></i>
+                <i class="pi pi-eye text-primary-600 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ stats.totalViews }}</h3>
@@ -79,7 +79,7 @@
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
               <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                <i class="pi pi-heart-fill text-red-500 text-xl"></i>
+                <i class="pi pi-heart-fill text-red-500 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ stats.totalFavourites }}</h3>
@@ -89,7 +89,7 @@
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
               <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-                <i class="pi pi-euro text-green-600 text-xl"></i>
+                <i class="pi pi-euro text-green-600 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ formatCurrency(stats.potentialRevenue) }}</h3>
@@ -138,7 +138,7 @@
           <template #content>
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-lg font-bold text-secondary-900">
-                <i class="pi pi-code mr-2"></i>
+                <i class="pi pi-code mr-2"/>
                 Résultat brut de la synchronisation
               </h3>
               <div class="flex gap-2">
@@ -216,7 +216,7 @@
               <pre class="text-xs text-gray-800 whitespace-pre-wrap break-words">{{ JSON.stringify(syncedProducts, null, 2) }}</pre>
             </div>
             <div class="mt-3 text-sm text-gray-600">
-              <i class="pi pi-info-circle mr-2"></i>
+              <i class="pi pi-info-circle mr-2"/>
               {{ syncedProducts.length }} produit(s) récupéré(s) depuis Vinted
             </div>
           </template>
@@ -226,7 +226,7 @@
         <Card v-else class="shadow-sm modern-rounded border border-gray-100">
           <template #content>
             <div class="text-center py-8">
-              <i class="pi pi-link text-gray-300 text-6xl mb-4"></i>
+              <i class="pi pi-link text-gray-300 text-6xl mb-4"/>
               <h3 class="text-xl font-bold text-secondary-900 mb-2">Connectez votre compte Vinted</h3>
               <p class="text-gray-600 mb-6">Commencez à publier vos produits sur Vinted en un clic</p>
               <Button
@@ -264,11 +264,11 @@
           :rows="10"
           :loading="vintedProductsLoading"
           class="modern-table"
-          stripedRows
+          striped-rows
         >
           <template #empty>
             <div class="text-center py-8">
-              <i class="pi pi-inbox text-gray-300 text-5xl mb-3"></i>
+              <i class="pi pi-inbox text-gray-300 text-5xl mb-3"/>
               <p class="text-gray-600 mb-2">Aucun produit publié sur Vinted</p>
               <p class="text-sm text-gray-400">Synchronisez vos produits depuis l'onglet Vue d'ensemble</p>
             </div>
@@ -282,9 +282,9 @@
                   :src="data.image_url"
                   :alt="data.title"
                   class="w-12 h-12 rounded-lg object-cover"
-                />
-                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center" v-else>
-                  <i class="pi pi-image text-gray-400"></i>
+                >
+                <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <i class="pi pi-image text-gray-400"/>
                 </div>
                 <div>
                   <p class="font-semibold text-secondary-900 line-clamp-1">{{ data.title || 'Sans titre' }}</p>
@@ -308,7 +308,7 @@
           <Column field="view_count" header="Vues" sortable>
             <template #body="{ data }">
               <div class="flex items-center gap-2">
-                <i class="pi pi-eye text-gray-400 text-sm"></i>
+                <i class="pi pi-eye text-gray-400 text-sm"/>
                 <span>{{ data.view_count || 0 }}</span>
               </div>
             </template>
@@ -317,7 +317,7 @@
           <Column field="favourite_count" header="Favoris" sortable>
             <template #body="{ data }">
               <div class="flex items-center gap-2">
-                <i class="pi pi-heart text-red-400 text-sm"></i>
+                <i class="pi pi-heart text-red-400 text-sm"/>
                 <span>{{ data.favourite_count || 0 }}</span>
               </div>
             </template>
@@ -342,21 +342,21 @@
             <template #body="{ data }">
               <div class="flex gap-2">
                 <Button
+                  v-tooltip.top="'Voir sur Vinted'"
                   icon="pi pi-external-link"
                   class="bg-gray-100 hover:bg-gray-200 text-secondary-900 border-0"
                   size="small"
                   rounded
                   text
-                  v-tooltip.top="'Voir sur Vinted'"
                   @click="openVintedProduct(data)"
                 />
                 <Button
+                  v-tooltip.top="'Supprimer'"
                   icon="pi pi-trash"
                   class="bg-red-100 hover:bg-red-200 text-red-700 border-0"
                   size="small"
                   rounded
                   text
-                  v-tooltip.top="'Supprimer'"
                   @click="confirmDeleteVinted(data)"
                 />
               </div>
@@ -377,37 +377,37 @@
                     <Dropdown
                       v-model="selectedMonth"
                       :options="monthOptions"
-                      optionLabel="label"
-                      optionValue="value"
-                      optionDisabled="disabled"
+                      option-label="label"
+                      option-value="value"
+                      option-disabled="disabled"
                       placeholder="Mois"
                       class="w-32"
                     />
                     <Dropdown
                       v-model="selectedYear"
                       :options="yearOptions"
-                      optionLabel="label"
-                      optionValue="value"
+                      option-label="label"
+                      option-value="value"
                       placeholder="Année"
                       class="w-28"
                     />
                     <Button
+                      v-tooltip.top="'Synchroniser un mois spécifique'"
                       label="Sync mois"
                       icon="pi pi-calendar"
                       class="bg-purple-500 hover:bg-purple-600 text-white border-0"
                       :loading="ordersLoading"
                       @click="handleSyncOrdersByMonth"
-                      v-tooltip.top="'Synchroniser un mois spécifique'"
                     />
                   </div>
                   <Divider layout="vertical" class="mx-2" />
                   <Button
+                    v-tooltip.top="'Synchroniser tout historique'"
                     label="Sync tout"
                     icon="pi pi-sync"
                     class="bg-cyan-500 hover:bg-cyan-600 text-white border-0 font-semibold"
                     :loading="ordersLoading"
                     @click="handleSyncOrders"
-                    v-tooltip.top="'Synchroniser tout historique'"
                   />
                 </div>
               </div>
@@ -416,7 +416,7 @@
               <div v-if="monthSyncResult" class="mb-4 p-4 rounded-xl" :class="monthSyncResult.error ? 'bg-red-50' : 'bg-green-50'">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-3">
-                    <i :class="monthSyncResult.error ? 'pi pi-times-circle text-red-500' : 'pi pi-check-circle text-green-500'" class="text-xl"></i>
+                    <i :class="monthSyncResult.error ? 'pi pi-times-circle text-red-500' : 'pi pi-check-circle text-green-500'" class="text-xl"/>
                     <div>
                       <p class="font-semibold" :class="monthSyncResult.error ? 'text-red-700' : 'text-green-700'">
                         {{ monthSyncResult.error ? 'Erreur' : `Sync ${monthSyncResult.month} terminée` }}
@@ -442,7 +442,7 @@
                 <div class="bg-green-50 rounded-xl p-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                      <i class="pi pi-shopping-bag text-green-600"></i>
+                      <i class="pi pi-shopping-bag text-green-600"/>
                     </div>
                     <div>
                       <p class="text-2xl font-bold text-green-700">{{ orders.length }}</p>
@@ -453,7 +453,7 @@
                 <div class="bg-blue-50 rounded-xl p-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                      <i class="pi pi-euro text-blue-600"></i>
+                      <i class="pi pi-euro text-blue-600"/>
                     </div>
                     <div>
                       <p class="text-2xl font-bold text-blue-700">{{ formatCurrency(totalOrdersRevenue) }}</p>
@@ -464,7 +464,7 @@
                 <div class="bg-purple-50 rounded-xl p-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                      <i class="pi pi-calculator text-purple-600"></i>
+                      <i class="pi pi-calculator text-purple-600"/>
                     </div>
                     <div>
                       <p class="text-2xl font-bold text-purple-700">{{ formatCurrency(averageOrderValue) }}</p>
@@ -482,10 +482,10 @@
             :loading="ordersLoading"
             paginator
             :rows="10"
-            :rowsPerPageOptions="[10, 25, 50]"
-            stripedRows
+            :rows-per-page-options="[10, 25, 50]"
+            striped-rows
             class="modern-table"
-            emptyMessage="Aucune vente trouvée. Cliquez sur 'Synchroniser les ventes' pour récupérer vos commandes."
+            empty-message="Aucune vente trouvée. Cliquez sur 'Synchroniser les ventes' pour récupérer vos commandes."
           >
             <Column field="transaction_id" header="Transaction" sortable>
               <template #body="{ data }">
@@ -500,9 +500,9 @@
                     :src="data.photo_url"
                     :alt="data.title"
                     class="w-10 h-10 rounded-lg object-cover"
-                  />
+                  >
                   <div v-else class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                    <i class="pi pi-image text-gray-400"></i>
+                    <i class="pi pi-image text-gray-400"/>
                   </div>
                   <span class="font-medium text-secondary-900">{{ data.title || 'Produit' }}</span>
                 </div>
@@ -535,10 +535,10 @@
               <template #body="{ data }">
                 <div class="flex gap-2">
                   <Button
+                    v-tooltip="'Voir sur Vinted'"
                     icon="pi pi-external-link"
                     class="bg-gray-100 hover:bg-gray-200 text-secondary-900 border-0"
                     size="small"
-                    v-tooltip="'Voir sur Vinted'"
                     @click="openVintedOrder(data)"
                   />
                 </div>
@@ -567,7 +567,7 @@
                 <div class="bg-orange-50 rounded-xl p-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                      <i class="pi pi-clock text-orange-600"></i>
+                      <i class="pi pi-clock text-orange-600"/>
                     </div>
                     <div>
                       <p class="text-2xl font-bold text-orange-700">{{ pendingShipments.length }}</p>
@@ -578,7 +578,7 @@
                 <div class="bg-blue-50 rounded-xl p-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                      <i class="pi pi-truck text-blue-600"></i>
+                      <i class="pi pi-truck text-blue-600"/>
                     </div>
                     <div>
                       <p class="text-2xl font-bold text-blue-700">{{ shippedOrders.length }}</p>
@@ -589,7 +589,7 @@
                 <div class="bg-green-50 rounded-xl p-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                      <i class="pi pi-check-circle text-green-600"></i>
+                      <i class="pi pi-check-circle text-green-600"/>
                     </div>
                     <div>
                       <p class="text-2xl font-bold text-green-700">{{ deliveredOrders.length }}</p>
@@ -600,7 +600,7 @@
                 <div class="bg-purple-50 rounded-xl p-4">
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                      <i class="pi pi-file-pdf text-purple-600"></i>
+                      <i class="pi pi-file-pdf text-purple-600"/>
                     </div>
                     <div>
                       <p class="text-2xl font-bold text-purple-700">{{ pendingShipments.length }}</p>
@@ -616,7 +616,7 @@
           <Card v-if="pendingShipments.length > 0" class="shadow-sm modern-rounded border border-orange-200 mb-6">
             <template #content>
               <div class="flex items-center gap-2 mb-4">
-                <i class="pi pi-exclamation-triangle text-orange-500"></i>
+                <i class="pi pi-exclamation-triangle text-orange-500"/>
                 <h3 class="text-lg font-bold text-orange-700">Ventes à expédier ({{ pendingShipments.length }})</h3>
               </div>
 
@@ -632,9 +632,9 @@
                       :src="order.photo_url"
                       :alt="order.title"
                       class="w-12 h-12 rounded-lg object-cover"
-                    />
+                    >
                     <div v-else class="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center">
-                      <i class="pi pi-image text-gray-400"></i>
+                      <i class="pi pi-image text-gray-400"/>
                     </div>
                     <div>
                       <p class="font-semibold text-secondary-900">{{ order.title || 'Produit' }}</p>
@@ -660,7 +660,7 @@
           <Card v-else class="shadow-sm modern-rounded border border-gray-100">
             <template #content>
               <div class="text-center py-8">
-                <i class="pi pi-inbox text-4xl text-gray-300 mb-4"></i>
+                <i class="pi pi-inbox text-4xl text-gray-300 mb-4"/>
                 <p class="text-gray-500">Aucune vente en attente d'expédition</p>
                 <p class="text-sm text-gray-400 mt-2">Les nouvelles ventes apparaîtront ici</p>
               </div>
@@ -675,7 +675,7 @@
                 :value="shippedOrders"
                 :rows="5"
                 paginator
-                stripedRows
+                striped-rows
                 class="modern-table"
               >
                 <Column field="title" header="Produit">
@@ -713,7 +713,7 @@
             <Card class="shadow-sm modern-rounded border border-gray-100">
               <template #content>
                 <h3 class="text-lg font-bold text-secondary-900 mb-4">
-                  <i class="pi pi-chart-line mr-2 text-primary-500"></i>
+                  <i class="pi pi-chart-line mr-2 text-primary-500"/>
                   Performance globale
                 </h3>
                 <div class="space-y-4">
@@ -741,28 +741,28 @@
             <Card class="shadow-sm modern-rounded border border-gray-100">
               <template #content>
                 <h3 class="text-lg font-bold text-secondary-900 mb-4">
-                  <i class="pi pi-chart-pie mr-2 text-cyan-500"></i>
+                  <i class="pi pi-chart-pie mr-2 text-cyan-500"/>
                   Répartition des produits
                 </h3>
                 <div class="space-y-3">
                   <div class="flex items-center gap-3">
-                    <div class="w-4 h-4 rounded-full bg-cyan-500"></div>
+                    <div class="w-4 h-4 rounded-full bg-cyan-500"/>
                     <span class="flex-1 text-gray-600">Publiés</span>
                     <span class="font-bold text-secondary-900">{{ stats.activePublications }}</span>
                     <span class="text-sm text-gray-400">{{ getPercentage(stats.activePublications, stats.totalProducts) }}%</span>
                   </div>
                   <div class="w-full bg-gray-100 rounded-full h-2">
-                    <div class="bg-cyan-500 h-2 rounded-full" :style="{ width: getPercentage(stats.activePublications, stats.totalProducts) + '%' }"></div>
+                    <div class="bg-cyan-500 h-2 rounded-full" :style="{ width: getPercentage(stats.activePublications, stats.totalProducts) + '%' }"/>
                   </div>
 
                   <div class="flex items-center gap-3 mt-4">
-                    <div class="w-4 h-4 rounded-full bg-green-500"></div>
+                    <div class="w-4 h-4 rounded-full bg-green-500"/>
                     <span class="flex-1 text-gray-600">Vendus</span>
                     <span class="font-bold text-secondary-900">{{ soldProductsCount }}</span>
                     <span class="text-sm text-gray-400">{{ getPercentage(soldProductsCount, stats.totalProducts) }}%</span>
                   </div>
                   <div class="w-full bg-gray-100 rounded-full h-2">
-                    <div class="bg-green-500 h-2 rounded-full" :style="{ width: getPercentage(soldProductsCount, stats.totalProducts) + '%' }"></div>
+                    <div class="bg-green-500 h-2 rounded-full" :style="{ width: getPercentage(soldProductsCount, stats.totalProducts) + '%' }"/>
                   </div>
                 </div>
               </template>
@@ -775,7 +775,7 @@
             <Card class="shadow-sm modern-rounded border border-gray-100">
               <template #content>
                 <h3 class="text-lg font-bold text-secondary-900 mb-4">
-                  <i class="pi pi-eye mr-2 text-blue-500"></i>
+                  <i class="pi pi-eye mr-2 text-blue-500"/>
                   Top 5 - Plus vus
                 </h3>
                 <div class="space-y-3">
@@ -792,7 +792,7 @@
                       :src="product.photo_url"
                       :alt="product.title"
                       class="w-10 h-10 rounded-lg object-cover"
-                    />
+                    >
                     <div class="flex-1 min-w-0">
                       <p class="font-medium text-secondary-900 truncate">{{ product.title }}</p>
                       <p class="text-sm text-gray-500">{{ formatCurrency(product.price) }}</p>
@@ -813,7 +813,7 @@
             <Card class="shadow-sm modern-rounded border border-gray-100">
               <template #content>
                 <h3 class="text-lg font-bold text-secondary-900 mb-4">
-                  <i class="pi pi-heart-fill mr-2 text-red-500"></i>
+                  <i class="pi pi-heart-fill mr-2 text-red-500"/>
                   Top 5 - Plus likés
                 </h3>
                 <div class="space-y-3">
@@ -830,7 +830,7 @@
                       :src="product.photo_url"
                       :alt="product.title"
                       class="w-10 h-10 rounded-lg object-cover"
-                    />
+                    >
                     <div class="flex-1 min-w-0">
                       <p class="font-medium text-secondary-900 truncate">{{ product.title }}</p>
                       <p class="text-sm text-gray-500">{{ formatCurrency(product.price) }}</p>
@@ -852,7 +852,7 @@
           <Card v-if="inactiveProducts.length > 0" class="shadow-sm modern-rounded border border-yellow-200 mt-6">
             <template #content>
               <div class="flex items-center gap-2 mb-4">
-                <i class="pi pi-exclamation-circle text-yellow-500"></i>
+                <i class="pi pi-exclamation-circle text-yellow-500"/>
                 <h3 class="text-lg font-bold text-yellow-700">Produits sans activité ({{ inactiveProducts.length }})</h3>
               </div>
               <p class="text-sm text-gray-600 mb-4">Ces produits n'ont reçu aucune vue. Pensez à les republier ou ajuster le prix.</p>
@@ -867,7 +867,7 @@
                     :src="product.photo_url"
                     :alt="product.title"
                     class="w-8 h-8 rounded object-cover"
-                  />
+                  >
                   <span class="text-sm text-secondary-900 truncate max-w-32">{{ product.title }}</span>
                 </div>
                 <span v-if="inactiveProducts.length > 10" class="text-sm text-gray-400 self-center">
@@ -952,7 +952,7 @@
             locale="fr-FR"
             class="w-full"
             :min="0"
-            :maxFractionDigits="2"
+            :max-fraction-digits="2"
           />
         </div>
       </div>
@@ -991,7 +991,7 @@
           :paginator="true"
           :rows="5"
           class="modern-table"
-          stripedRows
+          striped-rows
         >
           <Column field="title" header="Titre" sortable>
             <template #body="{ data }">
@@ -1001,9 +1001,9 @@
                   :src="data.photo.url"
                   :alt="data.title"
                   class="w-12 h-12 rounded-lg object-cover"
-                />
-                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center" v-else>
-                  <i class="pi pi-image text-gray-400"></i>
+                >
+                <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <i class="pi pi-image text-gray-400"/>
                 </div>
                 <div>
                   <p class="font-semibold text-secondary-900">{{ data.title }}</p>
@@ -1034,7 +1034,7 @@
           <Column field="view_count" header="Vues" sortable>
             <template #body="{ data }">
               <div class="flex items-center gap-2">
-                <i class="pi pi-eye text-gray-400 text-sm"></i>
+                <i class="pi pi-eye text-gray-400 text-sm"/>
                 <span>{{ data.view_count || 0 }}</span>
               </div>
             </template>
@@ -1043,7 +1043,7 @@
           <Column field="favourite_count" header="Favoris" sortable>
             <template #body="{ data }">
               <div class="flex items-center gap-2">
-                <i class="pi pi-heart text-gray-400 text-sm"></i>
+                <i class="pi pi-heart text-gray-400 text-sm"/>
                 <span>{{ data.favourite_count || 0 }}</span>
               </div>
             </template>
@@ -1052,7 +1052,7 @@
       </div>
 
       <div v-else class="text-center py-8">
-        <i class="pi pi-inbox text-gray-300 text-5xl mb-3"></i>
+        <i class="pi pi-inbox text-gray-300 text-5xl mb-3"/>
         <p class="text-gray-600">Aucun produit trouvé</p>
       </div>
 

@@ -8,6 +8,16 @@
   </div>
 </template>
 
+<script setup lang="ts">
+// Nuxt auto-importe useAuthStore depuis stores/
+const authStore = useAuthStore()
+
+// Charger la session au démarrage
+onMounted(() => {
+  authStore.loadFromStorage()
+})
+</script>
+
 <style>
 /* ============================================
    PAGE TRANSITIONS CONTEXTUELLES
@@ -105,13 +115,3 @@
   transform: scale(0.98);
 }
 </style>
-
-<script setup lang="ts">
-// Nuxt auto-importe useAuthStore depuis stores/
-const authStore = useAuthStore()
-
-// Charger la session au démarrage
-onMounted(() => {
-  authStore.loadFromStorage()
-})
-</script>

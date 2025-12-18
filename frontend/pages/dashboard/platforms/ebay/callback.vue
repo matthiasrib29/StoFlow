@@ -13,7 +13,7 @@
           <!-- Success -->
           <div v-else-if="isSuccess" class="space-y-4">
             <div class="w-20 h-20 mx-auto rounded-full bg-green-100 flex items-center justify-center">
-              <i class="pi pi-check text-green-600 text-4xl"></i>
+              <i class="pi pi-check text-green-600 text-4xl"/>
             </div>
             <h2 class="text-xl font-bold text-secondary-900">Connexion réussie !</h2>
             <p class="text-gray-600">Votre compte eBay a été connecté avec succès</p>
@@ -23,7 +23,7 @@
           <!-- Error -->
           <div v-else-if="error" class="space-y-4">
             <div class="w-20 h-20 mx-auto rounded-full bg-red-100 flex items-center justify-center">
-              <i class="pi pi-times text-red-600 text-4xl"></i>
+              <i class="pi pi-times text-red-600 text-4xl"/>
             </div>
             <h2 class="text-xl font-bold text-secondary-900">Erreur de connexion</h2>
             <p class="text-red-600">{{ error }}</p>

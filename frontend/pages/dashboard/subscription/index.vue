@@ -23,7 +23,7 @@
         <template #title>
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <i class="pi pi-star-fill text-primary-400 text-2xl"></i>
+              <i class="pi pi-star-fill text-primary-400 text-2xl"/>
               <span class="text-2xl font-bold text-secondary-900">Votre abonnement</span>
             </div>
             <Tag :value="currentTier.toUpperCase()" :severity="getTierSeverity(currentTier)" class="text-sm font-bold px-4 py-2" />
@@ -34,13 +34,13 @@
             <!-- Products Quota -->
             <div class="p-4 bg-secondary-50 rounded-lg border-l-4 border-primary-400">
               <div class="flex items-center gap-3 mb-2">
-                <i class="pi pi-box text-primary-400 text-xl"></i>
+                <i class="pi pi-box text-primary-400 text-xl"/>
                 <span class="text-sm text-gray-600 font-medium">Produits</span>
               </div>
               <p class="text-2xl font-bold text-secondary-900">{{ currentProducts }} / {{ maxProducts }}</p>
               <ProgressBar
                 :value="productProgress"
-                :showValue="false"
+                :show-value="false"
                 class="mt-2 h-2"
                 :pt="{
                   value: { class: 'bg-primary-400' }
@@ -51,13 +51,13 @@
             <!-- Platforms Quota -->
             <div class="p-4 bg-secondary-50 rounded-lg border-l-4 border-primary-400">
               <div class="flex items-center gap-3 mb-2">
-                <i class="pi pi-globe text-primary-400 text-xl"></i>
+                <i class="pi pi-globe text-primary-400 text-xl"/>
                 <span class="text-sm text-gray-600 font-medium">Plateformes</span>
               </div>
               <p class="text-2xl font-bold text-secondary-900">{{ currentPlatforms }} / {{ maxPlatforms }}</p>
               <ProgressBar
                 :value="platformProgress"
-                :showValue="false"
+                :show-value="false"
                 class="mt-2 h-2"
                 :pt="{
                   value: { class: 'bg-primary-400' }
@@ -68,7 +68,7 @@
             <!-- AI Credits -->
             <div class="p-4 bg-secondary-50 rounded-lg border-l-4 border-primary-400">
               <div class="flex items-center gap-3 mb-2">
-                <i class="pi pi-sparkles text-primary-400 text-xl"></i>
+                <i class="pi pi-sparkles text-primary-400 text-xl"/>
                 <span class="text-sm text-gray-600 font-medium">Crédits IA</span>
               </div>
               <p class="text-2xl font-bold text-secondary-900">{{ aiCreditsRemaining }}</p>
@@ -82,7 +82,7 @@
       <Card class="shadow-md modern-rounded">
         <template #title>
           <div class="flex items-center gap-3">
-            <i class="pi pi-arrow-up text-primary-400 text-xl"></i>
+            <i class="pi pi-arrow-up text-primary-400 text-xl"/>
             <span class="text-xl font-bold text-secondary-900">Changer d'abonnement</span>
           </div>
         </template>
@@ -116,15 +116,15 @@
               <!-- Features -->
               <div class="space-y-3 mb-6">
                 <div class="flex items-center gap-2">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span class="text-sm text-gray-700">{{ tier.max_products }} produits</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span class="text-sm text-gray-700">{{ tier.max_platforms }} plateformes</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span class="text-sm text-gray-700">{{ tier.ai_credits_monthly }} crédits IA/mois</span>
                 </div>
               </div>
@@ -153,7 +153,7 @@
       <Card class="shadow-md modern-rounded">
         <template #title>
           <div class="flex items-center gap-3">
-            <i class="pi pi-shopping-cart text-primary-400 text-xl"></i>
+            <i class="pi pi-shopping-cart text-primary-400 text-xl"/>
             <span class="text-xl font-bold text-secondary-900">Acheter des crédits IA supplémentaires</span>
           </div>
         </template>
@@ -191,15 +191,15 @@
               <!-- Features -->
               <div class="space-y-2 mb-6">
                 <div class="flex items-center gap-2 text-sm text-gray-600">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Pas d'expiration</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-600">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Utilisable immédiatement</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-600">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Cumulable</span>
                 </div>
               </div>
@@ -253,14 +253,14 @@
         <Button
           label="Annuler"
           severity="secondary"
-          @click="showUpgradeDialog = false"
           :disabled="isUpgrading"
+          @click="showUpgradeDialog = false"
         />
         <Button
           label="Confirmer"
           class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
-          @click="confirmUpgrade"
           :loading="isUpgrading"
+          @click="confirmUpgrade"
         />
       </template>
     </Dialog>

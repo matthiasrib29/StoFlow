@@ -6,11 +6,11 @@
       ref="animationContainer"
       class="animation-container mx-auto mb-6"
       :style="{ width: animationSize, height: animationSize }"
-    ></div>
+    />
 
     <!-- Fallback Icon si pas d'animation -->
     <div v-else class="fallback-icon mb-6">
-      <i :class="[icon, 'text-6xl', iconColorClass]"></i>
+      <i :class="[icon, 'text-6xl', iconColorClass]"/>
     </div>
 
     <!-- Title -->

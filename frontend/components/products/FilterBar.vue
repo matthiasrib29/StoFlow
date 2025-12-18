@@ -5,12 +5,12 @@
         <!-- Search -->
         <div class="flex-1 min-w-0">
           <div class="relative h-[42px]">
-            <i class="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-10"></i>
+            <i class="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-10"/>
             <InputText
               :model-value="search"
-              @update:model-value="$emit('update:search', $event)"
               placeholder="Rechercher..."
               class="search-input w-full h-full"
+              @update:model-value="$emit('update:search', $event)"
             />
           </div>
         </div>
@@ -19,11 +19,11 @@
         <div class="w-full md:w-40">
           <Select
             :model-value="category"
-            @update:model-value="$emit('update:category', $event)"
             :options="categoryOptions"
             placeholder="Catégorie"
             class="w-full h-[42px]"
-            showClear
+            show-clear
+            @update:model-value="$emit('update:category', $event)"
           />
         </div>
 
@@ -31,13 +31,13 @@
         <div class="w-full md:w-32">
           <Select
             :model-value="status"
-            @update:model-value="$emit('update:status', $event)"
             :options="statusOptions"
-            optionLabel="label"
-            optionValue="value"
+            option-label="label"
+            option-value="value"
             placeholder="Statut"
             class="w-full h-[42px]"
-            showClear
+            show-clear
+            @update:model-value="$emit('update:status', $event)"
           />
         </div>
 
@@ -48,14 +48,14 @@
             :class="['view-btn', view === 'table' ? 'active' : '']"
             @click="$emit('update:view', 'table')"
           >
-            <i class="pi pi-list"></i>
+            <i class="pi pi-list"/>
           </button>
           <button
             type="button"
             :class="['view-btn', view === 'grid' ? 'active' : '']"
             @click="$emit('update:view', 'grid')"
           >
-            <i class="pi pi-th-large"></i>
+            <i class="pi pi-th-large"/>
           </button>
         </div>
       </div>

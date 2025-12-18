@@ -3,7 +3,7 @@
     <!-- Breadcrumb -->
     <div class="mb-6">
       <NuxtLink to="/dashboard/products" class="text-primary-600 hover:underline">
-        <i class="pi pi-arrow-left mr-2"></i>
+        <i class="pi pi-arrow-left mr-2"/>
         Retour aux produits
       </NuxtLink>
     </div>
@@ -18,7 +18,7 @@
     <Card v-else-if="productsStore.error || !product" class="bg-secondary-50 border border-primary-200">
       <template #content>
         <div class="text-center text-secondary-600">
-          <i class="pi pi-exclamation-triangle text-4xl mb-3"></i>
+          <i class="pi pi-exclamation-triangle text-4xl mb-3"/>
           <p>{{ productsStore.error || 'Produit non trouvé' }}</p>
         </div>
       </template>
@@ -33,7 +33,7 @@
             :src="product.image_url"
             :alt="product.title"
             class="w-full h-auto rounded-lg"
-          />
+          >
         </template>
       </Card>
 

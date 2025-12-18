@@ -5,7 +5,7 @@
     </div>
 
     <div v-else-if="!product" class="text-center py-20">
-      <i class="pi pi-exclamation-circle text-gray-300 text-6xl mb-4"></i>
+      <i class="pi pi-exclamation-circle text-gray-300 text-6xl mb-4"/>
       <h2 class="text-2xl font-bold text-secondary-900 mb-2">Produit introuvable</h2>
       <p class="text-gray-600 mb-6">Ce produit n'existe pas ou a été supprimé</p>
       <Button

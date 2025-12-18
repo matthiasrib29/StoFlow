@@ -6,7 +6,7 @@
           <!-- Cancel Icon -->
           <div class="flex justify-center">
             <div class="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center">
-              <i class="pi pi-times text-orange-600 text-4xl"></i>
+              <i class="pi pi-times text-orange-600 text-4xl"/>
             </div>
           </div>
 
@@ -24,7 +24,7 @@
           <div class="p-6 bg-orange-50 rounded-lg">
             <div class="space-y-2">
               <div class="flex items-center justify-center gap-2 text-orange-700">
-                <i class="pi pi-info-circle"></i>
+                <i class="pi pi-info-circle"/>
                 <span class="font-semibold">Aucun montant n'a été débité</span>
               </div>
               <p class="text-sm text-gray-600">
@@ -38,15 +38,15 @@
             <p class="text-sm font-medium text-gray-700 mb-2">Vous avez annulé car :</p>
             <ul class="space-y-2 text-sm text-gray-600">
               <li class="flex items-start gap-2">
-                <i class="pi pi-circle-fill text-xs mt-1"></i>
+                <i class="pi pi-circle-fill text-xs mt-1"/>
                 <span>Vous souhaitez choisir un autre abonnement ?</span>
               </li>
               <li class="flex items-start gap-2">
-                <i class="pi pi-circle-fill text-xs mt-1"></i>
+                <i class="pi pi-circle-fill text-xs mt-1"/>
                 <span>Vous avez des questions sur les fonctionnalités ?</span>
               </li>
               <li class="flex items-start gap-2">
-                <i class="pi pi-circle-fill text-xs mt-1"></i>
+                <i class="pi pi-circle-fill text-xs mt-1"/>
                 <span>Vous rencontrez un problème technique ?</span>
               </li>
             </ul>
@@ -75,11 +75,11 @@
               <p class="font-medium text-gray-700">Besoin d'aide ?</p>
               <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <a href="#" class="flex items-center gap-2 text-primary-400 hover:underline">
-                  <i class="pi pi-envelope"></i>
+                  <i class="pi pi-envelope"/>
                   <span>Contactez le support</span>
                 </a>
                 <a href="#" class="flex items-center gap-2 text-primary-400 hover:underline">
-                  <i class="pi pi-question-circle"></i>
+                  <i class="pi pi-question-circle"/>
                   <span>FAQ</span>
                 </a>
               </div>

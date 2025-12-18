@@ -2,17 +2,17 @@
   <Card class="shadow-md">
     <template #title>
       <div class="flex items-center gap-2">
-        <i class="pi pi-clock text-primary-500"></i>
+        <i class="pi pi-clock text-primary-500"/>
         <span class="text-secondary-900 font-bold">Activité récente</span>
       </div>
     </template>
     <template #content>
       <div v-if="isLoading" class="text-center py-8">
-        <i class="pi pi-spin pi-spinner text-3xl text-primary-500"></i>
+        <i class="pi pi-spin pi-spinner text-3xl text-primary-500"/>
       </div>
 
       <div v-else-if="activities.length === 0" class="text-center py-8">
-        <i class="pi pi-inbox text-4xl text-gray-400 mb-3"></i>
+        <i class="pi pi-inbox text-4xl text-gray-400 mb-3"/>
         <p class="text-gray-500">Aucune activité récente</p>
       </div>
 
@@ -22,11 +22,12 @@
           :key="activity.id"
           class="flex items-start gap-4 p-3 rounded-lg hover:bg-gray-50 transition"
         >
-          <div :class="[
+          <div
+:class="[
             'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
             getActivityBgColor(activity.color)
           ]">
-            <i :class="[activity.icon, 'text-lg', getActivityTextColor(activity.color)]"></i>
+            <i :class="[activity.icon, 'text-lg', getActivityTextColor(activity.color)]"/>
           </div>
 
           <div class="flex-1 min-w-0">
@@ -43,7 +44,7 @@
           class="text-sm font-bold text-primary-600 hover:text-primary-700"
         >
           Voir toute l'activité
-          <i class="pi pi-arrow-right ml-1"></i>
+          <i class="pi pi-arrow-right ml-1"/>
         </NuxtLink>
       </div>
     </template>

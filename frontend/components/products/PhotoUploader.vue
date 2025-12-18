@@ -13,7 +13,7 @@
       >
         <div class="text-center">
           <div class="w-32 h-32 mx-auto mb-4 bg-white rounded-full flex items-center justify-center animate-bounce">
-            <i class="pi pi-cloud-download text-6xl text-primary-500"></i>
+            <i class="pi pi-cloud-download text-6xl text-primary-500"/>
           </div>
           <p class="text-2xl font-bold text-secondary-900">Déposez vos photos ici !</p>
         </div>
@@ -25,11 +25,11 @@
       <!-- Navigation Button Left -->
       <button
         v-if="canScrollLeft"
-        @click="scrollLeft"
         class="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-primary-400 hover:bg-primary-500 text-secondary-900 rounded-full p-3 shadow-lg transition-all duration-300 hover:scale-110"
         aria-label="Défiler à gauche"
+        @click="scrollLeft"
       >
-        <i class="pi pi-chevron-left text-xl font-bold"></i>
+        <i class="pi pi-chevron-left text-xl font-bold"/>
       </button>
 
       <!-- Photos Container -->
@@ -45,15 +45,15 @@
             class="relative group rounded-lg overflow-hidden shadow-md flex-shrink-0 hover:shadow-xl transition-shadow duration-300"
             style="width: 280px; height: 280px;"
           >
-            <img :src="photo.preview" class="w-full h-full object-cover" />
+            <img :src="photo.preview" class="w-full h-full object-cover" >
 
             <!-- Delete Button - Top Right -->
             <button
-              @click="removePhoto(index)"
               class="absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
               aria-label="Supprimer la photo"
+              @click="removePhoto(index)"
             >
-              <i class="pi pi-times text-sm font-bold"></i>
+              <i class="pi pi-times text-sm font-bold"/>
             </button>
 
             <!-- Main Badge - Top Left -->
@@ -67,11 +67,11 @@
       <!-- Navigation Button Right -->
       <button
         v-if="canScrollRight"
-        @click="scrollRight"
         class="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-primary-400 hover:bg-primary-500 text-secondary-900 rounded-full p-3 shadow-lg transition-all duration-300 hover:scale-110"
         aria-label="Défiler à droite"
+        @click="scrollRight"
       >
-        <i class="pi pi-chevron-right text-xl font-bold"></i>
+        <i class="pi pi-chevron-right text-xl font-bold"/>
       </button>
     </div>
 
@@ -80,7 +80,7 @@
       <div class="flex flex-col items-center justify-center gap-4">
         <!-- Icon -->
         <div class="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 bg-primary-400">
-          <i class="pi pi-cloud-upload text-4xl text-secondary-900"></i>
+          <i class="pi pi-cloud-upload text-4xl text-secondary-900"/>
         </div>
 
         <!-- Text -->
@@ -104,11 +104,11 @@
             multiple
             accept="image/*"
             class="hidden"
-            @change="handleFileUpload"
             :disabled="photos.length >= maxPhotos"
-          />
+            @change="handleFileUpload"
+          >
           <div class="flex items-center gap-3 px-6 py-3 bg-primary-400 hover:bg-primary-500 text-secondary-900 font-bold rounded-lg transition-all duration-200 hover:scale-105">
-            <i class="pi pi-upload text-xl"></i>
+            <i class="pi pi-upload text-xl"/>
             <span>Sélectionner des photos</span>
           </div>
         </label>
