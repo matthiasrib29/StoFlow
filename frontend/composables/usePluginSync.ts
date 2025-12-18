@@ -21,7 +21,7 @@ if (typeof window !== 'undefined' && !window.chrome && typeof browser !== 'undef
  * Envoie le token au plugin (appelé après login)
  */
 export const syncTokenToPlugin = async (accessToken: string, refreshToken: string) => {
-    if (!process.client) return
+    if (!import.meta.client) return
 
     console.log('');
     console.log('🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀');
@@ -81,7 +81,7 @@ export const syncTokenToPlugin = async (accessToken: string, refreshToken: strin
  * Notifie le plugin lors de la déconnexion
  */
 export const syncLogoutToPlugin = async () => {
-  if (!process.client) return
+  if (!import.meta.client) return
 
   console.log('');
   console.log('🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴');
@@ -128,7 +128,7 @@ export const syncLogoutToPlugin = async () => {
  * Vérifie si le plugin est installé
  */
 export const isPluginInstalled = async (): Promise<boolean> => {
-  if (!process.client) return false
+  if (!import.meta.client) return false
 
   try {
     if (typeof chrome !== 'undefined' && chrome.runtime) {

@@ -1,7 +1,7 @@
 <template>
   <div class="bg-white rounded-lg shadow-sm p-6">
     <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-      <i class="pi pi-arrows-alt"></i>
+      <i class="pi pi-arrows-alt"/>
       Dimensions (cm)
     </h3>
 
@@ -13,12 +13,12 @@
         <InputNumber
           id="dim1"
           :model-value="dim1"
-          @update:model-value="handleDimUpdate('dim1', $event)"
-          @blur="validation?.touch('dim1')"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('dim1') }"
           :min="0"
           suffix=" cm"
+          @update:model-value="handleDimUpdate('dim1', $event)"
+          @blur="validation?.touch('dim1')"
         />
         <small v-if="validation?.hasError('dim1')" class="p-error">
           {{ validation?.getError('dim1') }}
@@ -32,12 +32,12 @@
         <InputNumber
           id="dim2"
           :model-value="dim2"
-          @update:model-value="handleDimUpdate('dim2', $event)"
-          @blur="validation?.touch('dim2')"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('dim2') }"
           :min="0"
           suffix=" cm"
+          @update:model-value="handleDimUpdate('dim2', $event)"
+          @blur="validation?.touch('dim2')"
         />
         <small v-if="validation?.hasError('dim2')" class="p-error">
           {{ validation?.getError('dim2') }}
@@ -51,12 +51,12 @@
         <InputNumber
           id="dim3"
           :model-value="dim3"
-          @update:model-value="handleDimUpdate('dim3', $event)"
-          @blur="validation?.touch('dim3')"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('dim3') }"
           :min="0"
           suffix=" cm"
+          @update:model-value="handleDimUpdate('dim3', $event)"
+          @blur="validation?.touch('dim3')"
         />
         <small v-if="validation?.hasError('dim3')" class="p-error">
           {{ validation?.getError('dim3') }}
@@ -70,12 +70,12 @@
         <InputNumber
           id="dim4"
           :model-value="dim4"
-          @update:model-value="handleDimUpdate('dim4', $event)"
-          @blur="validation?.touch('dim4')"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('dim4') }"
           :min="0"
           suffix=" cm"
+          @update:model-value="handleDimUpdate('dim4', $event)"
+          @blur="validation?.touch('dim4')"
         />
         <small v-if="validation?.hasError('dim4')" class="p-error">
           {{ validation?.getError('dim4') }}
@@ -89,12 +89,12 @@
         <InputNumber
           id="dim5"
           :model-value="dim5"
-          @update:model-value="handleDimUpdate('dim5', $event)"
-          @blur="validation?.touch('dim5')"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('dim5') }"
           :min="0"
           suffix=" cm"
+          @update:model-value="handleDimUpdate('dim5', $event)"
+          @blur="validation?.touch('dim5')"
         />
         <small v-if="validation?.hasError('dim5')" class="p-error">
           {{ validation?.getError('dim5') }}
@@ -108,12 +108,12 @@
         <InputNumber
           id="dim6"
           :model-value="dim6"
-          @update:model-value="handleDimUpdate('dim6', $event)"
-          @blur="validation?.touch('dim6')"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('dim6') }"
           :min="0"
           suffix=" cm"
+          @update:model-value="handleDimUpdate('dim6', $event)"
+          @blur="validation?.touch('dim6')"
         />
         <small v-if="validation?.hasError('dim6')" class="p-error">
           {{ validation?.getError('dim6') }}

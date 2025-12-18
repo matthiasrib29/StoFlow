@@ -3,14 +3,14 @@
     v-model:visible="isVisible"
     modal
     :closable="true"
-    :dismissableMask="true"
+    :dismissable-mask="true"
     :style="{ width: '450px' }"
     :draggable="false"
   >
     <template #header>
       <div class="flex items-center gap-3">
         <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-          <i class="pi pi-user text-primary-600 text-xl"></i>
+          <i class="pi pi-user text-primary-600 text-xl"/>
         </div>
         <div>
           <h3 class="text-2xl font-bold text-secondary-900">
@@ -55,7 +55,7 @@
             id="login-password"
             v-model="loginForm.password"
             :feedback="false"
-            toggleMask
+            toggle-mask
             placeholder="••••••••"
             class="w-full"
             :invalid="!!loginErrors.password"
@@ -105,14 +105,14 @@
             id="register-password"
             v-model="registerForm.password"
             :feedback="true"
-            toggleMask
+            toggle-mask
             placeholder="••••••••"
             class="w-full"
             :invalid="!!registerErrors.password"
-            promptLabel="Entrez un mot de passe"
-            weakLabel="Faible"
-            mediumLabel="Moyen"
-            strongLabel="Fort"
+            prompt-label="Entrez un mot de passe"
+            weak-label="Faible"
+            medium-label="Moyen"
+            strong-label="Fort"
           >
             <template #footer>
               <Divider />
@@ -145,15 +145,15 @@
           label="Annuler"
           icon="pi pi-times"
           class="bg-gray-200 hover:bg-gray-300 text-secondary-900 border-0"
-          @click="close"
           :disabled="isLoading"
+          @click="close"
         />
         <Button
           :label="isLoginMode ? 'Se connecter' : 'S\'inscrire'"
           :icon="isLoading ? 'pi pi-spin pi-spinner' : 'pi pi-check'"
           class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
-          @click="isLoginMode ? handleLogin() : handleRegister()"
           :disabled="isLoading"
+          @click="isLoginMode ? handleLogin() : handleRegister()"
         />
       </div>
     </template>

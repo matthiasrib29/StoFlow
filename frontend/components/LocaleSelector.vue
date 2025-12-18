@@ -3,10 +3,10 @@
     <Select
       v-model="selectedLocale"
       :options="localeOptions"
-      optionLabel="label"
-      optionValue="code"
-      @change="handleLocaleChange"
+      option-label="label"
+      option-value="code"
       class="min-w-[160px]"
+      @change="handleLocaleChange"
     >
       <template #value="slotProps">
         <div v-if="slotProps.value" class="flex items-center gap-2">

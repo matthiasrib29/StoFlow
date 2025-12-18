@@ -3,7 +3,7 @@
     <template #title>
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <i class="pi pi-link text-primary-500"></i>
+          <i class="pi pi-link text-primary-500"/>
           <span class="text-secondary-900 font-bold">Intégrations</span>
         </div>
         <NuxtLink
@@ -11,7 +11,7 @@
           class="text-sm font-bold text-primary-600 hover:text-primary-700"
         >
           Gérer
-          <i class="pi pi-arrow-right ml-1"></i>
+          <i class="pi pi-arrow-right ml-1"/>
         </NuxtLink>
       </div>
     </template>
@@ -23,11 +23,12 @@
           class="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-primary-400 transition"
         >
           <div class="flex items-center gap-3">
-            <div :class="[
+            <div
+:class="[
               'w-10 h-10 rounded-full flex items-center justify-center',
               getPlatformColor(integration.platform).bg
             ]">
-              <i :class="[getPlatformIcon(integration.platform), 'text-lg', getPlatformColor(integration.platform).text]"></i>
+              <i :class="[getPlatformIcon(integration.platform), 'text-lg', getPlatformColor(integration.platform).text]"/>
             </div>
 
             <div>

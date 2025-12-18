@@ -11,7 +11,7 @@
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-            <i class="pi pi-link text-primary-500 text-xl"></i>
+            <i class="pi pi-link text-primary-500 text-xl"/>
           </div>
         </div>
         <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ connectedPlatforms }}</h3>
@@ -21,7 +21,7 @@
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-            <i class="pi pi-send text-secondary-700 text-xl"></i>
+            <i class="pi pi-send text-secondary-700 text-xl"/>
           </div>
         </div>
         <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ totalPublications }}</h3>
@@ -31,7 +31,7 @@
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-            <i class="pi pi-eye text-primary-500 text-xl"></i>
+            <i class="pi pi-eye text-primary-500 text-xl"/>
           </div>
         </div>
         <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ totalViews }}</h3>
@@ -41,7 +41,7 @@
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
           <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-            <i class="pi pi-check-circle text-secondary-700 text-xl"></i>
+            <i class="pi pi-check-circle text-secondary-700 text-xl"/>
           </div>
         </div>
         <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ totalSales }}</h3>
@@ -60,8 +60,8 @@
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-4">
               <div :class="['w-16 h-16 rounded-2xl flex items-center justify-center', platform.bgColor, platform.logo ? 'border border-gray-100 p-2' : '']">
-                <img v-if="platform.logo" :src="platform.logo" :alt="platform.name" class="w-full h-full object-contain" />
-                <i v-else :class="[platform.icon, 'text-3xl', platform.iconColor]"></i>
+                <img v-if="platform.logo" :src="platform.logo" :alt="platform.name" class="w-full h-full object-contain" >
+                <i v-else :class="[platform.icon, 'text-3xl', platform.iconColor]"/>
               </div>
               <div>
                 <h3 class="text-xl font-bold text-secondary-900 mb-1">{{ platform.name }}</h3>

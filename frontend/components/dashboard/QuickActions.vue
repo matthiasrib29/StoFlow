@@ -2,7 +2,7 @@
   <Card class="shadow-md">
     <template #title>
       <div class="flex items-center gap-2">
-        <i class="pi pi-bolt text-primary-500"></i>
+        <i class="pi pi-bolt text-primary-500"/>
         <span class="text-secondary-900 font-bold">Actions rapides</span>
       </div>
     </template>
@@ -11,15 +11,16 @@
         <button
           v-for="action in actions"
           :key="action.label"
-          @click="handleAction(action.action)"
           class="flex flex-col items-center gap-3 p-4 rounded-lg hover:bg-primary-50 transition group"
+          @click="handleAction(action.action)"
         >
-          <div :class="[
+          <div
+:class="[
             'w-12 h-12 rounded-full flex items-center justify-center transition',
             action.bgColor,
             'group-hover:scale-110'
           ]">
-            <i :class="[action.icon, 'text-2xl', action.iconColor]"></i>
+            <i :class="[action.icon, 'text-2xl', action.iconColor]"/>
           </div>
           <span class="text-sm font-bold text-secondary-900 text-center">
             {{ action.label }}

@@ -15,7 +15,7 @@ export const useApi = () => {
    * Récupère le token d'accès depuis localStorage
    */
   const getAccessToken = (): string | null => {
-    if (process.client) {
+    if (import.meta.client) {
       return localStorage.getItem('token')
     }
     return null
@@ -25,7 +25,7 @@ export const useApi = () => {
    * Récupère le refresh token depuis localStorage
    */
   const getRefreshToken = (): string | null => {
-    if (process.client) {
+    if (import.meta.client) {
       return localStorage.getItem('refresh_token')
     }
     return null
@@ -35,7 +35,7 @@ export const useApi = () => {
    * Sauvegarde les tokens dans localStorage
    */
   const saveTokens = (accessToken: string, refreshToken: string) => {
-    if (process.client) {
+    if (import.meta.client) {
       localStorage.setItem('token', accessToken)
       localStorage.setItem('refresh_token', refreshToken)
     }
@@ -45,7 +45,7 @@ export const useApi = () => {
    * Supprime les tokens du localStorage
    */
   const clearTokens = () => {
-    if (process.client) {
+    if (import.meta.client) {
       localStorage.removeItem('token')
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('user')
@@ -112,7 +112,7 @@ export const useApi = () => {
         } else {
           // Le refresh a échoué, déconnecter l'utilisateur
           clearTokens()
-          if (process.client) {
+          if (import.meta.client) {
             window.location.href = '/login'
           }
           throw new Error('Session expirée, veuillez vous reconnecter')
@@ -162,7 +162,7 @@ export const useApi = () => {
 
       const data = await response.json()
 
-      if (process.client) {
+      if (import.meta.client) {
         localStorage.setItem('token', data.access_token)
       }
 

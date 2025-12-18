@@ -6,7 +6,7 @@
           <!-- Success Icon -->
           <div class="flex justify-center">
             <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-              <i class="pi pi-check text-green-600 text-4xl"></i>
+              <i class="pi pi-check text-green-600 text-4xl"/>
             </div>
           </div>
 
@@ -31,7 +31,7 @@
             <div class="p-6 bg-green-50 rounded-lg">
               <div class="space-y-2">
                 <div class="flex items-center justify-center gap-2 text-green-700">
-                  <i class="pi pi-check-circle"></i>
+                  <i class="pi pi-check-circle"/>
                   <span class="font-semibold">Paiement confirmé</span>
                 </div>
                 <p class="text-sm text-gray-600">
@@ -62,11 +62,11 @@
           <div class="pt-6 border-t">
             <div class="space-y-2 text-sm text-gray-600">
               <div class="flex items-center justify-center gap-2">
-                <i class="pi pi-envelope"></i>
+                <i class="pi pi-envelope"/>
                 <span>Un reçu a été envoyé à votre adresse email</span>
               </div>
               <div class="flex items-center justify-center gap-2">
-                <i class="pi pi-shield"></i>
+                <i class="pi pi-shield"/>
                 <span>Transaction sécurisée par Stripe</span>
               </div>
             </div>

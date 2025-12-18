@@ -45,7 +45,7 @@ export const useLocaleStore = defineStore('locale', {
       this.currentLocale = locale
 
       // Sauvegarder dans localStorage pour persistance
-      if (process.client) {
+      if (import.meta.client) {
         localStorage.setItem('user-locale', locale)
       }
     },
@@ -54,7 +54,7 @@ export const useLocaleStore = defineStore('locale', {
      * Initialise la locale depuis localStorage ou utilise le défaut
      */
     initLocale() {
-      if (process.client) {
+      if (import.meta.client) {
         const savedLocale = localStorage.getItem('user-locale') as SupportedLocale
         if (savedLocale && AVAILABLE_LOCALES.some(l => l.code === savedLocale)) {
           this.currentLocale = savedLocale

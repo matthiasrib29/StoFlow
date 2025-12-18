@@ -24,7 +24,7 @@
               <!-- Photo de profil -->
               <div class="flex items-center gap-6">
                 <div class="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                  <i class="pi pi-user text-primary-600 text-4xl"></i>
+                  <i class="pi pi-user text-primary-600 text-4xl"/>
                 </div>
                 <div>
                   <h3 class="text-lg font-bold text-secondary-900 mb-1">Photo de profil</h3>
@@ -173,7 +173,7 @@
                 <Password
                   v-model="security.currentPassword"
                   placeholder="Votre mot de passe actuel"
-                  toggleMask
+                  toggle-mask
                   class="w-full"
                   :feedback="false"
                 />
@@ -184,7 +184,7 @@
                 <Password
                   v-model="security.newPassword"
                   placeholder="Nouveau mot de passe"
-                  toggleMask
+                  toggle-mask
                   class="w-full"
                 />
               </div>
@@ -194,7 +194,7 @@
                 <Password
                   v-model="security.confirmPassword"
                   placeholder="Confirmer le mot de passe"
-                  toggleMask
+                  toggle-mask
                   class="w-full"
                   :feedback="false"
                 />
@@ -222,8 +222,8 @@
                 <Select
                   v-model="preferences.language"
                   :options="languages"
-                  optionLabel="name"
-                  optionValue="code"
+                  option-label="name"
+                  option-value="code"
                   placeholder="Sélectionnez une langue"
                   class="w-full md:w-80"
                 />
@@ -235,8 +235,8 @@
                 <Select
                   v-model="preferences.currency"
                   :options="currencies"
-                  optionLabel="label"
-                  optionValue="code"
+                  option-label="label"
+                  option-value="code"
                   placeholder="Sélectionnez une devise"
                   class="w-full md:w-80"
                 />
@@ -272,11 +272,12 @@
                 class="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 transition"
               >
                 <div class="flex items-center gap-4">
-                  <div :class="[
+                  <div
+:class="[
                     'w-12 h-12 rounded-full flex items-center justify-center',
                     getPlatformColor(integration.platform).bg
                   ]">
-                    <i :class="[getPlatformIcon(integration.platform), 'text-2xl', getPlatformColor(integration.platform).text]"></i>
+                    <i :class="[getPlatformIcon(integration.platform), 'text-2xl', getPlatformColor(integration.platform).text]"/>
                   </div>
 
                   <div>

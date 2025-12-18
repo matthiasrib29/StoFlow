@@ -2,7 +2,7 @@
   <!-- ===== ATTRIBUTS OBLIGATOIRES ===== -->
   <div class="bg-white rounded-lg shadow-sm p-6">
     <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-      <i class="pi pi-tag"></i>
+      <i class="pi pi-tag"/>
       Attributs obligatoires
     </h3>
 
@@ -14,16 +14,16 @@
         <Select
           id="condition"
           :model-value="condition"
-          @update:model-value="handleAttributeUpdate('condition', $event)"
-          @blur="validation?.touch('condition')"
           :options="conditions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Sélectionner l'état"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('condition') }"
           required
           :loading="loadingConditions"
+          @update:model-value="handleAttributeUpdate('condition', $event)"
+          @blur="validation?.touch('condition')"
         />
         <small v-if="validation?.hasError('condition')" class="p-error">
           {{ validation?.getError('condition') }}
@@ -37,12 +37,12 @@
         <InputText
           id="label_size"
           :model-value="labelSize"
-          @update:model-value="handleAttributeUpdate('label_size', $event)"
-          @blur="validation?.touch('label_size')"
           placeholder="Ex: M, 42, W32/L34..."
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('label_size') }"
           required
+          @update:model-value="handleAttributeUpdate('label_size', $event)"
+          @blur="validation?.touch('label_size')"
         />
         <small v-if="validation?.hasError('label_size')" class="p-error">
           {{ validation?.getError('label_size') }}
@@ -56,16 +56,16 @@
         <Select
           id="color"
           :model-value="color"
-          @update:model-value="handleAttributeUpdate('color', $event)"
-          @blur="validation?.touch('color')"
           :options="colorsOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Sélectionner la couleur"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('color') }"
           required
           :loading="loadingColors"
+          @update:model-value="handleAttributeUpdate('color', $event)"
+          @blur="validation?.touch('color')"
         />
         <small v-if="validation?.hasError('color')" class="p-error">
           {{ validation?.getError('color') }}
@@ -77,7 +77,7 @@
   <!-- ===== ATTRIBUTS OPTIONNELS ===== -->
   <div class="bg-white rounded-lg shadow-sm p-6">
     <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-      <i class="pi pi-sliders-h"></i>
+      <i class="pi pi-sliders-h"/>
       Attributs optionnels
     </h3>
 
@@ -89,15 +89,15 @@
         <Select
           id="material"
           :model-value="material"
-          @update:model-value="handleAttributeUpdate('material', $event)"
-          @blur="validation?.touch('material')"
           :options="materialsOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Sélectionner la matière"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('material') }"
           :loading="loadingMaterials"
+          @update:model-value="handleAttributeUpdate('material', $event)"
+          @blur="validation?.touch('material')"
         />
         <small v-if="validation?.hasError('material')" class="p-error">
           {{ validation?.getError('material') }}
@@ -111,15 +111,15 @@
         <Select
           id="fit"
           :model-value="fit"
-          @update:model-value="handleAttributeUpdate('fit', $event)"
-          @blur="validation?.touch('fit')"
           :options="fitsOptions"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Sélectionner la coupe"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('fit') }"
           :loading="loadingFits"
+          @update:model-value="handleAttributeUpdate('fit', $event)"
+          @blur="validation?.touch('fit')"
         />
         <small v-if="validation?.hasError('fit')" class="p-error">
           {{ validation?.getError('fit') }}
@@ -133,15 +133,15 @@
         <Select
           id="gender"
           :model-value="gender"
-          @update:model-value="handleAttributeUpdate('gender', $event)"
-          @blur="validation?.touch('gender')"
           :options="genders"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Sélectionner le genre"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('gender') }"
           :loading="loadingGenders"
+          @update:model-value="handleAttributeUpdate('gender', $event)"
+          @blur="validation?.touch('gender')"
         />
         <small v-if="validation?.hasError('gender')" class="p-error">
           {{ validation?.getError('gender') }}
@@ -155,15 +155,15 @@
         <Select
           id="season"
           :model-value="season"
-          @update:model-value="handleAttributeUpdate('season', $event)"
-          @blur="validation?.touch('season')"
           :options="seasons"
-          optionLabel="label"
-          optionValue="value"
+          option-label="label"
+          option-value="value"
           placeholder="Sélectionner la saison"
           class="w-full"
           :class="{ 'p-invalid': validation?.hasError('season') }"
           :loading="loadingSeasons"
+          @update:model-value="handleAttributeUpdate('season', $event)"
+          @blur="validation?.touch('season')"
         />
         <small v-if="validation?.hasError('season')" class="p-error">
           {{ validation?.getError('season') }}

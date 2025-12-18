@@ -28,7 +28,7 @@
         <Card class="shadow-md modern-rounded">
           <template #title>
             <div class="flex items-center gap-3">
-              <i class="pi pi-arrow-right-arrow-left text-primary-400 text-xl"></i>
+              <i class="pi pi-arrow-right-arrow-left text-primary-400 text-xl"/>
               <span class="text-xl font-bold text-secondary-900">Votre changement</span>
             </div>
           </template>
@@ -86,7 +86,7 @@
             <!-- Gains/Pertes -->
             <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 class="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                <i class="pi pi-arrow-up text-blue-600"></i>
+                <i class="pi pi-arrow-up text-blue-600"/>
                 Ce qui change pour vous
               </h4>
               <div class="grid grid-cols-3 gap-3 text-sm">
@@ -117,7 +117,7 @@
         <Card class="shadow-md modern-rounded">
           <template #title>
             <div class="flex items-center gap-3">
-              <i class="pi pi-table text-primary-400 text-xl"></i>
+              <i class="pi pi-table text-primary-400 text-xl"/>
               <span class="text-xl font-bold text-secondary-900">Comparaison de tous les abonnements</span>
             </div>
           </template>
@@ -127,7 +127,8 @@
                 <thead>
                   <tr class="border-b-2 border-gray-200">
                     <th class="text-left py-3 px-2 font-semibold text-gray-700">Fonctionnalité</th>
-                    <th v-for="tier in allTiers" :key="tier.tier"
+                    <th
+v-for="tier in allTiers" :key="tier.tier"
                         class="text-center py-3 px-2 font-semibold"
                         :class="tier.tier === selectedTier ? 'bg-primary-50' : ''">
                       <div class="uppercase text-xs mb-1">{{ tier.tier }}</div>
@@ -140,7 +141,8 @@
                 <tbody>
                   <tr class="border-b border-gray-100">
                     <td class="py-3 px-2 font-medium text-gray-700">Produits maximum</td>
-                    <td v-for="tier in allTiers" :key="`products-${tier.tier}`"
+                    <td
+v-for="tier in allTiers" :key="`products-${tier.tier}`"
                         class="text-center py-3 px-2"
                         :class="tier.tier === selectedTier ? 'bg-primary-50 font-bold text-green-600' : ''">
                       {{ tier.max_products === 999999 ? 'Illimité' : tier.max_products }}
@@ -148,7 +150,8 @@
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-3 px-2 font-medium text-gray-700">Plateformes connectées</td>
-                    <td v-for="tier in allTiers" :key="`platforms-${tier.tier}`"
+                    <td
+v-for="tier in allTiers" :key="`platforms-${tier.tier}`"
                         class="text-center py-3 px-2"
                         :class="tier.tier === selectedTier ? 'bg-primary-50 font-bold text-green-600' : ''">
                       {{ tier.max_platforms === 999 ? 'Illimité' : tier.max_platforms }}
@@ -156,7 +159,8 @@
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-3 px-2 font-medium text-gray-700">Crédits IA par mois</td>
-                    <td v-for="tier in allTiers" :key="`credits-${tier.tier}`"
+                    <td
+v-for="tier in allTiers" :key="`credits-${tier.tier}`"
                         class="text-center py-3 px-2"
                         :class="tier.tier === selectedTier ? 'bg-primary-50 font-bold text-green-600' : ''">
                       {{ tier.ai_credits_monthly }}
@@ -164,20 +168,22 @@
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-3 px-2 font-medium text-gray-700">Support prioritaire</td>
-                    <td v-for="tier in allTiers" :key="`support-${tier.tier}`"
+                    <td
+v-for="tier in allTiers" :key="`support-${tier.tier}`"
                         class="text-center py-3 px-2"
                         :class="tier.tier === selectedTier ? 'bg-primary-50' : ''">
-                      <i v-if="['pro', 'enterprise'].includes(tier.tier)" class="pi pi-check text-green-600 text-lg"></i>
-                      <i v-else class="pi pi-minus text-gray-400"></i>
+                      <i v-if="['pro', 'enterprise'].includes(tier.tier)" class="pi pi-check text-green-600 text-lg"/>
+                      <i v-else class="pi pi-minus text-gray-400"/>
                     </td>
                   </tr>
                   <tr class="border-b border-gray-100">
                     <td class="py-3 px-2 font-medium text-gray-700">API Access</td>
-                    <td v-for="tier in allTiers" :key="`api-${tier.tier}`"
+                    <td
+v-for="tier in allTiers" :key="`api-${tier.tier}`"
                         class="text-center py-3 px-2"
                         :class="tier.tier === selectedTier ? 'bg-primary-50' : ''">
-                      <i v-if="tier.tier === 'enterprise'" class="pi pi-check text-green-600 text-lg"></i>
-                      <i v-else class="pi pi-minus text-gray-400"></i>
+                      <i v-if="tier.tier === 'enterprise'" class="pi pi-check text-green-600 text-lg"/>
+                      <i v-else class="pi pi-minus text-gray-400"/>
                     </td>
                   </tr>
                 </tbody>
@@ -202,7 +208,7 @@
         <Card class="shadow-md modern-rounded">
           <template #title>
             <div class="flex items-center gap-3">
-              <i class="pi pi-info-circle text-primary-400 text-xl"></i>
+              <i class="pi pi-info-circle text-primary-400 text-xl"/>
               <span class="text-xl font-bold text-secondary-900">Informations importantes</span>
             </div>
           </template>
@@ -210,7 +216,7 @@
             <!-- Calcul prorata -->
             <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
               <h4 class="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                <i class="pi pi-calculator"></i>
+                <i class="pi pi-calculator"/>
                 Calcul prorata
               </h4>
               <p class="text-sm text-gray-700 mb-3">
@@ -317,19 +323,19 @@
               <!-- Avantages -->
               <div class="space-y-2">
                 <div class="flex items-center gap-2 text-sm text-gray-700">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Activation immédiate</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-700">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Annulable à tout moment</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-700">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Remboursement sous 14 jours</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-700">
-                  <i class="pi pi-check-circle text-green-600"></i>
+                  <i class="pi pi-check-circle text-green-600"/>
                   <span>Support client inclus</span>
                 </div>
               </div>
@@ -341,7 +347,7 @@
                 <Button
                   label="Procéder au paiement"
                   icon="pi pi-arrow-right"
-                  iconPos="right"
+                  icon-pos="right"
                   class="w-full bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
                   size="large"
                   @click="proceedToPayment"
@@ -358,7 +364,7 @@
 
               <!-- Sécurité -->
               <div class="flex items-center justify-center gap-2 text-xs text-gray-500 pt-2">
-                <i class="pi pi-lock"></i>
+                <i class="pi pi-lock"/>
                 <span>Paiement 100% sécurisé</span>
               </div>
             </div>
