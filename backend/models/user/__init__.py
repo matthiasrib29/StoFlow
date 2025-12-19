@@ -15,7 +15,8 @@ from models.user.plugin_task import PluginTask, TaskStatus
 from models.user.product import Product, ProductStatus
 from models.user.product_image import ProductImage
 from models.user.publication_history import PublicationHistory, PublicationStatus
-from models.user.vinted_connection import VintedConnection
+from models.user.vinted_connection import VintedConnection, DataDomeStatus
+from models.user.vinted_conversation import VintedConversation, VintedMessage
 from models.user.vinted_product import VintedProduct
 from models.user.vinted_order import VintedOrder, VintedOrderProduct
 from models.user.vinted_deletion import VintedDeletion
@@ -26,6 +27,9 @@ __all__ = [
     "ProductImage",
     "VintedProduct",
     "VintedConnection",
+    "DataDomeStatus",
+    "VintedConversation",
+    "VintedMessage",
     "EbayCredentials",
     "EbayProduct",
     "PublicationHistory",

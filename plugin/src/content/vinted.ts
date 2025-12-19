@@ -687,6 +687,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   /**
+   * DATADOME_PING - Ping DataDome to maintain session
+   * Used by DataDome scheduler to keep the Vinted session alive
+   */
+  if (action === 'DATADOME_PING') {
+    VintedLogger.debug('');
+    VintedLogger.debug('🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️');
+    VintedLogger.debug('🛡️ [VINTED] DATADOME_PING received');
+    VintedLogger.debug('🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️');
+
+    // Generate unique request ID
+    const requestId = `datadome_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    let responseSent = false;
+
+    // Create listener for response from injected script
+    const responseListener = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      const msg = event.data;
+
+      if (msg.type === 'STOFLOW_DATADOME_PING_RESPONSE' && msg.requestId === requestId) {
+        if (responseSent) return;
+        responseSent = true;
+
+        window.removeEventListener('message', responseListener);
+        clearTimeout(timeout);
+
+        VintedLogger.debug('🛡️ [VINTED] DataDome ping response:', msg);
+
+        sendResponse({
+          success: msg.success,
+          data: msg.data,
+          error: msg.error
+        });
+      }
+    };
+
+    window.addEventListener('message', responseListener);
+
+    // Timeout (10 seconds for DataDome ping)
+    const timeout = setTimeout(() => {
+      if (responseSent) return;
+      responseSent = true;
+      window.removeEventListener('message', responseListener);
+      VintedLogger.warn('🛡️ [VINTED] DataDome ping timeout');
+      sendResponse({
+        success: false,
+        error: 'DataDome ping timeout (10s)',
+        data: { success: false, ping_count: 0 }
+      });
+    }, 10000);
+
+    // Send message to injected script
+    window.postMessage({
+      type: 'STOFLOW_DATADOME_PING',
+      requestId
+    }, '*');
+
+    VintedLogger.debug('🛡️ [VINTED] Message STOFLOW_DATADOME_PING sent to injected script');
+
+    return true; // Async response
+  }
+
+  /**
    * EXECUTE_VINTED_API - New architecture (2025-12-11)
    * Utilise window.postMessage pour communiquer avec le script injecté stoflow-vinted-api.js
    * Le script injecté gère les headers automatiquement via le hook Axios de Vinted
