@@ -419,3 +419,110 @@ def get_ebay_account_info(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch eBay account info: {str(e)}",
         )
+
+
+@router.get("/policies/shipping")
+def get_shipping_policies(
+    marketplace_id: str = Query("EBAY_FR", description="Marketplace ID"),
+    db_user: tuple[Session, User] = Depends(get_user_db),
+):
+    """
+    Recupere les policies d'expédition eBay.
+    """
+    from services.ebay.ebay_account_client import EbayAccountClient
+
+    db, current_user = db_user
+    ebay_creds = db.query(EbayCredentials).first()
+
+    if not ebay_creds or not ebay_creds.access_token:
+        return []
+
+    try:
+        client = EbayAccountClient(db, user_id=current_user.id, marketplace_id=marketplace_id)
+        policies = client.get_fulfillment_policies()
+        return policies.get("fulfillmentPolicies", [])
+    except Exception:
+        return []
+
+
+@router.get("/policies/return")
+def get_return_policies(
+    marketplace_id: str = Query("EBAY_FR", description="Marketplace ID"),
+    db_user: tuple[Session, User] = Depends(get_user_db),
+):
+    """
+    Recupere les policies de retour eBay.
+    """
+    from services.ebay.ebay_account_client import EbayAccountClient
+
+    db, current_user = db_user
+    ebay_creds = db.query(EbayCredentials).first()
+
+    if not ebay_creds or not ebay_creds.access_token:
+        return []
+
+    try:
+        client = EbayAccountClient(db, user_id=current_user.id, marketplace_id=marketplace_id)
+        policies = client.get_return_policies()
+        return policies.get("returnPolicies", [])
+    except Exception:
+        return []
+
+
+@router.get("/policies/payment")
+def get_payment_policies(
+    marketplace_id: str = Query("EBAY_FR", description="Marketplace ID"),
+    db_user: tuple[Session, User] = Depends(get_user_db),
+):
+    """
+    Recupere les policies de paiement eBay.
+    """
+    from services.ebay.ebay_account_client import EbayAccountClient
+
+    db, current_user = db_user
+    ebay_creds = db.query(EbayCredentials).first()
+
+    if not ebay_creds or not ebay_creds.access_token:
+        return []
+
+    try:
+        client = EbayAccountClient(db, user_id=current_user.id, marketplace_id=marketplace_id)
+        policies = client.get_payment_policies()
+        return policies.get("paymentPolicies", [])
+    except Exception:
+        return []
+
+
+@router.get("/stats")
+def get_ebay_stats(
+    db_user: tuple[Session, User] = Depends(get_user_db),
+):
+    """
+    Recupere les statistiques eBay (stub).
+    """
+    db, _ = db_user
+    ebay_creds = db.query(EbayCredentials).first()
+
+    if not ebay_creds or not ebay_creds.access_token:
+        return {
+            "activeLis": 0,
+            "totalViews": 0,
+            "totalSales": 0,
+            "totalRevenue": 0,
+            "conversionRate": 0,
+            "impressions": 0,
+            "totalWatchers": 0,
+            "averagePrice": 0,
+        }
+
+    # Return mock stats for now - can be enhanced later with real API calls
+    return {
+        "activeLis": 0,
+        "totalViews": 0,
+        "totalSales": 0,
+        "totalRevenue": 0,
+        "conversionRate": 0,
+        "impressions": 0,
+        "totalWatchers": 0,
+        "averagePrice": 0,
+    }

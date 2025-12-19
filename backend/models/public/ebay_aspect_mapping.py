@@ -91,5 +91,39 @@ class AspectMapping(Base):
             if m.ebay_gb  # Skip if no GB reference name
         }
 
+    @classmethod
+    def get_reverse_mapping(cls, session: Session) -> dict:
+        """
+        Crée un mapping inverse: nom localisé → aspect_key.
+
+        Utile pour extraire les aspects depuis n'importe quel marketplace.
+
+        Args:
+            session: Session SQLAlchemy
+
+        Returns:
+            dict: Mapping {localized_name: aspect_key} pour toutes les langues
+
+        Examples:
+            >>> reverse = AspectMapping.get_reverse_mapping(session)
+            >>> reverse.get('Marque')  # FR
+            'brand'
+            >>> reverse.get('Marke')   # DE
+            'brand'
+            >>> reverse.get('Brand')   # GB
+            'brand'
+        """
+        mappings = session.query(cls).all()
+        reverse = {}
+
+        for m in mappings:
+            # Add all language variants pointing to the same key
+            for value in [m.ebay_gb, m.ebay_fr, m.ebay_de, m.ebay_es,
+                          m.ebay_it, m.ebay_nl, m.ebay_be, m.ebay_pl]:
+                if value:
+                    reverse[value] = m.aspect_key
+
+        return reverse
+
     def __repr__(self):
         return f"<AspectMapping(key='{self.aspect_key}', gb='{self.ebay_gb}', fr='{self.ebay_fr}')>"

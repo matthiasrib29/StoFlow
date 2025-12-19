@@ -24,11 +24,15 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from models.public.condition import Condition
 from models.public.ebay_aspect_mapping import AspectMapping
 from models.public.ebay_marketplace_config import MarketplaceConfig
 from models.public.platform_mapping import Platform, PlatformMapping
 from models.user.product import Product
 from shared.exceptions import ProductValidationError
+from shared.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 class EbayProductConversionService:
@@ -76,6 +80,9 @@ class EbayProductConversionService:
 
         if not self.platform_mapping:
             raise ValueError(f"User {user_id} n'a pas de configuration eBay")
+
+        # Load condition mapping from DB (condition_name → ebay_condition)
+        self._condition_map = self._load_condition_mapping()
 
     def convert_to_inventory_item(
         self,
@@ -380,37 +387,70 @@ class EbayProductConversionService:
         }
         return mapping.get(gender.lower(), "Unisex Adults")
 
+    def _load_condition_mapping(self) -> dict[str, str]:
+        """
+        Charge le mapping conditions depuis la table product_attributes.conditions.
+
+        Returns:
+            dict: {condition_name.lower(): ebay_condition}
+
+        Examples:
+            >>> mapping = service._load_condition_mapping()
+            >>> mapping.get('new')
+            'NEW'
+            >>> mapping.get('excellent')
+            'PRE_OWNED_EXCELLENT'
+        """
+        conditions = self.db.query(Condition).all()
+        mapping = {}
+
+        for c in conditions:
+            if c.name and c.ebay_condition:
+                # Store with lowercase key for case-insensitive lookup
+                mapping[c.name.lower()] = c.ebay_condition
+
+                # Also add description variants for multi-language support
+                for lang in ['en', 'fr', 'de', 'it', 'es', 'nl', 'pl']:
+                    desc = getattr(c, f'description_{lang}', None)
+                    if desc:
+                        mapping[desc.lower()] = c.ebay_condition
+
+        logger.debug(f"Loaded {len(mapping)} condition mappings from DB")
+        return mapping
+
     def _map_condition(self, condition: str) -> str:
         """
-        Mappe condition Stoflow → condition eBay.
+        Mappe condition Stoflow → condition eBay via la table DB.
+
+        Uses the product_attributes.conditions table for mapping.
+
+        Args:
+            condition: Condition name from Product (e.g., "Excellent", "New")
+
+        Returns:
+            str: eBay condition code (e.g., "PRE_OWNED_EXCELLENT", "NEW")
 
         eBay conditions:
-        - NEW_WITH_TAGS
-        - NEW_WITHOUT_TAGS
-        - NEW_WITH_DEFECTS
-        - USED_EXCELLENT
-        - USED_VERY_GOOD
-        - USED_GOOD
-        - USED_ACCEPTABLE
+        - NEW, NEW_WITH_TAGS, NEW_WITHOUT_TAGS, NEW_WITH_DEFECTS
+        - PRE_OWNED_EXCELLENT, PRE_OWNED_GOOD, PRE_OWNED_FAIR
+        - USED_EXCELLENT, USED_VERY_GOOD, USED_GOOD, USED_ACCEPTABLE
         """
-        # Mapping basique (à adapter selon vos conditions)
         if not condition:
-            return "USED_EXCELLENT"
+            return "PRE_OWNED_EXCELLENT"  # Safe default
 
-        condition_lower = condition.lower()
+        condition_lower = condition.lower().strip()
 
-        if "new" in condition_lower or "neuf" in condition_lower:
-            if "tag" in condition_lower or "étiquette" in condition_lower:
-                return "NEW_WITH_TAGS"
-            return "NEW_WITHOUT_TAGS"
+        # Lookup in DB mapping
+        ebay_condition = self._condition_map.get(condition_lower)
+        if ebay_condition:
+            return ebay_condition
 
-        if "excellent" in condition_lower or "très bon" in condition_lower:
-            return "USED_EXCELLENT"
-
-        if "good" in condition_lower or "bon" in condition_lower:
-            return "USED_VERY_GOOD"
-
-        return "USED_EXCELLENT"  # Fallback
+        # Fallback: log warning and return safe default
+        logger.warning(
+            f"Unknown condition '{condition}' - not found in DB. "
+            f"Using PRE_OWNED_EXCELLENT as fallback."
+        )
+        return "PRE_OWNED_EXCELLENT"
 
     def _get_image_urls(self, product: Product) -> List[str]:
         """
