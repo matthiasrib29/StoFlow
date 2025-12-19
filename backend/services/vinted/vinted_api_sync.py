@@ -674,6 +674,18 @@ class VintedApiSyncService:
             product.is_hidden = extracted['is_hidden']
 
         # =====================================================================
+        # PHOTOS (liste complète depuis HTML, meilleure qualité)
+        # =====================================================================
+        if extracted.get('photos'):
+            photos_list = extracted['photos']
+            if photos_list:
+                # Mettre à jour photo_url avec la première photo
+                if not product.photo_url and photos_list[0].get('url'):
+                    product.photo_url = photos_list[0]['url']
+                # Stocker les photos comme JSON (json already imported at top)
+                product.photos_data = json.dumps(photos_list)
+
+        # =====================================================================
         # DATE DE PUBLICATION (depuis photos[0].high_resolution.timestamp)
         # =====================================================================
         if extracted.get('published_at') and not product.published_at:

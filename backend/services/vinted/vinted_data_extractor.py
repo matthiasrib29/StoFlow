@@ -405,6 +405,31 @@ class VintedDataExtractor:
         return chunks
 
     @staticmethod
+    def _normalize_html_content(html: str) -> str:
+        """
+        Normalize HTML content to standardize escaped characters.
+
+        Vinted uses React Server Components (RSC) with Next.js Flight data
+        that may have various escaping formats:
+        - \\" -> "
+        - \\\\ -> \\
+        - \\n -> newline
+        - \\t -> tab
+
+        Args:
+            html: Raw HTML content
+
+        Returns:
+            Normalized content with standard JSON quotes
+        """
+        # Replace escaped quotes: \" -> "
+        normalized = html.replace('\\"', '"')
+        # Replace double backslashes: \\\\ -> \\
+        normalized = normalized.replace('\\\\', '\\')
+        # Keep \\n and \\t as-is for now (will be handled during text extraction)
+        return normalized
+
+    @staticmethod
     def extract_product_from_html(html: str) -> dict | None:
         """
         Extract complete product data from a Vinted product HTML page.
@@ -424,15 +449,18 @@ class VintedDataExtractor:
             Dict with product data or None if extraction fails
         """
         try:
+            # Normalize HTML to handle escaped quotes
+            normalized = VintedDataExtractor._normalize_html_content(html)
+
             # Try multiple extraction methods
             # Method 1: JSON pattern in Next.js flight data
             item_pattern = r'"item":\s*\{[^}]*"id":\s*(\d+)[^}]*"title"'
-            item_match = re.search(item_pattern, html)
+            item_match = re.search(item_pattern, normalized)
 
             # Method 2: Extract from meta tags (fallback)
             if not item_match:
                 logger.debug("No JSON item pattern, trying meta tags extraction")
-                return VintedDataExtractor._extract_from_meta_tags(html)
+                return VintedDataExtractor._extract_from_meta_tags(normalized)
 
             # Extract the larger JSON block containing item
             # Find __next_f.push containing this item
@@ -604,8 +632,10 @@ class VintedDataExtractor:
                 result['upload_date_text'] = attributes.pop('upload_date')
             result.update(attributes)
 
-            # Extract description
-            description = VintedDataExtractor._extract_description_from_html(html)
+            # Extract description (pass title for better matching)
+            description = VintedDataExtractor._extract_description_from_html(
+                html, title=result.get('title')
+            )
             if description:
                 result['description'] = description
 
@@ -711,7 +741,9 @@ class VintedDataExtractor:
         result.update(attributes)
 
         # ===== 3. Extract description from plugins section (more complete) =====
-        plugins_desc = VintedDataExtractor._extract_description_from_html(html)
+        plugins_desc = VintedDataExtractor._extract_description_from_html(
+            html, title=result.get('title')
+        )
         if plugins_desc:
             result['description'] = plugins_desc  # Override meta description with full one
 
@@ -810,6 +842,11 @@ class VintedDataExtractor:
         """
         Extract photo URLs and timestamps from HTML.
 
+        Uses multiple strategies:
+        1. full_size_url pattern (highest quality, most reliable)
+        2. Photo block pattern with id and url
+        3. Simple url pattern fallback
+
         Returns list of photo dicts with:
         - position: 1-indexed position
         - url: Full image URL
@@ -817,57 +854,88 @@ class VintedDataExtractor:
         - timestamp: Unix timestamp from high_resolution (if available)
         """
         photos = []
-
-        # Pattern for photo objects with full details
-        # Look for photo blocks that contain id, url, and potentially timestamps
-        photo_block_pattern = r'\{"id":\d+[^}]*"url":"(https://images1\.vinted\.net[^"]+)"[^}]*\}'
-        photo_blocks = re.findall(photo_block_pattern, html)
-
-        # Also try to extract timestamps from high_resolution
-        # Pattern: "high_resolution":{"id":...,"timestamp":1764680720,...}
-        timestamp_pattern = r'"high_resolution":\s*\{[^}]*"timestamp":\s*(\d+)[^}]*\}'
-        timestamps = re.findall(timestamp_pattern, html)
-
-        # Map URLs to avoid duplicates
         seen_urls = set()
 
-        for i, url in enumerate(photo_blocks):
-            if url in seen_urls:
-                continue
-            seen_urls.add(url)
+        # Normalize HTML for consistent quote handling
+        normalized = VintedDataExtractor._normalize_html_content(html)
 
-            photo = {
-                'position': len(photos) + 1,
-                'url': url,
-                'is_main': len(photos) == 0,
-                'timestamp': None
-            }
+        # ===== Strategy 1: full_size_url pattern (best quality) =====
+        # Pattern: "full_size_url":"https://images1.vinted.net/..."
+        full_size_patterns = [
+            r'"full_size_url":"(https://images1\.vinted\.net[^"]+)"',
+            r'full_size_url":"(https://images1\.vinted\.net[^"]+)"',
+        ]
+        for pattern in full_size_patterns:
+            full_size_matches = re.findall(pattern, normalized)
+            if full_size_matches:
+                for url in full_size_matches:
+                    if url not in seen_urls:
+                        seen_urls.add(url)
+                        photos.append({
+                            'position': len(photos) + 1,
+                            'url': url,
+                            'is_main': len(photos) == 0,
+                            'timestamp': None
+                        })
+                if photos:
+                    logger.debug(f"Strategy 1 - Found {len(photos)} photos via full_size_url")
+                    break
 
-            # Try to get corresponding timestamp
-            if i < len(timestamps):
-                try:
-                    photo['timestamp'] = int(timestamps[i])
-                except ValueError:
-                    pass
-
-            photos.append(photo)
-
-        # Fallback: simpler URL extraction if no photos found
+        # ===== Strategy 2: Photo block pattern with timestamps =====
         if not photos:
-            url_pattern = r'"url":\s*"(https://images1\.vinted\.net[^"]+)"'
-            url_matches = re.findall(url_pattern, html)
-            seen_urls = set()
+            # Look for photo blocks that contain id, url, and potentially timestamps
+            photo_block_pattern = r'\{"id":\d+[^}]*"url":"(https://images1\.vinted\.net[^"]+)"[^}]*\}'
+            photo_blocks = re.findall(photo_block_pattern, normalized)
 
-            for url in url_matches:
+            # Also try to extract timestamps from high_resolution
+            timestamp_pattern = r'"high_resolution":\s*\{[^}]*"timestamp":\s*(\d+)[^}]*\}'
+            timestamps = re.findall(timestamp_pattern, normalized)
+
+            for i, url in enumerate(photo_blocks):
                 if url in seen_urls:
                     continue
                 seen_urls.add(url)
-                photos.append({
+
+                photo = {
                     'position': len(photos) + 1,
                     'url': url,
                     'is_main': len(photos) == 0,
                     'timestamp': None
-                })
+                }
+
+                # Try to get corresponding timestamp
+                if i < len(timestamps):
+                    try:
+                        photo['timestamp'] = int(timestamps[i])
+                    except ValueError:
+                        pass
+
+                photos.append(photo)
+
+            if photos:
+                logger.debug(f"Strategy 2 - Found {len(photos)} photos via block pattern")
+
+        # ===== Strategy 3: Simple URL fallback =====
+        if not photos:
+            # Try f800 URLs (high resolution)
+            url_patterns = [
+                r'"url":"(https://images1\.vinted\.net[^"]+f800[^"]+)"',
+                r'"url":\s*"(https://images1\.vinted\.net[^"]+)"',
+            ]
+            for url_pattern in url_patterns:
+                url_matches = re.findall(url_pattern, normalized)
+                for url in url_matches:
+                    if url not in seen_urls:
+                        seen_urls.add(url)
+                        photos.append({
+                            'position': len(photos) + 1,
+                            'url': url,
+                            'is_main': len(photos) == 0,
+                            'timestamp': None
+                        })
+                if photos:
+                    logger.debug(f"Strategy 3 - Found {len(photos)} photos via simple URL")
+                    break
 
         return photos
 
@@ -913,10 +981,11 @@ class VintedDataExtractor:
         """
         Extract all product attributes from HTML.
 
-        Uses multiple extraction strategies:
-        1. JSON attribute blocks with "code"/"data" pattern
-        2. Alternative JSON patterns found in Next.js data
-        3. Fallback: parse description text for structured attributes
+        Uses multiple extraction strategies with normalized content:
+        1. RSC format patterns (React Server Components)
+        2. JSON attribute blocks with "code"/"data" pattern
+        3. Alternative JSON patterns found in Next.js data
+        4. Fallback: French label patterns ("Taille", "État", etc.)
 
         Handles all known attribute types:
         - size: Taille (with id)
@@ -942,131 +1011,173 @@ class VintedDataExtractor:
             'upload_date': None,
         }
 
-        # ===== Strategy 1: JSON attribute blocks (handle escaped quotes) =====
-        # Pattern: "code":"attribute_name",...,"data":{...,"value":"value",...}
-        # Handles escaped quotes like: \"code\":\"size\",\"data\":{...}
-        # In regex: \\\\ matches a literal backslash, \\\\? makes it optional
-        attr_blocks_pattern = r'"code\\\\?":\\\\?"([^\\\\]+)\\\\?",\\\\?"data\\\\?":\{([^}]+)\}'
-        attr_matches = re.findall(attr_blocks_pattern, html)
+        # Normalize HTML to handle escaped quotes from RSC format
+        normalized = VintedDataExtractor._normalize_html_content(html)
 
-        if attr_matches:
-            codes_found = [m[0] for m in attr_matches]
-            logger.debug(f"Strategy 1 - Found attribute codes: {codes_found}")
+        # ===== Strategy 1: RSC format patterns (most reliable) =====
+        # These patterns match the actual Next.js Flight data format from Vinted
+        # Pattern: "code":"size","data":{..."value":"S"..."id":515}
 
-            for code, data_content in attr_matches:
-                # Handle escaped quotes in value and id
-                # Pattern for value: \"value\":\"content\" or "value":"content"
-                value_match = re.search(r'"value\\\\?":\\\\?"([^\\\\]*)', data_content)
-                value = value_match.group(1) if value_match else None
-                id_match = re.search(r'"id\\\\?":(\d+)', data_content)
-                attr_id = int(id_match.group(1)) if id_match else None
+        # Size extraction
+        size_patterns = [
+            r'"code":"size","data":\{[^}]*"value":"([^"]+)"[^}]*"id":(\d+)',
+            r'"code":"size"[^}]*"value":"([^"]+)"[^}]*"id":(\d+)',
+            r'code":"size","data":\{"title":"[^"]+","value":"([^"]+)","id":(\d+)',
+        ]
+        for pattern in size_patterns:
+            size_match = re.search(pattern, normalized)
+            if size_match:
+                attributes['size_title'] = size_match.group(1)
+                attributes['size_id'] = int(size_match.group(2))
+                logger.debug(f"RSC - Found size: {attributes['size_title']} (id: {attributes['size_id']})")
+                break
 
-                if code == 'size' and value:
-                    attributes['size_title'] = value
-                    attributes['size_id'] = attr_id
-                elif code == 'status' and value:
-                    attributes['condition_title'] = value
-                    attributes['condition_id'] = attr_id
-                elif code == 'color' and value:
-                    attributes['color'] = value
-                elif code == 'material' and value:
-                    attributes['material'] = value
-                elif code == 'measurements' and value:
-                    attributes['measurements'] = value
-                    dims = VintedDataExtractor._parse_measurements(value)
-                    if dims:
-                        attributes['measurement_width'] = dims.get('width')
-                        attributes['measurement_length'] = dims.get('length')
-                elif code == 'manufacturer_labelling' and value:
-                    attributes['manufacturer_labelling'] = value
-                elif code == 'upload_date' and value:
-                    attributes['upload_date'] = value
+        # Condition/Status extraction
+        status_patterns = [
+            r'"code":"status","data":\{[^}]*"value":"([^"]+)"[^}]*"id":(\d+)',
+            r'"code":"status"[^}]*"value":"([^"]+)"[^}]*"id":(\d+)',
+            r'code":"status","data":\{"title":"[^"]+","value":"([^"]+)","id":(\d+)',
+        ]
+        for pattern in status_patterns:
+            status_match = re.search(pattern, normalized)
+            if status_match:
+                attributes['condition_title'] = status_match.group(1)
+                attributes['condition_id'] = int(status_match.group(2))
+                logger.debug(f"RSC - Found condition: {attributes['condition_title']} (id: {attributes['condition_id']})")
+                break
 
-        # ===== Strategy 2: Alternative JSON patterns (handle escaped quotes) =====
-        # Try direct JSON patterns for common attributes
+        # Color extraction (no ID in Vinted HTML)
+        color_patterns = [
+            r'"code":"color","data":\{[^}]*"value":"([^"]+)"',
+            r'"code":"color"[^}]*"value":"([^"]+)"',
+            r'code":"color","data":\{"title":"[^"]+","value":"([^"]+)"',
+        ]
+        for pattern in color_patterns:
+            color_match = re.search(pattern, normalized)
+            if color_match:
+                attributes['color'] = color_match.group(1)
+                logger.debug(f"RSC - Found color: {attributes['color']}")
+                break
+
+        # Material extraction
+        material_patterns = [
+            r'"code":"material","data":\{[^}]*"value":"([^"]+)"',
+            r'"code":"material"[^}]*"value":"([^"]+)"',
+        ]
+        for pattern in material_patterns:
+            material_match = re.search(pattern, normalized)
+            if material_match:
+                attributes['material'] = material_match.group(1)
+                logger.debug(f"RSC - Found material: {attributes['material']}")
+                break
+
+        # Measurements extraction
+        measurements_patterns = [
+            r'"code":"measurements","data":\{[^}]*"value":"([^"]+)"',
+            r'"code":"measurements"[^}]*"value":"([^"]+)"',
+        ]
+        for pattern in measurements_patterns:
+            measurements_match = re.search(pattern, normalized)
+            if measurements_match:
+                attributes['measurements'] = measurements_match.group(1)
+                dims = VintedDataExtractor._parse_measurements(attributes['measurements'])
+                if dims:
+                    attributes['measurement_width'] = dims.get('width')
+                    attributes['measurement_length'] = dims.get('length')
+                logger.debug(f"RSC - Found measurements: {attributes['measurements']}")
+                break
+
+        # Upload date extraction
+        upload_patterns = [
+            r'"code":"upload_date","data":\{[^}]*"value":"([^"]+)"',
+            r'"code":"upload_date"[^}]*"value":"([^"]+)"',
+        ]
+        for pattern in upload_patterns:
+            upload_match = re.search(pattern, normalized)
+            if upload_match:
+                attributes['upload_date'] = upload_match.group(1)
+                logger.debug(f"RSC - Found upload_date: {attributes['upload_date']}")
+                break
+
+        # Manufacturer labelling extraction
+        labelling_patterns = [
+            r'"code":"manufacturer_labelling","data":\{[^}]*"value":"([^"]+)"',
+            r'"code":"manufacturer_labelling"[^}]*"value":"([^"]+)"',
+        ]
+        for pattern in labelling_patterns:
+            labelling_match = re.search(pattern, normalized)
+            if labelling_match:
+                attributes['manufacturer_labelling'] = labelling_match.group(1)
+                logger.debug(f"RSC - Found manufacturer_labelling: {attributes['manufacturer_labelling']}")
+                break
+
+        # ===== Strategy 2: Alternative JSON patterns =====
+        # Try direct JSON patterns for common attributes if RSC failed
+
         if not attributes['size_title']:
-            # Pattern: "size":{"id":123,"title":"M"} or escaped variant
-            size_pattern = r'"size\\?":\s*\{[^}]*"id\\?":\s*(\d+)[^}]*"title\\?":\s*"([^"\\]+)'
-            size_match = re.search(size_pattern, html)
+            size_pattern = r'"size":\s*\{[^}]*"id":\s*(\d+)[^}]*"title":\s*"([^"]+)'
+            size_match = re.search(size_pattern, normalized)
             if size_match:
                 attributes['size_id'] = int(size_match.group(1))
                 attributes['size_title'] = size_match.group(2)
-                logger.debug(f"Strategy 2 - Found size: {attributes['size_title']}")
+                logger.debug(f"JSON - Found size: {attributes['size_title']}")
             else:
-                # Try size_id alone
-                size_id_pattern = r'"size_id\\?":\s*(\d+)'
-                size_id_match = re.search(size_id_pattern, html)
+                size_id_pattern = r'"size_id":\s*(\d+)'
+                size_id_match = re.search(size_id_pattern, normalized)
                 if size_id_match:
                     attributes['size_id'] = int(size_id_match.group(1))
 
         if not attributes['condition_title']:
-            # Pattern: "status":{"id":123,"title":"Bon état"} or escaped variant
-            status_pattern = r'"status\\?":\s*\{[^}]*"id\\?":\s*(\d+)[^}]*"title\\?":\s*"([^"\\]+)'
-            status_match = re.search(status_pattern, html)
+            status_pattern = r'"status":\s*\{[^}]*"id":\s*(\d+)[^}]*"title":\s*"([^"]+)'
+            status_match = re.search(status_pattern, normalized)
             if status_match:
                 attributes['condition_id'] = int(status_match.group(1))
                 attributes['condition_title'] = status_match.group(2)
-                logger.debug(f"Strategy 2 - Found condition: {attributes['condition_title']}")
+                logger.debug(f"JSON - Found condition: {attributes['condition_title']}")
             else:
-                # Try status_id alone
-                status_id_pattern = r'"status_id\\?":\s*(\d+)'
-                status_id_match = re.search(status_id_pattern, html)
+                status_id_pattern = r'"status_id":\s*(\d+)'
+                status_id_match = re.search(status_id_pattern, normalized)
                 if status_id_match:
                     attributes['condition_id'] = int(status_id_match.group(1))
 
         if not attributes['color']:
-            # Pattern: "color1":{"title":"Bleu"} or escaped variant
-            color_pattern = r'"color1\\?":\s*\{[^}]*"title\\?":\s*"([^"\\]+)'
-            color_match = re.search(color_pattern, html)
+            color_pattern = r'"color1":\s*\{[^}]*"title":\s*"([^"]+)'
+            color_match = re.search(color_pattern, normalized)
             if color_match:
                 attributes['color'] = color_match.group(1)
-                logger.debug(f"Strategy 2 - Found color: {attributes['color']}")
+                logger.debug(f"JSON - Found color: {attributes['color']}")
             else:
-                # Simpler pattern (handle escaped quotes)
-                color_simple = r'"color\\?":\s*"([^"\\]+)'
-                color_simple_match = re.search(color_simple, html)
+                color_simple = r'"color":\s*"([^"]+)'
+                color_simple_match = re.search(color_simple, normalized)
                 if color_simple_match:
                     attributes['color'] = color_simple_match.group(1)
 
         if not attributes['material']:
-            # Pattern: "material":{"title":"Coton"} or escaped variant
-            material_pattern = r'"material\\?":\s*\{[^}]*"title\\?":\s*"([^"\\]+)'
-            material_match = re.search(material_pattern, html)
+            material_pattern = r'"material":\s*\{[^}]*"title":\s*"([^"]+)'
+            material_match = re.search(material_pattern, normalized)
             if material_match:
                 attributes['material'] = material_match.group(1)
-                logger.debug(f"Strategy 2 - Found material: {attributes['material']}")
-            else:
-                # Direct material_id pattern
-                material_id_pattern = r'"material_id\\?":\s*(\d+)'
-                material_id_match = re.search(material_id_pattern, html)
-                if material_id_match:
-                    logger.debug(f"Strategy 2 - Found material_id: {material_id_match.group(1)}")
+                logger.debug(f"JSON - Found material: {attributes['material']}")
 
-        # ===== Strategy 3: Extract from details/attributes array =====
-        # Pattern: "details":[...{"title":"Taille","value":"M"}...]
-        details_pattern = r'"details"\s*:\s*\[(.*?)\]'
-        details_match = re.search(details_pattern, html, re.DOTALL)
-        if details_match:
-            details_content = details_match.group(1)
-            # Extract title/value pairs
-            detail_items = re.findall(
-                r'\{"title"\s*:\s*"([^"]+)"[^}]*"value"\s*:\s*"([^"]+)"',
-                details_content
-            )
-            for title, value in detail_items:
-                title_lower = title.lower()
-                if 'taille' in title_lower and not attributes['size_title']:
+        # ===== Strategy 3: French label fallback =====
+        # Pattern: "title":"Taille","value":"S"
+        if not attributes['size_title'] or not attributes['condition_title'] or not attributes['color']:
+            detail_pattern = r'"title":"(Taille|État|Couleur|Marque|Matière)","value":"([^"]+)"'
+            detail_matches = re.findall(detail_pattern, normalized)
+
+            for label, value in detail_matches:
+                if label == 'Taille' and not attributes['size_title']:
                     attributes['size_title'] = value
-                    logger.debug(f"Strategy 3 - Found size from details: {value}")
-                elif 'état' in title_lower and not attributes['condition_title']:
+                    logger.debug(f"Fallback - Found size: {value}")
+                elif label == 'État' and not attributes['condition_title']:
                     attributes['condition_title'] = value
-                    logger.debug(f"Strategy 3 - Found condition from details: {value}")
-                elif 'couleur' in title_lower and not attributes['color']:
+                    logger.debug(f"Fallback - Found condition: {value}")
+                elif label == 'Couleur' and not attributes['color']:
                     attributes['color'] = value
-                    logger.debug(f"Strategy 3 - Found color from details: {value}")
-                elif 'matière' in title_lower and not attributes['material']:
+                    logger.debug(f"Fallback - Found color: {value}")
+                elif label == 'Matière' and not attributes['material']:
                     attributes['material'] = value
-                    logger.debug(f"Strategy 3 - Found material from details: {value}")
+                    logger.debug(f"Fallback - Found material: {value}")
 
         return attributes
 
@@ -1210,27 +1321,93 @@ class VintedDataExtractor:
         return result if result else None
 
     @staticmethod
-    def _extract_description_from_html(html: str) -> str | None:
-        """Extract product description from HTML."""
-        # Description is in the plugins section
+    def _extract_description_from_html(html: str, title: str | None = None) -> str | None:
+        """
+        Extract product description from HTML.
+
+        Uses multiple strategies:
+        1. Find "TITLE - DESCRIPTION" pattern matching the product title (most accurate)
+        2. Search in RSC push blocks, filtering out HTML content
+        3. Standard JSON patterns for description field
+
+        Args:
+            html: Full HTML content
+            title: Product title (optional, helps find description accurately)
+
+        Returns:
+            Description text or None
+        """
+        # Normalize HTML to handle escaped quotes
+        normalized = VintedDataExtractor._normalize_html_content(html)
+
+        # ===== Strategy 1: Match "TITLE - DESCRIPTION" pattern =====
+        # The real description in Vinted is often in format:
+        # "PRODUCT TITLE - Description text with emojis and hashtags..."
+        if title and len(title) > 20:
+            title_start = title[:30]
+            title_idx = normalized.find(title_start + ' - ')
+            if title_idx != -1:
+                # Find end of this text block (next quote or end)
+                end_idx = normalized.find('"', title_idx + len(title_start) + 10)
+                if end_idx != -1 and end_idx - title_idx < 5000:
+                    full_text = normalized[title_idx:end_idx]
+                    dash_idx = full_text.find(' - ')
+                    if dash_idx > 0:
+                        description = full_text[dash_idx + 3:]
+                        # Clean up description
+                        description = description.replace('\\n', '\n')
+                        description = description.replace('\\r', '')
+                        logger.debug(f"Strategy 1 - Found description via title match: {description[:50]}...")
+                        return description
+
+        # ===== Strategy 2: Search RSC push blocks =====
+        # Pattern: self.__next_f.push([1,"content"])
+        # Filter out HTML content (legal/GDPR text contains \u003c)
+        push_pattern = r'self\.__next_f\.push\(\[1,"([^"]+)"\]\)'
+        push_matches = re.findall(push_pattern, normalized)
+
+        for text in push_matches:
+            # SKIP if contains HTML tags (legal/privacy content)
+            if '\\u003c' in text or '<p>' in text or '<ol>' in text:
+                continue
+
+            # Look for product description indicators
+            has_product_emojis = any(emoji in text for emoji in ['✨', '📦', '🏷️', '📋', '🔥', '👖', '🧵', '👔'])
+            has_hashtags = '#' in text
+            has_dash = ' - ' in text
+
+            if (has_product_emojis or has_hashtags) and len(text) > 100 and len(text) < 5000:
+                # Extract description after title separator
+                if has_dash:
+                    dash_idx = text.find(' - ')
+                    if 20 < dash_idx < 150:
+                        description = text[dash_idx + 3:]
+                        description = description.replace('\\n', '\n')
+                        description = description.replace('\\r', '')
+                        logger.debug(f"Strategy 2 - Found description in RSC push: {description[:50]}...")
+                        return description
+
+        # ===== Strategy 3: Standard JSON patterns =====
+        # Description in plugins section
         desc_pattern = r'"description":\s*\{\s*"section_title"[^}]*"description":\s*"([^"]*)"'
-        desc_match = re.search(desc_pattern, html)
+        desc_match = re.search(desc_pattern, normalized)
         if desc_match:
             description = desc_match.group(1)
-            # Unescape common sequences
             description = description.replace('\\n', '\n')
             description = description.replace('\\r', '')
-            description = description.replace('\\"', '"')
+            logger.debug(f"Strategy 3 - Found description in plugins: {description[:50]}...")
             return description
 
-        # Alternative pattern for simple description
+        # Alternative pattern for simple description (at least 10 chars)
         alt_pattern = r'"description":\s*"([^"]{10,})"'
-        alt_match = re.search(alt_pattern, html)
+        alt_match = re.search(alt_pattern, normalized)
         if alt_match:
             description = alt_match.group(1)
-            description = description.replace('\\n', '\n')
-            description = description.replace('\\r', '')
-            description = description.replace('\\"', '"')
-            return description
+            # Verify it's not HTML content
+            if '\\u003c' not in description and '<p>' not in description:
+                description = description.replace('\\n', '\n')
+                description = description.replace('\\r', '')
+                logger.debug(f"Strategy 3b - Found simple description: {description[:50]}...")
+                return description
 
         return None
