@@ -28,7 +28,8 @@ logger = get_logger(__name__)
 
 async def upload_product_images(
     db: Session,
-    product: Product
+    product: Product,
+    job_id: int | None = None
 ) -> list[int]:
     """
     Upload les images d'un produit sur Vinted.
@@ -36,6 +37,7 @@ async def upload_product_images(
     Args:
         db: Session SQLAlchemy
         product: Instance Product
+        job_id: ID du job parent (optionnel, pour tracking)
 
     Returns:
         Liste des IDs photos uploadees
@@ -75,6 +77,7 @@ async def upload_product_images(
                 payload={"body": payload, "image_url": image_url},
                 platform="vinted",
                 product_id=product.id,
+                job_id=job_id,
                 timeout=30,
                 description=f"Upload image {idx}"
             )

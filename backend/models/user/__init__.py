@@ -19,6 +19,8 @@ from models.user.vinted_conversation import VintedConversation, VintedMessage
 from models.user.vinted_product import VintedProduct
 from models.user.vinted_order import VintedOrder, VintedOrderProduct
 from models.user.vinted_deletion import VintedDeletion
+from models.user.vinted_job import VintedJob, JobStatus
+from models.user.vinted_job_stats import VintedJobStats
 
 __all__ = [
     "Product",
@@ -42,4 +44,7 @@ __all__ = [
     "VintedOrder",
     "VintedOrderProduct",
     "VintedDeletion",
+    "VintedJob",
+    "JobStatus",
+    "VintedJobStats",
 ]

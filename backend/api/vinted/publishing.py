@@ -3,21 +3,26 @@ Vinted Publishing Routes
 
 Endpoints pour la publication et préparation des produits:
 - POST /products/{product_id}/prepare: Préparer un produit (preview)
-- POST /products/publish/batch: Publication batch
+- POST /products/publish/batch: Publication batch via système de jobs
+- POST /products/{product_id}/publish: Publication unitaire via système de jobs
 
 Note: Les endpoints fetch-description ont été supprimés (2025-12-18).
 L'enrichissement des descriptions se fait automatiquement lors de la sync.
+
+Updated: 2025-12-19 - Intégration système de jobs
 
 Author: Claude
 Date: 2025-12-17
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_user_db
 from models.user.product import Product
 from services.vinted import (
     VintedSyncService,
+    VintedJobService,
+    VintedJobProcessor,
     VintedPricingService,
     VintedMappingService,
     VintedProductValidator,
@@ -105,20 +110,24 @@ async def prepare_product(
         )
 
 
-@router.post("/products/publish/batch")
-async def publish_batch(
-    product_ids: list[int],
+@router.post("/products/{product_id}/publish")
+async def publish_single_product(
+    product_id: int,
     user_db: tuple = Depends(get_user_db),
+    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
 ) -> dict:
     """
-    Publie plusieurs produits sur Vinted.
+    Publie un produit unique sur Vinted.
+
+    Args:
+        product_id: ID du produit à publier
+        process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
 
     Returns:
         {
-            "total": int,
-            "success_count": int,
-            "failed_count": int,
-            "results": list
+            "job_id": int,
+            "status": str,
+            "result": dict | None (si process_now=True)
         }
     """
     db, current_user = user_db
@@ -126,40 +135,107 @@ async def publish_batch(
     connection = get_active_vinted_connection(db, current_user.id)
 
     try:
-        service = VintedSyncService(shop_id=connection.vinted_user_id)
+        job_service = VintedJobService(db)
 
-        results = []
-        success_count = 0
-        failed_count = 0
+        # Créer le job
+        job = job_service.create_job(
+            action_code="publish",
+            product_id=product_id
+        )
+        db.commit()
 
-        for product_id in product_ids:
-            try:
-                result = await service.publish_product(db, product_id)
-                results.append({
-                    "product_id": product_id,
-                    "success": result.get("success", False),
-                    "vinted_id": result.get("vinted_id"),
-                    "error": result.get("error")
-                })
-                if result.get("success"):
-                    success_count += 1
-                else:
-                    failed_count += 1
-            except Exception as e:
-                results.append({
-                    "product_id": product_id,
-                    "success": False,
-                    "error": str(e)
-                })
-                failed_count += 1
-
-        return {
-            "total": len(product_ids),
-            "success_count": success_count,
-            "failed_count": failed_count,
-            "results": results
+        response = {
+            "job_id": job.id,
+            "status": job.status.value,
+            "product_id": product_id,
         }
 
+        # Exécuter immédiatement si demandé
+        if process_now:
+            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            result = await processor._execute_job(job)
+            response["result"] = result
+            response["status"] = "completed" if result.get("success") else "failed"
+
+        return response
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur publication: {str(e)}"
+        )
+
+
+@router.post("/products/publish/batch")
+async def publish_batch(
+    product_ids: list[int],
+    user_db: tuple = Depends(get_user_db),
+    process_now: bool = Query(False, description="Exécuter immédiatement ou créer jobs uniquement"),
+) -> dict:
+    """
+    Crée des jobs de publication pour plusieurs produits.
+
+    Args:
+        product_ids: Liste des IDs produits à publier
+        process_now: Si True, exécute tous les jobs immédiatement.
+                     Si False (défaut), crée les jobs et retourne le batch_id.
+
+    Returns:
+        {
+            "batch_id": str,
+            "jobs_created": int,
+            "status": str,
+            "results": list (si process_now=True)
+        }
+    """
+    db, current_user = user_db
+
+    connection = get_active_vinted_connection(db, current_user.id)
+
+    try:
+        job_service = VintedJobService(db)
+
+        # Créer le batch de jobs
+        batch_id, jobs = job_service.create_batch_jobs(
+            action_code="publish",
+            product_ids=product_ids
+        )
+
+        response = {
+            "batch_id": batch_id,
+            "jobs_created": len(jobs),
+            "status": "pending",
+            "jobs": [
+                {
+                    "job_id": job.id,
+                    "product_id": job.product_id,
+                    "status": job.status.value
+                }
+                for job in jobs
+            ]
+        }
+
+        # Exécuter immédiatement si demandé
+        if process_now:
+            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            batch_result = await processor.process_batch(batch_id)
+            response["status"] = "processed"
+            response["success_count"] = batch_result["success_count"]
+            response["failed_count"] = batch_result["failed_count"]
+            response["results"] = batch_result["results"]
+
+        return response
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
