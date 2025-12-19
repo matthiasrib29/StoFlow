@@ -135,15 +135,47 @@ class VintedOrderAPI:
 
 
 # =============================================================================
-# CONVERSATION ENDPOINTS
+# CONVERSATION / INBOX ENDPOINTS
 # =============================================================================
 
 class VintedConversationAPI:
-    """URLs pour les conversations (contiennent les détails de transaction)"""
+    """URLs pour les conversations et la messagerie"""
+
+    @staticmethod
+    def get_inbox(page: int = 1, per_page: int = 20) -> str:
+        """
+        GET - Récupère la liste des conversations (inbox).
+
+        Returns conversations with:
+        - id, description (last message preview), unread, updated_at
+        - opposite_user (id, login, photo)
+        - item_photos (photos des articles concernés)
+
+        Args:
+            page: Page number (1-indexed)
+            per_page: Items per page (default 20)
+
+        Returns:
+            URL de l'endpoint inbox
+        """
+        return f"{VINTED_BASE_URL}/api/v2/inbox?page={page}&per_page={per_page}"
 
     @staticmethod
     def get_conversation(conversation_id: int) -> str:
-        """GET - Récupère les détails d'une conversation (inclut transaction)"""
+        """
+        GET - Récupère les détails d'une conversation avec messages.
+
+        Returns conversation with:
+        - messages[] (entity_type: message, offer_request_message, status_message, action_message)
+        - transaction (id, status, buyer_id, seller_id, item details)
+        - opposite_user (full profile info)
+
+        Args:
+            conversation_id: ID de la conversation Vinted
+
+        Returns:
+            URL de l'endpoint conversation
+        """
         return f"{VINTED_BASE_URL}/api/v2/conversations/{conversation_id}"
 
 
@@ -168,10 +200,13 @@ class VintedReferers:
 
     ORDERS_SOLD = f"{VINTED_BASE_URL}/my_orders/sold"
 
+    # Inbox / Messages
+    INBOX = f"{VINTED_BASE_URL}/inbox"
+
     @staticmethod
-    def inbox(transaction_id: int) -> str:
-        """Page conversation"""
-        return f"{VINTED_BASE_URL}/inbox/{transaction_id}"
+    def inbox_conversation(conversation_id: int) -> str:
+        """Page conversation spécifique"""
+        return f"{VINTED_BASE_URL}/inbox/{conversation_id}"
 
 
 # =============================================================================

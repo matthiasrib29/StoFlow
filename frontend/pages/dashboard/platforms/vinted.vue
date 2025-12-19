@@ -50,6 +50,17 @@
         <Tab value="3">Expéditions</Tab>
         <Tab value="4">Analytiques</Tab>
         <Tab value="5">Paramètres</Tab>
+        <Tab value="6">
+          <div class="flex items-center gap-2">
+            <span>Messages</span>
+            <Badge
+              v-if="messagesUnreadCount > 0"
+              :value="messagesUnreadCount"
+              severity="danger"
+              class="text-xs"
+            />
+          </div>
+        </Tab>
       </TabList>
       <TabPanels>
         <!-- Onglet: Vue d'ensemble -->
@@ -927,6 +938,26 @@
           </template>
         </Card>
         </TabPanel>
+
+        <!-- Onglet: Messages -->
+        <TabPanel value="6">
+          <VintedMessagesTab v-if="isConnected" />
+          <Card v-else class="shadow-sm modern-rounded border border-gray-100">
+            <template #content>
+              <div class="text-center py-8">
+                <i class="pi pi-comments text-gray-300 text-6xl mb-4"/>
+                <h3 class="text-xl font-bold text-secondary-900 mb-2">Connectez votre compte Vinted</h3>
+                <p class="text-gray-600 mb-6">Accédez à vos messages Vinted après connexion</p>
+                <Button
+                  label="Connecter maintenant"
+                  icon="pi pi-link"
+                  class="bg-cyan-500 hover:bg-cyan-600 text-white border-0 font-semibold"
+                  @click="handleConnect"
+                />
+              </div>
+            </template>
+          </Card>
+        </TabPanel>
       </TabPanels>
     </Tabs>
 
@@ -1074,6 +1105,7 @@
 <script setup lang="ts">
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
+import { useVintedMessagesStore } from '~/stores/vintedMessages'
 
 definePageMeta({
   layout: 'dashboard'
@@ -1083,7 +1115,11 @@ definePageMeta({
 const confirm = import.meta.client ? useConfirm() : null
 const toast = import.meta.client ? useToast() : null
 const publicationsStore = usePublicationsStore()
+const messagesStore = useVintedMessagesStore()
 const { get, post, put, del } = useApi()
+
+// Messages unread count (reactive)
+const messagesUnreadCount = computed(() => messagesStore.unreadCount)
 
 // State
 const activeTab = ref('0')
@@ -2040,6 +2076,16 @@ onMounted(async () => {
       fetchVintedStats(),
       fetchOrders()
     ])
+
+    // Load messages stats if connected (for unread badge)
+    if (isConnected.value) {
+      try {
+        await messagesStore.fetchStats()
+      } catch (e) {
+        // Silent fail - just for badge display
+        console.debug('Could not fetch messages stats:', e)
+      }
+    }
   } catch (error) {
     console.error('Erreur chargement données:', error)
   } finally {
