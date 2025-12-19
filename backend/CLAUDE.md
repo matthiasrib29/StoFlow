@@ -114,6 +114,66 @@ Backend → API Bridge → Plugin → Vinted API
 
 eBay and Etsy use direct OAuth2 API integration.
 
+### Vinted Job System
+
+The Vinted integration uses a two-level task orchestration system:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         VintedJob                                │
+│  (Business operation: publish, update, delete, sync, message)   │
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │  PluginTask  │  │  PluginTask  │  │  PluginTask  │   ...    │
+│  │  (HTTP #1)   │  │  (HTTP #2)   │  │  (HTTP #3)   │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### VintedJob (High-level - Business)
+- **Definition**: A complete business operation on Vinted
+- **Examples**: Publish a product, sync orders, fetch messages
+- **Table**: `user_X.vinted_jobs`
+- **Status**: pending → running → completed/failed/cancelled/expired
+- **Contains**: Multiple PluginTasks (HTTP requests)
+- **Handlers**: One handler per action type in `services/vinted/jobs/`
+
+| Action Code | Handler | Description |
+|-------------|---------|-------------|
+| `publish` | `PublishJobHandler` | Create new listing |
+| `update` | `UpdateJobHandler` | Modify existing listing |
+| `delete` | `DeleteJobHandler` | Remove listing |
+| `sync` | `SyncJobHandler` | Sync products from Vinted |
+| `orders` | `OrdersJobHandler` | Fetch orders/sales |
+| `message` | `MessageJobHandler` | Sync conversations/messages |
+
+#### PluginTask (Low-level - Technical)
+- **Definition**: A single HTTP request sent via the browser plugin
+- **Examples**: GET /api/v2/items, POST /api/v2/items, PUT /api/v2/items/{id}
+- **Table**: `user_X.plugin_tasks`
+- **Status**: pending → processing → completed/failed/timeout
+- **Linked to**: Parent VintedJob via `job_id` FK
+
+#### Flow Example: Publishing a Product
+```
+1. API receives POST /vinted/publishing/{product_id}
+2. VintedJobService.create_job(action_code="publish") → VintedJob created
+3. VintedJobProcessor._execute_job() dispatches to PublishJobHandler
+4. PublishJobHandler.execute():
+   a. Validates product
+   b. Maps attributes
+   c. PluginTask #1: Upload images (POST /api/v2/photos)
+   d. PluginTask #2: Create listing (POST /api/v2/items)
+5. VintedJob marked as completed
+```
+
+#### Key Files
+- `models/user/vinted_job.py` - VintedJob model
+- `models/user/plugin_task.py` - PluginTask model
+- `services/vinted/vinted_job_service.py` - Job CRUD operations
+- `services/vinted/vinted_job_processor.py` - Job orchestrator
+- `services/vinted/jobs/` - Handler implementations (one per action)
+
 ### Product Status Flow
 ```
 DRAFT → PUBLISHED → SOLD → ARCHIVED

@@ -468,3 +468,122 @@ class TestProcessAllPending:
             results = await processor.process_all_pending_jobs(max_jobs=5)
 
         assert len(results) == 5
+
+
+# =============================================================================
+# TESTS - MESSAGE HANDLER DISPATCH
+# =============================================================================
+
+
+class TestMessageHandlerDispatch:
+    """Tests pour le dispatch vers MessageJobHandler."""
+
+    @pytest.mark.asyncio
+    async def test_dispatch_to_message_handler_inbox(self, mock_db, mock_job):
+        """Test dispatch vers MessageJobHandler (sync inbox)."""
+        processor = VintedJobProcessor(mock_db, shop_id=123)
+
+        action_type = MagicMock()
+        action_type.code = "message"
+
+        # Job pour sync inbox (pas de conversation_id)
+        mock_job.result_data = {}
+
+        mock_handler_instance = MagicMock()
+        mock_handler_instance.execute = AsyncMock(return_value={
+            "success": True,
+            "mode": "inbox",
+            "synced": 10,
+            "created": 5,
+            "updated": 5
+        })
+        mock_handler_class = MagicMock(return_value=mock_handler_instance)
+
+        with patch.object(processor.job_service, 'get_action_type_by_id', return_value=action_type):
+            with patch.object(processor.job_service, 'start_job', return_value=mock_job):
+                with patch.object(processor.job_service, 'complete_job', return_value=mock_job):
+                    with patch.dict('services.vinted.jobs.HANDLERS', {'message': mock_handler_class}):
+                        result = await processor._execute_job(mock_job)
+
+        assert result["success"] is True
+        assert result["action"] == "message"
+        mock_handler_instance.execute.assert_called_once_with(mock_job)
+
+    @pytest.mark.asyncio
+    async def test_dispatch_to_message_handler_conversation(self, mock_db, mock_job):
+        """Test dispatch vers MessageJobHandler (sync conversation)."""
+        processor = VintedJobProcessor(mock_db, shop_id=123)
+
+        action_type = MagicMock()
+        action_type.code = "message"
+
+        # Job pour sync une conversation spécifique
+        mock_job.result_data = {"conversation_id": 12345}
+
+        mock_handler_instance = MagicMock()
+        mock_handler_instance.execute = AsyncMock(return_value={
+            "success": True,
+            "mode": "conversation",
+            "conversation_id": 12345,
+            "messages_synced": 15,
+            "messages_new": 3
+        })
+        mock_handler_class = MagicMock(return_value=mock_handler_instance)
+
+        with patch.object(processor.job_service, 'get_action_type_by_id', return_value=action_type):
+            with patch.object(processor.job_service, 'start_job', return_value=mock_job):
+                with patch.object(processor.job_service, 'complete_job', return_value=mock_job):
+                    with patch.dict('services.vinted.jobs.HANDLERS', {'message': mock_handler_class}):
+                        result = await processor._execute_job(mock_job)
+
+        assert result["success"] is True
+        assert result["action"] == "message"
+
+    @pytest.mark.asyncio
+    async def test_dispatch_to_orders_handler(self, mock_db, mock_job):
+        """Test dispatch vers OrdersJobHandler."""
+        processor = VintedJobProcessor(mock_db, shop_id=123)
+
+        action_type = MagicMock()
+        action_type.code = "orders"
+
+        mock_handler_instance = MagicMock()
+        mock_handler_instance.execute = AsyncMock(return_value={
+            "success": True,
+            "mode": "all",
+            "synced": 25
+        })
+        mock_handler_class = MagicMock(return_value=mock_handler_instance)
+
+        with patch.object(processor.job_service, 'get_action_type_by_id', return_value=action_type):
+            with patch.object(processor.job_service, 'start_job', return_value=mock_job):
+                with patch.object(processor.job_service, 'complete_job', return_value=mock_job):
+                    with patch.dict('services.vinted.jobs.HANDLERS', {'orders': mock_handler_class}):
+                        result = await processor._execute_job(mock_job)
+
+        assert result["success"] is True
+        assert result["action"] == "orders"
+
+    @pytest.mark.asyncio
+    async def test_dispatch_to_sync_handler(self, mock_db, mock_job):
+        """Test dispatch vers SyncJobHandler."""
+        processor = VintedJobProcessor(mock_db, shop_id=123)
+
+        action_type = MagicMock()
+        action_type.code = "sync"
+
+        mock_handler_instance = MagicMock()
+        mock_handler_instance.execute = AsyncMock(return_value={
+            "success": True,
+            "synced": 50
+        })
+        mock_handler_class = MagicMock(return_value=mock_handler_instance)
+
+        with patch.object(processor.job_service, 'get_action_type_by_id', return_value=action_type):
+            with patch.object(processor.job_service, 'start_job', return_value=mock_job):
+                with patch.object(processor.job_service, 'complete_job', return_value=mock_job):
+                    with patch.dict('services.vinted.jobs.HANDLERS', {'sync': mock_handler_class}):
+                        result = await processor._execute_job(mock_job)
+
+        assert result["success"] is True
+        assert result["action"] == "sync"

@@ -18,9 +18,11 @@ Date: 2025-12-19
 
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.database import Base
@@ -95,6 +97,13 @@ class VintedJob(Base):
         nullable=False,
         index=True,
         comment="1=CRITICAL, 2=HIGH, 3=NORMAL, 4=LOW"
+    )
+
+    # Job parameters/result data
+    result_data: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Job parameters (input) and result data (output)"
     )
 
     # Error tracking
