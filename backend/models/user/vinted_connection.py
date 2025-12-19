@@ -15,8 +15,16 @@ Date: 2025-12-17
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Index
+from enum import Enum as PyEnum
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Index, Enum
 from shared.database import Base
+
+
+class DataDomeStatus(str, PyEnum):
+    """Status of the DataDome session."""
+    OK = "ok"                    # Last ping successful
+    FAILED = "failed"            # Last ping failed (after retries)
+    UNKNOWN = "unknown"          # Never pinged or expired
 
 
 class VintedConnection(Base):
@@ -74,6 +82,20 @@ class VintedConnection(Base):
         comment="Date de dernière déconnexion (null si connecté)"
     )
 
+    # DataDome tracking
+    last_datadome_ping = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+        comment="Timestamp of last successful DataDome ping"
+    )
+    datadome_status = Column(
+        Enum(DataDomeStatus),
+        nullable=False,
+        default=DataDomeStatus.UNKNOWN,
+        comment="Current DataDome session status"
+    )
+
     def __repr__(self):
         status = "connected" if self.is_connected else "disconnected"
         return f"<VintedConnection(vinted_user_id={self.vinted_user_id}, login='{self.login}', {status})>"
@@ -88,6 +110,21 @@ class VintedConnection(Base):
         """Marque la connexion comme inactive."""
         self.is_connected = False
         self.disconnected_at = datetime.now(timezone.utc)
+
+    def update_datadome_status(self, success: bool) -> None:
+        """Update DataDome ping status."""
+        if success:
+            self.last_datadome_ping = datetime.now(timezone.utc)
+            self.datadome_status = DataDomeStatus.OK
+        else:
+            self.datadome_status = DataDomeStatus.FAILED
+
+    def needs_datadome_ping(self, interval_seconds: int = 300) -> bool:
+        """Check if DataDome needs to be pinged (default: 5 minutes)."""
+        if self.last_datadome_ping is None:
+            return True
+        elapsed = (datetime.now(timezone.utc) - self.last_datadome_ping).total_seconds()
+        return elapsed >= interval_seconds
 
 
 # Index pour recherches fréquentes

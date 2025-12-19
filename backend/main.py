@@ -33,6 +33,11 @@ from middleware.rate_limit import rate_limit_middleware
 from middleware.security_headers import SecurityHeadersMiddleware
 from models.user.plugin_task import PluginTask, TaskStatus
 from services.file_service import FileService
+from services.datadome_scheduler import (
+    start_datadome_scheduler,
+    stop_datadome_scheduler,
+    get_datadome_scheduler
+)
 from shared.config import settings
 from shared.database import SessionLocal
 from shared.logging_setup import setup_logging
@@ -198,6 +203,32 @@ async def startup_event():
     FileService.ensure_upload_directory()
     logger.info("Upload directory initialized")
     logger.info("✅ All required secrets configured")
+
+    # ===== DATADOME SCHEDULER (2025-12-19) =====
+    # DISABLED: En stand-by - sera réactivé avec logique basée sur compteur de requêtes
+    # TODO: Réactiver quand la logique de ping par nombre de requêtes sera implémentée
+    # try:
+    #     start_datadome_scheduler()
+    #     logger.info("🛡️ DataDome scheduler started")
+    # except Exception as e:
+    #     logger.error(f"Failed to start DataDome scheduler: {e}")
+    logger.info("🛡️ DataDome scheduler DISABLED (stand-by)")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Cleanup on application shutdown.
+    """
+    # Stop DataDome scheduler (DISABLED - stand-by)
+    # try:
+    #     scheduler = get_datadome_scheduler()
+    #     if scheduler:
+    #         stop_datadome_scheduler(scheduler)
+    #         logger.info("🛡️ DataDome scheduler stopped")
+    # except Exception as e:
+    #     logger.error(f"Error stopping DataDome scheduler: {e}")
+    pass
 
 # ===== SECURITY MIDDLEWARE (2025-12-05) =====
 

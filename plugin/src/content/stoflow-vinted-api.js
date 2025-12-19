@@ -431,6 +431,174 @@
     });
     urlObserver.observe(document.body, { childList: true, subtree: true });
 
+    // ===== DATADOME HANDLER =====
+
+    /**
+     * DataDome KeepAlive Handler
+     *
+     * Maintains the DataDome session by triggering periodic pings.
+     * DataDome uses 'datadome-det-a' custom event to collect and send data.
+     * The 'dd_post_done' event is fired when the ping completes.
+     */
+    const DataDomeHandler = {
+        _pingCount: 0,
+        _isReloading: false,
+
+        /**
+         * Check if DataDome is present on the page
+         */
+        isPresent() {
+            return !!(window.dataDomeOptions || window.ddjskey);
+        },
+
+        /**
+         * Get DataDome version info
+         */
+        getInfo() {
+            return {
+                present: this.isPresent(),
+                version: window.dataDomeOptions?.version || 'unknown',
+                endpoint: window.dataDomeOptions?.endpoint || window.ddoptions?.endpoint || null,
+                key: window.ddjskey ? window.ddjskey.substring(0, 8) + '...' : null
+            };
+        },
+
+        /**
+         * Trigger a DataDome ping
+         * Uses the custom event 'datadome-det-a' to force data submission
+         * @returns {Promise<{success: boolean, pingCount: number, error?: string}>}
+         */
+        async ping() {
+            return new Promise((resolve) => {
+                if (!this.isPresent()) {
+                    console.log('🛡️ [DataDome] Not present on page');
+                    resolve({
+                        success: false,
+                        pingCount: this._pingCount,
+                        error: 'DataDome not present on page'
+                    });
+                    return;
+                }
+
+                // Timeout if no response
+                const timeout = setTimeout(() => {
+                    window.removeEventListener('dd_post_done', handler);
+                    console.log('🛡️ [DataDome] Ping timeout');
+                    resolve({
+                        success: false,
+                        pingCount: this._pingCount,
+                        error: 'Ping timeout (3s)'
+                    });
+                }, 3000);
+
+                // Listen for completion
+                const handler = (e) => {
+                    clearTimeout(timeout);
+                    window.removeEventListener('dd_post_done', handler);
+                    this._pingCount++;
+                    console.log(`🛡️ [DataDome] Ping OK (#${this._pingCount})`);
+                    resolve({
+                        success: true,
+                        pingCount: this._pingCount
+                    });
+                };
+
+                window.addEventListener('dd_post_done', handler);
+
+                // Trigger the ping
+                console.log('🛡️ [DataDome] Triggering ping...');
+                window.dispatchEvent(new CustomEvent('datadome-det-a'));
+            });
+        },
+
+        /**
+         * Reload the DataDome script to reactivate listeners
+         * Necessary because DataDome uses once: true for event listeners
+         * @returns {Promise<boolean>}
+         */
+        async reload() {
+            if (this._isReloading) {
+                console.log('🛡️ [DataDome] Already reloading, skip');
+                return false;
+            }
+
+            this._isReloading = true;
+
+            return new Promise((resolve) => {
+                // Reset the processing flag
+                window.dataDomeProcessed = false;
+
+                // Find the DataDome script version
+                const version = window.dataDomeOptions?.version || '5.1.9';
+                const scriptUrl = `https://static-assets.vinted.com/datadome/${version}/tags.js`;
+
+                console.log(`🛡️ [DataDome] Reloading script: ${scriptUrl}`);
+
+                // Create and inject new script
+                const script = document.createElement('script');
+                script.src = scriptUrl;
+
+                script.onload = () => {
+                    console.log('🛡️ [DataDome] Script reloaded successfully');
+                    this._isReloading = false;
+                    // Wait for DataDome to initialize
+                    setTimeout(() => resolve(true), 500);
+                };
+
+                script.onerror = () => {
+                    console.error('🛡️ [DataDome] Script reload failed');
+                    this._isReloading = false;
+                    resolve(false);
+                };
+
+                document.head.appendChild(script);
+            });
+        },
+
+        /**
+         * Ping with auto-reload if needed
+         * If ping fails (listener exhausted), reload DataDome and retry
+         * @returns {Promise<{success: boolean, pingCount: number, reloaded?: boolean, error?: string}>}
+         */
+        async safePing() {
+            let result = await this.ping();
+
+            if (!result.success && !this._isReloading) {
+                console.log('🛡️ [DataDome] Ping failed, attempting reload...');
+
+                const reloadSuccess = await this.reload();
+
+                if (reloadSuccess) {
+                    // Wait a bit after reload
+                    await new Promise(r => setTimeout(r, 1000));
+                    result = await this.ping();
+                    result.reloaded = true;
+                }
+            }
+
+            return result;
+        },
+
+        /**
+         * Get ping statistics
+         */
+        getStats() {
+            return {
+                pingCount: this._pingCount,
+                isReloading: this._isReloading,
+                datadomeInfo: this.getInfo()
+            };
+        }
+    };
+
+    // Expose DataDomeHandler globally
+    window.DataDomeHandler = DataDomeHandler;
+
+    // Log DataDome status on init
+    if (DataDomeHandler.isPresent()) {
+        console.log('🛡️ [DataDome] Detected:', DataDomeHandler.getInfo());
+    }
+
     // ===== MESSAGE LISTENERS =====
 
     window.addEventListener('message', async (event) => {
@@ -515,6 +683,39 @@
                     error: error.message,
                     status: error.response?.status,
                     statusText: error.response?.statusText
+                }, '*');
+            }
+        }
+
+        // ===== DATADOME PING =====
+        if (message.type === 'STOFLOW_DATADOME_PING') {
+            const { requestId } = message;
+
+            console.log('🛡️ [DataDome] Ping request received');
+
+            try {
+                const result = await DataDomeHandler.safePing();
+
+                window.postMessage({
+                    type: 'STOFLOW_DATADOME_PING_RESPONSE',
+                    requestId,
+                    success: result.success,
+                    data: {
+                        success: result.success,
+                        ping_count: result.pingCount,
+                        reloaded: result.reloaded || false,
+                        error: result.error || null,
+                        datadome_info: DataDomeHandler.getInfo()
+                    }
+                }, '*');
+
+            } catch (error) {
+                console.error('🛡️ [DataDome] Ping error:', error);
+                window.postMessage({
+                    type: 'STOFLOW_DATADOME_PING_RESPONSE',
+                    requestId,
+                    success: false,
+                    error: error.message
                 }, '*');
             }
         }

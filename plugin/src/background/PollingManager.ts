@@ -238,6 +238,11 @@ export class PollingManager {
       return await this.executeGetVintedUserInfo();
     }
 
+    // Tâche spéciale: ping DataDome pour maintenir la session
+    if (task.task_type === 'datadome_ping') {
+      return await this.executeDataDomePing();
+    }
+
     // Tâches HTTP
     if (task.http_method && task.path) {
       BackgroundLogger.debug(`[Long Polling] ${task.http_method} ${task.path}`);
@@ -389,6 +394,55 @@ export class PollingManager {
       connected: !!(response.data?.userId && response.data?.login),
       userId: response.data?.userId || null,
       login: response.data?.login || null,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Execute DataDome ping to maintain session
+   */
+  private async executeDataDomePing(): Promise<any> {
+    BackgroundLogger.debug('[Long Polling] 🛡️ Executing DataDome ping...');
+
+    const vintedTabs = await chrome.tabs.query({ url: 'https://www.vinted.fr/*' });
+
+    if (vintedTabs.length === 0) {
+      const error: any = new Error('Aucun onglet Vinted ouvert');
+      error.status = 503;
+      error.statusText = 'No Vinted Tab';
+      throw error;
+    }
+
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(vintedTabs[0].id!, {
+        action: 'DATADOME_PING'
+      });
+    } catch (sendError: any) {
+      BackgroundLogger.error('[Long Polling] Content script non accessible (DataDome):', sendError.message);
+      const error: any = new Error('Content script Vinted non chargé. Rechargez la page Vinted.');
+      error.status = 503;
+      error.statusText = 'Content Script Unavailable';
+      throw error;
+    }
+
+    if (!response?.success) {
+      BackgroundLogger.warn('[Long Polling] 🛡️ DataDome ping failed:', response?.error);
+      return {
+        success: false,
+        error: response?.error || 'DataDome ping failed',
+        ping_count: response?.data?.ping_count || 0,
+        datadome_info: response?.data?.datadome_info || null
+      };
+    }
+
+    BackgroundLogger.info(`[Long Polling] 🛡️ DataDome ping OK (#${response.data?.ping_count || 0})`);
+
+    return {
+      success: true,
+      ping_count: response.data?.ping_count || 0,
+      reloaded: response.data?.reloaded || false,
+      datadome_info: response.data?.datadome_info || null,
       timestamp: new Date().toISOString()
     };
   }
