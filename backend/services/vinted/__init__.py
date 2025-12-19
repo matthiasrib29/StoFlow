@@ -7,7 +7,9 @@ Architecture:
 - Communication: Backend -> Plugin (ordres) -> Backend (resultats)
 
 Services disponibles:
-- VintedSyncService: Orchestrateur principal (publish, update, delete)
+- VintedJobService: Gestion des jobs (creation, status, priorite, stats)
+- VintedJobProcessor: Orchestrateur qui execute les jobs
+- VintedSyncService: Operations Vinted (publish, update, delete)
 - VintedApiSyncService: Synchronisation produits depuis API Vinted
 - VintedOrderSyncService: Synchronisation commandes Vinted
 - VintedDataExtractor: Extraction/normalisation donnees API + HTML parsing
@@ -21,9 +23,11 @@ Services disponibles:
 - VintedBordereauService: Gestion bordereaux d'expedition
 
 Created: 2024-12-10
-Updated: 2025-12-18 - Added HTML parsing and attribute extraction
+Updated: 2025-12-19 - Added VintedJobService and VintedJobProcessor
 """
 
+from .vinted_job_service import VintedJobService
+from .vinted_job_processor import VintedJobProcessor
 from .vinted_sync_service import VintedSyncService
 from .vinted_api_sync import VintedApiSyncService
 from .vinted_order_sync import VintedOrderSyncService
@@ -44,6 +48,8 @@ from .vinted_description_service import VintedDescriptionService
 from .vinted_bordereau_service import VintedBordereauService
 
 __all__ = [
+    'VintedJobService',
+    'VintedJobProcessor',
     'VintedSyncService',
     'VintedApiSyncService',
     'VintedOrderSyncService',

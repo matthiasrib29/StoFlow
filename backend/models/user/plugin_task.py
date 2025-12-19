@@ -19,7 +19,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import JSON, DateTime, Enum as SQLEnum, ForeignKey, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.database import Base
 
@@ -91,6 +91,15 @@ class PluginTask(Base):
         index=True
     )
 
+    # Job reference (for job orchestration system)
+    job_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("vinted_jobs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Parent job for this task"
+    )
+
     # Informations de la requête HTTP
     platform: Mapped[str | None] = mapped_column(
         String(50),
@@ -143,6 +152,9 @@ class PluginTask(Base):
         default=3,
         nullable=False
     )
+
+    # Relationship to job
+    job = relationship("VintedJob", back_populates="tasks", lazy="select")
 
     def __repr__(self) -> str:
         method = self.http_method or "?"
