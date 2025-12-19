@@ -20,6 +20,7 @@ from models.public.ebay_marketplace_config import MarketplaceConfig
 from models.public.platform_mapping import Platform, PlatformMapping
 from models.public.subscription_quota import SubscriptionQuota
 from models.public.user import User, UserRole, SubscriptionTier
+from models.public.permission import Permission, RolePermission, PermissionCategory
 
 # Product attributes models (schema product_attributes)
 from models.public.brand import Brand
@@ -50,6 +51,9 @@ __all__ = [
     "UserRole",
     "SubscriptionTier",
     "SubscriptionQuota",
+    "Permission",
+    "RolePermission",
+    "PermissionCategory",
     "PlatformMapping",
     "Platform",
     "ClothingPrice",
