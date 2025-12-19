@@ -377,6 +377,14 @@ class Product(Base):
         lazy="joined"
     )
 
+    # EbayProduct (1:1 relationship via product_id FK in ebay_products)
+    ebay_product: Mapped["EbayProduct | None"] = relationship(
+        "EbayProduct",
+        back_populates="product",
+        uselist=False,
+        lazy="joined"
+    )
+
     publication_history: Mapped[list["PublicationHistory"]] = relationship(
         "PublicationHistory", back_populates="product", cascade="all, delete-orphan"
     )

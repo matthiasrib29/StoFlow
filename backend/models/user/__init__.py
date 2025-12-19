@@ -8,6 +8,7 @@ Ces tables sont isolees par utilisateur et contiennent les donnees specifiques a
 from models.user.ai_generation_log import AIGenerationLog
 from models.user.ebay_credentials import EbayCredentials
 from models.user.ebay_order import EbayOrder, EbayOrderProduct
+from models.user.ebay_product import EbayProduct
 from models.user.ebay_product_marketplace import EbayProductMarketplace
 from models.user.ebay_promoted_listing import EbayPromotedListing
 from models.user.plugin_task import PluginTask, TaskStatus
@@ -30,6 +31,7 @@ __all__ = [
     "VintedConversation",
     "VintedMessage",
     "EbayCredentials",
+    "EbayProduct",
     "PublicationHistory",
     "PublicationStatus",
     "AIGenerationLog",

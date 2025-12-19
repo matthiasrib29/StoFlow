@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
-from api.ebay import router as ebay_router
+from api.ebay import router as ebay_router, products_router as ebay_products_router
 from api.ebay_oauth import router as ebay_oauth_router
 from api.ebay_webhook import router as ebay_webhook_router
 from api.etsy import router as etsy_router
@@ -282,6 +282,7 @@ app.include_router(stripe_router, prefix="/api")
 app.include_router(subscription_router, prefix="/api")
 app.include_router(vinted_router, prefix="/api")
 app.include_router(ebay_router, prefix="/api")
+app.include_router(ebay_products_router, prefix="/api")
 app.include_router(ebay_oauth_router, prefix="/api")
 app.include_router(ebay_webhook_router, prefix="/api")
 app.include_router(etsy_router, prefix="/api")
