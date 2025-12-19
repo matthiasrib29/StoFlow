@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.public.user import User, UserRole
+from models.public.permission import Permission, RolePermission
 from services.auth_service import AuthService
 from shared.config import settings
 from shared.database import get_db
@@ -249,6 +250,147 @@ def require_admin_or_support(current_user: User = Depends(get_current_user)) -> 
     return current_user
 
 
+# Cache pour les permissions (évite les requêtes répétitives)
+_permissions_cache: dict = {}
+
+
+def _get_role_permissions(db: Session, role: UserRole) -> set:
+    """
+    Récupère les permissions d'un rôle depuis la BDD (avec cache).
+
+    Args:
+        db: Session SQLAlchemy
+        role: Rôle utilisateur
+
+    Returns:
+        Set des codes de permissions pour ce rôle
+    """
+    cache_key = f"role_{role.value}"
+
+    if cache_key not in _permissions_cache:
+        permissions = (
+            db.query(Permission.code)
+            .join(RolePermission, RolePermission.permission_id == Permission.id)
+            .filter(
+                RolePermission.role == role,
+                Permission.is_active == True
+            )
+            .all()
+        )
+        _permissions_cache[cache_key] = {p.code for p in permissions}
+        logger.debug(f"Permissions loaded for role {role.value}: {_permissions_cache[cache_key]}")
+
+    return _permissions_cache[cache_key]
+
+
+def clear_permissions_cache():
+    """Vide le cache des permissions (à appeler après modification des permissions)."""
+    _permissions_cache.clear()
+    logger.info("Permissions cache cleared")
+
+
+def has_permission(user: User, permission_code: str, db: Session) -> bool:
+    """
+    Vérifie si un utilisateur a une permission spécifique.
+
+    Business Rules (2025-12-19):
+    - Les permissions sont stockées en BDD
+    - Vérification basée sur le rôle de l'utilisateur
+    - Résultat mis en cache pour performance
+
+    Args:
+        user: Utilisateur à vérifier
+        permission_code: Code de la permission (ex: "products:create")
+        db: Session SQLAlchemy
+
+    Returns:
+        True si l'utilisateur a la permission, False sinon
+    """
+    role_permissions = _get_role_permissions(db, user.role)
+    return permission_code in role_permissions
+
+
+def require_permission(permission_code: str) -> Callable:
+    """
+    Factory pour créer une dependency qui vérifie une permission spécifique.
+
+    Business Rules (2025-12-19):
+    - Vérifie que l'utilisateur a la permission requise
+    - Permissions stockées en BDD (modifiables sans redéploiement)
+    - Lève 403 Forbidden si permission manquante
+
+    Args:
+        permission_code: Code de la permission requise (ex: "products:create")
+
+    Returns:
+        Dependency FastAPI qui vérifie la permission
+
+    Example:
+        @router.delete("/products/{id}")
+        def delete_product(
+            product_id: int,
+            current_user: User = Depends(require_permission("products:delete"))
+        ):
+            ...
+    """
+    def permission_checker(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+    ) -> User:
+        if not has_permission(current_user, permission_code, db):
+            logger.warning(
+                f"Permission denied: user={current_user.id}, role={current_user.role.value}, "
+                f"permission={permission_code}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission requise: {permission_code}"
+            )
+        return current_user
+
+    return permission_checker
+
+
+def require_any_permission(*permission_codes: str) -> Callable:
+    """
+    Factory pour créer une dependency qui vérifie au moins une permission parmi plusieurs.
+
+    Args:
+        *permission_codes: Codes des permissions (au moins une requise)
+
+    Returns:
+        Dependency FastAPI
+
+    Example:
+        @router.get("/integrations")
+        def list_integrations(
+            current_user: User = Depends(require_any_permission(
+                "integrations:vinted:connect",
+                "integrations:ebay:connect"
+            ))
+        ):
+            ...
+    """
+    def permission_checker(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+    ) -> User:
+        role_permissions = _get_role_permissions(db, current_user.role)
+
+        if not any(code in role_permissions for code in permission_codes):
+            logger.warning(
+                f"Permission denied: user={current_user.id}, role={current_user.role.value}, "
+                f"required_any={permission_codes}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Une permission requise parmi: {', '.join(permission_codes)}"
+            )
+        return current_user
+
+    return permission_checker
+
+
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Alias pour get_current_user (pour compatibilité).
@@ -315,4 +457,8 @@ __all__ = [
     "require_role",
     "require_admin",
     "require_admin_or_support",
+    "require_permission",
+    "require_any_permission",
+    "has_permission",
+    "clear_permissions_cache",
 ]
