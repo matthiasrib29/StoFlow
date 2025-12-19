@@ -4,21 +4,52 @@ Vinted API Sync Service - Synchronisation depuis l'API Vinted
 Service dedie a la synchronisation des produits depuis l'API Vinted
 vers la base de donnees locale.
 
-Business Rules (2025-12-18):
-- Sync initiale via API (liste des produits)
-- Enrichissement automatique des produits sans description via HTML parsing
-- Extraction de toutes les donnees (IDs, dimensions, frais, published_at, etc.)
+=============================================================================
+ARCHITECTURE DES DONNEES VINTED (2025-12-19)
+=============================================================================
+
+Il y a DEUX sources de donnees avec des formats DIFFERENTS :
+
+1. API LISTING (GET /api/v2/wardrobe/{shop_id}/items)
+   - Retourne une liste de produits avec donnees LIMITEES
+   - Format des champs :
+     * brand: STRING direct ("Lee", "Wrangler") - PAS d'objet avec ID !
+     * size: STRING direct ("W34 | FR 44") - PAS d'objet avec ID !
+     * status: STRING direct ("Bon etat") - condition texte, PAS d'ID !
+     * price: OBJET {amount: "28.9", currency_code: "EUR"}
+     * user: OBJET {id, login, photo, ...}
+     * photos: ARRAY avec high_resolution.timestamp
+   - Champs NON DISPONIBLES dans l'API listing :
+     * description (toujours vide)
+     * catalog_id, brand_id, size_id, condition_id
+     * color, material, measurements
+
+2. PAGE HTML PRODUIT (GET https://www.vinted.fr/items/{id}-...)
+   - Contient des donnees Next.js Flight dans <script> tags
+   - Format des champs (dans self.__next_f.push) :
+     * brand_dto: OBJET {id: 259, title: "Wrangler"}
+     * catalog_id: INTEGER direct (1819)
+     * attributes[code=size]: OBJET {id: 1233, value: "W26 | FR 36"}
+     * attributes[code=status]: OBJET {id: 50, value: "Bon etat"}
+       NOTE: L'ID 50 est different du status_id API (1-6) !
+     * attributes[code=color]: OBJET {value: "Bleu"} - PAS d'ID !
+     * description: disponible
+     * service_fee, total_item_price: disponibles
+
+WORKFLOW:
+1. Phase 1 : Sync API -> Donnees de base (brand texte, size texte, stats)
+2. Phase 2 : Enrichissement HTML -> IDs, description, couleur, dimensions
 
 Author: Claude
 Date: 2025-12-17
 Updated: 2025-12-18 - Added automatic HTML enrichment for products without description
+Updated: 2025-12-19 - Fixed API extraction to match real API format
 """
 
 import asyncio
 import json
 import random
 from datetime import datetime
-from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import text
@@ -145,6 +176,26 @@ class VintedApiSyncService:
         """
         Importe un produit depuis l'API Vinted vers VintedProduct.
 
+        IMPORTANT: L'API listing retourne des donnees LIMITEES.
+        Les IDs (brand_id, size_id, catalog_id, condition_id) et autres
+        donnees detaillees (description, color, material) sont obtenues
+        via l'enrichissement HTML (Phase 2).
+
+        Format API listing (GET /api/v2/wardrobe/{shop_id}/items):
+        {
+            "id": 7750837522,
+            "title": "Lee Jeans loose...",
+            "brand": "Lee",                    # STRING direct, pas d'objet !
+            "size": "W34 | FR 44",             # STRING direct, pas d'objet !
+            "status": "Bon etat",              # Condition texte, pas d'ID !
+            "price": {"amount": "28.9", "currency_code": "EUR"},
+            "user": {"id": 29535217, "login": "shop.ton.outfit"},
+            "photos": [{"high_resolution": {"timestamp": 1765555585}}],
+            "view_count": 6,
+            "favourite_count": 2,
+            ...
+        }
+
         Args:
             db: Session SQLAlchemy
             api_product: Donnees produit depuis API
@@ -156,28 +207,28 @@ class VintedApiSyncService:
         if not vinted_id:
             return 'skipped'
 
-        # Extraire toutes les donnees
+        # =====================================================================
+        # DONNEES DISPONIBLES DANS L'API LISTING
+        # =====================================================================
+
         title = api_product.get('title', '')
-        description = api_product.get('description', '')
+
+        # Prix : objet {amount, currency_code}
         price = self.extractor.extract_price(api_product.get('price'))
         currency = api_product.get('currency', 'EUR')
         total_price = self.extractor.extract_price(api_product.get('total_item_price'))
+        service_fee = self.extractor.extract_price(api_product.get('service_fee'))
 
-        # Categorisation (with IDs)
-        brand_obj = api_product.get('brand') or {}
-        brand = self.extractor.extract_brand(brand_obj)
-        brand_id = brand_obj.get('id') if isinstance(brand_obj, dict) else None
+        # Brand et Size : STRING directs dans l'API (pas d'objets avec ID !)
+        # Les IDs seront recuperes via l'enrichissement HTML
+        brand = api_product.get('brand')  # STRING: "Lee", "Wrangler", etc.
+        size = api_product.get('size')    # STRING: "W34 | FR 44", "M", etc.
 
-        size_obj = api_product.get('size') or {}
-        size = self.extractor.extract_size(size_obj)
-        size_id = size_obj.get('id') if isinstance(size_obj, dict) else None
+        # Condition : STRING dans le champ "status" (pas d'ID dans l'API listing !)
+        # Ex: "Bon etat", "Tres bon etat", "Neuf avec etiquette"
+        condition = api_product.get('status')
 
-        color = self.extractor.extract_color(api_product.get('color1'))
-        material = api_product.get('material')
-        category = self.extractor.extract_category(api_product.get('catalog_id'))
-        catalog_id = api_product.get('catalog_id')
-
-        # Status
+        # Status de publication : derive des flags is_draft, is_closed, etc.
         is_draft = api_product.get('is_draft', False)
         is_closed = api_product.get('is_closed', False)
         is_reserved = api_product.get('is_reserved', False)
@@ -187,15 +238,13 @@ class VintedApiSyncService:
             is_closed=is_closed,
             closing_action=api_product.get('item_closing_action')
         )
-        condition = api_product.get('status')  # Etat du produit (texte)
-        condition_id = api_product.get('status_id')  # ID de l'etat
 
-        # Seller info
+        # Seller info : objet "user" avec id et login
         user = api_product.get('user') or {}
         seller_id = user.get('id') if isinstance(user, dict) else api_product.get('user_id')
         seller_login = user.get('login') if isinstance(user, dict) else None
 
-        # Analytics
+        # Analytics : disponibles dans l'API
         view_count = api_product.get('view_count', 0)
         favourite_count = api_product.get('favourite_count', 0)
 
@@ -205,9 +254,8 @@ class VintedApiSyncService:
         photo_url = photos[0].get('url') if photos else None
         photos_data = json.dumps(photos) if photos else None
 
-        # Publication date from photo timestamp or API created_at
+        # Publication date : depuis le timestamp de la premiere photo
         published_at = None
-        # Try to get from first photo's timestamp
         if photos and isinstance(photos[0], dict):
             high_res = photos[0].get('high_resolution') or {}
             if isinstance(high_res, dict) and high_res.get('timestamp'):
@@ -215,12 +263,22 @@ class VintedApiSyncService:
                     published_at = datetime.fromtimestamp(high_res['timestamp'])
                 except (ValueError, OSError):
                     pass
-        # Fallback to API created_at_ts
+        # Fallback to API created_at_ts (si disponible)
         if not published_at and api_product.get('created_at_ts'):
             try:
                 published_at = datetime.fromtimestamp(api_product['created_at_ts'])
             except (ValueError, OSError):
                 pass
+
+        # =====================================================================
+        # DONNEES NON DISPONIBLES DANS L'API LISTING
+        # Seront remplies par l'enrichissement HTML (Phase 2)
+        # =====================================================================
+        # - description (toujours vide dans l'API)
+        # - brand_id, size_id, catalog_id, condition_id
+        # - color, material, measurements
+        # - manufacturer_labelling
+        # - buyer_protection_fee, shipping_price
 
         # Check if exists
         vinted_product = db.query(VintedProduct).filter(
@@ -228,69 +286,81 @@ class VintedApiSyncService:
         ).first()
 
         if vinted_product:
-            # Update existing
+            # Update existing - seulement les champs disponibles dans l'API
             vinted_product.title = title
-            vinted_product.description = description
             vinted_product.price = price
             vinted_product.currency = currency or 'EUR'
             vinted_product.total_price = total_price
+            vinted_product.service_fee = service_fee
+
+            # Brand/Size : texte seulement (IDs via enrichissement HTML)
             vinted_product.brand = brand
-            vinted_product.brand_id = brand_id
             vinted_product.size = size
-            vinted_product.size_id = size_id
-            vinted_product.color = color
-            vinted_product.material = material
-            vinted_product.category = category
-            vinted_product.catalog_id = catalog_id
-            vinted_product.status = status
+
+            # Condition : texte seulement (ID via enrichissement HTML)
             vinted_product.condition = condition
-            vinted_product.condition_id = condition_id
+
+            # Status de publication
+            vinted_product.status = status
             vinted_product.is_draft = is_draft
             vinted_product.is_closed = is_closed
             vinted_product.is_reserved = is_reserved
             vinted_product.is_hidden = is_hidden
+
+            # Seller info
             vinted_product.seller_id = seller_id
             vinted_product.seller_login = seller_login
+
+            # Analytics
             vinted_product.view_count = view_count
             vinted_product.favourite_count = favourite_count
+
+            # URLs & Images
             vinted_product.url = url
             vinted_product.photo_url = photo_url
             vinted_product.photos_data = photos_data
+
             if published_at:
                 vinted_product.published_at = published_at
+
             return 'synced'
         else:
-            # Create new
+            # Create new - seulement les champs disponibles dans l'API
+            # Les autres champs (IDs, description, color, etc.) seront
+            # remplis par l'enrichissement HTML
             vinted_product = VintedProduct(
                 vinted_id=vinted_id,
                 title=title,
-                description=description,
                 price=price,
                 currency=currency or 'EUR',
                 total_price=total_price,
+                service_fee=service_fee,
+                # Brand/Size : texte seulement
                 brand=brand,
-                brand_id=brand_id,
                 size=size,
-                size_id=size_id,
-                color=color,
-                material=material,
-                category=category,
-                catalog_id=catalog_id,
-                status=status,
+                # Condition : texte seulement
                 condition=condition,
-                condition_id=condition_id,
+                # Status de publication
+                status=status,
                 is_draft=is_draft,
                 is_closed=is_closed,
                 is_reserved=is_reserved,
                 is_hidden=is_hidden,
+                # Seller info
                 seller_id=seller_id,
                 seller_login=seller_login,
+                # Analytics
                 view_count=view_count,
                 favourite_count=favourite_count,
+                # URLs & Images
                 url=url,
                 photo_url=photo_url,
                 photos_data=photos_data,
                 published_at=published_at,
+                # Les champs suivants restent NULL jusqu'a l'enrichissement HTML:
+                # description, brand_id, size_id, catalog_id, condition_id,
+                # color, material, measurements, manufacturer_labelling,
+                # buyer_protection_fee, shipping_price
             )
             db.add(vinted_product)
             return 'created'
@@ -468,6 +538,42 @@ class VintedApiSyncService:
         """
         Met a jour un VintedProduct avec les donnees extraites du HTML.
 
+        Cette methode complete les donnees manquantes de l'API listing
+        avec les donnees extraites de la page HTML du produit.
+
+        Format des donnees extraites (depuis VintedDataExtractor):
+        {
+            'vinted_id': 7751078047,
+            'title': '...',
+            'description': 'Texte complet...',
+
+            # IDs Vinted (depuis brand_dto et attributes)
+            'brand_id': 259,
+            'brand_name': 'Wrangler',
+            'size_id': 1233,
+            'size_title': 'W26 | FR 36',
+            'catalog_id': 1819,
+            'condition_id': 50,           # NOTE: ID HTML != status_id API !
+            'condition_title': 'Bon etat',
+
+            # Attributs (depuis attributes block)
+            'color': 'Bleu',              # NOTE: Pas d'ID disponible !
+            'material': 'Denim',
+            'measurements': 'l 47 cm / L 70 cm',
+            'measurement_width': 47,
+            'measurement_length': 70,
+            'manufacturer_labelling': '...',
+
+            # Frais (depuis item block)
+            'service_fee': 1.37,
+            'buyer_protection_fee': 1.37,
+            'shipping_price': 2.83,
+            'total_item_price': 20.27,
+
+            # Date publication (depuis photo timestamp)
+            'published_at': datetime(2025, 12, 12, ...),
+        }
+
         Args:
             product: VintedProduct a mettre a jour
             extracted: Donnees extraites par VintedDataExtractor
@@ -483,36 +589,53 @@ class VintedApiSyncService:
             f"brand={extracted.get('brand_name', 'No')}"
         )
 
-        # Description (prioritaire - c'est pour ca qu'on fait l'enrichissement)
+        # =====================================================================
+        # DESCRIPTION (prioritaire - c'est pour ca qu'on fait l'enrichissement)
+        # =====================================================================
         if extracted.get('description'):
             product.description = extracted['description']
 
-        # IDs Vinted (pour operations futures)
+        # =====================================================================
+        # IDs VINTED (pour operations futures comme la publication)
+        # NOTE: Ces IDs viennent du HTML, pas de l'API listing !
+        # =====================================================================
+
+        # Brand ID (depuis brand_dto dans le HTML)
         if extracted.get('brand_id'):
             product.brand_id = extracted['brand_id']
         if extracted.get('brand_name') and not product.brand:
             product.brand = extracted['brand_name']
 
+        # Size ID (depuis attributes[code=size].data.id)
         if extracted.get('size_id'):
             product.size_id = extracted['size_id']
         if extracted.get('size_title') and not product.size:
             product.size = extracted['size_title']
 
+        # Catalog ID (depuis item.catalog_id)
         if extracted.get('catalog_id'):
             product.catalog_id = extracted['catalog_id']
 
+        # Condition ID (depuis attributes[code=status].data.id)
+        # ATTENTION: Cet ID (ex: 50) est DIFFERENT du status_id API (1-6) !
         if extracted.get('condition_id'):
             product.condition_id = extracted['condition_id']
         if extracted.get('condition_title') and not product.condition:
             product.condition = extracted['condition_title']
 
-        # Attributs supplementaires
+        # =====================================================================
+        # ATTRIBUTS SUPPLEMENTAIRES (depuis attributes block)
+        # =====================================================================
+
+        # Couleur : TEXTE seulement, pas d'ID disponible dans le HTML !
         if extracted.get('color') and not product.color:
             product.color = extracted['color']
 
+        # Matiere
         if extracted.get('material'):
             product.material = extracted['material']
 
+        # Dimensions
         if extracted.get('measurements'):
             product.measurements = extracted['measurements']
         if extracted.get('measurement_width'):
@@ -520,10 +643,13 @@ class VintedApiSyncService:
         if extracted.get('measurement_length'):
             product.measurement_length = extracted['measurement_length']
 
+        # Etiquetage fabricant
         if extracted.get('manufacturer_labelling'):
             product.manufacturer_labelling = extracted['manufacturer_labelling']
 
-        # Frais (utile pour calculs de marge)
+        # =====================================================================
+        # FRAIS (utile pour calculs de marge)
+        # =====================================================================
         if extracted.get('service_fee'):
             product.service_fee = extracted['service_fee']
         if extracted.get('buyer_protection_fee'):
@@ -533,7 +659,9 @@ class VintedApiSyncService:
         if extracted.get('total_item_price'):
             product.total_price = extracted['total_item_price']
 
-        # Seller info
+        # =====================================================================
+        # SELLER INFO (normalement deja rempli par l'API, mais on complete)
+        # =====================================================================
         if extracted.get('seller_id'):
             product.seller_id = extracted['seller_id']
         if extracted.get('seller_login'):
@@ -545,7 +673,9 @@ class VintedApiSyncService:
         if 'is_hidden' in extracted:
             product.is_hidden = extracted['is_hidden']
 
-        # Date de publication depuis timestamp image
+        # =====================================================================
+        # DATE DE PUBLICATION (depuis photos[0].high_resolution.timestamp)
+        # =====================================================================
         if extracted.get('published_at') and not product.published_at:
             product.published_at = extracted['published_at']
 
