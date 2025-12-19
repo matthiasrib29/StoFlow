@@ -14,6 +14,7 @@ from .update_job_handler import UpdateJobHandler
 from .delete_job_handler import DeleteJobHandler
 from .orders_job_handler import OrdersJobHandler
 from .sync_job_handler import SyncJobHandler
+from .message_job_handler import MessageJobHandler
 
 __all__ = [
     'BaseJobHandler',
@@ -22,6 +23,7 @@ __all__ = [
     'DeleteJobHandler',
     'OrdersJobHandler',
     'SyncJobHandler',
+    'MessageJobHandler',
     'HANDLERS',
 ]
 
@@ -32,4 +34,5 @@ HANDLERS = {
     "delete": DeleteJobHandler,
     "orders": OrdersJobHandler,
     "sync": SyncJobHandler,
+    "message": MessageJobHandler,
 }

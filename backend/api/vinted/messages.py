@@ -3,9 +3,9 @@ Vinted Messages Routes
 
 Endpoints pour la gestion des messages Vinted (inbox):
 - GET /conversations: Liste des conversations
-- POST /conversations/sync: Synchroniser inbox depuis Vinted
+- POST /conversations/sync: Synchroniser inbox depuis Vinted (via job)
 - GET /conversations/{id}: Conversation avec ses messages
-- POST /conversations/{id}/sync: Synchroniser une conversation
+- POST /conversations/{id}/sync: Synchroniser une conversation (via job)
 - PUT /conversations/{id}/read: Marquer comme lue
 - GET /messages/search: Rechercher dans les messages
 
@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_user_db
 from repositories.vinted_conversation_repository import VintedConversationRepository
 from services.vinted.vinted_conversation_service import VintedConversationService
+from services.vinted.vinted_job_service import VintedJobService
+from services.vinted.vinted_job_processor import VintedJobProcessor
 from .shared import get_active_vinted_connection
 
 router = APIRouter()
@@ -72,9 +74,9 @@ async def sync_inbox(
     sync_all: bool = Query(False, description="Sync all pages"),
 ) -> dict:
     """
-    Synchronise l'inbox Vinted (liste des conversations).
+    Synchronise l'inbox Vinted (liste des conversations) via le système de jobs.
 
-    Utilise le PluginTask pour appeler l'API Vinted.
+    Crée un job 'message' et l'exécute immédiatement.
 
     Args:
         page: Page à synchroniser (1-indexed)
@@ -83,10 +85,11 @@ async def sync_inbox(
 
     Returns:
         {
+            "job_id": int,
+            "success": bool,
             "synced": int,
             "created": int,
             "updated": int,
-            "total": int,
             "unread": int,
             "errors": list
         }
@@ -94,17 +97,31 @@ async def sync_inbox(
     db, current_user = user_db
 
     # Check Vinted connection
-    get_active_vinted_connection(db, current_user.id)
+    vinted_connection = get_active_vinted_connection(db, current_user.id)
 
     try:
-        service = VintedConversationService()
-        result = await service.sync_inbox(
-            db=db,
-            page=page,
-            per_page=per_page,
-            sync_all_pages=sync_all
+        job_service = VintedJobService(db)
+
+        # Create job with parameters
+        job = job_service.create_job(
+            action_code="message",
+            result_data={
+                "page": page,
+                "per_page": per_page,
+                "sync_all": sync_all
+            }
         )
-        return result
+        db.commit()
+
+        # Execute job immediately
+        processor = VintedJobProcessor(db, shop_id=vinted_connection.vinted_user_id)
+        result = await processor._execute_job(job)
+
+        return {
+            "job_id": job.id,
+            "status": "completed" if result.get("success") else "failed",
+            **result
+        }
 
     except HTTPException:
         raise
@@ -158,12 +175,14 @@ async def sync_conversation(
     user_db: tuple = Depends(get_user_db),
 ) -> dict:
     """
-    Synchronise une conversation spécifique (ses messages).
+    Synchronise une conversation spécifique (ses messages) via le système de jobs.
 
-    Utilise le PluginTask pour appeler l'API Vinted.
+    Crée un job 'message' avec conversation_id et l'exécute immédiatement.
 
     Returns:
         {
+            "job_id": int,
+            "success": bool,
             "conversation_id": int,
             "messages_synced": int,
             "messages_new": int,
@@ -174,12 +193,27 @@ async def sync_conversation(
     db, current_user = user_db
 
     # Check Vinted connection
-    get_active_vinted_connection(db, current_user.id)
+    vinted_connection = get_active_vinted_connection(db, current_user.id)
 
     try:
-        service = VintedConversationService()
-        result = await service.sync_conversation(db, conversation_id)
-        return result
+        job_service = VintedJobService(db)
+
+        # Create job with conversation_id parameter
+        job = job_service.create_job(
+            action_code="message",
+            result_data={"conversation_id": conversation_id}
+        )
+        db.commit()
+
+        # Execute job immediately
+        processor = VintedJobProcessor(db, shop_id=vinted_connection.vinted_user_id)
+        result = await processor._execute_job(job)
+
+        return {
+            "job_id": job.id,
+            "status": "completed" if result.get("success") else "failed",
+            **result
+        }
 
     except HTTPException:
         raise

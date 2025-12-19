@@ -90,6 +90,7 @@ class VintedJobService:
         product_id: int | None = None,
         batch_id: str | None = None,
         priority: int | None = None,
+        result_data: dict | None = None,
     ) -> VintedJob:
         """
         Create a new Vinted job.
@@ -99,6 +100,7 @@ class VintedJobService:
             product_id: Product ID (optional)
             batch_id: Batch ID for grouping (optional)
             priority: Override priority (optional, uses action_type default)
+            result_data: Initial data/parameters for the job (optional)
 
         Returns:
             Created VintedJob
@@ -122,6 +124,7 @@ class VintedJobService:
             priority=priority if priority is not None else action_type.priority,
             expires_at=expires_at,
             created_at=now,
+            result_data=result_data,
         )
 
         self.db.add(job)
