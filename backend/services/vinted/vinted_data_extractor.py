@@ -4,13 +4,68 @@ Vinted Data Extractor - Extraction de donnees depuis l'API Vinted
 Fonctions utilitaires pour extraire et normaliser les donnees
 retournees par l'API Vinted.
 
+=============================================================================
+FORMAT DES DONNEES HTML VINTED (2025-12-19)
+=============================================================================
+
+La page HTML d'un produit Vinted contient des donnees Next.js Flight
+dans des balises <script> avec le pattern:
+    self.__next_f.push([1, "...JSON_DATA..."])
+
+STRUCTURE DES DONNEES PRINCIPALES:
+
+1. BLOC "item" (donnees produit):
+   {
+     "id": 7751078047,
+     "title": "Wrangler Jeans regular...",
+     "catalog_id": 1819,              # ID categorie Vinted
+     "currency": "EUR",
+     "is_hidden": false,
+     "is_reserved": false,
+     "is_closed": false,
+     "is_draft": false,
+     "price": {"amount": "18.9", "currency_code": "EUR"},
+     "brand_dto": {"id": 259, "title": "Wrangler"},  # Marque avec ID
+     "service_fee": {"amount": "1.37", "currency_code": "EUR"},
+     "total_item_price": {"amount": "20.27", "currency_code": "EUR"},
+     "seller_id": 29535217,
+     "login": "shop.ton.outfit",
+     "photos": [{"high_resolution": {"timestamp": 1765557915}}]
+   }
+
+2. BLOC "attributes" (dans plugins):
+   {
+     "name": "attributes",
+     "data": {
+       "attributes": [
+         {"code": "brand", "data": {"id": 259, "value": "Wrangler"}},
+         {"code": "size", "data": {"id": 1233, "value": "W26 | FR 36"}},
+         {"code": "status", "data": {"id": 50, "value": "Bon etat"}},
+         {"code": "color", "data": {"value": "Bleu"}},  # PAS d'ID !
+         {"code": "upload_date", "data": {"value": "Il y a 6 jours"}}
+       ]
+     }
+   }
+
+3. BLOC "description" (dans plugins):
+   {
+     "name": "description",
+     "data": {"description": "Texte de la description..."}
+   }
+
+NOTES IMPORTANTES:
+- L'ID "status" dans HTML (ex: 50) est DIFFERENT du status_id API (1-6)
+- Le champ "color" n'a PAS d'ID dans le HTML, seulement le texte
+- Le timestamp published_at vient de photos[0].high_resolution.timestamp
+
 Includes:
-- API response parsing
+- API response parsing (extract_price, extract_text_field, etc.)
 - Next.js Flight data extraction from HTML pages
 - Order/transaction data extraction
 
 Author: Claude
 Date: 2025-12-17
+Updated: 2025-12-19 - Added detailed format documentation
 """
 
 import json
