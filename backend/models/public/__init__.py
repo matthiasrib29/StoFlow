@@ -44,6 +44,7 @@ from models.public.sleeve_length import SleeveLength
 from models.public.sport import Sport
 from models.public.trend import Trend
 from models.public.unique_feature import UniqueFeature
+from models.public.vinted_action_type import VintedActionType
 
 __all__ = [
     # Public schema
@@ -63,6 +64,8 @@ __all__ = [
     "MarketplaceConfig",
     "AspectMapping",
     "ExchangeRate",
+    # Vinted job system
+    "VintedActionType",
     # Product attributes schema
     "Brand",
     "Category",

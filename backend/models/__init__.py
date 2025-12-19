@@ -27,6 +27,8 @@ from models.public import (
     MarketplaceConfig,
     AspectMapping,
     ExchangeRate,
+    # Vinted Job System
+    VintedActionType,
     # Product Attributes (schema product_attributes)
     Brand,
     Category,
@@ -71,6 +73,10 @@ from models.user import (
     VintedOrder,
     VintedOrderProduct,
     VintedDeletion,
+    # Vinted Job System
+    VintedJob,
+    JobStatus,
+    VintedJobStats,
     # eBay
     EbayCredentials,
     EbayProductMarketplace,
@@ -96,6 +102,8 @@ __all__ = [
     "MarketplaceConfig",
     "AspectMapping",
     "ExchangeRate",
+    # Vinted Job System (public)
+    "VintedActionType",
     # Product Attributes
     "Brand",
     "Category",
@@ -137,6 +145,10 @@ __all__ = [
     "VintedOrder",
     "VintedOrderProduct",
     "VintedDeletion",
+    # Vinted Job System (user)
+    "VintedJob",
+    "JobStatus",
+    "VintedJobStats",
     # eBay
     "EbayCredentials",
     "EbayProductMarketplace",

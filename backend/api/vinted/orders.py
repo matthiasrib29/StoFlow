@@ -3,10 +3,12 @@ Vinted Orders Routes
 
 Endpoints pour la gestion des commandes Vinted:
 - GET /orders: Liste des commandes
-- POST /orders/sync: Synchroniser les commandes depuis Vinted
+- POST /orders/sync: Synchroniser les commandes depuis Vinted (via jobs)
 - GET /orders/{transaction_id}/label: Télécharger le bordereau
 - GET /deletions: Historique des suppressions
 - POST /orders/labels/batch: Téléchargement batch des labels
+
+Updated: 2025-12-19 - Intégration système de jobs
 
 Author: Claude
 Date: 2025-12-17
@@ -18,7 +20,12 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_user_db
 from models.user.vinted_order import VintedOrder
 from models.user.vinted_deletion import VintedDeletion
-from services.vinted import VintedSyncService, VintedBordereauService
+from services.vinted import (
+    VintedSyncService,
+    VintedJobService,
+    VintedJobProcessor,
+    VintedBordereauService,
+)
 from .shared import get_active_vinted_connection
 
 router = APIRouter()
@@ -90,24 +97,55 @@ async def list_orders(
 async def sync_orders(
     user_db: tuple = Depends(get_user_db),
     duplicate_threshold: float = Query(0.8, ge=0, le=1, description="% doublons pour arrêter"),
+    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
 ) -> dict:
     """
-    Synchronise les commandes depuis Vinted.
+    Synchronise les commandes depuis Vinted via le système de jobs.
+
+    Args:
+        duplicate_threshold: % de doublons pour arrêter la sync
+        process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
 
     Returns:
-        {"synced": int, "duplicates": int, "errors": int}
+        {
+            "job_id": int,
+            "status": str,
+            "result": dict (si process_now=True)
+        }
     """
     db, current_user = user_db
 
     connection = get_active_vinted_connection(db, current_user.id)
 
     try:
-        service = VintedSyncService(shop_id=connection.vinted_user_id)
-        result = await service.sync_orders(db, duplicate_threshold)
-        return result
+        job_service = VintedJobService(db)
 
-    except HTTPException:
-        raise
+        # Créer le job de sync commandes
+        job = job_service.create_job(
+            action_code="orders",
+            product_id=None  # Pas de produit spécifique pour sync commandes
+        )
+        db.commit()
+
+        response = {
+            "job_id": job.id,
+            "status": job.status.value,
+        }
+
+        # Exécuter immédiatement si demandé
+        if process_now:
+            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            result = await processor._execute_job(job)
+            response["result"] = result.get("result", result)
+            response["status"] = "completed" if result.get("success") else "failed"
+
+        return response
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
