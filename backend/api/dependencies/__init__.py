@@ -285,8 +285,7 @@ def _get_role_permissions(db: Session, role: UserRole) -> set:
 
 def clear_permissions_cache():
     """Vide le cache des permissions (à appeler après modification des permissions)."""
-    global _permissions_cache
-    _permissions_cache = {}
+    _permissions_cache.clear()
     logger.info("Permissions cache cleared")
 
 

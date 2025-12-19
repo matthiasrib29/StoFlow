@@ -540,3 +540,224 @@ class TestGetUserDB:
 
         # Vérifier que le bon schema est utilisé via _validate_schema_name
         mock_validate.assert_called_once_with("user_1")
+
+
+# ============================================================================
+# require_permission TESTS (RBAC)
+# ============================================================================
+
+class TestPermissionAuthorization:
+    """
+    Tests pour le système de permissions RBAC.
+
+    CRITIQUE: Ces tests vérifient que les permissions sont correctement
+    vérifiées depuis la base de données.
+    """
+
+    def test_has_permission_returns_true_when_permission_exists(self):
+        """Test que has_permission retourne True si la permission existe."""
+        from api.dependencies import has_permission, _permissions_cache, clear_permissions_cache
+        from models.public.user import UserRole
+
+        # Clear cache pour isolation
+        clear_permissions_cache()
+
+        mock_user = Mock()
+        mock_user.role = UserRole.ADMIN
+
+        mock_db = Mock()
+        mock_permission = Mock()
+        mock_permission.code = "products:create"
+        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = [mock_permission]
+
+        result = has_permission(mock_user, "products:create", mock_db)
+
+        assert result is True
+        clear_permissions_cache()
+
+    def test_has_permission_returns_false_when_permission_missing(self):
+        """Test que has_permission retourne False si la permission n'existe pas."""
+        from api.dependencies import has_permission, clear_permissions_cache
+        from models.public.user import UserRole
+
+        clear_permissions_cache()
+
+        mock_user = Mock()
+        mock_user.role = UserRole.SUPPORT
+
+        mock_db = Mock()
+        mock_permission = Mock()
+        mock_permission.code = "products:read"  # Seule permission
+        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = [mock_permission]
+
+        # Support n'a pas products:delete
+        result = has_permission(mock_user, "products:delete", mock_db)
+
+        assert result is False
+        clear_permissions_cache()
+
+    def test_has_permission_uses_cache(self):
+        """Test que has_permission utilise le cache pour éviter les requêtes répétées."""
+        from api.dependencies import has_permission, _permissions_cache, clear_permissions_cache
+        from models.public.user import UserRole
+
+        clear_permissions_cache()
+
+        mock_user = Mock()
+        mock_user.role = UserRole.USER
+
+        mock_db = Mock()
+        mock_permission = Mock()
+        mock_permission.code = "products:create"
+        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = [mock_permission]
+
+        # Premier appel - charge le cache
+        has_permission(mock_user, "products:create", mock_db)
+
+        # Deuxième appel - doit utiliser le cache
+        has_permission(mock_user, "products:create", mock_db)
+
+        # La query ne doit être appelée qu'une seule fois (cache)
+        assert mock_db.query.call_count == 1
+
+        clear_permissions_cache()
+
+    def test_clear_permissions_cache_clears_cache(self):
+        """Test que clear_permissions_cache vide le cache."""
+        from api.dependencies import _permissions_cache, clear_permissions_cache
+
+        # Ajouter quelque chose au cache
+        _permissions_cache["test_key"] = {"test_permission"}
+
+        clear_permissions_cache()
+
+        assert len(_permissions_cache) == 0
+
+    def test_require_permission_allows_user_with_permission(self):
+        """Test que require_permission autorise un utilisateur avec la permission."""
+        from api.dependencies import require_permission, clear_permissions_cache
+        from models.public.user import UserRole
+
+        clear_permissions_cache()
+
+        checker = require_permission("products:create")
+
+        mock_user = Mock()
+        mock_user.id = 1
+        mock_user.role = UserRole.USER
+
+        mock_db = Mock()
+        mock_permission = Mock()
+        mock_permission.code = "products:create"
+        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = [mock_permission]
+
+        # Appeler le checker directement avec les dépendances
+        result = checker(current_user=mock_user, db=mock_db)
+
+        assert result == mock_user
+        clear_permissions_cache()
+
+    def test_require_permission_rejects_user_without_permission(self):
+        """Test que require_permission rejette un utilisateur sans la permission."""
+        from api.dependencies import require_permission, clear_permissions_cache
+        from models.public.user import UserRole
+
+        clear_permissions_cache()
+
+        checker = require_permission("admin:users:delete")
+
+        mock_user = Mock()
+        mock_user.id = 1
+        mock_user.role = UserRole.USER
+
+        mock_db = Mock()
+        mock_permission = Mock()
+        mock_permission.code = "products:create"  # Pas admin:users:delete
+        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = [mock_permission]
+
+        with pytest.raises(HTTPException) as exc_info:
+            checker(current_user=mock_user, db=mock_db)
+
+        assert exc_info.value.status_code == 403
+        assert "admin:users:delete" in exc_info.value.detail
+        clear_permissions_cache()
+
+    def test_require_any_permission_allows_with_one_permission(self):
+        """Test que require_any_permission autorise si l'utilisateur a au moins une permission."""
+        from api.dependencies import require_any_permission, clear_permissions_cache
+        from models.public.user import UserRole
+
+        clear_permissions_cache()
+
+        checker = require_any_permission("products:create", "products:update", "products:delete")
+
+        mock_user = Mock()
+        mock_user.id = 1
+        mock_user.role = UserRole.USER
+
+        mock_db = Mock()
+        mock_permission = Mock()
+        mock_permission.code = "products:create"  # A seulement products:create
+        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = [mock_permission]
+
+        result = checker(current_user=mock_user, db=mock_db)
+
+        assert result == mock_user
+        clear_permissions_cache()
+
+    def test_require_any_permission_rejects_without_any_permission(self):
+        """Test que require_any_permission rejette si l'utilisateur n'a aucune des permissions."""
+        from api.dependencies import require_any_permission, clear_permissions_cache
+        from models.public.user import UserRole
+
+        clear_permissions_cache()
+
+        checker = require_any_permission("admin:users:read", "admin:users:update")
+
+        mock_user = Mock()
+        mock_user.id = 1
+        mock_user.role = UserRole.USER
+
+        mock_db = Mock()
+        mock_permission = Mock()
+        mock_permission.code = "products:create"  # Pas de permission admin
+        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = [mock_permission]
+
+        with pytest.raises(HTTPException) as exc_info:
+            checker(current_user=mock_user, db=mock_db)
+
+        assert exc_info.value.status_code == 403
+        clear_permissions_cache()
+
+    def test_require_permission_different_roles_different_permissions(self):
+        """Test que différents rôles ont différentes permissions."""
+        from api.dependencies import has_permission, clear_permissions_cache
+        from models.public.user import UserRole
+
+        clear_permissions_cache()
+
+        # Simuler ADMIN avec toutes les permissions
+        admin_user = Mock()
+        admin_user.role = UserRole.ADMIN
+
+        mock_db_admin = Mock()
+        admin_permissions = [Mock(code="products:create"), Mock(code="admin:users:delete")]
+        mock_db_admin.query.return_value.join.return_value.filter.return_value.all.return_value = admin_permissions
+
+        # Simuler SUPPORT avec permissions limitées
+        support_user = Mock()
+        support_user.role = UserRole.SUPPORT
+
+        mock_db_support = Mock()
+        support_permissions = [Mock(code="products:read")]
+        mock_db_support.query.return_value.join.return_value.filter.return_value.all.return_value = support_permissions
+
+        # Admin a admin:users:delete
+        assert has_permission(admin_user, "admin:users:delete", mock_db_admin) is True
+
+        clear_permissions_cache()
+
+        # Support n'a pas admin:users:delete
+        assert has_permission(support_user, "admin:users:delete", mock_db_support) is False
+
+        clear_permissions_cache()
