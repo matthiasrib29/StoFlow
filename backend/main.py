@@ -205,12 +205,14 @@ async def startup_event():
     logger.info("✅ All required secrets configured")
 
     # ===== DATADOME SCHEDULER (2025-12-19) =====
-    # Start the DataDome ping scheduler to maintain Vinted sessions
-    try:
-        start_datadome_scheduler()
-        logger.info("🛡️ DataDome scheduler started")
-    except Exception as e:
-        logger.error(f"Failed to start DataDome scheduler: {e}")
+    # DISABLED: En stand-by - sera réactivé avec logique basée sur compteur de requêtes
+    # TODO: Réactiver quand la logique de ping par nombre de requêtes sera implémentée
+    # try:
+    #     start_datadome_scheduler()
+    #     logger.info("🛡️ DataDome scheduler started")
+    # except Exception as e:
+    #     logger.error(f"Failed to start DataDome scheduler: {e}")
+    logger.info("🛡️ DataDome scheduler DISABLED (stand-by)")
 
 
 @app.on_event("shutdown")
@@ -218,14 +220,15 @@ async def shutdown_event():
     """
     Cleanup on application shutdown.
     """
-    # Stop DataDome scheduler
-    try:
-        scheduler = get_datadome_scheduler()
-        if scheduler:
-            stop_datadome_scheduler(scheduler)
-            logger.info("🛡️ DataDome scheduler stopped")
-    except Exception as e:
-        logger.error(f"Error stopping DataDome scheduler: {e}")
+    # Stop DataDome scheduler (DISABLED - stand-by)
+    # try:
+    #     scheduler = get_datadome_scheduler()
+    #     if scheduler:
+    #         stop_datadome_scheduler(scheduler)
+    #         logger.info("🛡️ DataDome scheduler stopped")
+    # except Exception as e:
+    #     logger.error(f"Error stopping DataDome scheduler: {e}")
+    pass
 
 # ===== SECURITY MIDDLEWARE (2025-12-05) =====
 
