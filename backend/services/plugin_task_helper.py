@@ -208,6 +208,7 @@ class PluginTaskHelper:
         payload: Optional[dict] = None,
         platform: str = "vinted",
         product_id: Optional[int] = None,
+        job_id: Optional[int] = None,
         description: Optional[str] = None
     ) -> PluginTask:
         """
@@ -220,6 +221,7 @@ class PluginTaskHelper:
             payload: Body de la requête (optionnel)
             platform: Plateforme cible (défaut: vinted)
             product_id: ID produit associé (optionnel)
+            job_id: ID du job parent (optionnel, pour orchestration)
             description: Description pour logs (optionnel)
 
         Returns:
@@ -228,7 +230,8 @@ class PluginTaskHelper:
         Example:
             task = create_http_task(
                 db, "POST", "https://www.vinted.fr/api/v2/photos",
-                payload={"body": photo_data}
+                payload={"body": photo_data},
+                job_id=job.id
             )
         """
         task = PluginTask(
@@ -239,6 +242,7 @@ class PluginTaskHelper:
             path=path,
             payload=payload or {},
             product_id=product_id,
+            job_id=job_id,
             created_at=datetime.now(timezone.utc)
         )
 
@@ -260,7 +264,8 @@ class PluginTaskHelper:
         task_type: str,
         platform: str = "vinted",
         payload: Optional[dict] = None,
-        product_id: Optional[int] = None
+        product_id: Optional[int] = None,
+        job_id: Optional[int] = None
     ) -> PluginTask:
         """
         Crée une tâche spéciale non-HTTP pour le plugin.
@@ -274,6 +279,7 @@ class PluginTaskHelper:
             platform: Plateforme cible (défaut: vinted)
             payload: Données additionnelles (optionnel)
             product_id: ID produit associé (optionnel)
+            job_id: ID du job parent (optionnel, pour orchestration)
 
         Returns:
             PluginTask créée et persistée en DB
@@ -292,6 +298,7 @@ class PluginTaskHelper:
             path=None,
             payload=payload or {},
             product_id=product_id,
+            job_id=job_id,
             created_at=datetime.now(timezone.utc)
         )
 

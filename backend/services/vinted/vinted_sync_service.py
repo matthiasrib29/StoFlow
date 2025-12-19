@@ -92,13 +92,19 @@ class VintedSyncService:
     # PUBLICATION DE PRODUIT
     # =========================================================================
 
-    async def publish_product(self, db: Session, product_id: int) -> dict[str, Any]:
+    async def publish_product(
+        self,
+        db: Session,
+        product_id: int,
+        job_id: int | None = None
+    ) -> dict[str, Any]:
         """
         Publie un produit sur Vinted avec workflow step-by-step via plugin.
 
         Args:
             db: Session SQLAlchemy (user schema)
             product_id: ID du produit a publier
+            job_id: ID du job parent (optionnel, pour tracking)
 
         Returns:
             dict: {
@@ -157,7 +163,7 @@ class VintedSyncService:
 
             # 7. Upload photos
             logger.info(f"  Upload photos...")
-            photo_ids = await upload_product_images(db, product)
+            photo_ids = await upload_product_images(db, product, job_id=job_id)
             is_valid, error = self.validator.validate_images(photo_ids)
             if not is_valid:
                 raise ValueError(f"Images invalides: {error}")
@@ -182,6 +188,7 @@ class VintedSyncService:
                 payload={"body": payload},
                 platform="vinted",
                 product_id=product_id,
+                job_id=job_id,
                 timeout=60,
                 description="Creation produit Vinted"
             )
@@ -242,13 +249,19 @@ class VintedSyncService:
     # MISE A JOUR DE PRODUIT
     # =========================================================================
 
-    async def update_product(self, db: Session, product_id: int) -> dict[str, Any]:
+    async def update_product(
+        self,
+        db: Session,
+        product_id: int,
+        job_id: int | None = None
+    ) -> dict[str, Any]:
         """
         Met a jour un produit Vinted existant.
 
         Args:
             db: Session SQLAlchemy
             product_id: ID du produit a mettre a jour
+            job_id: ID du job parent (optionnel, pour tracking)
 
         Returns:
             dict: {"success": bool, "error": str | None}
@@ -323,6 +336,7 @@ class VintedSyncService:
                 payload={"body": payload},
                 platform="vinted",
                 product_id=product_id,
+                job_id=job_id,
                 timeout=60,
                 description="Update produit Vinted"
             )
@@ -354,7 +368,8 @@ class VintedSyncService:
         self,
         db: Session,
         product_id: int,
-        check_conditions: bool = True
+        check_conditions: bool = True,
+        job_id: int | None = None
     ) -> dict[str, Any]:
         """
         Supprime un produit Vinted.
@@ -363,6 +378,7 @@ class VintedSyncService:
             db: Session SQLAlchemy
             product_id: ID du produit a supprimer
             check_conditions: Si True, verifie les conditions avant suppression
+            job_id: ID du job parent (optionnel, pour tracking)
 
         Returns:
             dict: {"success": bool, "error": str | None}
@@ -398,6 +414,7 @@ class VintedSyncService:
                 payload={},
                 platform="vinted",
                 product_id=product_id,
+                job_id=job_id,
                 timeout=30,
                 description="Suppression produit Vinted"
             )
