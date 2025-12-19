@@ -161,10 +161,11 @@
       <Tabs v-model:value="activeTab" class="ebay-tabs">
         <TabList>
           <Tab value="0">Boutique</Tab>
-          <Tab value="1">Publications</Tab>
-          <Tab value="2">Politiques</Tab>
-          <Tab value="3">Catégories</Tab>
-          <Tab value="4">Paramètres</Tab>
+          <Tab value="1">Produits eBay</Tab>
+          <Tab value="2">Publications</Tab>
+          <Tab value="3">Politiques</Tab>
+          <Tab value="4">Catégories</Tab>
+          <Tab value="5">Paramètres</Tab>
         </TabList>
         <TabPanels>
           <!-- Onglet: Boutique -->
@@ -321,8 +322,212 @@
           </div>
           </TabPanel>
 
-          <!-- Onglet: Publications -->
+          <!-- Onglet: Produits eBay -->
           <TabPanel value="1">
+            <div class="space-y-4">
+              <!-- Header avec actions -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-lg font-bold text-secondary-900">Produits importés depuis eBay</h3>
+                  <p class="text-sm text-gray-600">{{ totalProducts }} produit(s) synchronisé(s)</p>
+                </div>
+                <div class="flex gap-2">
+                  <Button
+                    label="Importer"
+                    icon="pi pi-download"
+                    class="bg-blue-500 hover:bg-blue-600 text-white border-0"
+                    :loading="isImportingProducts"
+                    @click="importEbayProducts"
+                  />
+                  <Button
+                    label="Enrichir les prix"
+                    icon="pi pi-euro"
+                    class="bg-green-500 hover:bg-green-600 text-white border-0"
+                    :loading="isEnrichingProducts"
+                    :disabled="totalProducts === 0"
+                    v-tooltip.top="'Récupère les prix depuis eBay (par lot de 100)'"
+                    @click="enrichEbayProducts"
+                  />
+                  <Button
+                    label="Corriger marques"
+                    icon="pi pi-tag"
+                    class="bg-purple-500 hover:bg-purple-600 text-white border-0"
+                    :loading="isRefreshingAspects"
+                    :disabled="totalProducts === 0"
+                    v-tooltip.top="'Corrige les marques/couleurs/tailles (multi-langue)'"
+                    @click="refreshAspects"
+                  />
+                  <Button
+                    icon="pi pi-refresh"
+                    v-tooltip.top="'Rafraîchir'"
+                    class="bg-gray-200 hover:bg-gray-300 text-secondary-900 border-0"
+                    :loading="isLoadingProducts"
+                    @click="loadEbayProducts"
+                  />
+                </div>
+              </div>
+
+              <!-- Stats cards -->
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl p-4 border border-gray-100">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <i class="pi pi-box text-blue-600" />
+                    </div>
+                    <div>
+                      <p class="text-2xl font-bold text-secondary-900">{{ productStats.total }}</p>
+                      <p class="text-xs text-gray-600">Total produits</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-100">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                      <i class="pi pi-check-circle text-green-600" />
+                    </div>
+                    <div>
+                      <p class="text-2xl font-bold text-secondary-900">{{ productStats.published }}</p>
+                      <p class="text-xs text-gray-600">Publiés</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-100">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
+                      <i class="pi pi-clock text-yellow-600" />
+                    </div>
+                    <div>
+                      <p class="text-2xl font-bold text-secondary-900">{{ productStats.draft }}</p>
+                      <p class="text-xs text-gray-600">Brouillons</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-100">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                      <i class="pi pi-times-circle text-red-600" />
+                    </div>
+                    <div>
+                      <p class="text-2xl font-bold text-secondary-900">{{ productStats.outOfStock }}</p>
+                      <p class="text-xs text-gray-600">Hors stock</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Products table with server-side pagination -->
+              <DataTable
+                :value="ebayProducts"
+                :paginator="true"
+                :rows="pageSize"
+                :total-records="totalProducts"
+                :lazy="true"
+                :first="(currentPage - 1) * pageSize"
+                :rows-per-page-options="[10, 20, 50, 100]"
+                :loading="isLoadingProducts"
+                class="modern-table"
+                striped-rows
+                @page="onPageChange"
+              >
+                <template #empty>
+                  <EmptyState
+                    animation-type="empty-box"
+                    title="Aucun produit eBay"
+                    description="Importez vos produits depuis votre inventaire eBay"
+                    action-label="Importer les produits"
+                    @action="importEbayProducts"
+                  />
+                </template>
+
+                <Column header="Produit">
+                  <template #body="{ data }">
+                    <div class="flex items-center gap-3">
+                      <img
+                        v-if="data.image_urls && data.image_urls.length > 0"
+                        :src="data.image_urls[0]"
+                        :alt="data.title"
+                        class="w-12 h-12 rounded-lg object-cover"
+                      />
+                      <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <i class="pi pi-image text-gray-400" />
+                      </div>
+                      <div>
+                        <p class="font-semibold text-secondary-900 line-clamp-1">{{ data.title }}</p>
+                        <p class="text-xs text-gray-500">SKU: {{ data.ebay_sku }}</p>
+                      </div>
+                    </div>
+                  </template>
+                </Column>
+
+                <Column field="price" header="Prix" sortable>
+                  <template #body="{ data }">
+                    <span class="font-bold text-secondary-900">{{ data.price ? formatCurrency(data.price) : '-' }}</span>
+                  </template>
+                </Column>
+
+                <Column field="brand" header="Marque">
+                  <template #body="{ data }">
+                    <span v-if="data.brand" class="text-secondary-700">{{ data.brand }}</span>
+                    <span v-else class="text-gray-400">-</span>
+                  </template>
+                </Column>
+
+                <Column field="quantity" header="Stock" sortable>
+                  <template #body="{ data }">
+                    <Badge
+                      :value="data.quantity?.toString() || '0'"
+                      :severity="data.quantity > 0 ? 'success' : 'danger'"
+                    />
+                  </template>
+                </Column>
+
+                <Column field="condition" header="État">
+                  <template #body="{ data }">
+                    <Badge :value="getConditionLabel(data.condition)" severity="info" />
+                  </template>
+                </Column>
+
+                <Column field="status" header="Statut">
+                  <template #body="{ data }">
+                    <Badge
+                      :value="getListingStatusLabel(data.status)"
+                      :severity="getListingStatusSeverity(data.status)"
+                    />
+                  </template>
+                </Column>
+
+                <Column header="Actions">
+                  <template #body="{ data }">
+                    <div class="flex gap-2">
+                      <Button
+                        v-if="data.ebay_listing_url"
+                        v-tooltip.top="'Voir sur eBay'"
+                        icon="pi pi-external-link"
+                        class="bg-gray-100 hover:bg-gray-200 text-secondary-900 border-0"
+                        size="small"
+                        rounded
+                        text
+                        @click="openEbayListing(data.ebay_listing_url)"
+                      />
+                      <Button
+                        v-tooltip.top="'Synchroniser'"
+                        icon="pi pi-sync"
+                        class="bg-blue-100 hover:bg-blue-200 text-blue-700 border-0"
+                        size="small"
+                        rounded
+                        text
+                        :loading="syncingProductId === data.id"
+                        @click="syncEbayProduct(data.ebay_sku)"
+                      />
+                    </div>
+                  </template>
+                </Column>
+              </DataTable>
+            </div>
+          </TabPanel>
+
+          <!-- Onglet: Publications -->
+          <TabPanel value="2">
           <DataTable
             :value="publications"
             :paginator="true"
@@ -422,7 +627,7 @@
           </TabPanel>
 
           <!-- Onglet: Politiques -->
-          <TabPanel value="2">
+          <TabPanel value="3">
           <div class="space-y-6">
             <!-- Politiques d'expédition -->
             <Card class="shadow-sm modern-rounded border border-gray-100">
@@ -458,17 +663,17 @@
                       </div>
                     </template>
                   </Column>
-                  <Column field="type" header="Type">
+                  <Column header="Type">
                     <template #body="{ data }">
                       <Badge
-                        :value="getShippingTypeLabel(data.type)"
-                        :severity="data.type === 'free_shipping' ? 'success' : 'info'"
+                        :value="getShippingTypeFromPolicy(data)"
+                        :severity="isFreeshipping(data) ? 'success' : 'info'"
                       />
                     </template>
                   </Column>
-                  <Column field="domesticShipping.cost" header="Coût">
+                  <Column header="Coût">
                     <template #body="{ data }">
-                      {{ data.type === 'free_shipping' ? 'Gratuit' : formatCurrency(data.domesticShipping.cost) }}
+                      {{ getShippingCost(data) }}
                     </template>
                   </Column>
                   <Column header="Actions">
@@ -608,7 +813,7 @@
           </TabPanel>
 
           <!-- Onglet: Catégories -->
-          <TabPanel value="3">
+          <TabPanel value="4">
           <Card class="shadow-sm modern-rounded border border-gray-100">
             <template #content>
               <div class="flex items-center justify-between mb-6">
@@ -656,7 +861,7 @@
           </TabPanel>
 
           <!-- Onglet: Paramètres -->
-          <TabPanel value="4">
+          <TabPanel value="5">
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Paramètres de synchronisation -->
             <Card class="shadow-sm modern-rounded border border-gray-100">
@@ -976,6 +1181,26 @@ const selectedPublication = ref<any>(null)
 const newPrice = ref(0)
 const selectedCategoryKeys = ref<Record<string, boolean>>({})
 
+// eBay Products state
+const ebayProducts = ref<any[]>([])
+const isLoadingProducts = ref(false)
+const isImportingProducts = ref(false)
+const isEnrichingProducts = ref(false)
+const isRefreshingAspects = ref(false)
+const syncingProductId = ref<number | null>(null)
+const totalProducts = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalPages = ref(0)
+const productStats = computed(() => {
+  return {
+    total: totalProducts.value,
+    published: ebayProducts.value.filter((p: any) => p.status === 'active').length,
+    draft: ebayProducts.value.filter((p: any) => p.status === 'inactive' || !p.status).length,
+    outOfStock: ebayProducts.value.filter((p: any) => (p.quantity || 0) === 0).length
+  }
+})
+
 // Sync settings (local copy for editing)
 const syncSettings = reactive({
   autoSync: true,
@@ -1116,6 +1341,198 @@ const handleSync = async () => {
       5000
     )
   }
+}
+
+// eBay Products methods
+const loadEbayProducts = async (page: number = 1) => {
+  isLoadingProducts.value = true
+  try {
+    const api = useApi()
+    const response = await api.get<{
+      items: any[]
+      total: number
+      page: number
+      page_size: number
+      total_pages: number
+    }>(`/api/ebay/products?page=${page}&page_size=${pageSize.value}`)
+
+    ebayProducts.value = response?.items || []
+    totalProducts.value = response?.total || 0
+    currentPage.value = response?.page || 1
+    totalPages.value = response?.total_pages || 0
+  } catch (error: any) {
+    console.error('Error loading eBay products:', error)
+    showError('Erreur', 'Impossible de charger les produits eBay', 5000)
+  } finally {
+    isLoadingProducts.value = false
+  }
+}
+
+const onPageChange = (event: any) => {
+  // PrimeVue DataTable pagination event
+  const newPage = Math.floor(event.first / event.rows) + 1
+  pageSize.value = event.rows
+  loadEbayProducts(newPage)
+}
+
+const importEbayProducts = async () => {
+  isImportingProducts.value = true
+  try {
+    const api = useApi()
+    const response = await api.post<{ imported_count: number }>('/api/ebay/products/import')
+
+    showSuccess(
+      'Import terminé',
+      `${response?.imported_count || 0} produit(s) importé(s)`,
+      3000
+    )
+
+    // Reload products list
+    await loadEbayProducts()
+  } catch (error: any) {
+    console.error('Error importing eBay products:', error)
+    showError('Erreur', error.message || 'Impossible d\'importer les produits', 5000)
+  } finally {
+    isImportingProducts.value = false
+  }
+}
+
+const enrichEbayProducts = async () => {
+  isEnrichingProducts.value = true
+  try {
+    const api = useApi()
+    const response = await api.post<{
+      enriched: number
+      errors: number
+      remaining: number
+    }>('/api/ebay/products/enrich')
+
+    const { enriched, errors, remaining } = response || { enriched: 0, errors: 0, remaining: 0 }
+
+    if (enriched > 0) {
+      showSuccess(
+        'Enrichissement terminé',
+        `${enriched} produit(s) enrichi(s). ${remaining} restant(s).`,
+        5000
+      )
+    } else if (remaining === 0) {
+      showInfo('Terminé', 'Tous les produits ont déjà leurs prix', 3000)
+    } else {
+      showWarn('Avertissement', `${errors} erreur(s). Réessayez pour les ${remaining} restant(s).`, 5000)
+    }
+
+    await loadEbayProducts()
+  } catch (error: any) {
+    console.error('Error enriching eBay products:', error)
+    showError('Erreur', error.message || 'Impossible d\'enrichir les produits', 5000)
+  } finally {
+    isEnrichingProducts.value = false
+  }
+}
+
+const refreshAspects = async () => {
+  isRefreshingAspects.value = true
+  try {
+    const api = useApi()
+    const response = await api.post<{
+      updated: number
+      errors: number
+      remaining: number
+    }>('/api/ebay/products/refresh-aspects?batch_size=500')
+
+    const { updated, errors, remaining } = response || { updated: 0, errors: 0, remaining: 0 }
+
+    if (updated > 0) {
+      showSuccess(
+        'Marques corrigées',
+        `${updated} produit(s) mis à jour. ${remaining} restant(s).`,
+        5000
+      )
+    } else if (remaining === 0) {
+      showInfo('Terminé', 'Toutes les marques sont déjà renseignées', 3000)
+    } else {
+      showWarn('Avertissement', `Aucun produit à corriger`, 3000)
+    }
+
+    await loadEbayProducts(currentPage.value)
+  } catch (error: any) {
+    console.error('Error refreshing aspects:', error)
+    showError('Erreur', error.message || 'Impossible de corriger les marques', 5000)
+  } finally {
+    isRefreshingAspects.value = false
+  }
+}
+
+const syncEbayProduct = async (sku: string) => {
+  const product = ebayProducts.value.find((p: any) => p.ebay_sku === sku)
+  if (product) {
+    syncingProductId.value = product.id
+  }
+
+  try {
+    const api = useApi()
+    await api.post(`/api/ebay/products/${sku}/sync`)
+
+    showSuccess('Synchronisé', 'Produit mis à jour', 3000)
+    await loadEbayProducts()
+  } catch (error: any) {
+    showError('Erreur', 'Impossible de synchroniser le produit', 5000)
+  } finally {
+    syncingProductId.value = null
+  }
+}
+
+const openEbayListing = (url: string) => {
+  window.open(url, '_blank')
+}
+
+const getConditionLabel = (condition: string): string => {
+  const labels: Record<string, string> = {
+    NEW: 'Neuf',
+    LIKE_NEW: 'Comme neuf',
+    NEW_OTHER: 'Neuf autre',
+    NEW_WITH_DEFECTS: 'Neuf avec défauts',
+    MANUFACTURER_REFURBISHED: 'Reconditionné fabricant',
+    CERTIFIED_REFURBISHED: 'Certifié reconditionné',
+    EXCELLENT_REFURBISHED: 'Excellent reconditionné',
+    VERY_GOOD_REFURBISHED: 'Très bon reconditionné',
+    GOOD_REFURBISHED: 'Bon reconditionné',
+    SELLER_REFURBISHED: 'Reconditionné vendeur',
+    USED_EXCELLENT: 'Occasion excellent',
+    USED_VERY_GOOD: 'Occasion très bon',
+    USED_GOOD: 'Occasion bon',
+    USED_ACCEPTABLE: 'Occasion acceptable',
+    FOR_PARTS_OR_NOT_WORKING: 'Pour pièces'
+  }
+  return labels[condition] || condition || 'Non spécifié'
+}
+
+const getListingStatusLabel = (status: string): string => {
+  const labels: Record<string, string> = {
+    active: 'Actif',
+    inactive: 'Inactif',
+    ended: 'Terminé',
+    sold: 'Vendu',
+    ACTIVE: 'Actif',
+    DRAFT: 'Brouillon',
+    ENDED: 'Terminé',
+    OUT_OF_STOCK: 'Hors stock'
+  }
+  return labels[status] || status || 'Inconnu'
+}
+
+const getListingStatusSeverity = (status: string): string => {
+  const severities: Record<string, string> = {
+    active: 'success',
+    inactive: 'warning',
+    ended: 'secondary',
+    sold: 'info',
+    ACTIVE: 'success',
+    DRAFT: 'warning',
+    ENDED: 'secondary',
+    OUT_OF_STOCK: 'danger'
+  }
+  return severities[status] || 'info'
 }
 
 const openStore = () => {
@@ -1355,9 +1772,48 @@ const getShippingTypeLabel = (type: string): string => {
   const labels: Record<string, string> = {
     flat_rate: 'Forfait',
     calculated: 'Calculé',
-    free_shipping: 'Gratuit'
+    free_shipping: 'Gratuit',
+    FLAT_RATE: 'Forfait',
+    CALCULATED: 'Calculé',
+    FREE: 'Gratuit'
   }
-  return labels[type] || type
+  return labels[type] || type || 'Standard'
+}
+
+const getShippingCost = (policy: any): string => {
+  // Check shippingOptions array (eBay API format)
+  if (policy.shippingOptions && policy.shippingOptions.length > 0) {
+    const option = policy.shippingOptions[0]
+    if (option.costType === 'FREE' || option.shippingCost?.value === '0') {
+      return 'Gratuit'
+    }
+    if (option.shippingCost?.value) {
+      return formatCurrency(parseFloat(option.shippingCost.value))
+    }
+  }
+  // Fallback to domesticShipping (old format)
+  if (policy.domesticShipping?.cost) {
+    return formatCurrency(policy.domesticShipping.cost)
+  }
+  return '-'
+}
+
+const getShippingTypeFromPolicy = (policy: any): string => {
+  if (policy.shippingOptions && policy.shippingOptions.length > 0) {
+    const option = policy.shippingOptions[0]
+    if (option.costType === 'FREE') return 'Gratuit'
+    if (option.costType === 'FLAT_RATE') return 'Forfait'
+    if (option.costType === 'CALCULATED') return 'Calculé'
+    return option.costType || 'Standard'
+  }
+  return policy.type ? getShippingTypeLabel(policy.type) : 'Standard'
+}
+
+const isFreeshipping = (policy: any): boolean => {
+  if (policy.shippingOptions && policy.shippingOptions.length > 0) {
+    return policy.shippingOptions[0].costType === 'FREE'
+  }
+  return policy.type === 'free_shipping'
 }
 
 const getPaymentMethodLabel = (method: string): string => {
@@ -1441,8 +1897,8 @@ onMounted(async () => {
       await Promise.all([
         publicationsStore.fetchPublications(),
         ebayStore.fetchPolicies(),
-        ebayStore.fetchStats()
-        // Note: Account info est maintenant chargé via checkConnectionStatus()
+        ebayStore.fetchStats(),
+        loadEbayProducts()
       ])
 
       // Sync local settings
