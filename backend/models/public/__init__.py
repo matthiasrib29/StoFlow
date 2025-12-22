@@ -14,6 +14,7 @@ Updated (2025-12-10): Ajout des modèles eBay (marketplace_config, aspect_mappin
 from models.public.ai_credit import AICredit
 from models.public.clothing_price import ClothingPrice
 from models.public.ebay_aspect_mapping import AspectMapping
+from models.public.ebay_category_mapping import EbayCategoryMapping
 from models.public.ebay_exchange_rate import ExchangeRate
 from models.public.category_platform_mapping import CategoryPlatformMapping
 from models.public.ebay_marketplace_config import MarketplaceConfig
@@ -63,6 +64,7 @@ __all__ = [
     # eBay public models
     "MarketplaceConfig",
     "AspectMapping",
+    "EbayCategoryMapping",
     "ExchangeRate",
     # Vinted job system
     "VintedActionType",

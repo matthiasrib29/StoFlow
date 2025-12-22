@@ -18,7 +18,7 @@ class MarketplaceConfig(Base):
     """Configuration statique des 8 marketplaces eBay supportées"""
 
     __tablename__ = 'marketplace_config'
-    __table_args__ = {'schema': 'public'}
+    __table_args__ = {'schema': 'ebay'}
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     marketplace_id = Column(String(20), unique=True, nullable=False, index=True, comment="EBAY_FR, EBAY_GB, etc.")
