@@ -163,12 +163,12 @@ class PricingService:
 
         Args:
             db: Session SQLAlchemy
-            condition: Code condition (ex: "EXCELLENT", "GOOD")
+            condition: Note condition (0-10, ex: 0=neuf, 5=bon état)
 
         Returns:
-            float: Coefficient (ex: 1.0 pour EXCELLENT, 0.9 pour GOOD)
+            float: Coefficient (ex: 1.0 pour neuf, 0.9 pour bon état)
         """
-        condition_obj = db.query(Condition).filter(Condition.name == condition).first()
+        condition_obj = db.query(Condition).filter(Condition.note == condition).first()
 
         if condition_obj and condition_obj.coefficient:
             return float(condition_obj.coefficient)
