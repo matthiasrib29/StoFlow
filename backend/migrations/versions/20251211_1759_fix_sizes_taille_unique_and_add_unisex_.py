@@ -43,7 +43,7 @@ def upgrade() -> None:
     result = connection.execute(sa.text("""
         SELECT EXISTS (
             SELECT FROM product_attributes.sizes
-            WHERE name = 'TAILLE UNIQUE'
+            WHERE name_en = 'TAILLE UNIQUE'
         )
     """))
 
@@ -54,7 +54,7 @@ def upgrade() -> None:
         result = connection.execute(sa.text("""
             SELECT EXISTS (
                 SELECT FROM product_attributes.sizes
-                WHERE name = 'one-size'
+                WHERE name_en = 'one-size'
             )
         """))
 
@@ -90,7 +90,7 @@ def upgrade() -> None:
             # Supprimer TAILLE UNIQUE
             connection.execute(sa.text("""
                 DELETE FROM product_attributes.sizes
-                WHERE name = 'TAILLE UNIQUE'
+                WHERE name_en = 'TAILLE UNIQUE'
             """))
 
             print('  ✓ Merged "TAILLE UNIQUE" into "one-size" and updated references')
@@ -122,8 +122,8 @@ def upgrade() -> None:
             # Renommer la PK
             connection.execute(sa.text("""
                 UPDATE product_attributes.sizes
-                SET name = 'one-size', name_fr = 'taille unique'
-                WHERE name = 'TAILLE UNIQUE'
+                SET name_en = 'one-size', name_fr = 'taille unique'
+                WHERE name_en = 'TAILLE UNIQUE'
             """))
 
             print('  ✓ Renamed "TAILLE UNIQUE" → "one-size"')
