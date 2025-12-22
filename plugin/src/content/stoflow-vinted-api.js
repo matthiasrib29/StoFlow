@@ -66,6 +66,11 @@
         _lastValidation: 0,
         _validationInterval: 30000, // Revalider toutes les 30s
 
+        // DataDome ping configuration (2025-12-22)
+        _requestCount: 0,
+        _dataDomePingInterval: 15, // Ping DataDome every 15 requests
+        _lastDataDomePing: 0,
+
         /**
          * Vérifie si une API est valide
          */
@@ -251,6 +256,31 @@
         },
 
         /**
+         * Check if DataDome ping is needed (every 15 requests)
+         * This helps maintain the session during bulk operations like sync
+         * @private
+         */
+        async _checkDataDomePing() {
+            this._requestCount++;
+
+            // Check if we should ping DataDome
+            if (this._requestCount % this._dataDomePingInterval === 0) {
+                console.log(`🛡️ [DataDome] Auto-ping triggered (request #${this._requestCount})`);
+                try {
+                    const result = await DataDomeHandler.safePing();
+                    if (result.success) {
+                        console.log(`🛡️ [DataDome] Auto-ping OK (total pings: ${result.pingCount})`);
+                    } else {
+                        console.warn(`🛡️ [DataDome] Auto-ping failed: ${result.error}`);
+                    }
+                } catch (error) {
+                    console.error('🛡️ [DataDome] Auto-ping error:', error);
+                }
+                this._lastDataDomePing = Date.now();
+            }
+        },
+
+        /**
          * Vérifie si l'API principale est prête
          */
         isReady() {
@@ -267,6 +297,9 @@
         // ===== MÉTHODES HTTP (API PRINCIPALE) =====
 
         async get(endpoint, params = {}) {
+            // Check DataDome ping before each request (every 15 requests)
+            await this._checkDataDomePing();
+
             const api = await this._ensureReady('api');
             try {
                 return await api.get(endpoint, { params });
@@ -282,6 +315,9 @@
         },
 
         async post(endpoint, data = {}, config = {}) {
+            // Check DataDome ping before each request (every 15 requests)
+            await this._checkDataDomePing();
+
             const api = await this._ensureReady('api');
             try {
                 return await api.post(endpoint, data, config);
@@ -296,6 +332,9 @@
         },
 
         async put(endpoint, data = {}) {
+            // Check DataDome ping before each request (every 15 requests)
+            await this._checkDataDomePing();
+
             const api = await this._ensureReady('api');
             try {
                 return await api.put(endpoint, data);
@@ -310,6 +349,9 @@
         },
 
         async delete(endpoint) {
+            // Check DataDome ping before each request (every 15 requests)
+            await this._checkDataDomePing();
+
             const api = await this._ensureReady('api');
             try {
                 return await api.delete(endpoint);
@@ -331,6 +373,9 @@
          * @returns {Promise<{status: number, html: string}>}
          */
         async fetchHtml(url) {
+            // Check DataDome ping before each request (every 15 requests)
+            await this._checkDataDomePing();
+
             console.log(`🛍️ [Stoflow] 📄 Fetch HTML: ${url}`);
 
             // Construire l'URL complète si relative
