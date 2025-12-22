@@ -3,14 +3,12 @@ Material Model
 
 Table pour les matières de produits (schema product_attributes, multilingue).
 
-Business Rules (Updated: 2025-12-18):
+Business Rules (Updated: 2025-12-22):
 - 7 langues supportées: EN, FR, DE, IT, ES, NL, PL
-- IDs marketplace: Vinted, Etsy, eBay UK
-- Compatibilité pythonApiWOO
+- vinted_id pour mapping Vinted
 """
 
-import os
-from sqlalchemy import BigInteger, Integer, String
+from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -18,13 +16,11 @@ from shared.database import Base
 
 class Material(Base):
     """
-    Modèle pour les matières de produits (multilingue + marketplace IDs).
+    Modèle pour les matières de produits (multilingue).
 
-    Extended Attributes (2025-12-18):
+    Attributes:
     - 7 traductions (EN, FR, DE, IT, ES, NL, PL)
     - vinted_id: ID Vinted pour mapping matières
-    - etsy_357: ID Etsy pour mapping matières
-    - ebay_gb_material: Valeur eBay UK
     """
 
     __tablename__ = "materials"
@@ -55,21 +51,15 @@ class Material(Base):
         String(100), nullable=True, comment="Nom de la matière (PL)"
     )
 
-    # ===== MARKETPLACE INTEGRATION =====
+    # ===== MARKETPLACE MAPPINGS =====
     vinted_id: Mapped[int | None] = mapped_column(
         Integer, nullable=True, index=True, comment="ID Vinted pour mapping matières"
     )
-    etsy_357: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="ID Etsy pour mapping matières"
-    )
-    ebay_gb_material: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, comment="Valeur matière eBay UK"
-    )
 
     @property
-    def french_name(self) -> str | None:
-        """Alias pour compatibilité: name_fr → french_name"""
-        return self.name_fr
+    def name(self) -> str:
+        """Alias pour compatibilité: name_en → name"""
+        return self.name_en
 
     def __repr__(self) -> str:
-        return f"<Material(name_en='{self.name_en}', name_fr='{self.name_fr}')>"
+        return f"<Material(name_en='{self.name_en}')>"
