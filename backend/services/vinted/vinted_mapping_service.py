@@ -4,22 +4,20 @@ Vinted Mapping Service
 Service de mapping des attributs Product → IDs Vinted.
 Responsabilité: Traduction attributs internes vers IDs marketplace Vinted.
 
-Business Rules (2024-12-10, Updated 2025-12-18):
+Business Rules (Updated 2025-12-22):
 - Brand: mapping via brand.vinted_id
-- Color: mapping via color.vinted_id
-- Condition: mapping via condition.vinted_id
-- Size: mapping via size.vinted_{woman|man_top|man_bottom}_id selon genre et catégorie
+- Color: mapping non disponible (modèle simplifié)
+- Condition: mapping via condition.vinted_id (PK = note integer)
+- Size: mapping via size.vinted_id (mapping unique simplifié)
 - Category: mapping via CategoryMappingRepository (table category_platform_mappings)
-- Material: mapping via material.vinted_id (for item_attributes)
+- Material: mapping via material.vinted_id
 
 Architecture:
 - Accès direct aux tables product_attributes (shared entre tenants)
 - CategoryMappingRepository pour le mapping catégorie multi-plateformes
-- Logs d'erreurs si attribut non mappé
-- Gestion spécifique du genre (woman vs man) pour les tailles
 
 Created: 2024-12-10
-Updated: 2025-12-18 - Ajout map_material pour item_attributes
+Updated: 2025-12-22 - Simplification des modèles Color/Size
 Author: Claude
 """
 
@@ -73,26 +71,25 @@ class VintedMappingService:
         """
         Mappe une couleur vers son ID Vinted.
 
+        Note: Le modèle Color actuel n'a pas de vinted_id.
+        Cette fonction vérifie simplement si la couleur existe.
+        Le mapping Vinted devra être ajouté ultérieurement.
+
         Args:
             db: Session SQLAlchemy
             color_name: Nom de la couleur en anglais (ex: "Blue")
 
         Returns:
-            ID Vinted de la couleur, ou None si non trouvée
-
-        Examples:
-            >>> color_id = VintedMappingService.map_color(db, "Blue")
-            >>> print(color_id)  # Ex: 12
-            12
+            None (mapping non disponible actuellement)
         """
         if not color_name:
             return None
 
+        # Vérifier que la couleur existe dans la base
         color = db.query(Color).filter(Color.name_en == color_name).first()
 
-        if color and color.vinted_id:
-            return int(color.vinted_id)
-
+        # Note: Color model doesn't have vinted_id currently
+        # Return None until mapping is added
         return None
 
     @staticmethod
@@ -188,58 +185,32 @@ class VintedMappingService:
         parent_category: str
     ) -> Optional[int]:
         """
-        Mappe une taille vers son ID Vinted selon le genre et le type.
+        Mappe une taille vers son ID Vinted.
 
-        Business Rules:
-        - Femme: utilise vinted_woman_id
-        - Homme Bottom (Jeans, Pants, Shorts): utilise vinted_man_bottom_id
-        - Homme Top (autres): utilise vinted_man_top_id
+        Note: Le modèle Size actuel a un seul vinted_id.
+        Les mappings gender-specific (vinted_woman_id, vinted_man_top_id,
+        vinted_man_bottom_id) ont été simplifiés.
 
         Args:
             db: Session SQLAlchemy
             size_name: Nom de la taille (ex: "M", "32", "L")
-            gender: Genre du produit (ex: "male", "female")
-            parent_category: Catégorie parente (ex: "Jeans", "Jacket")
+            gender: Genre du produit (ex: "male", "female") - non utilisé actuellement
+            parent_category: Catégorie parente (ex: "Jeans", "Jacket") - non utilisé actuellement
 
         Returns:
             ID Vinted de la taille, ou None si non trouvée
-
-        Examples:
-            >>> size_id = VintedMappingService.map_size(db, "32", "male", "Jeans")
-            >>> print(size_id)  # Ex: 207 (W32 men bottom)
-            207
-
-            >>> size_id = VintedMappingService.map_size(db, "M", "female", "T-shirt")
-            >>> print(size_id)  # Ex: 206 (M women)
-            206
         """
         if not size_name:
             return None
 
-        size = db.query(Size).filter(Size.name == size_name).first()
+        size = db.query(Size).filter(Size.name_en == size_name).first()
 
         if not size:
             return None
 
-        # Déterminer si c'est un produit femme
-        is_woman = gender.lower() in ['female', 'woman', 'femme', 'women']
-
-        if is_woman:
-            # Femme: utiliser vinted_woman_id
-            if size.vinted_woman_id:
-                return int(size.vinted_woman_id)
-        else:
-            # Homme: déterminer si c'est un bas (bottom) ou haut (top)
-            is_bottom = VintedMappingService._is_bottom_category(parent_category)
-
-            if is_bottom:
-                # Bas homme: pantalon, jean, short
-                if size.vinted_man_bottom_id:
-                    return int(size.vinted_man_bottom_id)
-            else:
-                # Haut homme: veste, t-shirt, sweat, etc.
-                if size.vinted_man_top_id:
-                    return int(size.vinted_man_top_id)
+        # Utiliser le vinted_id simple
+        if size.vinted_id:
+            return int(size.vinted_id)
 
         return None
 
