@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { syncTokenToPlugin, syncLogoutToPlugin } from '~/composables/usePluginSync'
+import { useTokenValidator } from '~/composables/useTokenValidator'
 
 /**
  * Interface User basée sur le backend FastAPI
@@ -285,24 +286,52 @@ export const useAuthStore = defineStore('auth', {
     /**
      * Charger la session depuis localStorage
      * Appelé au démarrage de l'app pour restaurer la session
+     *
+     * Security: Validates tokens before restoring session
      */
     loadFromStorage() {
       if (import.meta.client) {
+        const { validateStoredTokens, isTokenExpired, willExpireSoon } = useTokenValidator()
+
+        // Validate stored tokens first
+        const { accessValid, refreshValid } = validateStoredTokens()
+
+        if (!refreshValid) {
+          // No valid refresh token = cannot restore session
+          console.log('🔒 [AUTH] No valid refresh token, session not restored')
+          this.logout()
+          return
+        }
+
         const token = localStorage.getItem('token')
         const refreshToken = localStorage.getItem('refresh_token')
         const userStr = localStorage.getItem('user')
 
-        if (token && userStr) {
+        if (refreshToken && userStr) {
           try {
-            this.token = token
-            this.refreshToken = refreshToken
             this.user = JSON.parse(userStr)
+            this.refreshToken = refreshToken
             this.isAuthenticated = true
+
+            if (accessValid && token) {
+              this.token = token
+
+              // Check if token will expire soon (within 5 minutes)
+              if (willExpireSoon(token, 5)) {
+                console.log('🔄 [AUTH] Token expiring soon, refreshing...')
+                this.refreshAccessToken()
+              }
+            } else {
+              // Access token invalid/expired but refresh token valid
+              // Attempt to get a new access token
+              console.log('🔄 [AUTH] Access token expired, refreshing...')
+              this.refreshAccessToken()
+            }
 
             // Synchroniser avec le plugin navigateur (SSO) si utilisateur déjà connecté
             console.log('🔄 [AUTH] Session restaurée, sync avec plugin...')
             try {
-              syncTokenToPlugin(token, refreshToken || '')
+              syncTokenToPlugin(this.token || '', refreshToken)
             } catch (error) {
               console.log('Plugin non disponible lors du loadFromStorage:', error)
             }
