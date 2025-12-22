@@ -393,9 +393,9 @@ class VintedApiSyncService:
     async def _enrich_products_without_description(
         self,
         db: Session,
-        batch_size: int = 30,
-        batch_pause_min: float = 10.0,
-        batch_pause_max: float = 15.0
+        batch_size: int = 15,           # Reduced from 30 to avoid DataDome 403
+        batch_pause_min: float = 20.0,  # Increased from 10s
+        batch_pause_max: float = 30.0   # Increased from 15s
     ) -> dict[str, Any]:
         """
         Enrichit les produits sans description via parsing HTML.
@@ -405,9 +405,9 @@ class VintedApiSyncService:
         2. Extrait TOUTES les donnees (description, IDs, dimensions, frais, etc.)
         3. Met a jour le produit en BDD
 
-        Business Rules:
-        - Delai 1-2s entre requetes (gere cote plugin via execute_delay_ms)
-        - Pause 10-15s tous les 30 produits
+        Business Rules (UPDATED 2025-12-22):
+        - Delai 2.5-4.5s entre requetes (gere cote plugin via execute_delay_ms)
+        - Pause 20-30s tous les 15 produits (more conservative to avoid DataDome 403)
         - Traite TOUS les produits sans description
         - Commit apres chaque produit enrichi
         - Si erreur/timeout: skipper et continuer
