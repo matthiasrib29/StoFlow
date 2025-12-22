@@ -4,6 +4,8 @@ Stoflow Backend - Application FastAPI
 Point d'entree principal de l'application FastAPI.
 """
 
+import os
+
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement depuis .env
@@ -289,6 +291,7 @@ app.include_router(etsy_oauth_router, prefix="/api")
 # Monter le répertoire uploads pour servir les images statiques
 # IMPORTANT: Ceci doit être fait APRÈS l'inclusion de tous les routers
 # pour éviter les conflits de routes
+os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
