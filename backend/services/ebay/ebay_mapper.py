@@ -11,8 +11,14 @@ Business Rules (2025-12-06):
 Author: Claude
 Date: 2025-12-06
 Updated: 2025-12-10 - Refactored to use BaseMarketplaceMapper
+Updated: 2025-12-22 - Added database-backed category mapping with gender support
 """
 
+from typing import Optional
+
+from sqlalchemy.orm import Session
+
+from models.public.ebay_category_mapping import EbayCategoryMapping
 from services.base_mapper import BaseMarketplaceMapper
 
 
@@ -37,33 +43,29 @@ class EbayMapper(BaseMarketplaceMapper):
         7000: "POOR",          # For parts or not working
     }
 
-    # Mapping Category IDs eBay → Catégories Stoflow (exemples)
+    # Mapping Category IDs eBay → Catégories Stoflow (FALLBACK - use DB mapping)
+    # NOTE: This is a legacy fallback. Prefer using get_ebay_category_id_from_db()
     CATEGORY_MAP = {
         # Vêtements Homme
-        1059: "T-Shirts",
-        57989: "Jeans",
-        57990: "Pantalons",
-        57991: "Chemises",
+        15687: "t-shirt",    # T-Shirts (men)
+        11483: "jeans",      # Jeans (men)
+        57989: "pants",      # Trousers (men)
+        57990: "shirt",      # Casual Shirts & Tops (men)
 
         # Vêtements Femme
-        53159: "Robes",
-        63861: "Jupes",
-        15724: "Hauts",
-        11554: "Jeans",
+        53159: "top",        # Tops & Shirts (women)
+        63861: "dress",      # Dresses (women)
+        11554: "jeans",      # Jeans (women)
+        63864: "skirt",      # Skirts (women)
 
-        # Chaussures
-        93427: "Baskets",
-        95672: "Chaussures",
-
-        # Accessoires
-        169291: "Sacs",
-        281: "Bijoux",
-        260324: "Montres",
+        # Outerwear
+        57988: "jacket",     # Coats, Jackets & Waistcoats (men)
+        63862: "jacket",     # Coats, Jackets & Waistcoats (women)
     }
 
     # ===== MAPPING STOFLOW → EBAY =====
 
-    # Reverse mapping
+    # Reverse mapping (FALLBACK - without gender distinction)
     REVERSE_CONDITION_MAP = {
         "NEW": 1000,
         "EXCELLENT": 3000,
@@ -72,7 +74,92 @@ class EbayMapper(BaseMarketplaceMapper):
         "POOR": 6000,
     }
 
+    # NOTE: This is imprecise without gender. Use get_ebay_category_id_from_db() instead.
     REVERSE_CATEGORY_MAP = {v: k for k, v in CATEGORY_MAP.items()}
+
+    # ===== DATABASE-BACKED CATEGORY MAPPING (PREFERRED) =====
+
+    @staticmethod
+    def get_ebay_category_id_from_db(
+        session: Session,
+        category: str,
+        gender: str
+    ) -> Optional[int]:
+        """
+        Get eBay category ID from database mapping.
+
+        This is the preferred method as it considers both category and gender
+        for accurate mapping (e.g., "jeans" + "men" → 11483, "jeans" + "women" → 11554).
+
+        Args:
+            session: SQLAlchemy session
+            category: StoFlow category name (e.g., 'jeans', 't-shirt', 'jacket')
+            gender: Gender ('men' or 'women')
+
+        Returns:
+            int | None: eBay category ID or None if not found
+
+        Example:
+            >>> category_id = EbayMapper.get_ebay_category_id_from_db(session, "jeans", "men")
+            >>> category_id
+            11483
+        """
+        return EbayCategoryMapping.get_ebay_category_id(session, category, gender)
+
+    @staticmethod
+    def get_ebay_category_from_db(
+        session: Session,
+        category: str,
+        gender: str
+    ) -> Optional[EbayCategoryMapping]:
+        """
+        Get full eBay category mapping from database.
+
+        Args:
+            session: SQLAlchemy session
+            category: StoFlow category name
+            gender: Gender ('men' or 'women')
+
+        Returns:
+            EbayCategoryMapping | None: Full mapping object or None
+        """
+        return EbayCategoryMapping.get_ebay_category(session, category, gender)
+
+    @staticmethod
+    def resolve_ebay_category_id(
+        session: Optional[Session],
+        category: str,
+        gender: Optional[str] = None
+    ) -> Optional[int]:
+        """
+        Resolve eBay category ID with fallback strategy.
+
+        Strategy:
+        1. If session and gender provided: lookup in database
+        2. If not found or no session: use static REVERSE_CATEGORY_MAP fallback
+
+        Args:
+            session: SQLAlchemy session (optional)
+            category: StoFlow category name
+            gender: Gender ('men' or 'women', optional)
+
+        Returns:
+            int | None: eBay category ID or None if not found
+        """
+        # Normalize category name
+        category_lower = category.lower().strip() if category else ""
+
+        # Try database lookup first
+        if session and gender:
+            gender_lower = gender.lower().strip()
+            db_category_id = EbayMapper.get_ebay_category_id_from_db(
+                session, category_lower, gender_lower
+            )
+            if db_category_id:
+                return db_category_id
+
+        # Fallback to static mapping (without gender distinction)
+        return EbayMapper.REVERSE_CATEGORY_MAP.get(category_lower)
 
     @staticmethod
     def platform_to_stoflow(ebay_item: dict) -> dict:
@@ -150,12 +237,16 @@ class EbayMapper(BaseMarketplaceMapper):
         }
 
     @staticmethod
-    def stoflow_to_platform(stoflow_product: dict) -> dict:
+    def stoflow_to_platform(
+        stoflow_product: dict,
+        session: Optional[Session] = None
+    ) -> dict:
         """
         Convertit un produit Stoflow en format eBay pour publication.
 
         Args:
             stoflow_product: Données produit Stoflow
+            session: SQLAlchemy session (optional, for DB-backed category lookup)
 
         Returns:
             dict: Payload pour API eBay
@@ -166,7 +257,8 @@ class EbayMapper(BaseMarketplaceMapper):
             "description": "Classic vintage...",
             "price": 45.99,
             "brand": "Levi's",
-            "category": "Jeans",
+            "category": "jeans",
+            "gender": "men",
             "condition": "EXCELLENT",
             "images": ["url1", "url2"]
         }
@@ -175,14 +267,18 @@ class EbayMapper(BaseMarketplaceMapper):
         condition = stoflow_product.get("condition", "GOOD")
         condition_id = EbayMapper.map_condition_to_platform(condition)
 
-        # Map category
-        category = stoflow_product.get("category", "Other")
-        category_id = EbayMapper.get_platform_category_id(category)
+        # Map category (with gender for accurate mapping)
+        category = stoflow_product.get("category", "")
+        gender = stoflow_product.get("gender", "")
+
+        # Use database-backed mapping if session provided
+        category_id = EbayMapper.resolve_ebay_category_id(session, category, gender)
 
         if not category_id:
             raise ValueError(
-                f"Cannot map Stoflow category '{category}' to eBay category_id. "
-                f"Supported: {list(EbayMapper.REVERSE_CATEGORY_MAP.keys())}"
+                f"Cannot map Stoflow category '{category}' (gender: {gender}) to eBay category_id. "
+                f"Please add mapping to ebay_category_mapping table or use fallback categories: "
+                f"{list(EbayMapper.REVERSE_CATEGORY_MAP.keys())}"
             )
 
         return {
@@ -210,6 +306,9 @@ class EbayMapper(BaseMarketplaceMapper):
         return EbayMapper.platform_to_stoflow(ebay_item)
 
     @staticmethod
-    def stoflow_to_ebay(stoflow_product: dict) -> dict:
+    def stoflow_to_ebay(
+        stoflow_product: dict,
+        session: Optional[Session] = None
+    ) -> dict:
         """Alias pour rétrocompatibilité."""
-        return EbayMapper.stoflow_to_platform(stoflow_product)
+        return EbayMapper.stoflow_to_platform(stoflow_product, session)

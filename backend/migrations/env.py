@@ -85,24 +85,6 @@ def get_url():
     return str(settings.database_url)
 
 
-def get_all_client_schemas(connection):
-    """
-    Récupère tous les schemas utilisateurs existants.
-
-    Returns:
-        Liste des noms de schemas (ex: ['user_1', 'user_2'])
-    """
-    result = connection.execute(
-        text(f"""
-            SELECT schema_name
-            FROM information_schema.schemata
-            WHERE schema_name LIKE '{settings.user_schema_prefix}%'
-            ORDER BY schema_name
-        """)
-    )
-    return [row[0] for row in result.fetchall()]
-
-
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -130,7 +112,13 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """
     Run migrations in 'online' mode.
-    Support multi-schema pour multi-tenant.
+
+    Architecture multi-tenant:
+    - public: tables partagées (users, subscriptions, etc.)
+    - template_tenant: modèle pour les nouveaux users (products, orders, etc.)
+    - user_X: schemas clonés depuis template_tenant (PAS migrés directement)
+
+    Les schemas user_X sont synchronisés via scripts/sync_user_schemas.py
     """
     # Configuration engine
     configuration = config.get_section(config.config_ini_section, {})
@@ -143,34 +131,27 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        # 1. Migration du schema PUBLIC (tables communes)
+        # Migration du schema PUBLIC uniquement
+        # Les tables user sont dans template_tenant qui est inclus via search_path
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            include_schemas=False,  # Seulement public
+            include_schemas=False,
         )
 
         with context.begin_transaction():
-            # Set search_path to public
-            connection.execute(text("SET search_path TO public"))
+            # search_path inclut template_tenant pour les tables user
+            connection.execute(text("SET search_path TO public, template_tenant"))
             context.run_migrations()
 
-        # 2. Migration de tous les schemas CLIENTS
-        client_schemas = get_all_client_schemas(connection)
-
-        for schema_name in client_schemas:
-            print(f"🔄 Migrating schema: {schema_name}")
-
-            context.configure(
-                connection=connection,
-                target_metadata=target_metadata,
-                version_table_schema=schema_name,
-            )
-
-            with context.begin_transaction():
-                # Set search_path to client schema
-                connection.execute(text(f"SET search_path TO {schema_name}, public"))
-                context.run_migrations()
+        # NOTE: Les schemas user_X ne sont PAS migrés ici.
+        # Ils sont synchronisés avec template_tenant via:
+        #   python scripts/sync_user_schemas.py
+        #
+        # Cela permet:
+        # 1. Des migrations plus rapides (pas de boucle sur tous les users)
+        # 2. Une seule table alembic_version (dans public)
+        # 3. Un contrôle explicite de la synchronisation des users
 
 
 if context.is_offline_mode():
