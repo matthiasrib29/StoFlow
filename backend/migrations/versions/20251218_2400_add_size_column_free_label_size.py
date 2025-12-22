@@ -21,6 +21,23 @@ depends_on = None
 def upgrade():
     conn = op.get_bind()
 
+    # Check if sizes table with name column exists (required for FK)
+    sizes_name_exists = conn.execute(sa.text('''
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'product_attributes'
+            AND table_name = 'sizes'
+            AND column_name = 'name'
+        )
+    ''')).scalar()
+
+    if not sizes_name_exists:
+        print("⏭️  product_attributes.sizes.name does not exist, skipping size FK creation")
+        # Still add the size column but skip FK
+        skip_fk = True
+    else:
+        skip_fk = False
+
     # Get all user schemas
     result = conn.execute(sa.text('''
         SELECT schema_name FROM information_schema.schemata
@@ -88,7 +105,7 @@ def upgrade():
             )
         ''')).scalar()
 
-        if not fk_exists:
+        if not fk_exists and not skip_fk:
             conn.execute(sa.text(f'''
                 ALTER TABLE {schema}.products
                 ADD CONSTRAINT fk_{schema}_products_size
@@ -153,7 +170,7 @@ def upgrade():
             )
         ''')).scalar()
 
-        if not fk_exists:
+        if not fk_exists and not skip_fk:
             conn.execute(sa.text('''
                 ALTER TABLE template_tenant.products
                 ADD CONSTRAINT fk_template_tenant_products_size

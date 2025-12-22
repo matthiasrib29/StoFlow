@@ -21,12 +21,39 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'f1g2h3i4j5k6'
-down_revision: Union[str, None] = 'fix_plugin_tasks_template'
+down_revision: Union[str, None] = '062469969708'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # ===== CRÉER TABLE plugin_tasks si elle n'existe pas =====
+    # (normalement créée par fix_plugin_tasks_template, mais on s'assure)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS template_tenant.plugin_tasks (
+            id SERIAL PRIMARY KEY,
+            task_type VARCHAR(100),
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            payload JSONB NOT NULL DEFAULT '{}',
+            result JSONB,
+            error_message TEXT,
+            product_id INTEGER,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+            started_at TIMESTAMP WITH TIME ZONE,
+            completed_at TIMESTAMP WITH TIME ZONE,
+            retry_count INTEGER DEFAULT 0 NOT NULL,
+            max_retries INTEGER DEFAULT 3 NOT NULL
+        )
+    """)
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS ix_template_tenant_plugin_tasks_status
+        ON template_tenant.plugin_tasks(status)
+    """)
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS ix_template_tenant_plugin_tasks_product_id
+        ON template_tenant.plugin_tasks(product_id)
+    """)
+
     # ===== CRÉER TABLE plugin_queue dans template_tenant =====
     # Utiliser CREATE TABLE IF NOT EXISTS (plus simple que DO block)
     op.execute("""
