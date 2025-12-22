@@ -20,11 +20,16 @@ depends_on = None
 
 
 def get_user_schemas(connection) -> list[str]:
-    """Get all user schemas."""
+    """Get all user schemas that have the vinted_jobs table."""
     result = connection.execute(
         sa.text(
-            "SELECT schema_name FROM information_schema.schemata "
-            "WHERE schema_name LIKE 'user_%' OR schema_name = 'template_tenant'"
+            """
+            SELECT DISTINCT s.schema_name
+            FROM information_schema.schemata s
+            INNER JOIN information_schema.tables t
+                ON t.table_schema = s.schema_name AND t.table_name = 'vinted_jobs'
+            WHERE s.schema_name LIKE 'user_%' OR s.schema_name = 'template_tenant'
+            """
         )
     )
     return [row[0] for row in result]
