@@ -1,7 +1,7 @@
 <template>
-  <div class="p-8">
+  <div class="p-6">
     <!-- Page Header -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <div>
         <h1 class="text-2xl font-bold text-secondary-900">Créer un produit</h1>
       </div>
@@ -14,40 +14,39 @@
     </div>
 
     <!-- Photo Section Title (scrolls away) -->
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="text-lg font-bold text-secondary-900 flex items-center gap-2">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="text-base font-bold text-secondary-900 flex items-center gap-2">
         <i class="pi pi-images"/>
-        Photos du produit * <span class="font-normal text-sm text-gray-600">(minimum 1 requise)</span>
-        <span class="text-sm font-normal ml-2">{{ photos.length }}/20</span>
+        Photos du produit * <span class="font-normal text-sm text-gray-500">(min. 1)</span>
+        <span class="text-sm font-normal text-gray-400">{{ photos.length }}/20</span>
       </h3>
 
       <!-- Add Photos Button (scrolls away) -->
       <Button
         v-if="photos.length > 0"
-        label="Ajouter des photos"
+        label="Ajouter"
         icon="pi pi-plus"
-        class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
+        class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
+        size="small"
         :disabled="photos.length >= 20"
         @click="openPhotoSelector"
       />
     </div>
 
-    <!-- Photos Section (Sticky at top) -->
-    <div class="sticky top-0 z-10 mb-6 bg-white pb-2">
+    <!-- Photos Section -->
+    <div class="mb-4">
       <ProductsPhotoUploader ref="photoUploader" v-model:photos="photos" />
     </div>
 
     <!-- Form Section (Scrollable) -->
-    <Card class="shadow-md modern-rounded">
-      <template #content>
-        <ProductsProductForm
-          v-model="form"
-          :is-submitting="isSubmitting"
-          @submit="handleSubmit"
-          @cancel="$router.push('/dashboard/products')"
-        />
-      </template>
-    </Card>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <ProductsProductForm
+        v-model="form"
+        :is-submitting="isSubmitting"
+        @submit="handleSubmit"
+        @cancel="$router.push('/dashboard/products')"
+      />
+    </div>
   </div>
 </template>
 

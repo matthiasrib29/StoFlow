@@ -1,13 +1,13 @@
 <template>
-  <div class="bg-white rounded-lg shadow-sm p-6">
-    <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-      <i class="pi pi-arrows-alt"/>
+  <div class="space-y-3">
+    <h3 class="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
+      <i class="pi pi-arrows-alt text-xs"/>
       Dimensions (cm)
     </h3>
 
-    <div class="grid grid-cols-3 gap-6">
+    <div class="grid grid-cols-3 gap-3">
       <div>
-        <label for="dim1" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="dim1" class="block text-xs font-semibold mb-1 text-secondary-900">
           Tour de poitrine / Épaules
         </label>
         <InputNumber
@@ -26,7 +26,7 @@
       </div>
 
       <div>
-        <label for="dim2" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="dim2" class="block text-xs font-semibold mb-1 text-secondary-900">
           Longueur totale
         </label>
         <InputNumber
@@ -45,7 +45,7 @@
       </div>
 
       <div>
-        <label for="dim3" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="dim3" class="block text-xs font-semibold mb-1 text-secondary-900">
           Longueur manche
         </label>
         <InputNumber
@@ -64,7 +64,7 @@
       </div>
 
       <div>
-        <label for="dim4" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="dim4" class="block text-xs font-semibold mb-1 text-secondary-900">
           Tour de taille
         </label>
         <InputNumber
@@ -83,7 +83,7 @@
       </div>
 
       <div>
-        <label for="dim5" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="dim5" class="block text-xs font-semibold mb-1 text-secondary-900">
           Tour de hanches
         </label>
         <InputNumber
@@ -102,7 +102,7 @@
       </div>
 
       <div>
-        <label for="dim6" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="dim6" class="block text-xs font-semibold mb-1 text-secondary-900">
           Entrejambe
         </label>
         <InputNumber
@@ -121,8 +121,8 @@
       </div>
     </div>
 
-    <p v-if="adjustedSize" class="text-sm text-green-600 mt-4">
-      💡 Taille ajustée automatiquement: <strong>{{ adjustedSize }}</strong>
+    <p v-if="adjustedSize" class="text-xs text-green-600 mt-3">
+      💡 Taille ajustée: <strong>{{ adjustedSize }}</strong>
     </p>
   </div>
 </template>

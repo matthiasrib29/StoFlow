@@ -1,14 +1,14 @@
 <template>
   <!-- ===== ATTRIBUTS OBLIGATOIRES ===== -->
-  <div class="bg-white rounded-lg shadow-sm p-6">
-    <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-      <i class="pi pi-tag"/>
+  <div class="space-y-3">
+    <h3 class="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
+      <i class="pi pi-tag text-xs"/>
       Attributs obligatoires
     </h3>
 
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-2 gap-4">
       <div>
-        <label for="condition" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="condition" class="block text-xs font-semibold mb-1 text-secondary-900">
           État *
         </label>
         <Select
@@ -31,7 +31,7 @@
       </div>
 
       <div>
-        <label for="label_size" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="label_size" class="block text-xs font-semibold mb-1 text-secondary-900">
           Taille *
         </label>
         <InputText
@@ -50,7 +50,7 @@
       </div>
 
       <div>
-        <label for="color" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="color" class="block text-xs font-semibold mb-1 text-secondary-900">
           Couleur *
         </label>
         <Select
@@ -75,15 +75,15 @@
   </div>
 
   <!-- ===== ATTRIBUTS OPTIONNELS ===== -->
-  <div class="bg-white rounded-lg shadow-sm p-6">
-    <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-      <i class="pi pi-sliders-h"/>
+  <div class="space-y-3">
+    <h3 class="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
+      <i class="pi pi-sliders-h text-xs"/>
       Attributs optionnels
     </h3>
 
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-2 gap-4">
       <div>
-        <label for="material" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="material" class="block text-xs font-semibold mb-1 text-secondary-900">
           Matière
         </label>
         <Select
@@ -105,7 +105,7 @@
       </div>
 
       <div>
-        <label for="fit" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="fit" class="block text-xs font-semibold mb-1 text-secondary-900">
           Coupe
         </label>
         <Select
@@ -127,7 +127,7 @@
       </div>
 
       <div>
-        <label for="gender" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="gender" class="block text-xs font-semibold mb-1 text-secondary-900">
           Genre
         </label>
         <Select
@@ -149,7 +149,7 @@
       </div>
 
       <div>
-        <label for="season" class="block text-sm font-bold mb-2 text-secondary-900">
+        <label for="season" class="block text-xs font-semibold mb-1 text-secondary-900">
           Saison
         </label>
         <Select
