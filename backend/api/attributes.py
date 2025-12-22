@@ -73,7 +73,8 @@ ATTRIBUTE_CONFIG = {
     },
     "colors": {
         "value_field": "name_en",
-        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es"],
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "extra_fields": ["hex_code"],
         "supports_search": False,
     },
     "materials": {
@@ -87,9 +88,9 @@ ATTRIBUTE_CONFIG = {
         "supports_search": False,
     },
     "sizes": {
-        "value_field": "label",
-        "label_fields": ["label"],
-        "extra_fields": ["category", "sort_order"],
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "extra_fields": ["vinted_id", "ebay_size", "etsy_size"],
         "supports_search": False,
     },
 }

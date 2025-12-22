@@ -146,9 +146,9 @@ def seed_sizes(session):
 
     count = 0
     for size in sizes:
-        existing = session.query(Size).filter(Size.name == size).first()
+        existing = session.query(Size).filter(Size.name_en == size).first()
         if not existing:
-            session.add(Size(name=size))
+            session.add(Size(name_en=size))
             count += 1
 
     session.commit()
