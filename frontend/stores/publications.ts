@@ -4,7 +4,7 @@ interface Publication {
   id: number
   product_id: number
   product_title: string
-  platform: 'vinted' | 'ebay' | 'etsy' | 'facebook'
+  platform: 'vinted' | 'ebay' | 'etsy'
   status: 'draft' | 'published' | 'sold' | 'archived'
   platform_url?: string
   published_at?: string
@@ -15,7 +15,7 @@ interface Publication {
 }
 
 interface Integration {
-  platform: 'vinted' | 'ebay' | 'etsy' | 'facebook'
+  platform: 'vinted' | 'ebay' | 'etsy'
   name: string
   is_connected: boolean
   last_sync?: string
@@ -54,13 +54,6 @@ export const usePublicationsStore = defineStore('publications', {
       {
         platform: 'etsy' as const,
         name: 'Etsy',
-        is_connected: false,
-        total_publications: 0,
-        active_publications: 0
-      },
-      {
-        platform: 'facebook' as const,
-        name: 'Facebook Marketplace',
         is_connected: false,
         total_publications: 0,
         active_publications: 0
