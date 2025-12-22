@@ -15,8 +15,8 @@ from shared.database import Base
 class ExchangeRate(Base):
     """Taux de change EUR vers autres devises"""
 
-    __tablename__ = 'exchange_rate_config'
-    __table_args__ = {'schema': 'public'}
+    __tablename__ = 'exchange_rate'
+    __table_args__ = {'schema': 'ebay'}
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     currency = Column(String(3), unique=True, nullable=False, index=True, comment="GBP, PLN")

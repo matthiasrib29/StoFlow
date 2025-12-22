@@ -19,8 +19,8 @@ from shared.database import Base
 class AspectMapping(Base):
     """Mapping des noms d'aspects eBay par marketplace"""
 
-    __tablename__ = 'aspect_mappings'
-    __table_args__ = {'schema': 'public'}
+    __tablename__ = 'aspect_name_mapping'
+    __table_args__ = {'schema': 'ebay'}
 
     # Primary key - aspect identifier (ex: 'brand', 'color', 'size')
     aspect_key = Column(String(100), primary_key=True)
