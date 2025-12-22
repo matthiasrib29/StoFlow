@@ -92,50 +92,247 @@
           <Transition
             enter-active-class="transition-all duration-300 ease-out"
             enter-from-class="opacity-0 max-h-0 -translate-y-2"
-            enter-to-class="opacity-100 max-h-60 translate-y-0"
+            enter-to-class="opacity-100 max-h-screen translate-y-0"
             leave-active-class="transition-all duration-200 ease-in"
-            leave-from-class="opacity-100 max-h-60 translate-y-0"
+            leave-from-class="opacity-100 max-h-screen translate-y-0"
             leave-to-class="opacity-0 max-h-0 -translate-y-2"
           >
             <div
               v-if="platformsMenuOpen"
               class="mt-1 ml-4 space-y-1 overflow-hidden"
             >
-              <NuxtLink
-                to="/dashboard/platforms/vinted"
-                class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-                active-class="bg-primary-50 text-secondary-900 font-semibold"
-              >
-                <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-4 h-4 object-contain" >
-                <span>Vinted</span>
-              </NuxtLink>
+              <!-- Vinted avec sous-menu -->
+              <div>
+                <button
+                  class="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                  :class="{ 'bg-primary-50 text-secondary-900 font-semibold': isVintedRoute }"
+                  @click="toggleVintedMenu"
+                >
+                  <div class="flex items-center gap-3">
+                    <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-4 h-4 object-contain">
+                    <span>Vinted</span>
+                  </div>
+                  <i :class="['pi pi-chevron-down text-xs transition-transform duration-300', vintedMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+                </button>
+                <Transition
+                  enter-active-class="transition-all duration-200 ease-out"
+                  enter-from-class="opacity-0 max-h-0"
+                  enter-to-class="opacity-100 max-h-96"
+                  leave-active-class="transition-all duration-150 ease-in"
+                  leave-from-class="opacity-100 max-h-96"
+                  leave-to-class="opacity-0 max-h-0"
+                >
+                  <div v-if="vintedMenuOpen" class="ml-4 mt-1 space-y-0.5 overflow-hidden">
+                    <NuxtLink
+                      to="/dashboard/platforms/vinted"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/platforms/vinted' }"
+                    >
+                      <i class="pi pi-chart-line text-xs"/>
+                      <span>Vue d'ensemble</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/vinted/products"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-box text-xs"/>
+                      <span>Produits Vinted</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/vinted/sales"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-shopping-cart text-xs"/>
+                      <span>Ventes</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/vinted/shipments"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-truck text-xs"/>
+                      <span>Expéditions</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/vinted/analytics"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-chart-bar text-xs"/>
+                      <span>Analytiques</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/vinted/messages"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-envelope text-xs"/>
+                      <span>Messages</span>
+                      <Badge v-if="vintedUnreadMessages > 0" :value="vintedUnreadMessages" severity="danger" class="text-xs ml-auto"/>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/vinted/settings"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-cog text-xs"/>
+                      <span>Paramètres</span>
+                    </NuxtLink>
+                  </div>
+                </Transition>
+              </div>
 
-              <NuxtLink
-                to="/dashboard/platforms/ebay"
-                class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-                active-class="bg-primary-50 text-secondary-900 font-semibold"
-              >
-                <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-4 h-4 object-contain" >
-                <span>eBay</span>
-              </NuxtLink>
+              <!-- eBay avec sous-menu -->
+              <div>
+                <button
+                  class="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                  :class="{ 'bg-primary-50 text-secondary-900 font-semibold': isEbayRoute }"
+                  @click="toggleEbayMenu"
+                >
+                  <div class="flex items-center gap-3">
+                    <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-4 h-4 object-contain">
+                    <span>eBay</span>
+                  </div>
+                  <i :class="['pi pi-chevron-down text-xs transition-transform duration-300', ebayMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+                </button>
+                <Transition
+                  enter-active-class="transition-all duration-200 ease-out"
+                  enter-from-class="opacity-0 max-h-0"
+                  enter-to-class="opacity-100 max-h-40"
+                  leave-active-class="transition-all duration-150 ease-in"
+                  leave-from-class="opacity-100 max-h-40"
+                  leave-to-class="opacity-0 max-h-0"
+                >
+                  <div v-if="ebayMenuOpen" class="ml-4 mt-1 space-y-0.5 overflow-hidden">
+                    <NuxtLink
+                      to="/dashboard/platforms/ebay"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/platforms/ebay' }"
+                    >
+                      <i class="pi pi-chart-line text-xs"/>
+                      <span>Vue d'ensemble</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/ebay/products"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-box text-xs"/>
+                      <span>Produits eBay</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/ebay/settings"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-cog text-xs"/>
+                      <span>Paramètres</span>
+                    </NuxtLink>
+                  </div>
+                </Transition>
+              </div>
 
-              <NuxtLink
-                to="/dashboard/platforms/etsy"
-                class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-                active-class="bg-primary-50 text-secondary-900 font-semibold"
-              >
-                <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-4 h-4 object-contain" >
-                <span>Etsy</span>
-              </NuxtLink>
+              <!-- Etsy avec sous-menu -->
+              <div>
+                <button
+                  class="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                  :class="{ 'bg-primary-50 text-secondary-900 font-semibold': isEtsyRoute }"
+                  @click="toggleEtsyMenu"
+                >
+                  <div class="flex items-center gap-3">
+                    <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-4 h-4 object-contain">
+                    <span>Etsy</span>
+                  </div>
+                  <i :class="['pi pi-chevron-down text-xs transition-transform duration-300', etsyMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+                </button>
+                <Transition
+                  enter-active-class="transition-all duration-200 ease-out"
+                  enter-from-class="opacity-0 max-h-0"
+                  enter-to-class="opacity-100 max-h-40"
+                  leave-active-class="transition-all duration-150 ease-in"
+                  leave-from-class="opacity-100 max-h-40"
+                  leave-to-class="opacity-0 max-h-0"
+                >
+                  <div v-if="etsyMenuOpen" class="ml-4 mt-1 space-y-0.5 overflow-hidden">
+                    <NuxtLink
+                      to="/dashboard/platforms/etsy"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/platforms/etsy' }"
+                    >
+                      <i class="pi pi-chart-line text-xs"/>
+                      <span>Vue d'ensemble</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/etsy/products"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-box text-xs"/>
+                      <span>Produits Etsy</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/etsy/settings"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-cog text-xs"/>
+                      <span>Paramètres</span>
+                    </NuxtLink>
+                  </div>
+                </Transition>
+              </div>
 
-              <NuxtLink
-                to="/dashboard/platforms/facebook"
-                class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-                active-class="bg-primary-50 text-secondary-900 font-semibold"
-              >
-                <img src="/images/platforms/facebook-logo.png" alt="Facebook" class="w-4 h-4 object-contain" >
-                <span>Facebook Marketplace</span>
-              </NuxtLink>
+              <!-- Facebook avec sous-menu -->
+              <div>
+                <button
+                  class="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                  :class="{ 'bg-primary-50 text-secondary-900 font-semibold': isFacebookRoute }"
+                  @click="toggleFacebookMenu"
+                >
+                  <div class="flex items-center gap-3">
+                    <img src="/images/platforms/facebook-logo.png" alt="Facebook" class="w-4 h-4 object-contain">
+                    <span>Facebook</span>
+                  </div>
+                  <i :class="['pi pi-chevron-down text-xs transition-transform duration-300', facebookMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+                </button>
+                <Transition
+                  enter-active-class="transition-all duration-200 ease-out"
+                  enter-from-class="opacity-0 max-h-0"
+                  enter-to-class="opacity-100 max-h-40"
+                  leave-active-class="transition-all duration-150 ease-in"
+                  leave-from-class="opacity-100 max-h-40"
+                  leave-to-class="opacity-0 max-h-0"
+                >
+                  <div v-if="facebookMenuOpen" class="ml-4 mt-1 space-y-0.5 overflow-hidden">
+                    <NuxtLink
+                      to="/dashboard/platforms/facebook"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/platforms/facebook' }"
+                    >
+                      <i class="pi pi-chart-line text-xs"/>
+                      <span>Vue d'ensemble</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/facebook/products"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-box text-xs"/>
+                      <span>Produits Facebook</span>
+                    </NuxtLink>
+                    <NuxtLink
+                      to="/dashboard/platforms/facebook/settings"
+                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      active-class="bg-primary-50 text-secondary-900 font-semibold"
+                    >
+                      <i class="pi pi-cog text-xs"/>
+                      <span>Paramètres</span>
+                    </NuxtLink>
+                  </div>
+                </Transition>
+              </div>
             </div>
           </Transition>
         </div>
@@ -272,6 +469,15 @@ const toast = import.meta.client ? useToast() : null
 const productsMenuOpen = ref(false)
 const platformsMenuOpen = ref(false)
 
+// État des sous-menus plateformes
+const vintedMenuOpen = ref(false)
+const ebayMenuOpen = ref(false)
+const etsyMenuOpen = ref(false)
+const facebookMenuOpen = ref(false)
+
+// Badge messages non lus Vinted (à connecter au store plus tard)
+const vintedUnreadMessages = ref(0)
+
 // Client-side mount state for hydration safety
 const mounted = ref(false)
 onMounted(() => {
@@ -325,14 +531,41 @@ const breadcrumbs = computed(() => {
   else if (path.startsWith('/dashboard/platforms')) {
     crumbs.push({ label: 'Plateformes', path: '/dashboard/platforms' })
 
+    // Sous-sections des plateformes
+    const subSectionLabels: Record<string, string> = {
+      'publications': 'Publications',
+      'sales': 'Ventes',
+      'shipments': 'Expéditions',
+      'analytics': 'Analytiques',
+      'settings': 'Paramètres',
+      'messages': 'Messages'
+    }
+
     if (path.includes('/vinted')) {
-      crumbs.push({ label: 'Vinted' })
+      crumbs.push({ label: 'Vinted', path: '/dashboard/platforms/vinted' })
+      // Ajouter la sous-section si présente
+      const subSection = path.split('/vinted/')[1]
+      if (subSection && subSectionLabels[subSection]) {
+        crumbs.push({ label: subSectionLabels[subSection] })
+      }
     } else if (path.includes('/ebay')) {
-      crumbs.push({ label: 'eBay' })
+      crumbs.push({ label: 'eBay', path: '/dashboard/platforms/ebay' })
+      const subSection = path.split('/ebay/')[1]
+      if (subSection && subSectionLabels[subSection]) {
+        crumbs.push({ label: subSectionLabels[subSection] })
+      }
     } else if (path.includes('/etsy')) {
-      crumbs.push({ label: 'Etsy' })
+      crumbs.push({ label: 'Etsy', path: '/dashboard/platforms/etsy' })
+      const subSection = path.split('/etsy/')[1]
+      if (subSection && subSectionLabels[subSection]) {
+        crumbs.push({ label: subSectionLabels[subSection] })
+      }
     } else if (path.includes('/facebook')) {
-      crumbs.push({ label: 'Facebook Marketplace' })
+      crumbs.push({ label: 'Facebook', path: '/dashboard/platforms/facebook' })
+      const subSection = path.split('/facebook/')[1]
+      if (subSection && subSectionLabels[subSection]) {
+        crumbs.push({ label: subSectionLabels[subSection] })
+      }
     }
   }
   // Autres pages simples
@@ -362,6 +595,12 @@ const isPlatformsRoute = computed(() => {
   return route.path.startsWith('/dashboard/platforms')
 })
 
+// Vérifier les routes de chaque plateforme
+const isVintedRoute = computed(() => route.path.startsWith('/dashboard/platforms/vinted'))
+const isEbayRoute = computed(() => route.path.startsWith('/dashboard/platforms/ebay'))
+const isEtsyRoute = computed(() => route.path.startsWith('/dashboard/platforms/etsy'))
+const isFacebookRoute = computed(() => route.path.startsWith('/dashboard/platforms/facebook'))
+
 // Ouvrir automatiquement les menus si on est sur leurs routes
 watch(() => route.path, (newPath) => {
   if (newPath.startsWith('/dashboard/products')) {
@@ -369,6 +608,19 @@ watch(() => route.path, (newPath) => {
   }
   if (newPath.startsWith('/dashboard/platforms')) {
     platformsMenuOpen.value = true
+    // Ouvrir le sous-menu de la plateforme concernée
+    if (newPath.startsWith('/dashboard/platforms/vinted')) {
+      vintedMenuOpen.value = true
+    }
+    if (newPath.startsWith('/dashboard/platforms/ebay')) {
+      ebayMenuOpen.value = true
+    }
+    if (newPath.startsWith('/dashboard/platforms/etsy')) {
+      etsyMenuOpen.value = true
+    }
+    if (newPath.startsWith('/dashboard/platforms/facebook')) {
+      facebookMenuOpen.value = true
+    }
   }
 }, { immediate: true })
 
@@ -381,12 +633,24 @@ const togglePlatformsMenu = () => {
   platformsMenuOpen.value = !platformsMenuOpen.value
 }
 
-// Vérifier l'authentification
-onMounted(() => {
-  if (!authStore.isAuthenticated) {
-    router.push('/login')
-  }
-})
+// Toggle des sous-menus plateformes
+const toggleVintedMenu = () => {
+  vintedMenuOpen.value = !vintedMenuOpen.value
+}
+
+const toggleEbayMenu = () => {
+  ebayMenuOpen.value = !ebayMenuOpen.value
+}
+
+const toggleEtsyMenu = () => {
+  etsyMenuOpen.value = !etsyMenuOpen.value
+}
+
+const toggleFacebookMenu = () => {
+  facebookMenuOpen.value = !facebookMenuOpen.value
+}
+
+// Note: Authentication is now handled by middleware/auth.global.ts
 
 const handleLogout = () => {
   authStore.logout()

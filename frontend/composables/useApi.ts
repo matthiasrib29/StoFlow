@@ -1,6 +1,10 @@
 /**
  * Composable pour gérer les appels API avec authentification JWT
+ *
+ * Security: Uses token validation before API calls
  */
+
+import { useTokenValidator } from '~/composables/useTokenValidator'
 
 interface ApiError {
   detail: string
@@ -10,23 +14,43 @@ interface ApiError {
 export const useApi = () => {
   const config = useRuntimeConfig()
   const baseURL = config.public.apiUrl || 'http://localhost:8000'
+  const { isValidToken, isTokenExpired, willExpireSoon } = useTokenValidator()
 
   /**
-   * Récupère le token d'accès depuis localStorage
+   * Récupère le token d'accès depuis localStorage avec validation
+   * Returns null if token is invalid or expired
    */
   const getAccessToken = (): string | null => {
     if (import.meta.client) {
-      return localStorage.getItem('token')
+      const token = localStorage.getItem('token')
+
+      // Validate token before returning
+      if (token && isValidToken(token) && !isTokenExpired(token)) {
+        return token
+      }
+
+      // Token invalid or expired
+      if (token) {
+        console.log('[API] Access token invalid/expired, will attempt refresh')
+      }
+      return null
     }
     return null
   }
 
   /**
-   * Récupère le refresh token depuis localStorage
+   * Récupère le refresh token depuis localStorage avec validation
    */
   const getRefreshToken = (): string | null => {
     if (import.meta.client) {
-      return localStorage.getItem('refresh_token')
+      const token = localStorage.getItem('refresh_token')
+
+      // Validate token structure (don't check expiry for refresh tokens)
+      if (token && isValidToken(token)) {
+        return token
+      }
+
+      return null
     }
     return null
   }

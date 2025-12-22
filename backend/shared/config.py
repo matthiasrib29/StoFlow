@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     log_file_backup_count: int = 5
 
     # CORS
-    cors_origins: str = "http://localhost:3000,http://localhost:8080"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:8080"
     cors_allow_credentials: bool = True
 
     # User schema isolation

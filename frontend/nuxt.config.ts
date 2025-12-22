@@ -32,5 +32,40 @@ export default defineNuxtConfig({
       // URL de base de l'API (avec /api) - utilisée par certains composables
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api'
     }
+  },
+
+  // Security headers (CSP)
+  // Protects against XSS attacks by controlling which resources can be loaded
+  routeRules: {
+    '/**': {
+      headers: {
+        // Content Security Policy
+        // - 'self': Only allow resources from same origin
+        // - 'unsafe-inline': Required for Vue/Nuxt reactivity and Tailwind
+        // - 'unsafe-eval': Required for Vue template compilation in dev
+        // - data: and blob: for images/fonts
+        'Content-Security-Policy': process.env.NODE_ENV === 'production'
+          ? [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' " + (process.env.NUXT_PUBLIC_API_URL || 'http://localhost:8000'),
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'"
+            ].join('; ')
+          : '', // Disabled in dev for hot reload compatibility
+        // Prevent clickjacking
+        'X-Frame-Options': 'DENY',
+        // Prevent MIME type sniffing
+        'X-Content-Type-Options': 'nosniff',
+        // Enable XSS filter in older browsers
+        'X-XSS-Protection': '1; mode=block',
+        // Control referrer information
+        'Referrer-Policy': 'strict-origin-when-cross-origin'
+      }
+    }
   }
 })
