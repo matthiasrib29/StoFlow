@@ -46,7 +46,7 @@ ATTRIBUTE_CONFIG = {
     "categories": {
         "value_field": "name_en",
         "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es"],
-        "extra_fields": ["parent_category", "default_gender"],
+        "extra_fields": ["parent_category", "genders"],
         "supports_search": False,
     },
     "conditions": {
