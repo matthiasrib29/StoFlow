@@ -19,10 +19,30 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Add queue_id column to plugin_tasks
-    op.add_column('plugin_tasks', sa.Column('queue_id', sa.Integer(), nullable=True, comment='ID de la queue parente (nouveau système step-by-step)'))
-    op.create_index(op.f('ix_plugin_tasks_queue_id'), 'plugin_tasks', ['queue_id'], unique=False)
-    op.create_foreign_key('fk_plugin_tasks_queue_id', 'plugin_tasks', 'plugin_queue', ['queue_id'], ['id'], ondelete='CASCADE')
+    # Add queue_id column to plugin_tasks (skip if already exists from earlier migration)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'plugin_tasks'
+                AND column_name = 'queue_id'
+            ) THEN
+                ALTER TABLE plugin_tasks ADD COLUMN queue_id INTEGER;
+                CREATE INDEX ix_plugin_tasks_queue_id ON plugin_tasks(queue_id);
+            END IF;
+
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.table_constraints
+                WHERE table_name = 'plugin_tasks'
+                AND constraint_name = 'fk_plugin_tasks_queue_id'
+            ) THEN
+                ALTER TABLE plugin_tasks
+                ADD CONSTRAINT fk_plugin_tasks_queue_id
+                FOREIGN KEY (queue_id) REFERENCES plugin_queue(id) ON DELETE CASCADE;
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:
