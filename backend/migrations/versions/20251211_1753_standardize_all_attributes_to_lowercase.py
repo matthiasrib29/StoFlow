@@ -54,6 +54,7 @@ TABLES_TO_STANDARDIZE = [
 def upgrade() -> None:
     """
     Convertit toutes les valeurs name_en en minuscules.
+    Skip si les tables n'existent pas encore.
     """
     connection = op.get_bind()
 
@@ -61,6 +62,33 @@ def upgrade() -> None:
 
     for table_name, product_column, pk_column in TABLES_TO_STANDARDIZE:
         print(f"\n  🔄 Processing {table_name.upper()}...")
+
+        # Check if table exists first
+        result = connection.execute(sa.text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_schema = 'product_attributes'
+                AND table_name = :table_name
+            )
+        """), {"table_name": table_name})
+
+        if not result.scalar():
+            print(f"  ⏭️  {table_name}: table does not exist, skipping")
+            continue
+
+        # Check if column exists
+        result = connection.execute(sa.text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_schema = 'product_attributes'
+                AND table_name = :table_name
+                AND column_name = :column_name
+            )
+        """), {"table_name": table_name, "column_name": pk_column})
+
+        if not result.scalar():
+            print(f"  ⏭️  {table_name}: column {pk_column} does not exist, skipping")
+            continue
 
         # 1. Récupérer toutes les valeurs actuelles
         result = connection.execute(sa.text(f"""
