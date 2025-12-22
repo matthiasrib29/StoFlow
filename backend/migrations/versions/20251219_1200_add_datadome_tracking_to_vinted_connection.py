@@ -6,7 +6,7 @@ Create Date: 2025-12-19 12:00:00.000000
 
 Adds columns for tracking DataDome ping status:
 - last_datadome_ping: Timestamp of last successful ping
-- datadome_status: Enum (OK, FAILED, UNKNOWN)
+- datadome_status: Enum (ok, failed, unknown)
 """
 from alembic import op
 import sqlalchemy as sa
@@ -29,7 +29,7 @@ def upgrade():
         DO $$
         BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'datadomestatus') THEN
-                CREATE TYPE datadomestatus AS ENUM ('OK', 'FAILED', 'UNKNOWN');
+                CREATE TYPE datadomestatus AS ENUM ('ok', 'failed', 'unknown');
             END IF;
         END$$;
     """))
@@ -80,10 +80,10 @@ def upgrade():
             ADD COLUMN last_datadome_ping TIMESTAMP WITH TIME ZONE DEFAULT NULL
         """))
 
-        # Add datadome_status column with default 'UNKNOWN'
+        # Add datadome_status column with default 'unknown'
         conn.execute(text(f"""
             ALTER TABLE {schema}.vinted_connection
-            ADD COLUMN datadome_status datadomestatus NOT NULL DEFAULT 'UNKNOWN'
+            ADD COLUMN datadome_status datadomestatus NOT NULL DEFAULT 'unknown'
         """))
 
         print(f"  -> Added last_datadome_ping, datadome_status to {schema}.vinted_connection")
@@ -115,7 +115,7 @@ def upgrade():
             """))
             conn.execute(text("""
                 ALTER TABLE template_tenant.vinted_connection
-                ADD COLUMN datadome_status datadomestatus NOT NULL DEFAULT 'UNKNOWN'
+                ADD COLUMN datadome_status datadomestatus NOT NULL DEFAULT 'unknown'
             """))
             print("  -> Added columns to template_tenant.vinted_connection")
 
