@@ -22,9 +22,9 @@ from shared.database import Base
 
 class DataDomeStatus(str, PyEnum):
     """Status of the DataDome session."""
-    OK = "ok"                    # Last ping successful
-    FAILED = "failed"            # Last ping failed (after retries)
-    UNKNOWN = "unknown"          # Never pinged or expired
+    OK = "OK"                    # Last ping successful
+    FAILED = "FAILED"            # Last ping failed (after retries)
+    UNKNOWN = "UNKNOWN"          # Never pinged or expired
 
 
 class VintedConnection(Base):
