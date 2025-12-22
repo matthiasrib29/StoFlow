@@ -7,9 +7,9 @@ Creates tables for job orchestration:
 - vinted_job_stats: Daily analytics per action type
 - Adds job_id FK to plugin_tasks
 
-Revision ID: 20251219_1400
-Revises: 20251219_1000
-Create Date: 2025-12-19 14:00:00
+Revision ID: 20251219_1300
+Revises: 20251219_1200
+Create Date: 2025-12-19 13:00:00
 """
 
 from alembic import op
@@ -17,18 +17,23 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers
-revision = "20251219_1400"
-down_revision = "20251219_1000"
+revision = "20251219_1300"
+down_revision = "20251219_1200"
 branch_labels = None
 depends_on = None
 
 
 def get_user_schemas(connection) -> list[str]:
-    """Get all user schemas."""
+    """Get all user schemas that have the products table (complete schemas only)."""
     result = connection.execute(
         sa.text(
-            "SELECT schema_name FROM information_schema.schemata "
-            "WHERE schema_name LIKE 'user_%' OR schema_name = 'template_tenant'"
+            """
+            SELECT DISTINCT s.schema_name
+            FROM information_schema.schemata s
+            INNER JOIN information_schema.tables t
+                ON t.table_schema = s.schema_name AND t.table_name = 'products'
+            WHERE s.schema_name LIKE 'user_%' OR s.schema_name = 'template_tenant'
+            """
         )
     )
     return [row[0] for row in result]
