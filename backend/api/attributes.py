@@ -50,8 +50,8 @@ ATTRIBUTE_CONFIG = {
         "supports_search": False,
     },
     "conditions": {
-        "value_field": "name",
-        "label_method": "get_description",  # Méthode spéciale du modèle
+        "value_field": "note",
+        "label_method": "get_name",  # Méthode spéciale du modèle
         "extra_fields": ["coefficient", "vinted_id", "ebay_condition"],
         "supports_search": False,
     },

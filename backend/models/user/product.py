@@ -186,8 +186,8 @@ class Product(Base):
     brand: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Marque (FK public.brands)"
     )
-    condition: Mapped[str] = mapped_column(
-        String(100), nullable=False, comment="État (FK public.conditions)"
+    condition: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="État - note 0-10 (FK product_attributes.conditions.note)"
     )
     size: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True, comment="Taille standardisée (FK product_attributes.sizes)"

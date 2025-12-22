@@ -34,32 +34,21 @@ from shared.config import settings
 
 
 def seed_conditions(session):
-    """Seed les conditions standards."""
+    """Seed les conditions standards (échelle 0-10)."""
     conditions = [
-        Condition(
-            name="NEW",
-            description_en="New with tags",
-            description_fr="Neuf avec étiquettes"
-        ),
-        Condition(
-            name="EXCELLENT",
-            description_en="Excellent condition - like new",
-            description_fr="Excellent état - comme neuf"
-        ),
-        Condition(
-            name="GOOD",
-            description_en="Good condition - minor signs of wear",
-            description_fr="Bon état - signes d'usure mineurs"
-        ),
-        Condition(
-            name="SATISFACTORY",
-            description_en="Satisfactory - visible signs of wear",
-            description_fr="Satisfaisant - signes d'usure visibles"
-        ),
+        Condition(note=0, name_en="New with tags", name_fr="Neuf avec étiquettes", coefficient=1.0),
+        Condition(note=1, name_en="New without tags", name_fr="Neuf sans étiquettes", coefficient=0.98),
+        Condition(note=2, name_en="Very good", name_fr="Très bon état", coefficient=0.95),
+        Condition(note=3, name_en="Very good", name_fr="Très bon état", coefficient=0.92),
+        Condition(note=4, name_en="Good", name_fr="Bon état", coefficient=0.88),
+        Condition(note=5, name_en="Good", name_fr="Bon état", coefficient=0.85),
+        Condition(note=6, name_en="Satisfactory", name_fr="Satisfaisant", coefficient=0.80),
+        Condition(note=7, name_en="Satisfactory", name_fr="Satisfaisant", coefficient=0.75),
+        Condition(note=8, name_en="Worn", name_fr="Usé", coefficient=0.70),
     ]
 
     for condition in conditions:
-        existing = session.query(Condition).filter(Condition.name == condition.name).first()
+        existing = session.query(Condition).filter(Condition.note == condition.note).first()
         if not existing:
             session.add(condition)
 

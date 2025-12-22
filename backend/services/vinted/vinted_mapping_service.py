@@ -108,14 +108,15 @@ class VintedMappingService:
             ID Vinted de la condition, ou None si non trouvée
 
         Examples:
-            >>> condition_id = VintedMappingService.map_condition(db, "EXCELLENT")
-            >>> print(condition_id)  # Ex: 1 (NEW)
+            >>> condition_id = VintedMappingService.map_condition(db, 2)
+            >>> print(condition_id)  # Ex: 1 (Vinted ID pour très bon état)
             1
         """
-        if not condition_name:
+        if condition_name is None:
             return None
 
-        condition = db.query(Condition).filter(Condition.name == condition_name).first()
+        # condition_name is now an integer (note 0-10)
+        condition = db.query(Condition).filter(Condition.note == condition_name).first()
 
         if condition and condition.vinted_id:
             return int(condition.vinted_id)
