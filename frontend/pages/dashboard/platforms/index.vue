@@ -168,12 +168,6 @@ const enrichedPlatforms = computed(() => {
         icon = 'pi-heart'
         logo = '/images/platforms/etsy-logo.png'
         break
-      case 'facebook':
-        bgColor = 'bg-white'
-        iconColor = 'text-blue-600'
-        icon = 'pi-facebook'
-        logo = '/images/platforms/facebook-logo.png'
-        break
     }
 
     return {
