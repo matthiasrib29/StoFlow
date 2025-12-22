@@ -29,3 +29,6 @@ pillow==11.0.0
 
 # Task Scheduling (pour Etsy polling)
 apscheduler==3.10.4
+
+# Payments
+stripe==11.3.0
