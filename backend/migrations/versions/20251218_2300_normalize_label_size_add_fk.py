@@ -97,6 +97,20 @@ def normalize_waist_length(value: str) -> str | None:
 def upgrade():
     conn = op.get_bind()
 
+    # Check if sizes table and name column exist
+    table_exists = conn.execute(sa.text('''
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'product_attributes'
+            AND table_name = 'sizes'
+            AND column_name = 'name'
+        )
+    ''')).scalar()
+
+    if not table_exists:
+        print("⏭️  product_attributes.sizes.name does not exist, skipping migration")
+        return
+
     # Get all user schemas
     result = conn.execute(sa.text('''
         SELECT schema_name FROM information_schema.schemata
