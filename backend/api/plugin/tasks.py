@@ -44,19 +44,20 @@ LONG_POLL_CHECK_INTERVAL = 1  # Vérifier la DB toutes les 1 seconde
 # Configuré: 1-2s entre chaque requête
 
 # Configuration par pattern d'URL (min_delay_ms, max_delay_ms)
+# UPDATED 2025-12-22: Increased delays to avoid DataDome 403 errors
 RATE_LIMIT_DELAYS = {
     # Opérations sensibles - délais plus longs
-    'item_upload': (2000, 3000),        # Création de produit: 2-3s
-    'items/.*/delete': (2000, 3000),    # Suppression: 2-3s
-    'photos': (2000, 3000),             # Upload d'images: 2-3s
+    'item_upload': (3000, 5000),        # Création de produit: 3-5s
+    'items/.*/delete': (3000, 5000),    # Suppression: 3-5s
+    'photos': (3000, 5000),             # Upload d'images: 3-5s
 
-    # Opérations de lecture - délais 1-2s
-    'wardrobe': (1000, 2000),           # Liste produits: 1-2s
-    'my_orders': (1000, 2000),          # Commandes: 1-2s
-    'items/': (1000, 2000),             # Détail produit (HTML): 1-2s
+    # Opérations de lecture - délais 2-4s (increased from 1-2s)
+    'wardrobe': (2000, 4000),           # Liste produits: 2-4s
+    'my_orders': (2000, 4000),          # Commandes: 2-4s
+    'items/': (2500, 4500),             # Détail produit (HTML): 2.5-4.5s (most sensitive)
 
-    # Par défaut: 1-2s
-    'default': (1000, 2000),
+    # Par défaut: 2-3s (increased from 1-2s)
+    'default': (2000, 3000),
 }
 
 # Multiplicateur pour les opérations d'écriture (POST/PUT/DELETE)
