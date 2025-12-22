@@ -26,9 +26,15 @@ from sqlalchemy.orm import Session
 
 from models.public.condition import Condition
 from models.public.ebay_aspect_mapping import AspectMapping
+from models.public.ebay_category_mapping import EbayCategoryMapping
 from models.public.ebay_marketplace_config import MarketplaceConfig
 from models.public.platform_mapping import Platform, PlatformMapping
 from models.user.product import Product
+from services.ebay.ebay_aspect_value_service import (
+    EbayAspectValueService,
+    get_aspect_value_service,
+)
+from services.ebay.ebay_mapper import EbayMapper
 from shared.exceptions import ProductValidationError
 from shared.logging_setup import get_logger
 
@@ -83,6 +89,9 @@ class EbayProductConversionService:
 
         # Load condition mapping from DB (condition_name → ebay_condition)
         self._condition_map = self._load_condition_mapping()
+
+        # Initialize aspect value service for multilingual translations
+        self._aspect_value_service = get_aspect_value_service(db)
 
     def convert_to_inventory_item(
         self,
@@ -176,7 +185,8 @@ class EbayProductConversionService:
             return_policy_id: ID return policy
             inventory_location: Inventory location key
             category_id: eBay category ID (ex: "11450" pour T-shirts homme)
-                        Si None, utilise une catégorie générique
+                        Si None, auto-résolu depuis product.category + product.gender
+                        via la table ebay_category_mapping
 
         Returns:
             Dict formaté pour POST /sell/inventory/v1/offer
@@ -196,15 +206,31 @@ class EbayProductConversionService:
 
         Author: Claude
         Date: 2025-12-10
-        Updated: 2025-12-10 - Fix categoryId fallback dangereux
+        Updated: 2025-12-22 - Auto-resolve category_id via ebay_category_mapping table
         """
-        # Validation: category_id requis
-        if not category_id:
+        # Auto-resolve category_id if not provided
+        resolved_category_id = category_id
+        if not resolved_category_id:
+            # Try to resolve from product.category + product.gender
+            if product.category and product.gender:
+                resolved_category_id = EbayMapper.resolve_ebay_category_id(
+                    self.db, product.category, product.gender
+                )
+                if resolved_category_id:
+                    resolved_category_id = str(resolved_category_id)
+                    logger.info(
+                        f"Auto-resolved eBay category_id={resolved_category_id} "
+                        f"for category='{product.category}', gender='{product.gender}'"
+                    )
+
+        # Validation: category_id requis (either provided or resolved)
+        if not resolved_category_id:
             raise ProductValidationError(
                 "category_id est requis pour créer une offer eBay. "
-                "Veuillez spécifier l'ID de catégorie eBay appropriée. "
-                "Exemple: '11450' pour T-shirts homme, '15687' pour Jeans femme. "
-                "Utilisez eBay Taxonomy API pour trouver la bonne catégorie."
+                f"Impossible de résoudre automatiquement pour category='{product.category}', "
+                f"gender='{product.gender}'. "
+                "Veuillez spécifier l'ID de catégorie eBay manuellement ou ajouter "
+                "le mapping dans la table ebay_category_mapping."
             )
 
         # Calculer prix avec coefficient marketplace
@@ -223,7 +249,7 @@ class EbayProductConversionService:
             "marketplaceId": marketplace_id,
             "format": "FIXED_PRICE",
             "availableQuantity": product.stock_quantity or 1,
-            "categoryId": category_id,  # Requis - pas de fallback
+            "categoryId": resolved_category_id,  # Auto-resolved or provided
             "listingPolicies": {
                 "paymentPolicyId": payment_policy_id,
                 "fulfillmentPolicyId": fulfillment_policy_id,
@@ -314,67 +340,99 @@ class EbayProductConversionService:
         """
         Construit les aspects eBay avec traduction multilingue.
 
-        Utilise la table aspect_mappings pour traduire les noms d'aspects
-        dans la langue du marketplace (ex: "Colour" → "Couleur" pour EBAY_FR).
+        Two-level translation:
+        1. Aspect NAMES: via ebay.aspect_name_mapping (ex: "Colour" → "Couleur")
+        2. Aspect VALUES: via ebay.aspect_* tables (ex: "Blue" → "Bleu")
 
         Args:
             product: Product Stoflow
             marketplace_id: Marketplace (ex: "EBAY_FR")
 
         Returns:
-            Dict {aspect_name_localized: [values]}
+            Dict {aspect_name_localized: [values_localized]}
 
         Author: Claude
         Date: 2025-12-10
-        Updated: 2025-12-10 - Ajout traductions multilingues via aspect_mappings
+        Updated: 2025-12-22 - Ajout traduction des VALEURS via EbayAspectValueService
         """
-        # Charger les mappings d'aspects pour cette marketplace
-        aspect_translations = AspectMapping.get_all_for_marketplace(
+        # Load aspect NAME translations for this marketplace
+        aspect_name_translations = AspectMapping.get_all_for_marketplace(
             self.db, marketplace_id
         )
 
-        # Fallback si pas de mappings en DB (aspects en anglais)
-        if not aspect_translations:
-            aspect_translations = {
+        # Fallback if no mappings in DB (English aspect names)
+        if not aspect_name_translations:
+            aspect_name_translations = {
                 "Brand": "Brand",
                 "Colour": "Colour",
                 "Size": "Size",
                 "Material": "Material",
                 "Department": "Department",
                 "Style": "Style",
+                "Fit": "Fit",
+                "Pattern": "Pattern",
+                "Neckline": "Neckline",
+                "Sleeve Length": "Sleeve Length",
+                "Occasion": "Occasion",
+                "Type": "Type",
             }
 
         aspects = {}
 
-        # Brand (toujours en anglais, universel)
+        # Brand (universal, no translation needed)
         if product.brand:
-            brand_name = aspect_translations.get("Brand", "Brand")
+            brand_name = aspect_name_translations.get("Brand", "Brand")
             aspects[brand_name] = [product.brand]
 
-        # Colour
+        # Colour - translate both name AND value
         if product.color:
-            colour_name = aspect_translations.get("Colour", "Colour")
-            aspects[colour_name] = [product.color]
+            colour_name = aspect_name_translations.get("Colour", "Colour")
+            translated_color = self._aspect_value_service.get_aspect_value(
+                product.color, "color", marketplace_id
+            )
+            aspects[colour_name] = [translated_color or product.color]
 
-        # Size
+        # Size - translate both name AND value
         if product.label_size:
-            size_name = aspect_translations.get("Size", "Size")
-            aspects[size_name] = [product.label_size]
+            size_name = aspect_name_translations.get("Size", "Size")
+            translated_size = self._aspect_value_service.get_aspect_value(
+                product.label_size, "size", marketplace_id
+            )
+            aspects[size_name] = [translated_size or product.label_size]
 
-        # Material
+        # Material - translate both name AND value
         if product.material:
-            material_name = aspect_translations.get("Material", "Material")
-            aspects[material_name] = [product.material]
+            material_name = aspect_name_translations.get("Material", "Material")
+            translated_material = self._aspect_value_service.get_aspect_value(
+                product.material, "material", marketplace_id
+            )
+            aspects[material_name] = [translated_material or product.material]
 
-        # Gender (Department)
+        # Department - translate via gender mapping then translate value
         if product.gender:
-            department_name = aspect_translations.get("Department", "Department")
-            aspects[department_name] = [self._map_gender(product.gender)]
+            department_name = aspect_name_translations.get("Department", "Department")
+            gb_department = self._map_gender(product.gender)  # men → Men
+            translated_dept = self._aspect_value_service.translate_direct(
+                gb_department, "department", marketplace_id
+            )
+            aspects[department_name] = [translated_dept]
 
-        # Style (si fit disponible)
+        # Fit - translate both name AND value
         if product.fit:
-            style_name = aspect_translations.get("Style", "Style")
-            aspects[style_name] = [product.fit]
+            fit_name = aspect_name_translations.get("Fit", "Fit")
+            translated_fit = self._aspect_value_service.get_aspect_value(
+                product.fit, "fit", marketplace_id
+            )
+            aspects[fit_name] = [translated_fit or product.fit]
+
+        # Pattern (if available on product)
+        pattern = getattr(product, 'pattern', None)
+        if pattern:
+            pattern_name = aspect_name_translations.get("Pattern", "Pattern")
+            translated_pattern = self._aspect_value_service.get_aspect_value(
+                pattern, "pattern", marketplace_id
+            )
+            aspects[pattern_name] = [translated_pattern or pattern]
 
         return aspects
 
