@@ -58,11 +58,11 @@ def seed_attributes(db_session: Session):
     ]
     db_session.add_all(categories)
 
-    # Conditions
+    # Conditions (note is PK: 0-10, 0=new, 10=worn)
     conditions = [
-        Condition(name="NEW", description_en="New with tags", description_fr="Neuf avec étiquettes"),
-        Condition(name="EXCELLENT", description_en="Excellent condition", description_fr="Excellent état"),
-        Condition(name="GOOD", description_en="Good condition", description_fr="Bon état"),
+        Condition(note=10, name_en="New with tags", name_fr="Neuf avec étiquettes", coefficient=1.0),
+        Condition(note=8, name_en="Excellent", name_fr="Excellent état", coefficient=0.9),
+        Condition(note=6, name_en="Good", name_fr="Bon état", coefficient=0.8),
     ]
     db_session.add_all(conditions)
 
@@ -74,12 +74,12 @@ def seed_attributes(db_session: Session):
     ]
     db_session.add_all(colors)
 
-    # Sizes
+    # Sizes (name_en is PK)
     sizes = [
-        Size(name="S"),
-        Size(name="M"),
-        Size(name="L"),
-        Size(name="W32L34"),
+        Size(name_en="S", name_fr="S"),
+        Size(name_en="M", name_fr="M"),
+        Size(name_en="L", name_fr="L"),
+        Size(name_en="W32L34", name_fr="W32L34"),
     ]
     db_session.add_all(sizes)
 
@@ -138,7 +138,7 @@ def test_product(db_session: Session, test_user, seed_attributes):
         price=Decimal("45.99"),
         category="Jeans",
         brand="Levi's",
-        condition="EXCELLENT",
+        condition=8,  # note 8 = Excellent
         label_size="W32L34",
         color="Blue",
         material="Denim",
@@ -193,7 +193,7 @@ class TestProductService:
             price=Decimal("89.99"),
             category="Sneakers",
             brand="Nike",
-            condition="EXCELLENT",
+            condition=8,  # note 8 = Excellent
             label_size="M",
             color="Black",
             stock_quantity=1,
@@ -220,7 +220,7 @@ class TestProductService:
             price=Decimal("10.00"),
             category="Jeans",
             brand="InvalidBrand",  # N'existe pas
-            condition="GOOD",
+            condition=6,  # note 6 = Good
         )
 
         with pytest.raises(ValueError, match="Brand 'InvalidBrand' does not exist"):
@@ -235,26 +235,26 @@ class TestProductService:
             description="Test",
             price=Decimal("10.00"),
             category="InvalidCategory",  # N'existe pas
-            condition="GOOD",
+            condition=6,  # note 6 = Good
         )
 
         with pytest.raises(ValueError, match="Category 'InvalidCategory' does not exist"):
             ProductService.create_product(db_session, product_data)
 
     def test_create_product_invalid_condition(self, db_session: Session, seed_attributes):
-        """Test de création avec condition invalide."""
+        """Test de création avec condition invalide (hors plage 0-10)."""
+        from pydantic import ValidationError
         from schemas.product_schemas import ProductCreate
 
-        product_data = ProductCreate(
-            title="Test Product",
-            description="Test",
-            price=Decimal("10.00"),
-            category="Jeans",
-            condition="INVALID",  # N'existe pas
-        )
-
-        with pytest.raises(ValueError, match="Condition 'INVALID' does not exist"):
-            ProductService.create_product(db_session, product_data)
+        # Pydantic valide que condition est entre 0 et 10
+        with pytest.raises(ValidationError):
+            ProductCreate(
+                title="Test Product",
+                description="Test",
+                price=Decimal("10.00"),
+                category="Jeans",
+                condition=99,  # Invalid: out of 0-10 range
+            )
 
     def test_get_product_by_id_success(self, db_session: Session, test_product: Product):
         """Test de récupération par ID."""
@@ -296,7 +296,7 @@ class TestProductService:
                 description="Test",
                 price=Decimal("10.00"),
                 category="Jeans",
-                condition="GOOD",
+                condition=6,  # note 6 = Good
             )
             ProductService.create_product(db_session, product_data)
 
@@ -322,7 +322,7 @@ class TestProductService:
             description="Test",
             price=Decimal("10.00"),
             category="Jeans",
-            condition="GOOD",
+            condition=6,  # note 6 = Good
         )
         published_product = ProductService.create_product(db_session, product_data)
         ProductService.update_product_status(db_session, published_product.id, ProductStatus.PUBLISHED)
@@ -344,7 +344,7 @@ class TestProductService:
             price=Decimal("10.00"),
             category="Sneakers",
             brand="Nike",
-            condition="GOOD",
+            condition=6,  # note 6 = Good
         )
         ProductService.create_product(db_session, product_data)
 
