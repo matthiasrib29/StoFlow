@@ -1,15 +1,15 @@
 <template>
-  <form class="space-y-8" @submit.prevent="handleSubmit">
+  <form class="space-y-4" @submit.prevent="handleSubmit">
     <!-- ===== INFORMATIONS DE BASE ===== -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-      <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-        <i class="pi pi-info-circle"/>
+    <div class="space-y-4">
+      <h3 class="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
+        <i class="pi pi-info-circle text-xs"/>
         Informations de base
       </h3>
 
-      <div class="grid grid-cols-2 gap-6">
+      <div class="grid grid-cols-2 gap-4">
         <div class="col-span-2">
-          <label for="title" class="block text-sm font-bold mb-2 text-secondary-900">
+          <label for="title" class="block text-xs font-semibold mb-1 text-secondary-900">
             Titre du produit *
           </label>
           <InputText
@@ -28,7 +28,7 @@
         </div>
 
         <div class="col-span-2">
-          <label for="description" class="block text-sm font-bold mb-2 text-secondary-900">
+          <label for="description" class="block text-xs font-semibold mb-1 text-secondary-900">
             Description *
           </label>
           <Textarea
@@ -48,7 +48,7 @@
         </div>
 
         <div>
-          <label for="price" class="block text-sm font-bold mb-2 text-secondary-900">
+          <label for="price" class="block text-xs font-semibold mb-1 text-secondary-900">
             Prix (€)
             <span class="text-xs text-gray-500 font-normal ml-2">
               (calculé automatiquement si vide)
@@ -72,7 +72,7 @@
         </div>
 
         <div>
-          <label for="stock_quantity" class="block text-sm font-bold mb-2 text-secondary-900">
+          <label for="stock_quantity" class="block text-xs font-semibold mb-1 text-secondary-900">
             Stock (quantité)
           </label>
           <InputNumber
@@ -88,15 +88,15 @@
     </div>
 
     <!-- ===== ATTRIBUTS OBLIGATOIRES ===== -->
-    <div class="bg-white rounded-lg shadow-sm p-6">
-      <h3 class="text-lg font-bold text-secondary-900 mb-4 flex items-center gap-2">
-        <i class="pi pi-tag"/>
+    <div class="space-y-4">
+      <h3 class="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
+        <i class="pi pi-tag text-xs"/>
         Attributs obligatoires
       </h3>
 
-      <div class="grid grid-cols-2 gap-6">
+      <div class="grid grid-cols-2 gap-4">
         <div>
-          <label for="brand" class="block text-sm font-bold mb-2 text-secondary-900">
+          <label for="brand" class="block text-xs font-semibold mb-1 text-secondary-900">
             Marque *
           </label>
           <AutoComplete
@@ -119,7 +119,7 @@
         </div>
 
         <div>
-          <label for="category" class="block text-sm font-bold mb-2 text-secondary-900">
+          <label for="category" class="block text-xs font-semibold mb-1 text-secondary-900">
             Catégorie *
           </label>
           <Select
@@ -187,7 +187,7 @@
     />
 
     <!-- Actions -->
-    <div class="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
+    <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
       <Button
         type="button"
         label="Annuler"
