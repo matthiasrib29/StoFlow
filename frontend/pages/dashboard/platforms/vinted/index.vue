@@ -1,46 +1,5 @@
 <template>
   <div class="p-8">
-    <!-- Page Header -->
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-4">
-          <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-lg border border-gray-100 p-2">
-            <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-full h-full object-contain" >
-          </div>
-          <div>
-            <h1 class="text-3xl font-bold text-secondary-900 mb-1">Vinted</h1>
-            <Badge
-              :value="isConnected ? 'Connecté' : 'Déconnecté'"
-              :severity="isConnected ? 'success' : 'secondary'"
-            />
-          </div>
-        </div>
-        <div class="flex gap-3">
-          <Button
-            label="Retour"
-            icon="pi pi-arrow-left"
-            class="bg-gray-200 hover:bg-gray-300 text-secondary-900 border-0"
-            @click="$router.push('/dashboard/platforms')"
-          />
-          <Button
-            v-if="!isConnected"
-            label="Connecter Vinted"
-            icon="pi pi-link"
-            class="bg-cyan-500 hover:bg-cyan-600 text-white border-0 font-semibold"
-            @click="handleConnect"
-          />
-          <Button
-            v-else
-            label="Déconnecter"
-            icon="pi pi-sign-out"
-            class="bg-red-500 hover:bg-red-600 text-white border-0 font-semibold"
-            severity="danger"
-            @click="handleDisconnect"
-          />
-        </div>
-      </div>
-    </div>
-
     <!-- Contenu Vue d'ensemble -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <!-- Stat Cards -->

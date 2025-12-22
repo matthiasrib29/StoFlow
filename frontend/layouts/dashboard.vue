@@ -283,56 +283,6 @@
                   </div>
                 </Transition>
               </div>
-
-              <!-- Facebook avec sous-menu -->
-              <div>
-                <button
-                  class="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-                  :class="{ 'bg-primary-50 text-secondary-900 font-semibold': isFacebookRoute }"
-                  @click="toggleFacebookMenu"
-                >
-                  <div class="flex items-center gap-3">
-                    <img src="/images/platforms/facebook-logo.png" alt="Facebook" class="w-4 h-4 object-contain">
-                    <span>Facebook</span>
-                  </div>
-                  <i :class="['pi pi-chevron-down text-xs transition-transform duration-300', facebookMenuOpen ? 'rotate-180' : 'rotate-0']"/>
-                </button>
-                <Transition
-                  enter-active-class="transition-all duration-200 ease-out"
-                  enter-from-class="opacity-0 max-h-0"
-                  enter-to-class="opacity-100 max-h-40"
-                  leave-active-class="transition-all duration-150 ease-in"
-                  leave-from-class="opacity-100 max-h-40"
-                  leave-to-class="opacity-0 max-h-0"
-                >
-                  <div v-if="facebookMenuOpen" class="ml-4 mt-1 space-y-0.5 overflow-hidden">
-                    <NuxtLink
-                      to="/dashboard/platforms/facebook"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
-                      :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/platforms/facebook' }"
-                    >
-                      <i class="pi pi-chart-line text-xs"/>
-                      <span>Vue d'ensemble</span>
-                    </NuxtLink>
-                    <NuxtLink
-                      to="/dashboard/platforms/facebook/products"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
-                      active-class="bg-primary-50 text-secondary-900 font-semibold"
-                    >
-                      <i class="pi pi-box text-xs"/>
-                      <span>Produits Facebook</span>
-                    </NuxtLink>
-                    <NuxtLink
-                      to="/dashboard/platforms/facebook/settings"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
-                      active-class="bg-primary-50 text-secondary-900 font-semibold"
-                    >
-                      <i class="pi pi-cog text-xs"/>
-                      <span>Paramètres</span>
-                    </NuxtLink>
-                  </div>
-                </Transition>
-              </div>
             </div>
           </Transition>
         </div>
@@ -437,33 +387,125 @@
             </nav>
           </div>
 
-          <!-- Locale Selector -->
-          <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2 text-sm text-gray-600">
-              <i class="pi pi-globe"/>
-              <span class="font-medium">Langue :</span>
-            </div>
-            <LocaleSelector />
-          </div>
+          <!-- Platform Header Actions (Vinted, eBay, Etsy) -->
+          <PlatformHeaderActions
+            v-if="isVintedRoute"
+            platform-name="Vinted"
+            platform-code="vinted"
+            logo-src="/images/platforms/vinted-logo.png"
+            :active-jobs-count="vintedJobsCount"
+            :is-connected="vintedConnected"
+            @show-jobs="showVintedJobsPopup = true"
+            @connect="connectPlatform('vinted')"
+            @disconnect="disconnectPlatform('vinted')"
+          />
+          <PlatformHeaderActions
+            v-else-if="isEbayRoute"
+            platform-name="eBay"
+            platform-code="ebay"
+            logo-src="/images/platforms/ebay-logo.png"
+            :active-jobs-count="ebayJobsCount"
+            :is-connected="ebayConnected"
+            @show-jobs="showEbayJobsPopup = true"
+            @connect="connectPlatform('ebay')"
+            @disconnect="disconnectPlatform('ebay')"
+          />
+          <PlatformHeaderActions
+            v-else-if="isEtsyRoute"
+            platform-name="Etsy"
+            platform-code="etsy"
+            logo-src="/images/platforms/etsy-logo.png"
+            :active-jobs-count="etsyJobsCount"
+            :is-connected="etsyConnected"
+            @show-jobs="showEtsyJobsPopup = true"
+            @connect="connectPlatform('etsy')"
+            @disconnect="disconnectPlatform('etsy')"
+          />
         </div>
       </div>
 
       <!-- Page Content -->
       <slot />
+
+      <!-- Platform Jobs Popups -->
+      <PlatformJobsPopup v-model="showVintedJobsPopup" platform-code="vinted" />
+      <PlatformJobsPopup v-model="showEbayJobsPopup" platform-code="ebay" />
+      <PlatformJobsPopup v-model="showEtsyJobsPopup" platform-code="etsy" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useToast } from 'primevue/usetoast'
-import { useLocaleStore } from '~/stores/locale'
+import { usePlatformJobs, type PlatformCode } from '~/composables/usePlatformJobs'
+import { usePlatformConnection } from '~/composables/usePlatformConnection'
 
 const authStore = useAuthStore()
-const localeStore = useLocaleStore()
 const router = useRouter()
 const route = useRoute()
 // SSR-safe initialization
 const toast = import.meta.client ? useToast() : null
+
+// Platform Jobs composables
+const vintedJobs = usePlatformJobs('vinted')
+const ebayJobs = usePlatformJobs('ebay')
+const etsyJobs = usePlatformJobs('etsy')
+
+// Platform Connection composables
+const vintedConnection = usePlatformConnection('vinted')
+const ebayConnection = usePlatformConnection('ebay')
+const etsyConnection = usePlatformConnection('etsy')
+
+// Jobs counts
+const vintedJobsCount = computed(() => vintedJobs.activeJobsCount.value)
+const ebayJobsCount = computed(() => ebayJobs.activeJobsCount.value)
+const etsyJobsCount = computed(() => etsyJobs.activeJobsCount.value)
+
+// Connection status
+const vintedConnected = computed(() => vintedConnection.isConnected.value)
+const ebayConnected = computed(() => ebayConnection.isConnected.value)
+const etsyConnected = computed(() => etsyConnection.isConnected.value)
+
+// Jobs popups visibility
+const showVintedJobsPopup = ref(false)
+const showEbayJobsPopup = ref(false)
+const showEtsyJobsPopup = ref(false)
+
+// Platform connect/disconnect handlers
+const connectPlatform = (platform: PlatformCode) => {
+  const connections: Record<PlatformCode, ReturnType<typeof usePlatformConnection>> = {
+    vinted: vintedConnection,
+    ebay: ebayConnection,
+    etsy: etsyConnection,
+  }
+  connections[platform].connect()
+}
+
+const disconnectPlatform = async (platform: PlatformCode) => {
+  const connections: Record<PlatformCode, ReturnType<typeof usePlatformConnection>> = {
+    vinted: vintedConnection,
+    ebay: ebayConnection,
+    etsy: etsyConnection,
+  }
+  const connection = connections[platform]
+  const success = await connection.disconnect()
+
+  if (success) {
+    toast?.add({
+      severity: 'info',
+      summary: `${connection.platformName} déconnecté`,
+      detail: `Votre compte ${connection.platformName} a été déconnecté`,
+      life: 3000,
+    })
+  } else {
+    toast?.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: connection.error.value || `Impossible de déconnecter ${connection.platformName}`,
+      life: 5000,
+    })
+  }
+}
 
 // État des sous-menus
 const productsMenuOpen = ref(false)
@@ -473,7 +515,6 @@ const platformsMenuOpen = ref(false)
 const vintedMenuOpen = ref(false)
 const ebayMenuOpen = ref(false)
 const etsyMenuOpen = ref(false)
-const facebookMenuOpen = ref(false)
 
 // Badge messages non lus Vinted (à connecter au store plus tard)
 const vintedUnreadMessages = ref(0)
@@ -560,12 +601,6 @@ const breadcrumbs = computed(() => {
       if (subSection && subSectionLabels[subSection]) {
         crumbs.push({ label: subSectionLabels[subSection] })
       }
-    } else if (path.includes('/facebook')) {
-      crumbs.push({ label: 'Facebook', path: '/dashboard/platforms/facebook' })
-      const subSection = path.split('/facebook/')[1]
-      if (subSection && subSectionLabels[subSection]) {
-        crumbs.push({ label: subSectionLabels[subSection] })
-      }
     }
   }
   // Autres pages simples
@@ -599,7 +634,44 @@ const isPlatformsRoute = computed(() => {
 const isVintedRoute = computed(() => route.path.startsWith('/dashboard/platforms/vinted'))
 const isEbayRoute = computed(() => route.path.startsWith('/dashboard/platforms/ebay'))
 const isEtsyRoute = computed(() => route.path.startsWith('/dashboard/platforms/etsy'))
-const isFacebookRoute = computed(() => route.path.startsWith('/dashboard/platforms/facebook'))
+
+// Platform watchers: Fetch status and start polling when on platform route
+watch(isVintedRoute, (isActive) => {
+  if (isActive) {
+    vintedConnection.fetchStatus()
+    vintedJobs.fetchActiveJobs()
+    vintedJobs.startPolling(10000)
+  } else {
+    vintedJobs.stopPolling()
+  }
+}, { immediate: true })
+
+watch(isEbayRoute, (isActive) => {
+  if (isActive) {
+    ebayConnection.fetchStatus()
+    ebayJobs.fetchActiveJobs()
+    ebayJobs.startPolling(10000)
+  } else {
+    ebayJobs.stopPolling()
+  }
+}, { immediate: true })
+
+watch(isEtsyRoute, (isActive) => {
+  if (isActive) {
+    etsyConnection.fetchStatus()
+    etsyJobs.fetchActiveJobs()
+    etsyJobs.startPolling(10000)
+  } else {
+    etsyJobs.stopPolling()
+  }
+}, { immediate: true })
+
+// Cleanup jobs polling on unmount
+onUnmounted(() => {
+  vintedJobs.stopPolling()
+  ebayJobs.stopPolling()
+  etsyJobs.stopPolling()
+})
 
 // Ouvrir automatiquement les menus si on est sur leurs routes
 watch(() => route.path, (newPath) => {
@@ -617,9 +689,6 @@ watch(() => route.path, (newPath) => {
     }
     if (newPath.startsWith('/dashboard/platforms/etsy')) {
       etsyMenuOpen.value = true
-    }
-    if (newPath.startsWith('/dashboard/platforms/facebook')) {
-      facebookMenuOpen.value = true
     }
   }
 }, { immediate: true })
@@ -646,10 +715,6 @@ const toggleEtsyMenu = () => {
   etsyMenuOpen.value = !etsyMenuOpen.value
 }
 
-const toggleFacebookMenu = () => {
-  facebookMenuOpen.value = !facebookMenuOpen.value
-}
-
 // Note: Authentication is now handled by middleware/auth.global.ts
 
 const handleLogout = () => {
@@ -663,3 +728,4 @@ const handleLogout = () => {
   router.push('/login')
 }
 </script>
+
