@@ -414,13 +414,13 @@ async def upload_product_image(
         product_image = ProductService.add_image(db, product_id, image_path, display_order)
         return product_image
     except ValueError as e:
-        # Si erreur BDD, supprimer le fichier uploadé
-        FileService.delete_product_image(image_path)
+        # Si erreur BDD, supprimer le fichier uploadé (R2 or local)
+        await FileService.delete_product_image(image_path)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.delete("/{product_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_product_image(
+async def delete_product_image(
     product_id: int,
     image_id: int,
     user_db: tuple = Depends(get_user_db),
@@ -428,12 +428,12 @@ def delete_product_image(
     """
     Supprime une image d'un produit.
 
-    Business Rules (Updated 2025-12-09):
+    Business Rules (Updated 2025-12-23):
     - Authentification requise
     - USER: peut uniquement supprimer des images de SES produits
     - ADMIN: peut supprimer des images de tous les produits
     - SUPPORT: lecture seule (ne peut pas supprimer)
-    - Suppression physique du fichier + entrée BDD
+    - Suppression physique du fichier (R2 ou local) + entrée BDD
     - Vérifier que l'image appartient au produit
 
     Raises:
@@ -473,8 +473,8 @@ def delete_product_image(
     # Vérifier ownership (ADMIN peut, USER doit être propriétaire)
     ensure_user_owns_resource(current_user, product, "produit", allow_support=False)
 
-    # Supprimer le fichier
-    FileService.delete_product_image(image.image_path)
+    # Supprimer le fichier R2
+    await FileService.delete_product_image(image.image_path)
 
     # Supprimer l'entrée BDD
     deleted = ProductService.delete_image(db, image_id)
