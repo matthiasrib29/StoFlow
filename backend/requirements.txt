@@ -32,3 +32,6 @@ apscheduler==3.10.4
 
 # Payments
 stripe==11.3.0
+
+# Cloud Storage (Cloudflare R2)
+boto3==1.35.0
