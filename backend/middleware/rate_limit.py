@@ -159,7 +159,12 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
         },
         '/api/auth/resend-verification': {
             'max_attempts_ip': 3,
+            'max_attempts_email': 1,     # 1 seul renvoi par email/heure (anti-spam)
             'window_seconds': 3600       # 1 heure
+        },
+        '/api/auth/verify-email': {
+            'max_attempts_ip': 10,       # Anti brute force token
+            'window_seconds': 300        # 5 minutes
         },
         '/api/auth/forgot-password': {
             'max_attempts_ip': 5,
@@ -211,13 +216,19 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
             headers={"Retry-After": str(retry_after)}
         )
 
-    # Extraire email du body pour rate limiting par email (uniquement pour login)
+    # Extraire email pour rate limiting par email
     email = None
     if path == '/api/auth/login' and request.method == "POST":
+        # Login: email dans le body JSON
         email = await _extract_email_from_body(request)
+    elif path == '/api/auth/resend-verification' and request.method == "POST":
+        # Resend verification: email dans query param
+        email = request.query_params.get('email')
+        if email:
+            email = email.lower()
 
-    # Vérifier limite par email (si email disponible)
-    if email:
+    # Vérifier limite par email (si configurée et email disponible)
+    if email and 'max_attempts_email' in config:
         key_email = f"email:{email}:{path}"
         attempts_email = rate_limit_store.get_attempts(key_email)
 
@@ -225,12 +236,12 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
             reset_at = rate_limit_store.get_reset_time(key_email)
             retry_after = max(1, int(reset_at - time.time()))
 
-            logger.warning(f"Rate limit exceeded (email): email={email}, attempts={attempts_email}")
+            logger.warning(f"Rate limit exceeded (email): email={email[:3]}***, path={path}, attempts={attempts_email}")
 
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={
-                    "detail": f"Too many login attempts for this account. Please try again in {retry_after} seconds.",
+                    "detail": f"Trop de tentatives pour cette adresse email. Réessayez dans {retry_after} secondes.",
                     "retry_after": retry_after,
                     "limit_type": "email"
                 },
@@ -239,7 +250,7 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
 
     # Incrémenter les compteurs (seulement si pas dépassé)
     rate_limit_store.increment(key_ip, config['window_seconds'])
-    if email:
+    if email and 'max_attempts_email' in config:
         key_email = f"email:{email}:{path}"
         rate_limit_store.increment(key_email, config['window_seconds'])
 
