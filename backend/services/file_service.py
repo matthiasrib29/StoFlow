@@ -3,81 +3,108 @@ File Service
 
 Service pour la gestion des uploads de fichiers (images produits).
 
-Business Rules (2025-12-04, Updated 2025-12-10):
-- Stockage local: uploads/{user_id}/products/{product_id}/
+Business Rules (2025-12-23):
+- Stockage: Cloudflare R2 (S3-compatible) - REQUIS
 - Formats autorisés: jpg, jpeg, png
-- Taille max: 5MB par image
+- Taille max: 10MB par image (avant optimisation)
 - Maximum 20 images par produit (limite Vinted)
-- Nom de fichier unique (UUID)
-- Pas de thumbnails (original uniquement)
+- Optimisation: redimensionnement max 2000px, compression 90%
 """
 
 import imghdr
-import os
-import uuid
-from pathlib import Path
-from typing import Optional
+from io import BytesIO
+from typing import Tuple
 
 from fastapi import UploadFile
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from models.user.product_image import ProductImage
-from shared.config import settings
+from services.r2_service import r2_service
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
 
 class FileService:
-    """Service pour gérer les uploads de fichiers."""
+    """Service pour gérer les uploads de fichiers vers R2."""
 
-    # Configuration (Updated: 2025-12-05 - Security review)
-    UPLOAD_BASE_DIR = "uploads"
-    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB (Security: 2025-12-05)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB (before optimization)
     ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png"}
     MAX_IMAGES_PER_PRODUCT = 20
 
-    @staticmethod
-    def ensure_upload_directory() -> None:
-        """
-        Crée le répertoire uploads/ s'il n'existe pas.
-
-        À appeler au démarrage de l'application (startup event).
-        """
-        upload_dir = Path(FileService.UPLOAD_BASE_DIR)
-        upload_dir.mkdir(parents=True, exist_ok=True)
+    # Image optimization settings
+    MAX_DIMENSION = 2000  # Max width or height in pixels
+    JPEG_QUALITY = 90  # Compression quality (1-100)
 
     @staticmethod
-    async def save_product_image(
-        user_id: int, product_id: int, file: UploadFile
-    ) -> str:
+    def _optimize_image(content: bytes, original_format: str) -> Tuple[bytes, str]:
         """
-        Sauvegarde une image produit sur le filesystem.
-
-        Business Rules (Updated: 2025-12-05):
-        - Vérifier extension (jpg, jpeg, png uniquement)
-        - Vérifier taille (max 10MB - Security review 2025-12-05)
-        - Vérifier format réel du fichier avec magic bytes (anti-spoofing)
-        - Créer répertoire si nécessaire
-        - Générer nom unique (UUID)
+        Optimize image: resize if too large, compress.
 
         Args:
-            user_id: ID de l'utilisateur (pour isolation)
-            product_id: ID du produit
-            file: Fichier uploadé (FastAPI UploadFile)
+            content: Original image bytes
+            original_format: 'jpeg' or 'png'
 
         Returns:
-            str: Chemin relatif de l'image (ex: uploads/1/products/5/abc123.jpg)
-
-        Raises:
-            ValueError: Si extension, format ou taille invalide
+            Tuple of (optimized_bytes, output_format)
         """
+        img = Image.open(BytesIO(content))
+        original_size = len(content)
+
+        # Convert RGBA to RGB for JPEG (PNG with transparency)
+        if img.mode in ("RGBA", "P"):
+            # Create white background for transparent images
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "P":
+                img = img.convert("RGBA")
+            background.paste(img, mask=img.split()[3] if len(img.split()) == 4 else None)
+            img = background
+
+        elif img.mode != "RGB":
+            img = img.convert("RGB")
+
+        # Resize if larger than MAX_DIMENSION
+        width, height = img.size
+        if width > FileService.MAX_DIMENSION or height > FileService.MAX_DIMENSION:
+            ratio = min(
+                FileService.MAX_DIMENSION / width,
+                FileService.MAX_DIMENSION / height
+            )
+            new_size = (int(width * ratio), int(height * ratio))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+            logger.info(
+                f"[FileService] Image resized: {width}x{height} -> {new_size[0]}x{new_size[1]}"
+            )
+
+        # Save as JPEG with compression
+        output = BytesIO()
+        img.save(output, format="JPEG", quality=FileService.JPEG_QUALITY, optimize=True)
+        optimized_content = output.getvalue()
+
+        optimized_size = len(optimized_content)
+        savings = ((original_size - optimized_size) / original_size) * 100
         logger.info(
-            f"[FileService] Starting save_product_image: user_id={user_id}, "
-            f"product_id={product_id}, filename={file.filename}"
+            f"[FileService] Image optimized: {original_size/1024:.1f}KB -> "
+            f"{optimized_size/1024:.1f}KB ({savings:.1f}% saved)"
         )
 
-        # ===== VALIDATION EXTENSION =====
+        return optimized_content, "jpeg"
+
+    @staticmethod
+    async def _validate_and_optimize(file: UploadFile) -> Tuple[bytes, str, str]:
+        """
+        Validate and optimize image file.
+
+        Args:
+            file: Uploaded file
+
+        Returns:
+            Tuple of (optimized_bytes, extension, content_type)
+
+        Raises:
+            ValueError: If validation fails
+        """
         if not file.filename:
             raise ValueError("Filename is missing")
 
@@ -88,10 +115,9 @@ class FileService:
                 f"Allowed: {', '.join(FileService.ALLOWED_EXTENSIONS)}"
             )
 
-        # ===== VALIDATION FORMAT RÉEL (anti-spoofing) =====
-        # Lire les premiers bytes pour vérifier le format réel
+        # Validate real format (anti-spoofing)
         content = await file.read(512)
-        await file.seek(0)  # Reset pour lecture complète après
+        await file.seek(0)
 
         image_type = imghdr.what(None, content)
         if image_type not in ["jpeg", "png"]:
@@ -99,7 +125,7 @@ class FileService:
                 f"Invalid image format: {image_type}. File may be corrupted or not a valid image."
             )
 
-        # Vérifier cohérence extension vs format réel
+        # Check extension matches real format
         if (extension in ["jpg", "jpeg"] and image_type != "jpeg") or (
             extension == "png" and image_type != "png"
         ):
@@ -107,8 +133,7 @@ class FileService:
                 f"File extension '{extension}' does not match actual format '{image_type}'"
             )
 
-        # ===== VALIDATION TAILLE =====
-        # Lire le fichier complet pour vérifier la taille
+        # Validate size (before optimization)
         content_full = await file.read()
         file_size = len(content_full)
 
@@ -120,89 +145,87 @@ class FileService:
         if file_size == 0:
             raise ValueError("File is empty")
 
-        # ===== CRÉER RÉPERTOIRE =====
-        upload_path = Path(FileService.UPLOAD_BASE_DIR) / str(user_id) / "products" / str(product_id)
-        upload_path.mkdir(parents=True, exist_ok=True)
-
-        # ===== GÉNÉRER NOM UNIQUE =====
-        unique_filename = f"{uuid.uuid4().hex}.{extension}"
-        file_path = upload_path / unique_filename
-
-        # ===== SAUVEGARDER FICHIER =====
-        with open(file_path, "wb") as f:
-            f.write(content_full)
-
-        # Retourner chemin relatif (pour stockage en BDD)
-        relative_path = str(file_path)
-
-        logger.info(
-            f"[FileService] save_product_image completed: user_id={user_id}, "
-            f"product_id={product_id}, path={relative_path}, size={file_size/1024:.1f}KB"
+        # Optimize image (resize + compress)
+        optimized_content, output_format = FileService._optimize_image(
+            content_full, image_type
         )
 
-        return relative_path
+        return optimized_content, output_format, "image/jpeg"
 
     @staticmethod
-    def delete_product_image(image_path: str) -> bool:
+    async def save_product_image(
+        user_id: int, product_id: int, file: UploadFile
+    ) -> str:
         """
-        Supprime une image du filesystem.
-
-        Business Rules (Updated: 2025-12-05):
-        - Suppression physique du fichier
-        - Ne pas lever d'erreur si le fichier n'existe pas (déjà supprimé)
-        - SECURITY: Protection path traversal (bloquer ../, vérifier resolve)
+        Save product image to Cloudflare R2.
 
         Args:
-            image_path: Chemin relatif de l'image (ex: uploads/1/products/5/abc123.jpg)
+            user_id: User ID for path isolation
+            product_id: Product ID
+            file: Uploaded file (FastAPI UploadFile)
 
         Returns:
-            bool: True si fichier supprimé, False si n'existait pas
+            str: R2 public URL
 
         Raises:
-            ValueError: Si path traversal détecté (Security: 2025-12-05)
+            ValueError: If validation fails
+            RuntimeError: If R2 is not configured
         """
-        # ===== SECURITY FIX (2025-12-05): Path Traversal Protection =====
-        # Défense #1: Bloquer ../ explicitement
-        if ".." in image_path:
-            raise ValueError(
-                "Path traversal attempt detected: '..' not allowed in file path"
+        if not r2_service.is_available:
+            raise RuntimeError(
+                "R2 storage not configured. Set R2_ACCESS_KEY_ID, "
+                "R2_SECRET_ACCESS_KEY, and R2_ENDPOINT in environment."
             )
 
-        file_path = Path(image_path)
+        logger.info(
+            f"[FileService] Uploading image: user_id={user_id}, "
+            f"product_id={product_id}, filename={file.filename}"
+        )
 
-        # Défense #2: Vérifier que le chemin résolu est bien dans uploads/
-        try:
-            resolved_path = file_path.resolve()
-            upload_base = Path(FileService.UPLOAD_BASE_DIR).resolve()
+        # Validate and optimize image
+        content, extension, content_type = await FileService._validate_and_optimize(file)
+        file_size = len(content)
 
-            # Check que le fichier est bien dans uploads/
-            if not str(resolved_path).startswith(str(upload_base)):
-                raise ValueError(
-                    f"Path traversal attempt detected: file must be inside {upload_base}"
-                )
-        except Exception as e:
-            # Si erreur de résolution, c'est suspect
-            raise ValueError(f"Invalid file path: {str(e)}")
+        # Upload to R2
+        image_url = await r2_service.upload_image(
+            user_id=user_id,
+            product_id=product_id,
+            content=content,
+            extension=extension,
+            content_type=content_type,
+        )
 
-        if not file_path.exists():
+        logger.info(
+            f"[FileService] Image uploaded: user_id={user_id}, "
+            f"product_id={product_id}, url={image_url}, size={file_size/1024:.1f}KB"
+        )
+
+        return image_url
+
+    @staticmethod
+    async def delete_product_image(image_url: str) -> bool:
+        """
+        Delete image from R2.
+
+        Args:
+            image_url: R2 public URL of the image
+
+        Returns:
+            bool: True if deleted, False if didn't exist
+        """
+        if not r2_service.is_available:
+            logger.warning("[FileService] R2 not available - cannot delete image")
             return False
 
-        try:
-            file_path.unlink()  # Supprime le fichier
-            logger.info(f"[FileService] Image deleted: path={image_path}")
-            return True
-        except Exception as e:
-            # Si erreur de permission ou autre, retourner False
-            logger.warning(f"[FileService] Failed to delete image: path={image_path}, error={e}")
-            return False
+        result = await r2_service.delete_image(image_url)
+        if result:
+            logger.info(f"[FileService] Image deleted: {image_url}")
+        return result
 
     @staticmethod
     def validate_image_count(db: Session, product_id: int) -> None:
         """
         Vérifie que le produit n'a pas atteint la limite de 20 images.
-
-        Business Rules:
-        - Maximum 20 images par produit (limite Vinted)
 
         Args:
             db: Session SQLAlchemy
@@ -220,29 +243,3 @@ class FileService:
                 f"Product already has {image_count} images "
                 f"(max {FileService.MAX_IMAGES_PER_PRODUCT})"
             )
-
-    @staticmethod
-    def get_image_full_path(image_path: str) -> Path:
-        """
-        Retourne le chemin complet d'une image.
-
-        Args:
-            image_path: Chemin relatif de l'image
-
-        Returns:
-            Path: Chemin complet absolu
-        """
-        return Path(image_path).resolve()
-
-    @staticmethod
-    def image_exists(image_path: str) -> bool:
-        """
-        Vérifie si une image existe sur le filesystem.
-
-        Args:
-            image_path: Chemin relatif de l'image
-
-        Returns:
-            bool: True si le fichier existe
-        """
-        return Path(image_path).exists()
