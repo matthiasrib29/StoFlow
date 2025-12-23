@@ -14,7 +14,10 @@
     "storage",
     "cookies",
     "alarms",
-    "notifications"
+    "notifications",
+    "scripting",
+    "activeTab",
+    "tabs"
   ],
 
   "host_permissions": [
@@ -22,7 +25,11 @@
     "https://www.vinted.com/*",
     "https://www.ebay.fr/*",
     "https://www.etsy.com/*",
-    "https://api.stoflow.com/*"
+    "https://api.stoflow.com/*",
+    "https://stoflow.io/*",
+    "https://www.stoflow.io/*",
+    "http://localhost:3000/*",
+    "http://localhost:8000/*"
   ],
 
   "background": {
@@ -57,6 +64,15 @@
     {
       "matches": ["https://www.etsy.com/*"],
       "js": ["src/content/etsy.ts"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost:3000/*",
+        "https://stoflow.io/*",
+        "https://www.stoflow.io/*"
+      ],
+      "js": ["src/content/stoflow-web.ts"],
       "run_at": "document_idle"
     }
   ],
