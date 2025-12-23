@@ -132,3 +132,4 @@ docker-compose.override.yml
 
 # Claude Code
 .claude/
+.playwright-mcp/

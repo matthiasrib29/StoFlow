@@ -1,0 +1,29 @@
+mon systeme un peu quand # Dependencies
+node_modules/
+venv/
+.venv/
+
+# Build
+dist/
+.nuxt/
+.output/
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Data
+uploads/
+*.sqlite
+
+# Cache
+.pytest_cache/
+.mypy_cache/
+htmlcov/

@@ -1,0 +1,338 @@
+{
+  "description": "eBay Clothing Categories - IDs are global (same for all EU marketplaces)",
+  "source": "eBay Taxonomy API",
+  "date": "2024-12-22",
+  "note": "category_id is the same for FR, GB, DE, ES, IT, NL, BE, PL",
+  "men_clothing": [
+    {
+      "category_id": "185702",
+      "name_fr": "Vestes de sport",
+      "name_en": "Activewear Jackets",
+      "path_fr": "Vêtements de sport > Vestes de sport"
+    },
+    {
+      "category_id": "260957",
+      "name_fr": "Shorts de sport",
+      "name_en": "Activewear Shorts",
+      "path_fr": "Vêtements de sport > Shorts de sport"
+    },
+    {
+      "category_id": "185076",
+      "name_fr": "Hauts de sport",
+      "name_en": "Activewear Tops",
+      "path_fr": "Vêtements de sport > Hauts de sport"
+    },
+    {
+      "category_id": "260956",
+      "name_fr": "Pantalons de sport",
+      "name_en": "Activewear Trousers",
+      "path_fr": "Vêtements de sport > Pantalons de sport"
+    },
+    {
+      "category_id": "57990",
+      "name_fr": "Chemises décontractées, hauts",
+      "name_en": "Casual Shirts & Tops",
+      "path_fr": "Chemises, hauts > Chemises décontractées, hauts"
+    },
+    {
+      "category_id": "57988",
+      "name_fr": "Manteaux, vestes et gilets",
+      "name_en": "Coats, Jackets & Waistcoats",
+      "path_fr": "Manteaux, vestes et gilets"
+    },
+    {
+      "category_id": "184594",
+      "name_fr": "Baleines de col",
+      "name_en": "Collar Stays",
+      "path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : accessoires > Baleines de col"
+    },
+    {
+      "category_id": "57991",
+      "name_fr": "Chemises de costume",
+      "name_en": "Formal Shirts",
+      "path_fr": "Chemises, hauts > Chemises de costume"
+    },
+    {
+      "category_id": "155183",
+      "name_fr": "Sweats, vestes à capuches",
+      "name_en": "Hoodies & Sweatshirts",
+      "path_fr": "Vêtements de sport > Sweats, vestes à capuches"
+    },
+    {
+      "category_id": "169271",
+      "name_fr": "Protèges passeport et documents",
+      "name_en": "ID & Document Holders",
+      "path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : accessoires > Protèges passeport et documents"
+    },
+    {
+      "category_id": "11483",
+      "name_fr": "Jeans",
+      "name_en": "Jeans",
+      "path_fr": "Jeans"
+    },
+    {
+      "category_id": "11484",
+      "name_fr": "Pulls, cardigans",
+      "name_en": "Jumpers & Cardigans",
+      "path_fr": "Pulls, cardigans"
+    },
+    {
+      "category_id": "52373",
+      "name_fr": "Porte-clés",
+      "name_en": "Keyrings",
+      "path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : accessoires > Porte-clés"
+    },
+    {
+      "category_id": "11510",
+      "name_fr": "Pyjamas",
+      "name_en": "Nightwear",
+      "path_fr": "Pyjamas"
+    },
+    {
+      "category_id": "185101",
+      "name_fr": "Polos",
+      "name_en": "Polos",
+      "path_fr": "Chemises, hauts > Polos"
+    },
+    {
+      "category_id": "179194",
+      "name_fr": "Pièces, verres",
+      "name_en": "Replacement Lenses & Parts",
+      "path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : accessoires > Lunettes de soleil et accessoires > Pièces, verres"
+    },
+    {
+      "category_id": "15689",
+      "name_fr": "Shorts",
+      "name_en": "Shorts",
+      "path_fr": "Shorts"
+    },
+    {
+      "category_id": "3001",
+      "name_fr": "Costumes",
+      "name_en": "Suits & Tailoring",
+      "path_fr": "Costumes"
+    },
+    {
+      "category_id": "15690",
+      "name_fr": "Maillots de bain",
+      "name_en": "Swimwear",
+      "path_fr": "Maillots de bain"
+    },
+    {
+      "category_id": "15687",
+      "name_fr": "T-shirts",
+      "name_en": "T-Shirts",
+      "path_fr": "Chemises, hauts > T-shirts"
+    },
+    {
+      "category_id": "185708",
+      "name_fr": "Survêtements, ensembles",
+      "name_en": "Tracksuits & Sets",
+      "path_fr": "Vêtements de sport > Survêtements, ensembles"
+    },
+    {
+      "category_id": "57989",
+      "name_fr": "Pantalons",
+      "name_en": "Trousers",
+      "path_fr": "Pantalons"
+    },
+    {
+      "category_id": "2996",
+      "name_fr": "Portes-monnaie, portefeuilles",
+      "name_en": "Wallets",
+      "path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : accessoires > Portes-monnaie, portefeuilles"
+    }
+  ],
+  "women_clothing": [
+    {
+      "category_id": "185079",
+      "name_fr": "Vestes de sport",
+      "name_en": "Activewear Jackets",
+      "path_fr": "Vêtements de sport > Vestes de sport"
+    },
+    {
+      "category_id": "260955",
+      "name_fr": "Shorts de sport",
+      "name_en": "Activewear Shorts",
+      "path_fr": "Vêtements de sport > Shorts de sport"
+    },
+    {
+      "category_id": "261046",
+      "name_fr": "Jupes et jupe-shorts",
+      "name_en": "Activewear Skirts & Skorts",
+      "path_fr": "Vêtements de sport > Jupes et jupe-shorts"
+    },
+    {
+      "category_id": "185082",
+      "name_fr": "Hauts de sport",
+      "name_en": "Activewear Tops",
+      "path_fr": "Vêtements de sport > Hauts de sport"
+    },
+    {
+      "category_id": "260954",
+      "name_fr": "Pantalons de sport",
+      "name_en": "Activewear Trousers",
+      "path_fr": "Vêtements de sport > Pantalons de sport"
+    },
+    {
+      "category_id": "11522",
+      "name_fr": "Guêpières, corsets",
+      "name_en": "Basques & Corsets",
+      "path_fr": "Lingerie, nuit > Guêpières, corsets"
+    },
+    {
+      "category_id": "63862",
+      "name_fr": "Manteaux, vestes et gilets",
+      "name_en": "Coats, Jackets & Waistcoats",
+      "path_fr": "Manteaux, vestes et gilets"
+    },
+    {
+      "category_id": "63861",
+      "name_fr": "Robes",
+      "name_en": "Dresses",
+      "path_fr": "Robes"
+    },
+    {
+      "category_id": "168998",
+      "name_fr": "Coiffes, bibis",
+      "name_en": "Fascinators & Headpieces",
+      "path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : accessoires > Coiffes, bibis"
+    },
+    {
+      "category_id": "155226",
+      "name_fr": "Sweats, vestes à capuches",
+      "name_en": "Hoodies & Sweatshirts",
+      "path_fr": "Vêtements de sport > Sweats, vestes à capuches"
+    },
+    {
+      "category_id": "169285",
+      "name_fr": "Protèges passeport et documents",
+      "name_en": "ID & Document Holders",
+      "path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : accessoires > Protèges passeport et documents"
+    },
+    {
+      "category_id": "11554",
+      "name_fr": "Jeans",
+      "name_en": "Jeans",
+      "path_fr": "Jeans"
+    },
+    {
+      "category_id": "63866",
+      "name_fr": "Pulls, cardigans",
+      "name_en": "Jumpers & Cardigans",
+      "path_fr": "Pulls, cardigans"
+    },
+    {
+      "category_id": "3009",
+      "name_fr": "Combis : shorts, pantalons",
+      "name_en": "Jumpsuits & Playsuits",
+      "path_fr": "Combis : shorts, pantalons"
+    },
+    {
+      "category_id": "45237",
+      "name_fr": "Porte-clés",
+      "name_en": "Keyrings",
+      "path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : accessoires > Porte-clés"
+    },
+    {
+      "category_id": "163587",
+      "name_fr": "Jambières",
+      "name_en": "Leg Warmers",
+      "path_fr": "Collants, bas et chaussettes > Jambières"
+    },
+    {
+      "category_id": "169001",
+      "name_fr": "Leggings",
+      "name_en": "Leggings",
+      "path_fr": "Leggings"
+    },
+    {
+      "category_id": "63855",
+      "name_fr": "Pyjamas, nuisettes",
+      "name_en": "Nightwear",
+      "path_fr": "Lingerie, nuit > Pyjamas, nuisettes"
+    },
+    {
+      "category_id": "15735",
+      "name_fr": "Agendas",
+      "name_en": "Organisers & Diaries",
+      "path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : accessoires > Agendas"
+    },
+    {
+      "category_id": "260011",
+      "name_fr": "Tenues, ensembles",
+      "name_en": "Outfits & Sets",
+      "path_fr": "Tenues, ensembles"
+    },
+    {
+      "category_id": "179196",
+      "name_fr": "Pièces, verres",
+      "name_en": "Replacement Lenses & Parts",
+      "path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : accessoires > Lunettes de soleil et accessoires > Pièces, verres"
+    },
+    {
+      "category_id": "11555",
+      "name_fr": "Shorts",
+      "name_en": "Shorts",
+      "path_fr": "Shorts"
+    },
+    {
+      "category_id": "63864",
+      "name_fr": "Jupes",
+      "name_en": "Skirts",
+      "path_fr": "Jupes"
+    },
+    {
+      "category_id": "11532",
+      "name_fr": "Combinaisons, jupons",
+      "name_en": "Slips & Petticoats",
+      "path_fr": "Lingerie, nuit > Combinaisons, jupons"
+    },
+    {
+      "category_id": "185083",
+      "name_fr": "Brassières",
+      "name_en": "Sports Bras",
+      "path_fr": "Vêtements de sport > Brassières"
+    },
+    {
+      "category_id": "63865",
+      "name_fr": "Costumes, tailleurs",
+      "name_en": "Suits & Suit Separates",
+      "path_fr": "Costumes, tailleurs"
+    },
+    {
+      "category_id": "163586",
+      "name_fr": "Porte-jarretelles",
+      "name_en": "Suspender Belts",
+      "path_fr": "Lingerie, nuit > Porte-jarretelles"
+    },
+    {
+      "category_id": "63867",
+      "name_fr": "Maillots de bain",
+      "name_en": "Swimwear",
+      "path_fr": "Maillots de bain"
+    },
+    {
+      "category_id": "53159",
+      "name_fr": "Hauts, chemises",
+      "name_en": "Tops & Shirts",
+      "path_fr": "Hauts, chemises"
+    },
+    {
+      "category_id": "185084",
+      "name_fr": "Survêtements, ensembles",
+      "name_en": "Tracksuits & Sets",
+      "path_fr": "Vêtements de sport > Survêtements, ensembles"
+    },
+    {
+      "category_id": "63863",
+      "name_fr": "Pantalons",
+      "name_en": "Trousers",
+      "path_fr": "Pantalons"
+    }
+  ],
+  "summary": {
+    "men_count": 23,
+    "women_count": 31
+  }
+}

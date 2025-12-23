@@ -74,6 +74,58 @@ See individual module READMEs for detailed development instructions:
 - [Frontend Development](frontend/README.md)
 - [Plugin Development](plugin/README.md)
 
+## Deployment
+
+### Infrastructure
+
+| Service | Plateforme | Description |
+|---------|------------|-------------|
+| **Frontend** | Vercel | Application Nuxt.js |
+| **Backend** | Railway | API FastAPI |
+| **Database** | Railway | PostgreSQL (même projet) |
+| **Images** | Cloudflare R2 | Stockage des images produits |
+
+### Stockage des images
+
+Les images produits sont stockées sur **Cloudflare R2** (compatible S3) :
+
+- **URL publique** : `https://cdn.stoflow.io/{user_id}/products/{product_id}/{image}.jpg`
+- **Optimisation automatique** : redimensionnement max 2000px, compression JPEG 90%
+- **Egress gratuit** : pas de frais de bande passante
+
+```
+Upload → Validation → Optimisation → R2 → cdn.stoflow.io
+```
+
+### Branches
+
+| Branche | Environnement | Déploiement |
+|---------|---------------|-------------|
+| `develop` | Développement | Local uniquement |
+| `prod` | Production | Auto (Railway + Vercel) |
+
+### Workflow
+
+```
+feature/xxx → develop → prod
+                         ↓
+              Vercel (front) + Railway (back)
+```
+
+### Déployer en production
+
+```bash
+# Via commande Claude
+/deploy
+
+# Ou manuellement
+git checkout prod
+git merge develop
+git push origin prod
+```
+
+Railway et Vercel détectent automatiquement le push sur `prod` et déploient.
+
 ## License
 
 Private - All rights reserved.
