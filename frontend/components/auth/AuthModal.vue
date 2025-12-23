@@ -161,6 +161,7 @@
 </template>
 
 <script setup lang="ts">
+import { validateEmail, validatePassword, validateName, sanitizeText } from '~/utils/validation'
 const props = defineProps<{
   visible: boolean
   mode?: 'login' | 'register'
@@ -236,19 +237,22 @@ const validateLogin = (): boolean => {
   loginErrors.email = ''
   loginErrors.password = ''
 
-  if (!loginForm.email) {
-    loginErrors.email = 'Email requis'
-    isValid = false
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginForm.email)) {
-    loginErrors.email = 'Email invalide'
+  // Validate email with robust RFC-compliant validation
+  const emailResult = validateEmail(loginForm.email)
+  if (!emailResult.valid) {
+    loginErrors.email = emailResult.error || 'Email invalide'
     isValid = false
   }
 
+  // Basic password validation for login (full validation on register)
   if (!loginForm.password) {
     loginErrors.password = 'Mot de passe requis'
     isValid = false
   } else if (loginForm.password.length < 8) {
     loginErrors.password = 'Minimum 8 caractères'
+    isValid = false
+  } else if (loginForm.password.length > 128) {
+    loginErrors.password = 'Maximum 128 caractères'
     isValid = false
   }
 
@@ -262,27 +266,29 @@ const validateRegister = (): boolean => {
   registerErrors.email = ''
   registerErrors.password = ''
 
-  if (!registerForm.fullName || registerForm.fullName.trim().length === 0) {
-    registerErrors.fullName = 'Nom complet requis'
-    isValid = false
-  } else if (registerForm.fullName.length > 255) {
-    registerErrors.fullName = 'Maximum 255 caractères'
-    isValid = false
-  }
-
-  if (!registerForm.email) {
-    registerErrors.email = 'Email requis'
-    isValid = false
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.email)) {
-    registerErrors.email = 'Email invalide'
+  // Validate full name with robust validation
+  const nameResult = validateName(registerForm.fullName, 'Le nom complet')
+  if (!nameResult.valid) {
+    registerErrors.fullName = nameResult.error || 'Nom invalide'
     isValid = false
   }
 
+  // Validate email with robust RFC-compliant validation
+  const emailResult = validateEmail(registerForm.email)
+  if (!emailResult.valid) {
+    registerErrors.email = emailResult.error || 'Email invalide'
+    isValid = false
+  }
+
+  // Password validation with length limits
   if (!registerForm.password) {
     registerErrors.password = 'Mot de passe requis'
     isValid = false
   } else if (registerForm.password.length < 12) {
     registerErrors.password = 'Minimum 12 caractères'
+    isValid = false
+  } else if (registerForm.password.length > 128) {
+    registerErrors.password = 'Maximum 128 caractères'
     isValid = false
   } else {
     // Validation complexité (backend requirement)
@@ -293,6 +299,13 @@ const validateRegister = (): boolean => {
 
     if (!hasUppercase || !hasLowercase || !hasNumber || !hasSpecial) {
       registerErrors.password = 'Doit contenir: 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial (!@#$%^&*)'
+      isValid = false
+    }
+
+    // Check for common weak passwords
+    const weakPatterns = ['password', 'motdepasse', '12345678', 'qwerty', 'azerty']
+    if (weakPatterns.some(pattern => registerForm.password.toLowerCase().includes(pattern))) {
+      registerErrors.password = 'Ce mot de passe est trop courant'
       isValid = false
     }
   }

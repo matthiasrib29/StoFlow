@@ -1,35 +1,104 @@
 /**
- * Content Script pour le site web Stoflow (localhost:3000)
+ * Content Script pour le site web Stoflow
  *
- * Ce script s'injecte sur le site web Stoflow et récupère le token JWT
- * depuis localStorage pour l'envoyer au plugin (SSO automatique).
+ * Ce script s'injecte sur le site web Stoflow et gère la synchronisation SSO
+ * avec le frontend Nuxt.
+ *
+ * SÉCURITÉ: Communication bidirectionnelle sécurisée
+ * 1. Le plugin s'annonce au frontend avec son origine (STOFLOW_PLUGIN_READY)
+ * 2. Le frontend mémorise l'origine et répond avec STOFLOW_FRONTEND_ACK
+ * 3. Les tokens sont échangés uniquement avec validation d'origine stricte
  *
  * Flow:
- * 1. User se connecte sur localhost:3000
- * 2. Frontend Nuxt stocke le token dans localStorage
- * 3. Ce script lit le token et l'envoie au background
- * 4. Background stocke dans chrome.storage
- * 5. Plugin est maintenant authentifié automatiquement
+ * 1. Plugin se charge → envoie STOFLOW_PLUGIN_READY
+ * 2. Frontend reçoit → mémorise l'origine du plugin
+ * 3. User se connecte → Frontend envoie STOFLOW_SYNC_TOKEN vers l'origine du plugin
+ * 4. Plugin reçoit (avec validation d'origine) → stocke dans chrome.storage
  */
-
-// TEST SIMPLE : Log immédiat sans imports
-console.log('');
-console.log('📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡');
-console.log('📡 [CONTENT SCRIPT] CHARGÉ SUR:', window.location.href);
-console.log('📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡📡');
-console.log('');
-alert('🚀 Extension Stoflow détectée sur ' + window.location.href);
 
 import { CONSTANTS } from '../config/environment';
 
-console.log('[Stoflow Web SSO] 🔗 Content script chargé sur', window.location.href);
+// ==================== CONFIGURATION SÉCURITÉ ====================
+
+// Origines autorisées pour recevoir des messages (frontend Stoflow)
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://stoflow.io',
+  'https://www.stoflow.io',
+  'https://app.stoflow.io'
+];
+
+// Flag pour les logs (désactivés en production)
+const DEBUG = true; // TODO: Mettre à false en production
+
+/**
+ * Logger sécurisé - évite les logs sensibles en production
+ */
+const logger = {
+  debug: (...args: any[]) => {
+    if (DEBUG) console.log('[Stoflow Plugin]', ...args);
+  },
+  info: (...args: any[]) => {
+    if (DEBUG) console.info('[Stoflow Plugin]', ...args);
+  },
+  warn: (...args: any[]) => {
+    console.warn('[Stoflow Plugin]', ...args);
+  },
+  error: (...args: any[]) => {
+    console.error('[Stoflow Plugin]', ...args);
+  }
+};
+
+// ==================== VALIDATION SÉCURITÉ ====================
+
+/**
+ * Vérifie si une origine est autorisée
+ */
+function isAllowedOrigin(origin: string): boolean {
+  return ALLOWED_ORIGINS.some(allowed => origin === allowed || origin.startsWith(allowed));
+}
+
+/**
+ * Valide la structure d'un message de token
+ */
+function isValidTokenMessage(data: any): data is { type: string; access_token: string; refresh_token?: string } {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.type === 'string' &&
+    typeof data.access_token === 'string' &&
+    data.access_token.length > 0
+  );
+}
+
+// ==================== ANNONCE AU FRONTEND ====================
+
+/**
+ * Annonce la présence du plugin au frontend
+ * Le frontend mémorisera notre origine pour les communications futures
+ */
+function announceToFrontend() {
+  logger.debug('Annonce au frontend...');
+
+  // Envoyer vers toutes les origines autorisées (le frontend écoutera)
+  // Note: On envoie vers '*' car on ne connaît pas encore l'origine exacte du frontend
+  // Mais le MESSAGE lui-même ne contient PAS de données sensibles
+  window.postMessage({
+    type: 'STOFLOW_PLUGIN_READY',
+    version: '1.0.0'
+  }, '*');
+
+  logger.info('Plugin annoncé au frontend');
+}
+
+// ==================== GESTION DES TOKENS ====================
 
 /**
  * Récupère le token depuis localStorage du site web
  */
-function getTokenFromLocalStorage() {
+function getTokenFromLocalStorage(): string | null {
   try {
-    // Le frontend Nuxt stocke probablement le token sous une de ces clés
     const possibleKeys = [
       'stoflow_access_token',
       'stoflow_token',
@@ -41,7 +110,7 @@ function getTokenFromLocalStorage() {
     for (const key of possibleKeys) {
       const token = localStorage.getItem(key);
       if (token) {
-        console.log(`[Stoflow Web SSO] ✅ Token trouvé dans localStorage.${key}`);
+        logger.debug(`Token trouvé dans localStorage.${key}`);
         return token;
       }
     }
@@ -52,18 +121,17 @@ function getTokenFromLocalStorage() {
       try {
         const parsed = JSON.parse(authData);
         if (parsed.access_token || parsed.token) {
-          console.log('[Stoflow Web SSO] ✅ Token trouvé dans localStorage.auth');
+          logger.debug('Token trouvé dans localStorage.auth');
           return parsed.access_token || parsed.token;
         }
-      } catch (e) {
+      } catch {
         // Ignore parsing errors
       }
     }
 
-    console.log('[Stoflow Web SSO] ⚠️ Aucun token trouvé dans localStorage');
     return null;
   } catch (error) {
-    console.error('[Stoflow Web SSO] ❌ Erreur lecture localStorage:', error);
+    logger.error('Erreur lecture localStorage:', error);
     return null;
   }
 }
@@ -71,12 +139,9 @@ function getTokenFromLocalStorage() {
 /**
  * Récupère le refresh token depuis localStorage
  */
-function getRefreshTokenFromLocalStorage() {
+function getRefreshTokenFromLocalStorage(): string | null {
   try {
-    const possibleKeys = [
-      'stoflow_refresh_token',
-      'refresh_token'
-    ];
+    const possibleKeys = ['stoflow_refresh_token', 'refresh_token'];
 
     for (const key of possibleKeys) {
       const token = localStorage.getItem(key);
@@ -93,14 +158,14 @@ function getRefreshTokenFromLocalStorage() {
         if (parsed.refresh_token) {
           return parsed.refresh_token;
         }
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }
 
     return null;
   } catch (error) {
-    console.error('[Stoflow Web SSO] ❌ Erreur lecture refresh token:', error);
+    logger.error('Erreur lecture refresh token:', error);
     return null;
   }
 }
@@ -108,17 +173,10 @@ function getRefreshTokenFromLocalStorage() {
 /**
  * Envoie le token au background script pour stockage
  */
-async function syncTokenToPlugin() {
-  const accessToken = getTokenFromLocalStorage();
-  const refreshToken = getRefreshTokenFromLocalStorage();
-
-  if (!accessToken) {
-    console.log('[Stoflow Web SSO] ℹ️ Aucun token à synchroniser');
-    return;
-  }
+async function syncTokenToBackground(accessToken: string, refreshToken: string | null) {
+  logger.debug('Envoi du token au background...');
 
   try {
-    // Envoyer au background script
     const response = await chrome.runtime.sendMessage({
       action: 'SYNC_TOKEN_FROM_WEBSITE',
       access_token: accessToken,
@@ -126,23 +184,45 @@ async function syncTokenToPlugin() {
     });
 
     if (response?.success) {
-      console.log('[Stoflow Web SSO] ✅ Token synchronisé avec le plugin');
-
-      // Optionnel: afficher une notification discrète
+      logger.info('Token synchronisé avec succès');
       showSyncNotification();
+      return true;
     } else {
-      console.error('[Stoflow Web SSO] ❌ Échec de synchronisation:', response?.error);
+      logger.error('Échec synchronisation:', response?.error);
+      return false;
     }
   } catch (error) {
-    console.error('[Stoflow Web SSO] ❌ Erreur envoi au plugin:', error);
+    logger.error('Erreur envoi au background:', error);
+    return false;
   }
 }
+
+/**
+ * Synchronise le token initial depuis localStorage
+ */
+async function syncTokenFromLocalStorage() {
+  const accessToken = getTokenFromLocalStorage();
+  const refreshToken = getRefreshTokenFromLocalStorage();
+
+  if (!accessToken) {
+    logger.debug('Aucun token à synchroniser depuis localStorage');
+    return;
+  }
+
+  await syncTokenToBackground(accessToken, refreshToken);
+}
+
+// ==================== NOTIFICATION ====================
 
 /**
  * Affiche une notification discrète de synchronisation
  */
 function showSyncNotification() {
-  // Créer une notification toast discrète
+  // Éviter les doublons
+  if (document.getElementById('stoflow-sso-toast')) {
+    return;
+  }
+
   const toast = document.createElement('div');
   toast.id = 'stoflow-sso-toast';
   toast.style.cssText = `
@@ -160,22 +240,25 @@ function showSyncNotification() {
     display: flex;
     align-items: center;
     gap: 8px;
-    animation: slideIn 0.3s ease-out;
+    animation: stoflow-slideIn 0.3s ease-out;
   `;
   toast.innerHTML = `
     <span>✓</span>
     <span>Plugin Stoflow connecté</span>
   `;
 
-  // Ajouter l'animation
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes slideIn {
-      from { transform: translateX(400px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-  `;
-  document.head.appendChild(style);
+  // Ajouter l'animation (une seule fois)
+  if (!document.getElementById('stoflow-toast-style')) {
+    const style = document.createElement('style');
+    style.id = 'stoflow-toast-style';
+    style.textContent = `
+      @keyframes stoflow-slideIn {
+        from { transform: translateX(400px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   document.body.appendChild(toast);
 
@@ -187,108 +270,122 @@ function showSyncNotification() {
   }, 3000);
 }
 
+// ==================== LISTENERS ====================
+
 /**
- * Écoute les changements de localStorage (login/logout)
+ * Configure le listener pour les messages postMessage du frontend
  */
-function watchLocalStorageChanges() {
-  // Observer les changements via storage event
-  window.addEventListener('storage', (event) => {
-    if (event.key?.includes('token') || event.key === 'auth') {
-      console.log('[Stoflow Web SSO] 🔄 Token modifié, re-synchronisation...');
-      setTimeout(() => syncTokenToPlugin(), 100);
+function setupMessageListener() {
+  logger.debug('Installation du listener postMessage...');
+
+  window.addEventListener('message', async (event) => {
+    // SÉCURITÉ CRITIQUE: Valider l'origine du message
+    if (!isAllowedOrigin(event.origin)) {
+      // Ignorer silencieusement les messages d'origines non autorisées
+      return;
+    }
+
+    const data = event.data;
+    if (!data || typeof data.type !== 'string') {
+      return;
+    }
+
+    // Traiter les différents types de messages
+    switch (data.type) {
+      case 'STOFLOW_FRONTEND_ACK':
+        // Le frontend a reçu notre annonce
+        logger.info('Frontend a confirmé la réception (ACK)');
+        break;
+
+      case 'STOFLOW_SYNC_TOKEN':
+        // Le frontend envoie un token après login
+        logger.debug('Token reçu du frontend');
+
+        if (!isValidTokenMessage(data)) {
+          logger.warn('Message de token invalide, ignoré');
+          return;
+        }
+
+        await syncTokenToBackground(data.access_token, data.refresh_token || null);
+        break;
+
+      case 'STOFLOW_LOGOUT':
+        // Le frontend signale une déconnexion
+        logger.info('Logout reçu du frontend');
+
+        try {
+          await chrome.runtime.sendMessage({
+            action: 'LOGOUT_FROM_WEBSITE'
+          });
+          logger.info('Logout synchronisé');
+        } catch (error) {
+          logger.error('Erreur logout:', error);
+        }
+        break;
+
+      default:
+        // Ignorer les autres types de messages
+        break;
     }
   });
 
-  // Observer les changements directs (même onglet)
-  const originalSetItem = localStorage.setItem;
-  localStorage.setItem = function(key, value) {
-    originalSetItem.apply(this, [key, value]);
+  logger.debug('Listener postMessage installé');
+}
+
+/**
+ * Observe les changements de localStorage (login/logout dans le même onglet)
+ */
+function setupLocalStorageObserver() {
+  // Observer les changements via storage event (autres onglets)
+  window.addEventListener('storage', (event) => {
+    if (event.key?.includes('token') || event.key === 'auth') {
+      logger.debug('Token modifié (storage event), re-synchronisation...');
+      setTimeout(() => syncTokenFromLocalStorage(), 100);
+    }
+  });
+
+  // Observer les changements directs (même onglet) via proxy
+  const originalSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(key: string, value: string) {
+    originalSetItem(key, value);
     if (key.includes('token') || key === 'auth') {
-      console.log('[Stoflow Web SSO] 🔄 Token modifié (setItem), re-synchronisation...');
-      setTimeout(() => syncTokenToPlugin(), 100);
+      logger.debug('Token modifié (setItem), re-synchronisation...');
+      setTimeout(() => syncTokenFromLocalStorage(), 100);
     }
   };
 
-  // Écouter les messages postMessage depuis le frontend
-  console.log('📡 [CONTENT SCRIPT] Installation du listener postMessage...');
-  window.addEventListener('message', (event) => {
-    console.log('📡 [CONTENT SCRIPT] Message reçu:', event.data);
-
-    if (event.data?.type === 'STOFLOW_SYNC_TOKEN') {
-      console.log('');
-      console.log('📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬');
-      console.log('📬 [CONTENT SCRIPT] TOKEN REÇU VIA POSTMESSAGE');
-      console.log('📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬');
-      const { access_token, refresh_token } = event.data;
-      console.log('📬 Access Token:', access_token ? 'Présent (' + access_token.substring(0, 20) + '...)' : 'MANQUANT');
-      console.log('📬 Refresh Token:', refresh_token ? 'Présent' : 'Absent');
-
-      if (access_token) {
-        console.log('📬 Envoi au background script...');
-        syncTokenDirectly(access_token, refresh_token);
-      } else {
-        console.error('📬 ❌ Pas de token à synchroniser');
-      }
-    }
-  });
-  console.log('📡 [CONTENT SCRIPT] ✅ Listener postMessage installé');
+  logger.debug('Observer localStorage installé');
 }
 
-/**
- * Synchronise un token reçu directement (via postMessage)
- */
-async function syncTokenDirectly(accessToken: string, refreshToken: string | null) {
-  console.log('');
-  console.log('💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌');
-  console.log('💌 [CONTENT] ENVOI TOKEN AU BACKGROUND');
-  console.log('💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌');
+// ==================== INITIALISATION ====================
 
-  try {
-    console.log('💌 Appel chrome.runtime.sendMessage...');
-    console.log('💌 Action: SYNC_TOKEN_FROM_WEBSITE');
-    console.log('💌 Token:', accessToken.substring(0, 20) + '...');
+function init() {
+  logger.info('Content script chargé sur', window.location.href);
 
-    const response = await chrome.runtime.sendMessage({
-      action: 'SYNC_TOKEN_FROM_WEBSITE',
-      access_token: accessToken,
-      refresh_token: refreshToken
-    });
+  // 1. S'annoncer au frontend
+  announceToFrontend();
 
-    console.log('💌 Réponse reçue du background:', response);
+  // 2. Configurer le listener pour les messages du frontend
+  setupMessageListener();
 
-    if (response?.success) {
-      console.log('💌 ✅✅✅ SUCCÈS - Token synchronisé ✅✅✅');
-      showSyncNotification();
-    } else {
-      console.error('💌 ❌ Échec:', response?.error);
+  // 3. Observer les changements de localStorage
+  setupLocalStorageObserver();
+
+  // 4. Synchroniser le token initial (si déjà connecté)
+  setTimeout(() => {
+    syncTokenFromLocalStorage();
+  }, 500);
+
+  // 5. Re-synchroniser périodiquement (backup)
+  setInterval(() => {
+    const token = getTokenFromLocalStorage();
+    if (token) {
+      syncTokenFromLocalStorage();
     }
+  }, 30000);
 
-    console.log('💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌');
-    console.log('');
-  } catch (error) {
-    console.error('💌 ❌❌❌ ERREUR envoi au plugin:', error);
-    console.error('💌 Stack:', error.stack);
-    console.log('💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌💌');
-    console.log('');
-  }
+  logger.info('Initialisation terminée');
 }
 
-// ==================== INIT ====================
-
-// Synchroniser immédiatement au chargement
-setTimeout(() => {
-  syncTokenToPlugin();
-}, 500);
-
-// Surveiller les changements
-watchLocalStorageChanges();
-
-// Re-synchroniser toutes les 30 secondes (au cas où)
-setInterval(() => {
-  const token = getTokenFromLocalStorage();
-  if (token) {
-    syncTokenToPlugin();
-  }
-}, 30000);
-
-console.log('[Stoflow Web SSO] ✅ Surveillance active du token');
+// Démarrer
+init();

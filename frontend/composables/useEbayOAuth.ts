@@ -1,9 +1,77 @@
 /**
  * Composable for eBay OAuth authentication
  * Handles OAuth flow, token exchange, and connection status
+ *
+ * SECURITY: Implements state parameter for CSRF protection
+ * - Generates cryptographic nonce before OAuth initiation
+ * - Validates state in callback to prevent CSRF attacks
  */
 
 import type { EbayAccount, EbayTokens } from '~/types/ebay'
+import { oauthLogger } from '~/utils/logger'
+
+// Session storage key for OAuth state
+const OAUTH_STATE_KEY = 'ebay_oauth_state'
+const OAUTH_STATE_TIMESTAMP_KEY = 'ebay_oauth_state_ts'
+const STATE_MAX_AGE_MS = 10 * 60 * 1000 // 10 minutes
+
+/**
+ * Generate a cryptographically secure random state
+ */
+const generateState = (): string => {
+  const array = new Uint8Array(32)
+  crypto.getRandomValues(array)
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Store OAuth state in sessionStorage
+ */
+const storeState = (state: string): void => {
+  sessionStorage.setItem(OAUTH_STATE_KEY, state)
+  sessionStorage.setItem(OAUTH_STATE_TIMESTAMP_KEY, Date.now().toString())
+}
+
+/**
+ * Retrieve and validate stored OAuth state
+ */
+const retrieveAndValidateState = (receivedState: string): boolean => {
+  const storedState = sessionStorage.getItem(OAUTH_STATE_KEY)
+  const storedTimestamp = sessionStorage.getItem(OAUTH_STATE_TIMESTAMP_KEY)
+
+  // Clean up storage
+  sessionStorage.removeItem(OAUTH_STATE_KEY)
+  sessionStorage.removeItem(OAUTH_STATE_TIMESTAMP_KEY)
+
+  // Validate state exists
+  if (!storedState || !storedTimestamp) {
+    oauthLogger.warn('No stored OAuth state found')
+    return false
+  }
+
+  // Validate state hasn't expired
+  const timestamp = parseInt(storedTimestamp, 10)
+  if (Date.now() - timestamp > STATE_MAX_AGE_MS) {
+    oauthLogger.warn('OAuth state expired')
+    return false
+  }
+
+  // Validate state matches
+  if (storedState !== receivedState) {
+    oauthLogger.warn('OAuth state mismatch - possible CSRF attack')
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Clear any pending OAuth state
+ */
+const clearState = (): void => {
+  sessionStorage.removeItem(OAUTH_STATE_KEY)
+  sessionStorage.removeItem(OAUTH_STATE_TIMESTAMP_KEY)
+}
 
 interface OAuthCallbackResponse {
   tokens: EbayTokens
@@ -49,16 +117,43 @@ export const useEbayOAuth = () => {
   /**
    * Initiate OAuth flow via popup
    * Returns a promise that resolves when auth is complete
+   *
+   * SECURITY: Generates and stores a state parameter to prevent CSRF attacks
    */
   const initiateOAuth = async (onSuccess: () => void): Promise<boolean> => {
     try {
-      // Get OAuth URL from backend
-      const { auth_url } = await api.get<{ auth_url: string }>('/api/integrations/ebay/connect')
+      // Generate CSRF protection state
+      const state = generateState()
+      storeState(state)
+      oauthLogger.debug('OAuth state generated and stored')
 
-      // Open OAuth popup
-      const popup = window.open(auth_url, 'ebay_oauth', 'width=600,height=700,scrollbars=yes')
+      // Get OAuth URL from backend with state parameter
+      const { auth_url } = await api.get<{ auth_url: string }>('/api/integrations/ebay/connect', {
+        params: { state }
+      })
+
+      // Validate that auth_url is on eBay domain (prevent redirect attacks)
+      try {
+        const url = new URL(auth_url)
+        const validDomains = ['auth.ebay.com', 'signin.ebay.com', 'auth.sandbox.ebay.com']
+        if (!validDomains.some(domain => url.hostname === domain || url.hostname.endsWith('.' + domain))) {
+          clearState()
+          throw new Error('Invalid OAuth URL domain')
+        }
+      } catch (urlError) {
+        clearState()
+        throw new Error('Invalid OAuth URL format')
+      }
+
+      // Open OAuth popup with security flags
+      const popup = window.open(
+        auth_url,
+        'ebay_oauth',
+        'width=600,height=700,scrollbars=yes,noopener'
+      )
 
       if (!popup) {
+        clearState()
         throw new Error('Popup bloquée. Veuillez autoriser les popups pour ce site.')
       }
 
@@ -75,11 +170,13 @@ export const useEbayOAuth = () => {
         // Timeout after 5 minutes
         setTimeout(() => {
           clearInterval(checkClosed)
+          clearState()
           popup.close()
           reject(new Error('Délai d\'authentification expiré'))
         }, 5 * 60 * 1000)
       })
     } catch (error: any) {
+      clearState()
       throw new Error(error.message || 'Erreur lors de l\'authentification eBay')
     }
   }
@@ -165,6 +262,18 @@ export const useEbayOAuth = () => {
     return { account, tokens }
   }
 
+  /**
+   * Validate OAuth state from callback
+   * SECURITY: Must be called before processing OAuth callback
+   */
+  const validateState = (receivedState: string | null): boolean => {
+    if (!receivedState) {
+      oauthLogger.warn('No state parameter in callback')
+      return false
+    }
+    return retrieveAndValidateState(receivedState)
+  }
+
   return {
     getOAuthUrl,
     initiateOAuth,
@@ -172,6 +281,8 @@ export const useEbayOAuth = () => {
     checkConnectionStatus,
     parseAccountFromStatus,
     disconnect,
-    connectMock
+    connectMock,
+    validateState,
+    clearState
   }
 }
