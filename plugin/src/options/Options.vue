@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import {
+  getEnvironmentMode,
+  setEnvironmentMode,
+  BACKEND_URLS,
+  type EnvironmentMode
+} from '../config/environment';
 
 interface Settings {
   syncInterval: number;
@@ -25,13 +31,19 @@ const settings = ref<Settings>({
 
 const saving = ref(false);
 const saveMessage = ref('');
+const environmentMode = ref<EnvironmentMode>('localhost');
 
 onMounted(async () => {
   const stored = await chrome.storage.local.get('settings');
   if (stored.settings) {
     settings.value = stored.settings;
   }
+  environmentMode.value = await getEnvironmentMode();
 });
+
+const onEnvironmentChange = async () => {
+  await setEnvironmentMode(environmentMode.value);
+};
 
 const saveSettings = async () => {
   saving.value = true;
@@ -63,6 +75,39 @@ const saveSettings = async () => {
     </header>
 
     <main>
+      <section class="settings-section environment-section">
+        <h2>🌐 Environnement Backend</h2>
+        <div class="setting-item">
+          <div class="environment-toggle">
+            <label class="toggle-option" :class="{ active: environmentMode === 'localhost' }">
+              <input
+                v-model="environmentMode"
+                type="radio"
+                value="localhost"
+                name="environment"
+                @change="onEnvironmentChange"
+              />
+              <span class="toggle-label">Localhost</span>
+              <span class="toggle-url">{{ BACKEND_URLS.LOCALHOST }}</span>
+            </label>
+            <label class="toggle-option" :class="{ active: environmentMode === 'production' }">
+              <input
+                v-model="environmentMode"
+                type="radio"
+                value="production"
+                name="environment"
+                @change="onEnvironmentChange"
+              />
+              <span class="toggle-label">Production</span>
+              <span class="toggle-url">{{ BACKEND_URLS.PRODUCTION }}</span>
+            </label>
+          </div>
+          <p class="help-text">
+            Choisir "Localhost" pour le développement local, "Production" pour le serveur en ligne
+          </p>
+        </div>
+      </section>
+
       <section class="settings-section">
         <h2>🔄 Synchronisation</h2>
         <div class="setting-item">
@@ -291,5 +336,59 @@ header h1 {
 .save-message.error {
   background: #fee2e2;
   color: #991b1b;
+}
+
+/* Environment toggle styles */
+.environment-section {
+  border: 2px solid #3b82f6;
+}
+
+.environment-toggle {
+  display: flex;
+  gap: 16px;
+}
+
+.toggle-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+}
+
+.toggle-option:hover {
+  border-color: #3b82f6;
+  background: #f0f9ff;
+}
+
+.toggle-option.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.toggle-option input[type='radio'] {
+  display: none;
+}
+
+.toggle-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.toggle-option.active .toggle-label {
+  color: #3b82f6;
+}
+
+.toggle-url {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: monospace;
 }
 </style>
