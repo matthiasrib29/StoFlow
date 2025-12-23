@@ -145,13 +145,40 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
     if os.getenv("TESTING") == "1":
         return await call_next(request)
 
-    # Configuration par endpoint
+    # Configuration par endpoint (Security 2025-12-23: Extended rate limiting)
     rate_limits = {
+        # Authentication endpoints
         '/api/auth/login': {
             'max_attempts_ip': 10,       # Par IP (général)
             'max_attempts_email': 5,     # Par email (plus strict, anti credential stuffing)
             'window_seconds': 300        # 5 minutes
-        }
+        },
+        '/api/auth/register': {
+            'max_attempts_ip': 5,        # Anti-spam registration
+            'window_seconds': 3600       # 1 heure
+        },
+        '/api/auth/resend-verification': {
+            'max_attempts_ip': 3,
+            'window_seconds': 3600       # 1 heure
+        },
+        '/api/auth/forgot-password': {
+            'max_attempts_ip': 5,
+            'window_seconds': 3600       # 1 heure
+        },
+        # Expensive AI endpoints
+        '/api/products/generate-description': {
+            'max_attempts_ip': 20,       # Coûteux (OpenAI)
+            'window_seconds': 3600       # 1 heure
+        },
+        # Stripe payment endpoints
+        '/api/stripe/create-checkout-session': {
+            'max_attempts_ip': 10,
+            'window_seconds': 3600       # 1 heure
+        },
+        '/api/stripe/create-portal-session': {
+            'max_attempts_ip': 10,
+            'window_seconds': 3600       # 1 heure
+        },
     }
 
     # Check si endpoint rate-limité

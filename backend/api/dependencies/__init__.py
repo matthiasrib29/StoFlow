@@ -8,11 +8,10 @@ Date: 2025-12-08
 """
 
 import logging
-import os
 import re
 from typing import Callable, Optional, Tuple
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -29,17 +28,18 @@ logger = logging.getLogger(__name__)
 SCHEMA_NAME_PATTERN = re.compile(r'^user_\d+$')
 
 
-def _validate_schema_name(schema_name: str) -> str:
+def _validate_schema_name(schema_name: str, db: Session = None) -> str:
     """
     Valide strictement le nom du schema PostgreSQL.
 
-    Security (2025-12-18):
+    Security (2025-12-23):
     - Vérifie que le schema_name correspond au pattern attendu (user_<id>)
+    - Si db fourni, vérifie que le schema existe réellement (defense-in-depth)
     - Protection contre SQL injection dans SET search_path
-    - Defense-in-depth même si schema_name vient d'une source de confiance
 
     Args:
         schema_name: Nom du schema à valider
+        db: Session SQLAlchemy optionnelle pour vérification d'existence
 
     Returns:
         schema_name si valide
@@ -47,58 +47,59 @@ def _validate_schema_name(schema_name: str) -> str:
     Raises:
         HTTPException: 500 si schema_name invalide (ne devrait jamais arriver)
     """
+    # Step 1: Regex validation (fast, first line of defense)
     if not SCHEMA_NAME_PATTERN.match(schema_name):
         logger.critical(
-            f"🚨 SECURITY: Invalid schema_name detected! "
+            f"🚨 SECURITY: Invalid schema_name pattern! "
             f"schema_name={schema_name}, pattern={SCHEMA_NAME_PATTERN.pattern}"
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erreur interne de sécurité"
         )
+
+    # Step 2: Database existence check (defense-in-depth)
+    if db is not None:
+        result = db.execute(
+            text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :schema"),
+            {"schema": schema_name}
+        ).scalar()
+
+        if not result:
+            logger.critical(
+                f"🚨 SECURITY: Schema does not exist! "
+                f"schema_name={schema_name} (passed regex but not in database)"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erreur interne de sécurité"
+            )
+
     return schema_name
 
-# Security scheme pour JWT Bearer (auto_error=False pour permettre le bypass dev)
-security = HTTPBearer(auto_error=False)
-
-# Mode bypass pour développement - BLOQUÉ EN PRODUCTION
-_dev_auth_bypass_env = os.getenv("DEV_AUTH_BYPASS", "false").lower() == "true"
-DEV_DEFAULT_USER_ID = int(os.getenv("DEV_DEFAULT_USER_ID", "2"))
-
-# Sécurité: DEV_AUTH_BYPASS ne peut JAMAIS être activé en production
-if _dev_auth_bypass_env and settings.is_production:
-    logger.critical(
-        "🚨 SECURITY: DEV_AUTH_BYPASS=true détecté en PRODUCTION! "
-        "Cette option est DÉSACTIVÉE pour des raisons de sécurité."
-    )
-    DEV_AUTH_BYPASS = False
-else:
-    DEV_AUTH_BYPASS = _dev_auth_bypass_env
-    if DEV_AUTH_BYPASS:
-        logger.warning(
-            "⚠️ DEV_AUTH_BYPASS activé - Mode développement uniquement. "
-            "Ne JAMAIS utiliser en production!"
-        )
+# Security scheme pour JWT Bearer
+security = HTTPBearer(auto_error=True)
 
 
 def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
-    x_dev_user_id: Optional[str] = Header(None, alias="X-Dev-User-Id"),
 ) -> User:
     """
     Recupere l'utilisateur actuel depuis le JWT token.
 
-    Business Rules (Updated: 2025-12-12):
+    Business Rules (Updated: 2025-12-23):
     - Le token doit etre valide (pas expire, signature correcte)
     - L'utilisateur doit etre actif
     - Architecture simplifiee: pas de tenant, seulement user
-    - MODE DEV: Si DEV_AUTH_BYPASS=true, permet de bypasser l'auth via X-Dev-User-Id header
+
+    Security (2025-12-23):
+    - All requests MUST have a valid JWT token
+    - No authentication bypass is allowed
 
     Args:
         credentials: Bearer token depuis header Authorization
         db: Session SQLAlchemy
-        x_dev_user_id: Header optionnel pour bypass en mode dev
 
     Returns:
         User: Utilisateur authentifie
@@ -106,28 +107,6 @@ def get_current_user(
     Raises:
         HTTPException: 401 si token invalide ou utilisateur inactif
     """
-    # Mode bypass pour développement (via Swagger UI)
-    if DEV_AUTH_BYPASS:
-        # Utiliser X-Dev-User-Id header si fourni, sinon DEV_DEFAULT_USER_ID
-        if x_dev_user_id:
-            user_id = int(x_dev_user_id)
-        elif not credentials:
-            # Pas de token et pas de header = utiliser l'user par défaut
-            user_id = DEV_DEFAULT_USER_ID
-        else:
-            # Token fourni = utiliser le flow normal
-            user_id = None
-
-        if user_id:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user and user.is_active:
-                logger.debug(
-                    f"🔓 DEV_AUTH_BYPASS: Authentification bypassée pour user_id={user_id} "
-                    f"(email={user.email})"
-                )
-                return user
-
-    # Flow normal avec JWT
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -429,10 +408,12 @@ def get_user_db(
         Tuple[Session, User]: (session DB isolée, utilisateur authentifié)
     """
     # Valider strictement le schema_name (defense-in-depth contre SQL injection)
-    schema_name = _validate_schema_name(current_user.schema_name)
+    # Passe db pour vérifier que le schema existe réellement
+    schema_name = _validate_schema_name(current_user.schema_name, db)
 
     # Use SET LOCAL to ensure search_path persists within the transaction
     # SET LOCAL is transaction-scoped and won't be affected by connection pooling
+    # Note: schema_name is safe after double validation (regex + existence check)
     db.execute(text(f"SET LOCAL search_path TO {schema_name}, public"))
 
     # Verify search_path was applied

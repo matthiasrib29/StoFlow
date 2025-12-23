@@ -107,8 +107,10 @@ def set_user_schema(db: Session, user_id: int) -> None:
     Raises:
         ValueError: Si user_id n'est pas un entier valide (Security: 2025-12-07)
     """
-    # ===== SECURITY FIX (2025-12-07): SQL Injection Protection =====
-    # Validation stricte: user_id DOIT être un integer
+    import re
+
+    # ===== SECURITY FIX (2025-12-07, updated 2025-12-23): SQL Injection Protection =====
+    # Step 1: Validation stricte: user_id DOIT être un integer positif
     if not isinstance(user_id, int):
         raise ValueError(
             f"Invalid user_id: must be integer, got {type(user_id).__name__}"
@@ -117,7 +119,13 @@ def set_user_schema(db: Session, user_id: int) -> None:
     if user_id <= 0:
         raise ValueError(f"Invalid user_id: must be positive, got {user_id}")
 
+    # Step 2: Build and validate schema_name
     schema_name = f"user_{user_id}"
+
+    # Step 3: Defense-in-depth - verify pattern matches expected format
+    if not re.match(r'^user_\d+$', schema_name):
+        raise ValueError(f"Invalid schema_name generated: {schema_name}")
+
     db.execute(text(f"SET search_path TO {schema_name}, public"))
 
 
