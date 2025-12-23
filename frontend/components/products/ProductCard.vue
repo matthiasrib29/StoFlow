@@ -17,13 +17,14 @@
             class="text-xs font-semibold"
           />
         </div>
-        <div v-if="selectable" class="absolute top-3 left-3">
+        <div v-if="selectable" class="absolute top-2 left-2">
+          <!-- Touch-friendly checkbox (44px minimum tap target) -->
           <div
-            class="w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all"
-            :class="isSelected ? 'bg-primary-400 border-primary-400' : 'bg-white/90 border-gray-300 hover:border-primary-400'"
+            class="w-10 h-10 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-all shadow-sm"
+            :class="isSelected ? 'bg-primary-400 border-primary-400' : 'bg-white/95 border-gray-300 hover:border-primary-400'"
             @click.stop="$emit('toggle-selection', product)"
           >
-            <i v-if="isSelected" class="pi pi-check text-secondary-900 text-xs font-bold"/>
+            <i v-if="isSelected" class="pi pi-check text-secondary-900 text-sm font-bold"/>
           </div>
         </div>
       </div>
