@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from models.public.user import User, UserRole, SubscriptionTier, AccountType, BusinessType, EstimatedProducts
 from schemas.auth_schemas import LoginRequest, RefreshRequest, RefreshResponse, RegisterRequest, TokenResponse
 from services.auth_service import AuthService
+from services.email_service import EmailService
 from services.user_schema_service import UserSchemaService
 from shared.database import get_db
 from shared.logging_setup import get_logger
@@ -127,7 +128,7 @@ def refresh_token(
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def register(
+async def register(
     registration: RegisterRequest,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
@@ -227,14 +228,19 @@ def register(
         # 3. Générer le token de vérification email
         verification_token = AuthService.generate_email_verification_token(user, db)
 
-        # TODO: Envoyer l'email de vérification via un service email (SendGrid, etc.)
-        # Pour l'instant, on log le token pour le développement
-        logger.info(
-            f"Email verification token for {user.email}: {verification_token} "
-            f"(TODO: implement email sending)"
+        # 4. Envoyer l'email de vérification
+        email_sent = await EmailService.send_verification_email(
+            to_email=user.email,
+            to_name=user.full_name,
+            verification_token=verification_token,
         )
 
-        # 4. Générer les tokens JWT (utilisateur directement connecté)
+        if email_sent:
+            logger.info(f"Verification email sent to {redact_email(user.email)}")
+        else:
+            logger.warning(f"Failed to send verification email to {redact_email(user.email)}")
+
+        # 5. Générer les tokens JWT (utilisateur directement connecté)
         access_token = AuthService.create_access_token(
             user_id=user.id,
             role=user.role.value,
@@ -302,7 +308,7 @@ def verify_email(
 
 
 @router.post("/resend-verification", status_code=status.HTTP_200_OK)
-def resend_verification(
+async def resend_verification(
     email: str,
     db: Session = Depends(get_db),
 ):
@@ -340,10 +346,16 @@ def resend_verification(
     # Générer nouveau token
     verification_token = AuthService.generate_email_verification_token(user, db)
 
-    # TODO: Envoyer l'email de vérification via un service email (SendGrid, etc.)
-    logger.info(
-        f"Email verification token resent for {user.email}: {verification_token} "
-        f"(TODO: implement email sending)"
+    # Envoyer l'email de vérification
+    email_sent = await EmailService.send_verification_email(
+        to_email=user.email,
+        to_name=user.full_name,
+        verification_token=verification_token,
     )
+
+    if email_sent:
+        logger.info(f"Verification email resent to {redact_email(user.email)}")
+    else:
+        logger.warning(f"Failed to resend verification email to {redact_email(user.email)}")
 
     return success_message
