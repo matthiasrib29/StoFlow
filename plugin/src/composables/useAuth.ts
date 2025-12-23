@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { ENV, CONSTANTS } from '../config/environment';
+import { CONSTANTS, getActiveBackendUrl } from '../config/environment';
 import { AuthLogger } from '../utils/logger';
 
 export interface LoginCredentials {
@@ -54,7 +54,8 @@ export function useAuth() {
     try {
       AuthLogger.debug('[Auth] 🔐 Tentative de connexion:', credentials.email);
 
-      const response = await fetch(`${ENV.BACKEND_URL}/api/auth/login?source=plugin`, {
+      const backendUrl = await getActiveBackendUrl();
+      const response = await fetch(`${backendUrl}/api/auth/login?source=plugin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials)
