@@ -3,11 +3,14 @@
  */
 
 import { APILogger } from '../utils/logger';
-import { ENV, CONSTANTS } from '../config/environment';
+import { ENV, CONSTANTS, getActiveBackendUrl } from '../config/environment';
 
 export class StoflowAPI {
-  private static get baseUrl(): string {
-    return ENV.BACKEND_URL;
+  /**
+   * Récupère l'URL backend active (localhost ou production)
+   */
+  private static async getBaseUrl(): Promise<string> {
+    return await getActiveBackendUrl();
   }
 
   /**
@@ -39,7 +42,8 @@ export class StoflowAPI {
         return { success: false, error: 'no_refresh_token' };
       }
 
-      const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -122,11 +126,12 @@ export class StoflowAPI {
   static async syncVintedUser(userId: string, login: string): Promise<any> {
     try {
       const token = await this.getToken();
+      const baseUrl = await this.getBaseUrl();
 
       APILogger.debug('[StoflowAPI] Synchronisation utilisateur Vinted...');
       APILogger.debug('[StoflowAPI] User ID:', userId, 'Login:', login);
 
-      const response = await fetch(`${this.baseUrl}/api/vinted/connect`, {
+      const response = await fetch(`${baseUrl}/api/vinted/connect`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -159,8 +164,9 @@ export class StoflowAPI {
   static async getVintedConnectionStatus(): Promise<any> {
     try {
       const token = await this.getToken();
+      const baseUrl = await this.getBaseUrl();
 
-      const response = await fetch(`${this.baseUrl}/api/vinted/status`, {
+      const response = await fetch(`${baseUrl}/api/vinted/status`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -186,7 +192,8 @@ export class StoflowAPI {
    */
   static async getPendingTasks(): Promise<any[]> {
     try {
-      const response = await this.fetchWithAuth(`${this.baseUrl}/api/plugin/tasks/pending`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await this.fetchWithAuth(`${baseUrl}/api/plugin/tasks/pending`, {
         method: 'GET'
       });
 
@@ -224,8 +231,9 @@ export class StoflowAPI {
     const clientTimeout = setTimeout(() => controller.abort(), (timeout + 5) * 1000);
 
     try {
+      const baseUrl = await this.getBaseUrl();
       const response = await this.fetchWithAuth(
-        `${this.baseUrl}/api/plugin/tasks?timeout=${timeout}`,
+        `${baseUrl}/api/plugin/tasks?timeout=${timeout}`,
         {
           method: 'GET',
           signal: controller.signal
@@ -288,7 +296,8 @@ export class StoflowAPI {
     try {
       APILogger.debug('[StoflowAPI] Notification de déconnexion Vinted...');
 
-      const response = await this.fetchWithAuth(`${this.baseUrl}/api/vinted/notify-disconnect`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await this.fetchWithAuth(`${baseUrl}/api/vinted/notify-disconnect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -316,7 +325,8 @@ export class StoflowAPI {
     try {
       APILogger.debug(`[StoflowAPI] Envoi résultat tâche ${taskId}...`);
 
-      const response = await this.fetchWithAuth(`${this.baseUrl}/api/plugin/tasks/${taskId}/result`, {
+      const baseUrl = await this.getBaseUrl();
+      const response = await this.fetchWithAuth(`${baseUrl}/api/plugin/tasks/${taskId}/result`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
