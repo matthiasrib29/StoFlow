@@ -279,9 +279,15 @@ if settings.is_production:
         cors_origins = []  # Bloque tout si non configuré
 
     logger.info(f"🔒 CORS Production: origines autorisées = {cors_origins}")
+    # Regex pour autoriser les extensions de navigateur (Chrome/Firefox)
+    # Les extensions ont des origines comme chrome-extension://... ou moz-extension://...
+    extension_origin_regex = r"^(chrome-extension|moz-extension)://.*$"
+    logger.info(f"🔌 CORS Production: extensions autorisées via regex = {extension_origin_regex}")
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
+        allow_origin_regex=extension_origin_regex,
         allow_credentials=True,  # OK avec origines explicites
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],

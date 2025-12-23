@@ -101,14 +101,14 @@ export const useAuthStore = defineStore('auth', {
      * Inscription utilisateur via l'API FastAPI
      * Endpoint: POST /api/auth/register
      *
-     * Business rule (backend - Updated: 2024-12-08):
+     * Business rule (backend - Updated: 2025-12-23):
      * - Email doit être unique globalement
      * - Password min 12 caractères avec complexité (1 majuscule, 1 minuscule, 1 chiffre, 1 char spécial)
      * - Full_name min 1 caractère, max 255
      * - Onboarding: business_name, account_type, business_type, estimated_products
      * - Si account_type = 'professional': siret et vat_number peuvent être fournis
      * - Crée automatiquement un schema PostgreSQL user_{id} pour isolation
-     * - Tier de départ: "starter"
+     * - L'utilisateur doit vérifier son email avant de pouvoir se connecter
      */
     async register(registerData: RegisterData | { email: string, password: string, full_name: string }) {
       this.isLoading = true
@@ -138,53 +138,18 @@ export const useAuthStore = defineStore('auth', {
           throw new Error(error.detail || 'Erreur lors de l\'inscription')
         }
 
-        const data: AuthResponse = await response.json()
+        const data = await response.json()
 
-        // Créer l'objet User depuis la réponse et les données envoyées
-        const user: User = {
-          id: data.user_id,
-          email: requestData.email,
-          full_name: requestData.full_name || requestData.fullName,
-          role: data.role as 'user' | 'admin',
-          subscription_tier: data.subscription_tier as User['subscription_tier'],
-          // Onboarding fields
-          business_name: requestData.business_name,
-          account_type: requestData.account_type || 'individual',
-          business_type: requestData.business_type,
-          estimated_products: requestData.estimated_products,
-          // Professional fields
-          siret: requestData.siret,
-          vat_number: requestData.vat_number,
-          // Contact
-          phone: requestData.phone,
-          country: requestData.country || 'FR',
-          language: requestData.language || 'fr'
+        // Le backend ne retourne plus de tokens
+        // L'utilisateur doit d'abord vérifier son email
+        authLogger.info('Registration successful, email verification required')
+
+        return {
+          success: true,
+          requiresVerification: true,
+          email: data.email || requestData.email,
+          message: data.message
         }
-
-        // Stocker dans le state
-        this.user = user
-        this.token = data.access_token
-        this.refreshToken = data.refresh_token
-        this.isAuthenticated = true
-
-        // Store in secure storage
-        if (import.meta.client) {
-          setAuthData({
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            user,
-            expiresInSeconds: 3600 // 1 hour default
-          })
-
-          // Synchroniser avec le plugin navigateur (SSO)
-          try {
-            syncTokenToPlugin(data.access_token, data.refresh_token)
-          } catch (error) {
-            authLogger.debug('Plugin not available:', error)
-          }
-        }
-
-        return { success: true }
       } catch (error: any) {
         this.error = error.message || 'Erreur lors de l\'inscription'
         throw error

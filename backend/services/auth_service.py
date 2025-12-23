@@ -318,45 +318,68 @@ class AuthService:
     EMAIL_VERIFICATION_EXPIRES_HOURS = 24
 
     @staticmethod
+    def _hash_token(token: str) -> str:
+        """Hash a token using SHA-256 for secure storage."""
+        import hashlib
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    @staticmethod
     def generate_email_verification_token(user: User, db: Session) -> str:
         """
         Génère un token de vérification email pour un utilisateur.
+
+        Security: Le token est hashé (SHA-256) avant stockage en DB.
+        Seul le hash est stocké, pas le token en clair.
 
         Args:
             user: Utilisateur pour lequel générer le token
             db: Session SQLAlchemy
 
         Returns:
-            Token de vérification (32 bytes en URL-safe base64)
+            Token de vérification (32 bytes en URL-safe base64) - envoyé par email
         """
+        # Générer un token aléatoire fort
         token = secrets.token_urlsafe(32)
-        user.email_verification_token = token
+
+        # Stocker le HASH du token (pas le token en clair)
+        token_hash = AuthService._hash_token(token)
+        user.email_verification_token = token_hash
         user.email_verification_expires = utc_now() + timedelta(
             hours=AuthService.EMAIL_VERIFICATION_EXPIRES_HOURS
         )
         db.commit()
 
         logger.info(f"Email verification token generated: user_id={user.id}")
-        return token
+        return token  # Retourner le token original (envoyé par email)
 
     @staticmethod
     def verify_email_token(db: Session, token: str) -> Optional[User]:
         """
         Vérifie un token de vérification email et marque l'email comme vérifié.
 
+        Security: Le token fourni est hashé puis comparé au hash stocké en DB.
+
         Args:
             db: Session SQLAlchemy
-            token: Token de vérification
+            token: Token de vérification (reçu par email)
 
         Returns:
             User si token valide, None sinon
         """
+        # Hasher le token fourni pour comparaison
+        token_hash = AuthService._hash_token(token)
+
         user = db.query(User).filter(
-            User.email_verification_token == token
+            User.email_verification_token == token_hash
         ).first()
 
         if not user:
-            logger.warning(f"Email verification failed: token_not_found")
+            logger.warning("Email verification failed: token_not_found")
+            return None
+
+        # Vérifier que l'email n'est pas déjà vérifié (token déjà utilisé)
+        if user.email_verified:
+            logger.warning(f"Email verification failed: already_verified, user_id={user.id}")
             return None
 
         # Vérifier expiration
@@ -370,7 +393,7 @@ class AuthService:
         user.email_verification_expires = None
         db.commit()
 
-        logger.info(f"Email verified: user_id={user.id}, email={user.email}")
+        logger.info(f"Email verified: user_id={user.id}")
         return user
 
     @staticmethod

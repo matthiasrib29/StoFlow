@@ -297,10 +297,13 @@ const handleRegister = async () => {
       registerData.vat_number = vatNumber.value || undefined
     }
 
-    await authStore.register(registerData)
+    const result = await authStore.register(registerData)
 
-    showSuccess('Compte créé', 'Bienvenue sur Stoflow !')
-    router.push('/dashboard')
+    // Rediriger vers la page de vérification d'email
+    if (result.requiresVerification) {
+      showSuccess('Compte créé', 'Vérifiez votre boîte email pour activer votre compte')
+      router.push(`/auth/check-email?email=${encodeURIComponent(result.email)}`)
+    }
   } catch (error: any) {
     showError('Erreur', error.message || 'Impossible de créer le compte')
   }
