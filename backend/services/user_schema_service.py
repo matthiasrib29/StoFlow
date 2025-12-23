@@ -5,12 +5,13 @@ Service pour gérer la création automatique des schemas user_X et leurs tables.
 
 Business Rules (2025-12-08):
 - Chaque user doit avoir son propre schema PostgreSQL (user_{id})
-- Le schema contient 6 tables isolées par user
+- Le schema est cloné depuis template_tenant
 - Création automatique lors de l'enregistrement d'un user
 
 Author: Claude
 Date: 2025-12-08
 Updated: 2025-12-11 - Added specific exception handling
+Updated: 2025-12-22 - Fixed to use template_tenant instead of public schema
 """
 import logging
 
@@ -27,74 +28,38 @@ logger = logging.getLogger(__name__)
 class UserSchemaService:
     """Service pour gérer les schemas utilisateur."""
 
-    # Tables à créer dans chaque schema user_X
-    SCHEMA_TABLES = {
-        "products": """
-            CREATE TABLE IF NOT EXISTS {schema}.products (
-                LIKE public.products INCLUDING ALL
-            )
-        """,
-        "product_images": """
-            CREATE TABLE IF NOT EXISTS {schema}.product_images (
-                LIKE public.product_images INCLUDING ALL
-            )
-        """,
-        "vinted_products": """
-            CREATE TABLE IF NOT EXISTS {schema}.vinted_products (
-                LIKE public.vinted_products INCLUDING ALL
-            )
-        """,
-        "ai_generation_logs": """
-            CREATE TABLE IF NOT EXISTS {schema}.ai_generation_logs (
-                LIKE public.ai_generation_logs INCLUDING ALL
-            )
-        """,
-        "publication_history": """
-            CREATE TABLE IF NOT EXISTS {schema}.publication_history (
-                LIKE public.publication_history INCLUDING ALL
-            )
-        """,
-        "plugin_tasks": """
-            CREATE TABLE IF NOT EXISTS {schema}.plugin_tasks (
-                id SERIAL PRIMARY KEY,
-                task_type VARCHAR(100),
-                status VARCHAR(20) NOT NULL DEFAULT 'pending',
-                payload JSONB NOT NULL DEFAULT '{}',
-                result JSONB,
-                error_message TEXT,
-                product_id INTEGER,
-                platform VARCHAR(50),
-                http_method VARCHAR(10),
-                path VARCHAR(500),
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-                started_at TIMESTAMP WITH TIME ZONE,
-                completed_at TIMESTAMP WITH TIME ZONE,
-                retry_count INTEGER DEFAULT 0 NOT NULL,
-                max_retries INTEGER DEFAULT 3 NOT NULL
-            )
-        """,
-        "vinted_connection": """
-            CREATE TABLE IF NOT EXISTS {schema}.vinted_connection (
-                vinted_user_id INTEGER PRIMARY KEY,
-                login VARCHAR(255) NOT NULL,
-                is_connected BOOLEAN NOT NULL DEFAULT TRUE,
-                user_id INTEGER NOT NULL,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-                last_sync TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-                disconnected_at TIMESTAMP WITH TIME ZONE
-            )
-        """
-    }
+    # Tables à créer dans chaque schema user_X (copiées depuis template_tenant)
+    # L'ordre est important pour respecter les dépendances de foreign keys
+    SCHEMA_TABLES = [
+        "products",
+        "product_images",
+        "vinted_products",
+        "ai_generation_logs",
+        "publication_history",
+        "plugin_tasks",
+        "vinted_connection",
+        "vinted_credentials",
+        "vinted_jobs",
+        "vinted_job_stats",
+        "vinted_conversations",
+        "vinted_messages",
+        "vinted_error_logs",
+        "ebay_credentials",
+        "ebay_products",
+        "ebay_products_marketplace",
+        "ebay_orders",
+        "ebay_orders_products",
+        "ebay_promoted_listings",
+    ]
 
     @classmethod
     def create_user_schema(cls, db: Session, user_id: int) -> str:
         """
-        Crée le schema PostgreSQL pour un utilisateur et toutes ses tables.
+        Crée le schema PostgreSQL pour un utilisateur en clonant template_tenant.
 
-        Business Rules (Updated 2025-12-09):
+        Business Rules (Updated 2025-12-22):
         - Schema nommé user_{id}
-        - Contient 6 tables isolées
-        - ID auto-incrémenté pour les produits (PostgreSQL SERIAL)
+        - Clone toutes les tables depuis template_tenant
         - Idempotent (ne fait rien si le schema existe)
 
         Args:
@@ -105,7 +70,7 @@ class UserSchemaService:
             str: Nom du schema créé (user_{id})
 
         Raises:
-            Exception: Si erreur lors de la création
+            SchemaCreationError: Si erreur lors de la création
         """
         schema_name = f"user_{user_id}"
 
@@ -114,11 +79,32 @@ class UserSchemaService:
             db.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
             db.commit()
 
-            # 2. Créer toutes les tables
-            for table_name, create_sql in cls.SCHEMA_TABLES.items():
-                sql = create_sql.format(schema=schema_name)
-                db.execute(text(sql))
-                db.commit()
+            # 2. Créer toutes les tables en les clonant depuis template_tenant
+            for table_name in cls.SCHEMA_TABLES:
+                # Vérifier si la table existe dans template_tenant
+                check_sql = text("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.tables
+                        WHERE table_schema = 'template_tenant'
+                        AND table_name = :table_name
+                    )
+                """)
+                result = db.execute(check_sql, {"table_name": table_name})
+                table_exists = result.scalar()
+
+                if table_exists:
+                    # Cloner la table depuis template_tenant
+                    create_sql = f"""
+                        CREATE TABLE IF NOT EXISTS {schema_name}.{table_name} (
+                            LIKE template_tenant.{table_name} INCLUDING ALL
+                        )
+                    """
+                    db.execute(text(create_sql))
+                    db.commit()
+                else:
+                    logger.warning(
+                        f"Table template_tenant.{table_name} not found, skipping"
+                    )
 
             logger.info(f"Schema {schema_name} created successfully")
             return schema_name
@@ -212,7 +198,7 @@ class UserSchemaService:
                 "schema_exists": False,
                 "schema_name": schema_name,
                 "tables": [],
-                "missing_tables": list(cls.SCHEMA_TABLES.keys()),
+                "missing_tables": cls.SCHEMA_TABLES,
                 "is_complete": False
             }
 
@@ -227,7 +213,7 @@ class UserSchemaService:
         existing_tables = [row[0] for row in result.fetchall()]
 
         # Tables manquantes
-        expected_tables = set(cls.SCHEMA_TABLES.keys())
+        expected_tables = set(cls.SCHEMA_TABLES)
         actual_tables = set(existing_tables)
         missing_tables = expected_tables - actual_tables
 
