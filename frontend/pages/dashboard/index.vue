@@ -1,70 +1,68 @@
 <template>
   <div class="modern-dashboard min-h-screen">
     <!-- Main Content -->
-    <div class="dashboard-content p-8">
+    <div class="dashboard-content p-4 lg:p-8">
       <!-- Header -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between mb-2">
-          <h1 class="text-3xl font-bold text-secondary-900">Tableau de bord</h1>
-          <div class="flex items-center gap-3">
-            <span class="text-sm text-gray-500">{{ currentDate }}</span>
-          </div>
+      <div class="mb-6 lg:mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+          <h1 class="text-2xl lg:text-3xl font-bold text-secondary-900">Tableau de bord</h1>
+          <span class="text-sm text-gray-500">{{ currentDate }}</span>
         </div>
-        <p class="text-gray-600">Bienvenue, {{ authStore.user?.full_name }}</p>
+        <p class="text-gray-600 text-sm lg:text-base">Bienvenue, {{ authStore.user?.full_name }}</p>
       </div>
 
       <!-- Stats Cards with modern style -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 stagger-grid-fast">
-        <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
-          <div class="flex items-center justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-              <i class="pi pi-box text-primary-500 text-xl"/>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6 lg:mb-8 stagger-grid-fast">
+        <div class="stat-card bg-white rounded-2xl p-4 lg:p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
+          <div class="flex items-center justify-between mb-3 lg:mb-4">
+            <div class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-primary-100 flex items-center justify-center">
+              <i class="pi pi-box text-primary-500 text-lg lg:text-xl"/>
             </div>
-            <span class="text-xs font-semibold text-primary-500 bg-primary-50 px-3 py-1 rounded-full">+12%</span>
+            <span class="text-xs font-semibold text-primary-500 bg-primary-50 px-2 lg:px-3 py-1 rounded-full hidden sm:inline">+12%</span>
           </div>
-          <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ animatedTotalProducts }}</h3>
-          <p class="text-sm text-gray-600">Total Produits</p>
+          <h3 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">{{ animatedTotalProducts }}</h3>
+          <p class="text-xs lg:text-sm text-gray-600">Total Produits</p>
         </div>
 
-        <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
-          <div class="flex items-center justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-              <i class="pi pi-send text-secondary-700 text-xl"/>
+        <div class="stat-card bg-white rounded-2xl p-4 lg:p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
+          <div class="flex items-center justify-between mb-3 lg:mb-4">
+            <div class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
+              <i class="pi pi-send text-secondary-700 text-lg lg:text-xl"/>
             </div>
-            <span class="text-xs font-semibold text-secondary-700 bg-secondary-50 px-3 py-1 rounded-full">Live</span>
+            <span class="text-xs font-semibold text-secondary-700 bg-secondary-50 px-2 lg:px-3 py-1 rounded-full hidden sm:inline">Live</span>
           </div>
-          <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ animatedActivePublications }}</h3>
-          <p class="text-sm text-gray-600">Publications actives</p>
+          <h3 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">{{ animatedActivePublications }}</h3>
+          <p class="text-xs lg:text-sm text-gray-600">Publications</p>
         </div>
 
-        <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
-          <div class="flex items-center justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-              <i class="pi pi-check-circle text-primary-500 text-xl"/>
+        <div class="stat-card bg-white rounded-2xl p-4 lg:p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
+          <div class="flex items-center justify-between mb-3 lg:mb-4">
+            <div class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-primary-100 flex items-center justify-center">
+              <i class="pi pi-check-circle text-primary-500 text-lg lg:text-xl"/>
             </div>
-            <span class="text-xs font-semibold text-primary-500 bg-primary-50 px-3 py-1 rounded-full">+8%</span>
+            <span class="text-xs font-semibold text-primary-500 bg-primary-50 px-2 lg:px-3 py-1 rounded-full hidden sm:inline">+8%</span>
           </div>
-          <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ animatedSoldPublications }}</h3>
-          <p class="text-sm text-gray-600">Produits vendus</p>
+          <h3 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">{{ animatedSoldPublications }}</h3>
+          <p class="text-xs lg:text-sm text-gray-600">Vendus</p>
         </div>
 
-        <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
-          <div class="flex items-center justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-              <i class="pi pi-link text-secondary-700 text-xl"/>
+        <div class="stat-card bg-white rounded-2xl p-4 lg:p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
+          <div class="flex items-center justify-between mb-3 lg:mb-4">
+            <div class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
+              <i class="pi pi-link text-secondary-700 text-lg lg:text-xl"/>
             </div>
-            <span class="text-xs font-semibold text-secondary-700 bg-secondary-50 px-3 py-1 rounded-full">{{ publicationsStore.connectedIntegrations.length }}/4</span>
+            <span class="text-xs font-semibold text-secondary-700 bg-secondary-50 px-2 lg:px-3 py-1 rounded-full hidden sm:inline">{{ publicationsStore.connectedIntegrations.length }}/4</span>
           </div>
-          <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ animatedConnectedIntegrations }}</h3>
-          <p class="text-sm text-gray-600">Intégrations actives</p>
+          <h3 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">{{ animatedConnectedIntegrations }}</h3>
+          <p class="text-xs lg:text-sm text-gray-600">Intégrations</p>
         </div>
       </div>
 
       <!-- Quick Actions -->
-      <DashboardQuickActions class="mb-8" />
+      <DashboardQuickActions class="mb-6 lg:mb-8" />
 
       <!-- Two Column Layout -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 lg:mb-8">
         <!-- Recent Activity -->
         <DashboardRecentActivity />
 

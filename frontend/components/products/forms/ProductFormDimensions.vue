@@ -5,7 +5,7 @@
       Dimensions (cm)
     </h3>
 
-    <div class="grid grid-cols-3 gap-3">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
       <div>
         <label for="dim1" class="block text-xs font-semibold mb-1 text-secondary-900">
           Tour de poitrine / Épaules

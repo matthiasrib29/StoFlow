@@ -1,7 +1,30 @@
 <template>
   <div class="min-h-screen bg-white">
+    <!-- Mobile Menu Overlay -->
+    <Transition
+      enter-active-class="transition-opacity duration-300"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-opacity duration-200"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="mobileMenuOpen"
+        class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+        @click="mobileMenuOpen = false"
+      />
+    </Transition>
+
     <!-- Modern Sidebar -->
-    <aside class="fixed left-0 top-0 h-full w-64 bg-white shadow-sm border-r border-gray-200 z-10">
+    <aside
+      :class="[
+        'fixed left-0 top-0 h-full w-64 bg-white shadow-sm border-r border-gray-200 z-50',
+        'transition-transform duration-300 ease-in-out',
+        'lg:translate-x-0 lg:z-10',
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+      ]"
+    >
       <!-- Logo & Tenant -->
       <div class="p-6 border-b border-gray-100">
         <h1 class="text-2xl font-bold text-secondary-900 mb-1">Stoflow</h1>
@@ -355,11 +378,18 @@
     </aside>
 
     <!-- Main content -->
-    <div class="ml-64 bg-white">
+    <div class="lg:ml-64 bg-white min-h-screen">
       <!-- Top Bar with Locale Selector -->
-      <div class="bg-white">
-        <div class="flex items-center justify-between px-8 py-3">
+      <div class="bg-white sticky top-0 z-30 border-b border-gray-100 lg:border-0">
+        <div class="flex items-center justify-between px-4 lg:px-8 py-3">
           <div class="flex items-center gap-4">
+            <!-- Mobile Menu Button -->
+            <button
+              class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
+              @click="mobileMenuOpen = true"
+            >
+              <i class="pi pi-bars text-xl text-gray-600" />
+            </button>
             <!-- Breadcrumb -->
             <nav class="flex items-center gap-2 text-sm">
               <NuxtLink
@@ -506,6 +536,9 @@ const disconnectPlatform = async (platform: PlatformCode) => {
     })
   }
 }
+
+// État du menu mobile
+const mobileMenuOpen = ref(false)
 
 // État des sous-menus
 const productsMenuOpen = ref(false)
@@ -674,7 +707,11 @@ onUnmounted(() => {
 })
 
 // Ouvrir automatiquement les menus si on est sur leurs routes
+// Et fermer le menu mobile à chaque navigation
 watch(() => route.path, (newPath) => {
+  // Fermer le menu mobile à chaque changement de route
+  mobileMenuOpen.value = false
+
   if (newPath.startsWith('/dashboard/products')) {
     productsMenuOpen.value = true
   }

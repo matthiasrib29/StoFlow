@@ -7,8 +7,8 @@
         Informations de base
       </h3>
 
-      <div class="grid grid-cols-2 gap-4">
-        <div class="col-span-2">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="md:col-span-2">
           <label for="title" class="block text-xs font-semibold mb-1 text-secondary-900">
             Titre du produit *
           </label>
@@ -27,7 +27,7 @@
           </small>
         </div>
 
-        <div class="col-span-2">
+        <div class="md:col-span-2">
           <label for="description" class="block text-xs font-semibold mb-1 text-secondary-900">
             Description *
           </label>
@@ -94,7 +94,7 @@
         Attributs obligatoires
       </h3>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label for="brand" class="block text-xs font-semibold mb-1 text-secondary-900">
             Marque *

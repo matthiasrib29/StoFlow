@@ -1,8 +1,16 @@
 <template>
   <div class="vinted-messages">
     <!-- Header with sync button -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
       <div class="flex items-center gap-3">
+        <!-- Mobile: Back button when viewing messages -->
+        <button
+          v-if="selectedConversationId && isMobileView"
+          class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100"
+          @click="selectedConversationId = null"
+        >
+          <i class="pi pi-arrow-left text-gray-600" />
+        </button>
         <h3 class="text-lg font-bold text-secondary-900">Messages Vinted</h3>
         <Badge
           v-if="messagesStore.unreadCount > 0"
@@ -10,23 +18,24 @@
           severity="danger"
         />
         <Badge
-          :value="`${messagesStore.totalConversations} conversation(s)`"
+          :value="`${messagesStore.totalConversations} conv.`"
           severity="info"
+          class="hidden sm:inline-flex"
         />
       </div>
       <div class="flex items-center gap-2">
-        <!-- Search -->
-        <IconField>
+        <!-- Search (hidden on mobile when viewing messages) -->
+        <IconField :class="{ 'hidden': selectedConversationId && isMobileView }" class="flex-1 sm:flex-none">
           <InputIcon class="pi pi-search" />
           <InputText
             v-model="searchQuery"
             placeholder="Rechercher..."
-            class="w-48"
+            class="w-full sm:w-48"
             @keyup.enter="handleSearch"
           />
         </IconField>
         <Button
-          label="Sync inbox"
+          label="Sync"
           icon="pi pi-sync"
           class="bg-cyan-500 hover:bg-cyan-600 text-white border-0"
           :loading="messagesStore.isSyncing"
@@ -62,10 +71,11 @@
       />
     </div>
 
-    <!-- Main content: 2 columns -->
-    <div class="grid grid-cols-12 gap-4 min-h-[600px]">
-      <!-- Left column: Conversations list -->
+    <!-- Main content: 2 columns on desktop, stacked on mobile -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[500px] lg:min-h-[600px]">
+      <!-- Left column: Conversations list (hidden on mobile when viewing messages) -->
       <ConversationsList
+        :class="{ 'hidden lg:flex': selectedConversationId }"
         :conversations="messagesStore.conversations"
         :selected-conversation-id="selectedConversationId"
         :show-unread-only="showUnreadOnly"
@@ -77,9 +87,10 @@
         @load-more="loadMoreConversations"
       />
 
-      <!-- Right column: Messages view -->
+      <!-- Right column: Messages view (hidden on mobile when no conversation selected) -->
       <MessagesView
         ref="messagesViewRef"
+        :class="{ 'hidden lg:flex': !selectedConversationId }"
         :conversation="messagesStore.currentConversation"
         :messages="messagesStore.currentMessages"
         :is-loading-messages="messagesStore.isLoadingMessages"
@@ -104,6 +115,23 @@ const selectedConversationId = ref<number | null>(null)
 const showUnreadOnly = ref(false)
 const searchQuery = ref('')
 const messagesViewRef = ref<InstanceType<typeof MessagesView> | null>(null)
+
+// Mobile view detection
+const isMobileView = ref(false)
+const updateMobileView = () => {
+  isMobileView.value = window.innerWidth < 1024 // lg breakpoint
+}
+
+if (import.meta.client) {
+  onMounted(() => {
+    updateMobileView()
+    window.addEventListener('resize', updateMobileView)
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', updateMobileView)
+  })
+}
 
 // Load conversations on mount
 onMounted(async () => {
