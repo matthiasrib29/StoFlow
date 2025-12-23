@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 1440
     password_hash_rounds: int = 12
 
+    # Encryption (for sensitive data at rest)
+    encryption_key: Optional[str] = Field(
+        default=None,
+        description="Fernet key for encrypting OAuth tokens. Generate with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+    )
+    encryption_key_previous: Optional[str] = Field(
+        default=None,
+        description="Previous encryption key for rotation support"
+    )
+
     # OpenAI
     openai_api_key: str
     openai_model: str = "gpt-4-turbo-preview"

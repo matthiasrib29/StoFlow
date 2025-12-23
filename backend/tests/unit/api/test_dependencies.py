@@ -6,10 +6,10 @@ Couverture:
 - require_admin / require_admin_or_support (autorisation par rôle)
 - _validate_schema_name (protection SQL injection)
 - get_user_db (isolation multi-tenant)
-- DEV_AUTH_BYPASS (sécurité mode dev)
 
 Author: Claude
 Date: 2025-12-18
+Updated: 2025-12-23 - Removed DEV_AUTH_BYPASS tests (feature removed for security)
 
 CRITIQUE: Ces tests couvrent la sécurité de l'authentification et l'isolation des données.
 """
@@ -141,7 +141,6 @@ class TestGetCurrentUser:
     """Tests pour la dependency get_current_user."""
 
     @patch('api.dependencies.AuthService')
-    @patch('api.dependencies.DEV_AUTH_BYPASS', False)
     def test_get_current_user_with_valid_token(self, mock_auth_service):
         """Test authentification avec token valide."""
         from api.dependencies import get_current_user
@@ -159,14 +158,12 @@ class TestGetCurrentUser:
 
         result = get_current_user(
             credentials=mock_credentials,
-            db=mock_db,
-            x_dev_user_id=None
+            db=mock_db
         )
 
         assert result.id == 1
 
     @patch('api.dependencies.AuthService')
-    @patch('api.dependencies.DEV_AUTH_BYPASS', False)
     def test_get_current_user_with_missing_token_raises_401(self, mock_auth_service):
         """Test que l'absence de token lève une 401."""
         from api.dependencies import get_current_user
@@ -174,13 +171,12 @@ class TestGetCurrentUser:
         mock_db = Mock()
 
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(credentials=None, db=mock_db, x_dev_user_id=None)
+            get_current_user(credentials=None, db=mock_db)
 
         assert exc_info.value.status_code == 401
         assert "Token manquant" in exc_info.value.detail
 
     @patch('api.dependencies.AuthService')
-    @patch('api.dependencies.DEV_AUTH_BYPASS', False)
     def test_get_current_user_with_invalid_token_raises_401(self, mock_auth_service):
         """Test qu'un token invalide lève une 401."""
         from api.dependencies import get_current_user
@@ -192,13 +188,12 @@ class TestGetCurrentUser:
         mock_auth_service.verify_token.return_value = None  # Token invalide
 
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(credentials=mock_credentials, db=mock_db, x_dev_user_id=None)
+            get_current_user(credentials=mock_credentials, db=mock_db)
 
         assert exc_info.value.status_code == 401
         assert "invalide" in exc_info.value.detail.lower()
 
     @patch('api.dependencies.AuthService')
-    @patch('api.dependencies.DEV_AUTH_BYPASS', False)
     def test_get_current_user_with_inactive_user_raises_401(self, mock_auth_service):
         """Test qu'un utilisateur inactif lève une 401."""
         from api.dependencies import get_current_user
@@ -215,13 +210,12 @@ class TestGetCurrentUser:
         mock_db.query.return_value.filter.return_value.first.return_value = mock_user
 
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(credentials=mock_credentials, db=mock_db, x_dev_user_id=None)
+            get_current_user(credentials=mock_credentials, db=mock_db)
 
         assert exc_info.value.status_code == 401
         assert "desactiv" in exc_info.value.detail.lower()
 
     @patch('api.dependencies.AuthService')
-    @patch('api.dependencies.DEV_AUTH_BYPASS', False)
     def test_get_current_user_with_user_not_found_raises_401(self, mock_auth_service):
         """Test qu'un utilisateur non trouvé lève une 401."""
         from api.dependencies import get_current_user
@@ -234,59 +228,9 @@ class TestGetCurrentUser:
         mock_db.query.return_value.filter.return_value.first.return_value = None  # User not found
 
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(credentials=mock_credentials, db=mock_db, x_dev_user_id=None)
+            get_current_user(credentials=mock_credentials, db=mock_db)
 
         assert exc_info.value.status_code == 401
-
-
-# ============================================================================
-# DEV_AUTH_BYPASS TESTS
-# ============================================================================
-
-class TestDevAuthBypass:
-    """
-    Tests du mode DEV_AUTH_BYPASS.
-
-    CRITIQUE: Ces tests vérifient que le bypass est bien désactivé en production.
-    """
-
-    @patch('api.dependencies.settings')
-    def test_dev_auth_bypass_disabled_in_production(self, mock_settings):
-        """
-        Test CRITIQUE: DEV_AUTH_BYPASS doit être désactivé en production.
-
-        Même si la variable d'environnement est définie, le code doit
-        désactiver le bypass en production.
-        """
-        mock_settings.is_production = True
-
-        # Simuler le chargement du module avec les settings de production
-        # Ce test vérifie la logique de sécurité au chargement du module
-        import importlib
-        import api.dependencies
-
-        # En production, DEV_AUTH_BYPASS doit toujours être False
-        # (vérifié par le code au chargement du module)
-        # Si le module est déjà chargé, on vérifie juste la logique
-
-        # La logique est:
-        # if _dev_auth_bypass_env and settings.is_production:
-        #     DEV_AUTH_BYPASS = False
-
-        # Ce test passe si le code de sécurité est bien en place
-        assert True  # Le code de protection est vérifié par inspection
-
-    def test_dev_auth_bypass_schema_name_pattern(self):
-        """Test que le pattern SCHEMA_NAME_PATTERN bloque les injections."""
-        from api.dependencies import SCHEMA_NAME_PATTERN
-
-        # Le bypass ne doit pas permettre d'injection via X-Dev-User-Id
-        # car l'ID doit être un entier qui est ensuite converti en schema_name
-        # Le pattern vérifie user_<int>
-
-        # Vérifier que seuls les entiers positifs sont acceptés via le pattern
-        assert SCHEMA_NAME_PATTERN.match("user_1")
-        assert not SCHEMA_NAME_PATTERN.match("user_; DROP TABLE users;")
 
 
 # ============================================================================

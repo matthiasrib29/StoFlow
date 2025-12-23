@@ -271,7 +271,7 @@ if settings.is_production:
         allow_origins=cors_origins,
         allow_credentials=True,  # OK avec origines explicites
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Dev-User-Id"],
+        allow_headers=["Authorization", "Content-Type"],
         expose_headers=["X-Total-Count"],
     )
 else:

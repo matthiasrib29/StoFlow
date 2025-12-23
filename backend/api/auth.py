@@ -16,7 +16,7 @@ from services.auth_service import AuthService
 from services.user_schema_service import UserSchemaService
 from shared.database import get_db
 from shared.logging_setup import get_logger
-from shared.security_utils import redact_password
+from shared.security_utils import redact_email, redact_password
 
 logger = get_logger(__name__)
 
@@ -153,11 +153,13 @@ def register(
         HTTPException: 400 si email déjà utilisé ou erreur de création
     """
     # Vérifier que l'email n'existe pas déjà
+    # Security (2025-12-23): Message générique pour éviter énumération d'emails
     existing_user = db.query(User).filter(User.email == registration.email).first()
     if existing_user:
+        logger.warning(f"Registration attempt with existing email: {redact_email(registration.email)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Un compte avec l'email '{registration.email}' existe déjà",
+            detail="Impossible de créer le compte. Vérifiez vos informations ou contactez le support.",
         )
 
     try:
