@@ -7,6 +7,7 @@
  * - Redirecting authenticated users away from login/register pages
  * - Token validation before allowing access
  */
+import { authLogger } from '~/utils/logger'
 
 export default defineNuxtRouteMiddleware((to, from) => {
   // Skip middleware on server-side (no localStorage)
@@ -33,7 +34,7 @@ export default defineNuxtRouteMiddleware((to, from) => {
 
   // Case 1: User is NOT authenticated and trying to access protected route
   if (isProtectedRoute && !authStore.isAuthenticated) {
-    console.log('[Auth Middleware] Unauthenticated user trying to access protected route, redirecting to login')
+    authLogger.debug('Unauthenticated access to protected route, redirecting to login')
 
     // Store the intended destination for redirect after login
     if (import.meta.client) {
@@ -45,7 +46,7 @@ export default defineNuxtRouteMiddleware((to, from) => {
 
   // Case 2: User IS authenticated and trying to access login/register
   if ((to.path === '/login' || to.path === '/register') && authStore.isAuthenticated) {
-    console.log('[Auth Middleware] Authenticated user on login/register, redirecting to dashboard')
+    authLogger.debug('Authenticated user on auth page, redirecting to dashboard')
 
     // Check if there's a stored redirect destination
     if (import.meta.client) {
@@ -67,10 +68,10 @@ export default defineNuxtRouteMiddleware((to, from) => {
 
     if (token && willExpireSoon(token, 2)) {
       // Token expires in less than 2 minutes, try to refresh
-      console.log('[Auth Middleware] Token expiring soon, triggering refresh')
+      authLogger.debug('Token expiring soon, triggering refresh')
       authStore.refreshAccessToken().catch(() => {
         // If refresh fails, the store will logout and we redirect
-        console.log('[Auth Middleware] Token refresh failed')
+        authLogger.warn('Token refresh failed')
       })
     }
   }

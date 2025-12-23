@@ -41,12 +41,15 @@
 </template>
 
 <script setup lang="ts">
+import { oauthLogger } from '~/utils/logger'
+
 definePageMeta({
   layout: false
 })
 
 const route = useRoute()
 const ebayStore = useEbayStore()
+const { validateState, clearState } = useEbayOAuth()
 
 const isProcessing = ref(true)
 const isSuccess = ref(false)
@@ -54,16 +57,36 @@ const error = ref<string | null>(null)
 
 const processCallback = async () => {
   const code = route.query.code as string
+  const state = route.query.state as string
   const errorParam = route.query.error as string
 
+  // Handle OAuth error from eBay
   if (errorParam) {
+    clearState()
     error.value = route.query.error_description as string || 'Connexion refusée par l\'utilisateur'
     isProcessing.value = false
     return
   }
 
+  // SECURITY: Validate state parameter to prevent CSRF attacks
+  if (!validateState(state)) {
+    oauthLogger.error('OAuth state validation failed')
+    error.value = 'Erreur de sécurité : session invalide. Veuillez réessayer.'
+    isProcessing.value = false
+    return
+  }
+
+  // Validate authorization code
   if (!code) {
     error.value = 'Code d\'autorisation manquant'
+    isProcessing.value = false
+    return
+  }
+
+  // Validate code format (alphanumeric with common OAuth characters)
+  if (!/^[a-zA-Z0-9_\-\.]+$/.test(code)) {
+    oauthLogger.warn('Invalid authorization code format')
+    error.value = 'Code d\'autorisation invalide'
     isProcessing.value = false
     return
   }

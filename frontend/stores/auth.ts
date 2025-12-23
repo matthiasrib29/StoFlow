@@ -1,6 +1,17 @@
 import { defineStore } from 'pinia'
 import { syncTokenToPlugin, syncLogoutToPlugin } from '~/composables/usePluginSync'
 import { useTokenValidator } from '~/composables/useTokenValidator'
+import {
+  setAuthData,
+  getAuthData,
+  clearTokens,
+  setAccessToken,
+  getAccessToken,
+  getRefreshToken,
+  setStorageConfig,
+  recordActivity
+} from '~/utils/secureStorage'
+import { authLogger } from '~/utils/logger'
 
 /**
  * Interface User basée sur le backend FastAPI
@@ -156,17 +167,20 @@ export const useAuthStore = defineStore('auth', {
         this.refreshToken = data.refresh_token
         this.isAuthenticated = true
 
-        // Stocker dans localStorage
+        // Store in secure storage
         if (import.meta.client) {
-          localStorage.setItem('token', data.access_token)
-          localStorage.setItem('refresh_token', data.refresh_token)
-          localStorage.setItem('user', JSON.stringify(user))
+          setAuthData({
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token,
+            user,
+            expiresInSeconds: 3600 // 1 hour default
+          })
 
           // Synchroniser avec le plugin navigateur (SSO)
           try {
             syncTokenToPlugin(data.access_token, data.refresh_token)
           } catch (error) {
-            console.log('Plugin non disponible:', error)
+            authLogger.debug('Plugin not available:', error)
           }
         }
 
@@ -236,17 +250,20 @@ export const useAuthStore = defineStore('auth', {
         this.refreshToken = data.refresh_token
         this.isAuthenticated = true
 
-        // Stocker dans localStorage
+        // Store in secure storage
         if (import.meta.client) {
-          localStorage.setItem('token', data.access_token)
-          localStorage.setItem('refresh_token', data.refresh_token)
-          localStorage.setItem('user', JSON.stringify(user))
+          setAuthData({
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token,
+            user,
+            expiresInSeconds: 3600 // 1 hour default
+          })
 
           // Synchroniser avec le plugin navigateur (SSO)
           try {
             syncTokenToPlugin(data.access_token, data.refresh_token)
           } catch (error) {
-            console.log('Plugin non disponible:', error)
+            authLogger.debug('Plugin not available:', error)
           }
         }
 
@@ -270,73 +287,71 @@ export const useAuthStore = defineStore('auth', {
       this.error = null
 
       if (import.meta.client) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('user')
+        // Clear all tokens from secure storage
+        clearTokens()
 
         // Synchroniser la déconnexion avec le plugin navigateur (SSO)
         try {
           syncLogoutToPlugin()
         } catch (error) {
-          console.log('Plugin non disponible lors du logout:', error)
+          authLogger.debug('Plugin not available on logout:', error)
         }
       }
     },
 
     /**
-     * Charger la session depuis localStorage
+     * Charger la session depuis secure storage
      * Appelé au démarrage de l'app pour restaurer la session
      *
      * Security: Validates tokens before restoring session
      */
     loadFromStorage() {
       if (import.meta.client) {
-        const { validateStoredTokens, isTokenExpired, willExpireSoon } = useTokenValidator()
+        const { validateStoredTokens, willExpireSoon } = useTokenValidator()
 
         // Validate stored tokens first
         const { accessValid, refreshValid } = validateStoredTokens()
 
         if (!refreshValid) {
           // No valid refresh token = cannot restore session
-          console.log('🔒 [AUTH] No valid refresh token, session not restored')
+          authLogger.debug('No valid refresh token, session not restored')
           this.logout()
           return
         }
 
-        const token = localStorage.getItem('token')
-        const refreshToken = localStorage.getItem('refresh_token')
-        const userStr = localStorage.getItem('user')
+        // Get auth data from secure storage
+        const { accessToken, refreshToken, user } = getAuthData()
 
-        if (refreshToken && userStr) {
+        if (refreshToken && user) {
           try {
-            this.user = JSON.parse(userStr)
+            this.user = user as User
             this.refreshToken = refreshToken
             this.isAuthenticated = true
 
-            if (accessValid && token) {
-              this.token = token
+            if (accessValid && accessToken) {
+              this.token = accessToken
 
               // Check if token will expire soon (within 5 minutes)
-              if (willExpireSoon(token, 5)) {
-                console.log('🔄 [AUTH] Token expiring soon, refreshing...')
+              if (willExpireSoon(accessToken, 5)) {
+                authLogger.debug('Token expiring soon, refreshing...')
                 this.refreshAccessToken()
               }
             } else {
               // Access token invalid/expired but refresh token valid
               // Attempt to get a new access token
-              console.log('🔄 [AUTH] Access token expired, refreshing...')
+              authLogger.debug('Access token expired, refreshing...')
               this.refreshAccessToken()
             }
 
             // Synchroniser avec le plugin navigateur (SSO) si utilisateur déjà connecté
-            console.log('🔄 [AUTH] Session restaurée, sync avec plugin...')
+            authLogger.debug('Session restored, syncing with plugin...')
             try {
               syncTokenToPlugin(this.token || '', refreshToken)
             } catch (error) {
-              console.log('Plugin non disponible lors du loadFromStorage:', error)
+              authLogger.debug('Plugin not available on loadFromStorage:', error)
             }
           } catch (error) {
-            console.error('Erreur chargement session:', error)
+            authLogger.error('Error loading session:', error)
             this.logout()
           }
         }
@@ -385,19 +400,20 @@ export const useAuthStore = defineStore('auth', {
         this.token = data.access_token
 
         if (import.meta.client) {
-          localStorage.setItem('token', data.access_token)
+          // Update access token in secure storage
+          setAccessToken(data.access_token, 3600) // 1 hour default
 
           // Synchroniser avec le plugin navigateur (SSO)
           try {
             syncTokenToPlugin(data.access_token, this.refreshToken)
           } catch (error) {
-            console.log('Plugin non disponible:', error)
+            authLogger.debug('Plugin not available:', error)
           }
         }
 
         return true
       } catch (error) {
-        console.error('Erreur refresh token:', error)
+        authLogger.error('Token refresh error:', error)
         this.logout()
         return false
       }
