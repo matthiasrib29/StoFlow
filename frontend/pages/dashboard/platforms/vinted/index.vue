@@ -170,7 +170,7 @@
         </Card>
 
         <!-- Message si non connecté -->
-        <Card v-else class="shadow-sm modern-rounded border border-gray-100">
+        <Card v-if="!isConnected" class="shadow-sm modern-rounded border border-gray-100">
           <template #content>
             <div class="text-center py-8">
               <i class="pi pi-link text-gray-300 text-6xl mb-4"/>
