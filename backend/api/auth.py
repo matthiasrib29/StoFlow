@@ -73,6 +73,14 @@ async def login(
             detail="Email ou mot de passe incorrect, ou compte inactif",
         )
 
+    # Vérifier que l'email est confirmé
+    if not user.email_verified:
+        logger.warning(f"Login attempt with unverified email: {redact_email(user.email)}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte de réception.",
+        )
+
     # Générer les tokens
     access_token = AuthService.create_access_token(
         user_id=user.id,
@@ -127,28 +135,29 @@ def refresh_token(
     return RefreshResponse(**result)
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
     registration: RegisterRequest,
     db: Session = Depends(get_db),
-) -> TokenResponse:
+):
     """
     Inscrit un nouvel utilisateur (simplifié sans tenant).
 
-    Business Rules (Updated: 2025-12-07):
+    Business Rules (Updated: 2025-12-23):
     - Self-service public: n'importe qui peut s'inscrire
     - Email globalement unique
     - Crée automatiquement:
       * Un utilisateur avec tier starter par défaut
       * Un schema PostgreSQL (user_{id}) pour isolation
-    - Retourne directement les tokens (utilisateur connecté après inscription)
+    - Envoie un email de vérification
+    - L'utilisateur doit vérifier son email avant de pouvoir se connecter
 
     Args:
         registration: full_name, email, password
         db: Session SQLAlchemy
 
     Returns:
-        TokenResponse avec access_token et refresh_token
+        Message demandant de vérifier l'email
 
     Raises:
         HTTPException: 400 si email déjà utilisé ou erreur de création
@@ -240,26 +249,14 @@ async def register(
         else:
             logger.warning(f"Failed to send verification email to {redact_email(user.email)}")
 
-        # 5. Générer les tokens JWT (utilisateur directement connecté)
-        access_token = AuthService.create_access_token(
-            user_id=user.id,
-            role=user.role.value,
-        )
-
-        refresh_token = AuthService.create_refresh_token(
-            user_id=user.id,
-        )
-
         logger.info(f"User registered: user_id={user.id}, schema={user.schema_name}, tier={user.subscription_tier.value}")
 
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
-            user_id=user.id,
-            role=user.role.value,
-            subscription_tier=user.subscription_tier.value,
-        )
+        # Ne pas retourner les tokens - l'utilisateur doit d'abord vérifier son email
+        return {
+            "message": "Inscription réussie ! Veuillez vérifier votre boîte email pour activer votre compte.",
+            "email": user.email,
+            "requires_verification": True,
+        }
 
     except Exception as e:
         # Rollback en cas d'erreur
