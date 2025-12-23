@@ -11,10 +11,11 @@ from dotenv import load_dotenv
 # Charger les variables d'environnement depuis .env
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
@@ -231,6 +232,22 @@ async def shutdown_event():
     pass
 
 # ===== SECURITY MIDDLEWARE (2025-12-05) =====
+
+# Proxy Headers Middleware (2025-12-23)
+# Fix for Railway/reverse proxy: ensures correct protocol in redirects
+# Without this, FastAPI's redirect_slashes uses HTTP instead of HTTPS
+class ProxyHeadersMiddleware(BaseHTTPMiddleware):
+    """Middleware to trust X-Forwarded-Proto header from reverse proxy."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Get the original protocol from proxy headers
+        forwarded_proto = request.headers.get("x-forwarded-proto")
+        if forwarded_proto:
+            # Update the scope to reflect the original protocol
+            request.scope["scheme"] = forwarded_proto
+        return await call_next(request)
+
+app.add_middleware(ProxyHeadersMiddleware)
 
 # Security Headers (HSTS, X-Frame-Options, CSP, etc.)
 app.add_middleware(SecurityHeadersMiddleware)
