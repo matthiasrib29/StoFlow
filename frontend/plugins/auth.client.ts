@@ -5,6 +5,8 @@
  * Ce plugin s'exécute uniquement côté client (.client.ts suffix)
  * car localStorage n'est pas disponible côté serveur (SSR)
  */
+import { authLogger } from '~/utils/logger'
+
 export default defineNuxtPlugin(async () => {
   const authStore = useAuthStore()
 
@@ -15,16 +17,14 @@ export default defineNuxtPlugin(async () => {
   // en appelant un endpoint /me du backend, mais pour l'instant on fait confiance au localStorage
   // Une validation se fera automatiquement au premier appel API protégé via l'intercepteur
 
-  // Log pour debug (à retirer en production)
-  if (import.meta.dev) {
-    if (authStore.isAuthenticated) {
-      console.log('[Auth Plugin] Session restaurée:', {
-        userId: authStore.user?.id,
-        email: authStore.user?.email,
-        role: authStore.user?.role
-      })
-    } else {
-      console.log('[Auth Plugin] Aucune session active')
-    }
+  // Log sécurisé (automatiquement désactivé en production, données sensibles masquées)
+  if (authStore.isAuthenticated) {
+    authLogger.debug('Session restored', {
+      userId: authStore.user?.id,
+      role: authStore.user?.role
+      // Note: email intentionally omitted for security
+    })
+  } else {
+    authLogger.debug('No active session')
   }
 })
