@@ -4,7 +4,7 @@
     <div class="mb-8">
       <div class="flex items-center justify-between mb-2">
         <div>
-          <h1 class="text-3xl font-bold text-secondary-900 mb-1">Produits</h1>
+          <h1 class="text-3xl font-bold text-secondary-900 mb-1">Produits StoFlow</h1>
           <p class="text-gray-600">Gérez votre catalogue de produits</p>
         </div>
         <Button
