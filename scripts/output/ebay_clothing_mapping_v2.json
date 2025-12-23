@@ -1,0 +1,295 @@
+{
+  "description": "eBay Clothing Categories with Gender",
+  "note": "category_id is global (same for all EU marketplaces)",
+  "date": "2024-12-22",
+  "total_count": 41,
+  "categories": [
+    {
+      "category_id": 185702,
+      "gender": "Men",
+      "name_en": "Activewear Jackets",
+      "name_fr": "Vestes de sport",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Vêtements de sport > Vestes de sport"
+    },
+    {
+      "category_id": 260957,
+      "gender": "Men",
+      "name_en": "Activewear Shorts",
+      "name_fr": "Shorts de sport",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Vêtements de sport > Shorts de sport"
+    },
+    {
+      "category_id": 185076,
+      "gender": "Men",
+      "name_en": "Activewear Tops",
+      "name_fr": "Hauts de sport",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Vêtements de sport > Hauts de sport"
+    },
+    {
+      "category_id": 260956,
+      "gender": "Men",
+      "name_en": "Activewear Trousers",
+      "name_fr": "Pantalons de sport",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Vêtements de sport > Pantalons de sport"
+    },
+    {
+      "category_id": 57990,
+      "gender": "Men",
+      "name_en": "Casual Shirts & Tops",
+      "name_fr": "Chemises décontractées, hauts",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Chemises, hauts > Chemises décontractées, hauts"
+    },
+    {
+      "category_id": 57988,
+      "gender": "Men",
+      "name_en": "Coats, Jackets & Waistcoats",
+      "name_fr": "Manteaux, vestes et gilets",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Manteaux, vestes et gilets"
+    },
+    {
+      "category_id": 57991,
+      "gender": "Men",
+      "name_en": "Formal Shirts",
+      "name_fr": "Chemises de costume",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Chemises, hauts > Chemises de costume"
+    },
+    {
+      "category_id": 155183,
+      "gender": "Men",
+      "name_en": "Hoodies & Sweatshirts",
+      "name_fr": "Sweats, vestes à capuches",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Vêtements de sport > Sweats, vestes à capuches"
+    },
+    {
+      "category_id": 11483,
+      "gender": "Men",
+      "name_en": "Jeans",
+      "name_fr": "Jeans",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Jeans"
+    },
+    {
+      "category_id": 11484,
+      "gender": "Men",
+      "name_en": "Jumpers & Cardigans",
+      "name_fr": "Pulls, cardigans",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Pulls, cardigans"
+    },
+    {
+      "category_id": 11510,
+      "gender": "Men",
+      "name_en": "Nightwear",
+      "name_fr": "Pyjamas",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Pyjamas"
+    },
+    {
+      "category_id": 185101,
+      "gender": "Men",
+      "name_en": "Polos",
+      "name_fr": "Polos",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Chemises, hauts > Polos"
+    },
+    {
+      "category_id": 15689,
+      "gender": "Men",
+      "name_en": "Shorts",
+      "name_fr": "Shorts",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Shorts"
+    },
+    {
+      "category_id": 3001,
+      "gender": "Men",
+      "name_en": "Suits & Tailoring",
+      "name_fr": "Costumes",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Costumes"
+    },
+    {
+      "category_id": 15690,
+      "gender": "Men",
+      "name_en": "Swimwear",
+      "name_fr": "Maillots de bain",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Maillots de bain"
+    },
+    {
+      "category_id": 15687,
+      "gender": "Men",
+      "name_en": "T-Shirts",
+      "name_fr": "T-shirts",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Chemises, hauts > T-shirts"
+    },
+    {
+      "category_id": 185708,
+      "gender": "Men",
+      "name_en": "Tracksuits & Sets",
+      "name_fr": "Survêtements, ensembles",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Vêtements de sport > Survêtements, ensembles"
+    },
+    {
+      "category_id": 57989,
+      "gender": "Men",
+      "name_en": "Trousers",
+      "name_fr": "Pantalons",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : vêtements > Pantalons"
+    },
+    {
+      "category_id": 2996,
+      "gender": "Men",
+      "name_en": "Wallets",
+      "name_fr": "Portes-monnaie, portefeuilles",
+      "full_path_fr": "Vêtements, accessoires > Homme : vêtements, accessoires > Homme : accessoires > Portes-monnaie, portefeuilles"
+    },
+    {
+      "category_id": 185079,
+      "gender": "Women",
+      "name_en": "Activewear Jackets",
+      "name_fr": "Vestes de sport",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Vêtements de sport > Vestes de sport"
+    },
+    {
+      "category_id": 260955,
+      "gender": "Women",
+      "name_en": "Activewear Shorts",
+      "name_fr": "Shorts de sport",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Vêtements de sport > Shorts de sport"
+    },
+    {
+      "category_id": 261046,
+      "gender": "Women",
+      "name_en": "Activewear Skirts & Skorts",
+      "name_fr": "Jupes et jupe-shorts",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Vêtements de sport > Jupes et jupe-shorts"
+    },
+    {
+      "category_id": 185082,
+      "gender": "Women",
+      "name_en": "Activewear Tops",
+      "name_fr": "Hauts de sport",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Vêtements de sport > Hauts de sport"
+    },
+    {
+      "category_id": 260954,
+      "gender": "Women",
+      "name_en": "Activewear Trousers",
+      "name_fr": "Pantalons de sport",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Vêtements de sport > Pantalons de sport"
+    },
+    {
+      "category_id": 63862,
+      "gender": "Women",
+      "name_en": "Coats, Jackets & Waistcoats",
+      "name_fr": "Manteaux, vestes et gilets",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Manteaux, vestes et gilets"
+    },
+    {
+      "category_id": 63861,
+      "gender": "Women",
+      "name_en": "Dresses",
+      "name_fr": "Robes",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Robes"
+    },
+    {
+      "category_id": 155226,
+      "gender": "Women",
+      "name_en": "Hoodies & Sweatshirts",
+      "name_fr": "Sweats, vestes à capuches",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Vêtements de sport > Sweats, vestes à capuches"
+    },
+    {
+      "category_id": 11554,
+      "gender": "Women",
+      "name_en": "Jeans",
+      "name_fr": "Jeans",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Jeans"
+    },
+    {
+      "category_id": 63866,
+      "gender": "Women",
+      "name_en": "Jumpers & Cardigans",
+      "name_fr": "Pulls, cardigans",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Pulls, cardigans"
+    },
+    {
+      "category_id": 3009,
+      "gender": "Women",
+      "name_en": "Jumpsuits & Playsuits",
+      "name_fr": "Combis : shorts, pantalons",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Combis : shorts, pantalons"
+    },
+    {
+      "category_id": 169001,
+      "gender": "Women",
+      "name_en": "Leggings",
+      "name_fr": "Leggings",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Leggings"
+    },
+    {
+      "category_id": 63855,
+      "gender": "Women",
+      "name_en": "Nightwear",
+      "name_fr": "Pyjamas, nuisettes",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Lingerie, nuit > Pyjamas, nuisettes"
+    },
+    {
+      "category_id": 260011,
+      "gender": "Women",
+      "name_en": "Outfits & Sets",
+      "name_fr": "Tenues, ensembles",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Tenues, ensembles"
+    },
+    {
+      "category_id": 11555,
+      "gender": "Women",
+      "name_en": "Shorts",
+      "name_fr": "Shorts",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Shorts"
+    },
+    {
+      "category_id": 63864,
+      "gender": "Women",
+      "name_en": "Skirts",
+      "name_fr": "Jupes",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Jupes"
+    },
+    {
+      "category_id": 11532,
+      "gender": "Women",
+      "name_en": "Slips & Petticoats",
+      "name_fr": "Combinaisons, jupons",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Lingerie, nuit > Combinaisons, jupons"
+    },
+    {
+      "category_id": 63865,
+      "gender": "Women",
+      "name_en": "Suits & Suit Separates",
+      "name_fr": "Costumes, tailleurs",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Costumes, tailleurs"
+    },
+    {
+      "category_id": 63867,
+      "gender": "Women",
+      "name_en": "Swimwear",
+      "name_fr": "Maillots de bain",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Maillots de bain"
+    },
+    {
+      "category_id": 53159,
+      "gender": "Women",
+      "name_en": "Tops & Shirts",
+      "name_fr": "Hauts, chemises",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Hauts, chemises"
+    },
+    {
+      "category_id": 185084,
+      "gender": "Women",
+      "name_en": "Tracksuits & Sets",
+      "name_fr": "Survêtements, ensembles",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Vêtements de sport > Survêtements, ensembles"
+    },
+    {
+      "category_id": 63863,
+      "gender": "Women",
+      "name_en": "Trousers",
+      "name_fr": "Pantalons",
+      "full_path_fr": "Vêtements, accessoires > Femme : vêtements, accessoires > Femme : vêtements > Pantalons"
+    }
+  ]
+}
