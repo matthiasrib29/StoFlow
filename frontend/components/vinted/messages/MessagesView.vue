@@ -1,5 +1,5 @@
 <template>
-  <div class="col-span-8 bg-white rounded-xl border border-gray-100 overflow-hidden flex flex-col">
+  <div class="col-span-full lg:col-span-8 bg-white rounded-xl border border-gray-100 overflow-hidden flex flex-col">
     <!-- No conversation selected -->
     <div v-if="!conversation" class="flex-1 flex items-center justify-center bg-gray-50">
       <div class="text-center">

@@ -1,16 +1,16 @@
 <template>
-  <div class="p-8">
+  <div class="p-4 lg:p-8">
     <!-- Page Header -->
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-2">
+    <div class="mb-6 lg:mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
         <div>
-          <h1 class="text-3xl font-bold text-secondary-900 mb-1">Produits</h1>
-          <p class="text-gray-600">Gérez votre catalogue de produits</p>
+          <h1 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">Produits</h1>
+          <p class="text-gray-600 text-sm lg:text-base">Gérez votre catalogue de produits</p>
         </div>
         <Button
           label="Créer un produit"
           icon="pi pi-plus"
-          class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
+          class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold w-full sm:w-auto"
           @click="$router.push('/dashboard/products/create')"
         />
       </div>
@@ -41,9 +41,11 @@
       />
     </div>
 
-    <!-- Table View -->
-    <div v-else-if="viewMode === 'table'" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <DataTable
+    <!-- Table Mode Container -->
+    <div v-else-if="viewMode === 'table'">
+      <!-- Desktop: DataTable -->
+      <div class="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <DataTable
         v-model:selection="selectedProducts"
         :value="filteredProducts"
         data-key="id"
@@ -153,7 +155,39 @@
             </div>
           </template>
         </Column>
-      </DataTable>
+        </DataTable>
+      </div>
+
+      <!-- Mobile: Cards View -->
+      <div class="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <ProductsProductCard
+          v-for="product in filteredProducts"
+          :key="product.id"
+          :product="product"
+          :selectable="true"
+          :is-selected="selectedProducts.some(p => p.id === product.id)"
+          @click="editProduct"
+          @edit="editProduct"
+          @delete="confirmDelete"
+          @toggle-selection="toggleSelection"
+        />
+
+        <!-- Empty State for Mobile -->
+        <div v-if="filteredProducts.length === 0" class="col-span-full">
+          <Card class="shadow-md">
+            <template #content>
+              <EmptyState
+                animation-type="empty-box"
+                title="Aucun produit trouvé"
+                description="Commencez par créer votre premier produit"
+                action-label="Créer un produit"
+                action-icon="pi pi-plus"
+                @action="$router.push('/dashboard/products/create')"
+              />
+            </template>
+          </Card>
+        </div>
+      </div>
     </div>
 
     <!-- Grid View -->

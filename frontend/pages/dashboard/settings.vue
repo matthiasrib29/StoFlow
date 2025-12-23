@@ -1,19 +1,19 @@
 <template>
-  <div class="p-8">
+  <div class="p-4 lg:p-8">
     <!-- Page Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-secondary-900 mb-1">Paramètres</h1>
-      <p class="text-gray-600">Gérez votre profil et vos préférences</p>
+    <div class="mb-6 lg:mb-8">
+      <h1 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">Paramètres</h1>
+      <p class="text-gray-600 text-sm lg:text-base">Gérez votre profil et vos préférences</p>
     </div>
 
     <!-- Tabs -->
-    <Tabs v-model:value="activeTab">
-      <TabList>
-        <Tab value="0">Profil</Tab>
-        <Tab value="1">Notifications</Tab>
-        <Tab value="2">Sécurité</Tab>
-        <Tab value="3">Préférences</Tab>
-        <Tab value="4">Intégrations</Tab>
+    <Tabs v-model:value="activeTab" class="settings-tabs">
+      <TabList class="overflow-x-auto flex-nowrap">
+        <Tab value="0" class="whitespace-nowrap">Profil</Tab>
+        <Tab value="1" class="whitespace-nowrap">Notifications</Tab>
+        <Tab value="2" class="whitespace-nowrap">Sécurité</Tab>
+        <Tab value="3" class="whitespace-nowrap">Préférences</Tab>
+        <Tab value="4" class="whitespace-nowrap">Intégrations</Tab>
       </TabList>
       <TabPanels>
       <!-- Onglet: Profil -->
@@ -269,32 +269,33 @@
               <div
                 v-for="integration in integrations"
                 :key="integration.platform"
-                class="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 transition"
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border-2 border-gray-200 hover:border-primary-400 transition"
               >
                 <div class="flex items-center gap-4">
                   <div
-:class="[
-                    'w-12 h-12 rounded-full flex items-center justify-center',
-                    getPlatformColor(integration.platform).bg
-                  ]">
+                    :class="[
+                      'w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0',
+                      getPlatformColor(integration.platform).bg
+                    ]"
+                  >
                     <i :class="[getPlatformIcon(integration.platform), 'text-2xl', getPlatformColor(integration.platform).text]"/>
                   </div>
 
-                  <div>
+                  <div class="min-w-0">
                     <p class="text-base font-bold text-secondary-900">{{ integration.name }}</p>
-                    <p class="text-sm text-gray-500">
+                    <p class="text-sm text-gray-500 truncate">
                       {{ integration.is_connected
                         ? `${integration.active_publications || 0} publications actives`
                         : 'Publiez vos produits sur ' + integration.name
                       }}
                     </p>
-                    <p v-if="integration.is_connected && integration.last_sync" class="text-xs text-gray-400 mt-1">
-                      Dernière synchronisation : {{ formatDate(integration.last_sync) }}
+                    <p v-if="integration.is_connected && integration.last_sync" class="text-xs text-gray-400 mt-1 truncate">
+                      Sync : {{ formatDate(integration.last_sync) }}
                     </p>
                   </div>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 justify-end sm:justify-start">
                   <Badge
                     :value="integration.is_connected ? 'Connecté' : 'Déconnecté'"
                     :severity="integration.is_connected ? 'success' : 'secondary'"
@@ -486,3 +487,26 @@ const handleDisconnect = async (platform: string) => {
   }
 }
 </script>
+
+<style scoped>
+/* Make tabs scrollable on mobile */
+.settings-tabs :deep(.p-tablist) {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.settings-tabs :deep(.p-tablist)::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-tabs :deep(.p-tablist-content) {
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+.settings-tabs :deep(.p-tab) {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+</style>
