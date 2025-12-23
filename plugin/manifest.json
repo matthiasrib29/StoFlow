@@ -26,6 +26,8 @@
     "https://www.ebay.fr/*",
     "https://www.etsy.com/*",
     "https://api.stoflow.com/*",
+    "https://stoflow.io/*",
+    "https://www.stoflow.io/*",
     "http://localhost:3000/*",
     "http://localhost:8000/*"
   ],
@@ -65,7 +67,11 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["http://localhost:3000/*"],
+      "matches": [
+        "http://localhost:3000/*",
+        "https://stoflow.io/*",
+        "https://www.stoflow.io/*"
+      ],
       "js": ["src/content/stoflow-web.ts"],
       "run_at": "document_idle"
     }

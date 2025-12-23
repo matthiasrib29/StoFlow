@@ -1,51 +1,49 @@
 <template>
   <div class="min-h-screen">
     <!-- Main Content -->
-    <div class="dashboard-content p-8">
+    <div class="dashboard-content p-4 lg:p-8">
       <!-- Header -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between mb-2">
-          <h1 class="text-3xl font-bold text-secondary-900">Tableau de bord</h1>
-          <div class="flex items-center gap-3">
-            <span class="text-sm text-gray-500">{{ currentDate }}</span>
-          </div>
+      <div class="mb-6 lg:mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+          <h1 class="text-2xl lg:text-3xl font-bold text-secondary-900">Tableau de bord</h1>
+          <span class="text-sm text-gray-500">{{ currentDate }}</span>
         </div>
-        <p class="text-gray-600">Bienvenue{{ authStore.user?.full_name ? `, ${authStore.user.full_name}` : '' }}</p>
+        <p class="text-gray-600 text-sm lg:text-base">Bienvenue{{ authStore.user?.full_name ? `, ${authStore.user.full_name}` : '' }}</p>
       </div>
 
       <!-- Stats Cards - Simplified for MVP1 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 stagger-grid-fast">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-6 mb-6 lg:mb-8 stagger-grid-fast">
         <!-- Total Produits -->
-        <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
-          <div class="flex items-center justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-              <i class="pi pi-box text-primary-500 text-xl"/>
+        <div class="stat-card bg-white rounded-2xl p-4 lg:p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
+          <div class="flex items-center justify-between mb-3 lg:mb-4">
+            <div class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-primary-100 flex items-center justify-center">
+              <i class="pi pi-box text-primary-500 text-lg lg:text-xl"/>
             </div>
           </div>
-          <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ animatedTotalProducts }}</h3>
-          <p class="text-sm text-gray-600">Produits StoFlow</p>
+          <h3 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">{{ animatedTotalProducts }}</h3>
+          <p class="text-xs lg:text-sm text-gray-600">Produits StoFlow</p>
         </div>
 
         <!-- Intégrations actives -->
-        <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
-          <div class="flex items-center justify-between mb-4">
-            <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-              <i class="pi pi-link text-secondary-700 text-xl"/>
+        <div class="stat-card bg-white rounded-2xl p-4 lg:p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
+          <div class="flex items-center justify-between mb-3 lg:mb-4">
+            <div class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
+              <i class="pi pi-link text-secondary-700 text-lg lg:text-xl"/>
             </div>
-            <span class="text-xs font-semibold text-secondary-700 bg-secondary-50 px-3 py-1 rounded-full">{{ publicationsStore.connectedIntegrations.length }}/3</span>
+            <span class="text-xs font-semibold text-secondary-700 bg-secondary-50 px-2 lg:px-3 py-1 rounded-full">{{ publicationsStore.connectedIntegrations.length }}/3</span>
           </div>
-          <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ animatedConnectedIntegrations }}</h3>
-          <p class="text-sm text-gray-600">Intégrations actives</p>
+          <h3 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">{{ animatedConnectedIntegrations }}</h3>
+          <p class="text-xs lg:text-sm text-gray-600">Intégrations actives</p>
         </div>
       </div>
 
       <!-- Quick Action - Simplified -->
-      <div class="mb-8">
+      <div class="mb-6 lg:mb-8">
         <NuxtLink to="/dashboard/products/create">
           <Button
             label="Créer un produit"
             icon="pi pi-plus"
-            class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold px-6 py-3"
+            class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold px-4 lg:px-6 py-2 lg:py-3 w-full sm:w-auto"
           />
         </NuxtLink>
       </div>

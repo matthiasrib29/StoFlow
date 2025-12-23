@@ -6,7 +6,7 @@
       Attributs obligatoires
     </h3>
 
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label for="condition" class="block text-xs font-semibold mb-1 text-secondary-900">
           État *
@@ -81,7 +81,7 @@
       Attributs optionnels
     </h3>
 
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label for="material" class="block text-xs font-semibold mb-1 text-secondary-900">
           Matière

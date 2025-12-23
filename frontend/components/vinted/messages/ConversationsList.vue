@@ -1,5 +1,5 @@
 <template>
-  <div class="col-span-4 bg-white rounded-xl border border-gray-100 overflow-hidden flex flex-col">
+  <div class="col-span-full lg:col-span-4 bg-white rounded-xl border border-gray-100 overflow-hidden flex flex-col">
     <!-- Conversations header -->
     <div class="p-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
       <span class="font-semibold text-secondary-900">Conversations</span>

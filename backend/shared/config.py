@@ -93,6 +93,17 @@ class Settings(BaseSettings):
     sentry_environment: str = "development"
     sentry_traces_sample_rate: float = 0.1
 
+    # Brevo (Email Service)
+    brevo_api_key: Optional[str] = None
+    brevo_sender_email: str = "noreply@stoflow.io"
+    brevo_sender_name: str = "StoFlow"
+    frontend_url: str = "http://localhost:3000"
+
+    @property
+    def brevo_enabled(self) -> bool:
+        """Check if Brevo email service is configured."""
+        return bool(self.brevo_api_key)
+
     # Cloudflare R2 Storage
     r2_account_id: Optional[str] = None
     r2_access_key_id: Optional[str] = None
