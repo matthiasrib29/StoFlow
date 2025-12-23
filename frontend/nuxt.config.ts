@@ -24,13 +24,15 @@ export default defineNuxtConfig({
     port: 3000
   },
 
-  // Runtime config
+  // Runtime config - Environment variables override these defaults
+  // NUXT_PUBLIC_API_URL and NUXT_PUBLIC_API_BASE_URL are auto-injected by Nuxt
+  // See: https://nuxt.com/docs/guide/going-further/runtime-config
   runtimeConfig: {
     public: {
-      // URL de base de l'API (sans /api) - utilisée par stores et composables
-      apiUrl: process.env.NUXT_PUBLIC_API_URL || 'http://localhost:8000',
-      // URL de base de l'API (avec /api) - utilisée par certains composables
-      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api'
+      // URL de base de l'API (sans /api) - overridden by NUXT_PUBLIC_API_URL
+      apiUrl: 'http://localhost:8000',
+      // URL de base de l'API (avec /api) - overridden by NUXT_PUBLIC_API_BASE_URL
+      apiBaseUrl: 'http://localhost:8000/api'
     }
   },
 
@@ -51,7 +53,7 @@ export default defineNuxtConfig({
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' " + (process.env.NUXT_PUBLIC_API_URL || 'http://localhost:8000'),
+              "connect-src 'self' https://api.stoflow.io http://localhost:8000",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'"
