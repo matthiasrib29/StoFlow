@@ -25,10 +25,10 @@
           <div class="flex items-center gap-3">
             <div
 :class="[
-              'w-10 h-10 rounded-full flex items-center justify-center',
-              getPlatformColor(integration.platform).bg
+              'w-10 h-10 rounded-lg flex items-center justify-center',
+              getPlatformBgColor(integration.platform)
             ]">
-              <i :class="[getPlatformIcon(integration.platform), 'text-lg', getPlatformColor(integration.platform).text]"/>
+              <img :src="getPlatformLogo(integration.platform)" :alt="integration.name" class="w-6 h-6 object-contain">
             </div>
 
             <div>
@@ -57,8 +57,27 @@
 
 <script setup lang="ts">
 const publicationsStore = usePublicationsStore()
-const { getPlatformIcon, getPlatformColor } = usePlatform()
 
 const integrations = computed(() => publicationsStore.integrations)
 const connectedCount = computed(() => publicationsStore.connectedIntegrations.length)
+
+// Platform logos
+const getPlatformLogo = (platform: string) => {
+  const logos: Record<string, string> = {
+    vinted: '/images/platforms/vinted-logo.png',
+    ebay: '/images/platforms/ebay-logo.png',
+    etsy: '/images/platforms/etsy-logo.png'
+  }
+  return logos[platform] || '/images/platforms/default-logo.png'
+}
+
+// Platform background colors
+const getPlatformBgColor = (platform: string) => {
+  const colors: Record<string, string> = {
+    vinted: 'bg-teal-50',
+    ebay: 'bg-blue-50',
+    etsy: 'bg-orange-50'
+  }
+  return colors[platform] || 'bg-gray-50'
+}
 </script>
