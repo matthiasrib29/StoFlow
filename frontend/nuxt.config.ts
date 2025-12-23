@@ -53,7 +53,7 @@ export default defineNuxtConfig({
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://api.stoflow.io http://localhost:8000",
+              "connect-src 'self' https://api.stoflow.io https://*.stoflow.io http://api.stoflow.io http://localhost:8000",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'"
