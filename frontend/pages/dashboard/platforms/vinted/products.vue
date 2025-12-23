@@ -2,8 +2,8 @@
   <div class="p-8">
     <!-- Page Header -->
     <VintedPageHeader
-      title="Produits Vinted"
-      subtitle="Gérez vos produits synchronisés depuis Vinted"
+      title="Annonces Vinted"
+      subtitle="Gérez vos annonces synchronisées depuis Vinted"
     />
 
     <!-- Content -->
@@ -12,7 +12,7 @@
         <div v-if="!isConnected" class="text-center py-12">
           <i class="pi pi-link text-4xl text-gray-300 mb-4"/>
           <h3 class="text-xl font-bold text-secondary-900 mb-2">Connectez votre compte Vinted</h3>
-          <p class="text-gray-500 mb-4">Accédez à vos produits après connexion</p>
+          <p class="text-gray-500 mb-4">Accédez à vos annonces après connexion</p>
           <Button
             label="Connecter maintenant"
             icon="pi pi-link"
@@ -21,10 +21,10 @@
           />
         </div>
         <div v-else>
-          <!-- Liste des produits -->
+          <!-- Liste des annonces -->
           <div class="text-center py-8 text-gray-500">
             <i class="pi pi-box text-4xl text-gray-300 mb-4"/>
-            <p>Vos produits Vinted apparaîtront ici</p>
+            <p>Vos annonces Vinted apparaîtront ici</p>
           </div>
         </div>
       </template>

@@ -52,7 +52,7 @@
           >
             <div class="flex items-center gap-3">
               <i class="pi pi-box text-lg"/>
-              <span>Produits</span>
+              <span>Produits StoFlow</span>
             </div>
             <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', productsMenuOpen ? 'rotate-180' : 'rotate-0']"/>
           </button>
@@ -68,11 +68,11 @@
           >
             <div
               v-if="productsMenuOpen"
-              class="mt-1 ml-4 space-y-1 overflow-hidden"
+              class="mt-1 ml-3 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3"
             >
               <NuxtLink
                 to="/dashboard/products"
-                class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                 active-class="bg-primary-50 text-secondary-900 font-semibold"
               >
                 <i class="pi pi-list text-sm"/>
@@ -81,7 +81,7 @@
 
               <NuxtLink
                 to="/dashboard/products/create"
-                class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                 active-class="bg-primary-50 text-secondary-900 font-semibold"
               >
                 <i class="pi pi-plus text-sm"/>
@@ -122,20 +122,20 @@
           >
             <div
               v-if="platformsMenuOpen"
-              class="mt-1 ml-4 space-y-1 overflow-hidden"
+              class="mt-1 ml-3 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3"
             >
               <!-- Vinted avec sous-menu -->
               <div>
                 <button
-                  class="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                  class="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                   :class="{ 'bg-primary-50 text-secondary-900 font-semibold': isVintedRoute }"
                   @click="toggleVintedMenu"
                 >
                   <div class="flex items-center gap-3">
-                    <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-4 h-4 object-contain">
+                    <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-5 h-5 object-contain">
                     <span>Vinted</span>
                   </div>
-                  <i :class="['pi pi-chevron-down text-xs transition-transform duration-300', vintedMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+                  <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', vintedMenuOpen ? 'rotate-180' : 'rotate-0']"/>
                 </button>
                 <Transition
                   enter-active-class="transition-all duration-200 ease-out"
@@ -145,62 +145,68 @@
                   leave-from-class="opacity-100 max-h-96"
                   leave-to-class="opacity-0 max-h-0"
                 >
-                  <div v-if="vintedMenuOpen" class="ml-4 mt-1 space-y-0.5 overflow-hidden">
+                  <div v-if="vintedMenuOpen" class="ml-3 mt-1 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3">
                     <NuxtLink
                       to="/dashboard/platforms/vinted"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/platforms/vinted' }"
                     >
-                      <i class="pi pi-chart-line text-xs"/>
+                      <i class="pi pi-chart-line text-sm"/>
                       <span>Vue d'ensemble</span>
                     </NuxtLink>
                     <NuxtLink
                       to="/dashboard/platforms/vinted/products"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-box text-xs"/>
-                      <span>Produits Vinted</span>
+                      <i class="pi pi-box text-sm"/>
+                      <span>Annonces Vinted</span>
                     </NuxtLink>
+                    <!-- MVP1: Ventes désactivé
                     <NuxtLink
                       to="/dashboard/platforms/vinted/sales"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-shopping-cart text-xs"/>
+                      <i class="pi pi-shopping-cart text-sm"/>
                       <span>Ventes</span>
                     </NuxtLink>
+                    -->
+                    <!-- MVP1: Expéditions désactivé
                     <NuxtLink
                       to="/dashboard/platforms/vinted/shipments"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-truck text-xs"/>
+                      <i class="pi pi-truck text-sm"/>
                       <span>Expéditions</span>
                     </NuxtLink>
+                    -->
                     <NuxtLink
                       to="/dashboard/platforms/vinted/analytics"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-chart-bar text-xs"/>
+                      <i class="pi pi-chart-bar text-sm"/>
                       <span>Analytiques</span>
                     </NuxtLink>
+                    <!-- MVP1: Messages désactivé
                     <NuxtLink
                       to="/dashboard/platforms/vinted/messages"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-envelope text-xs"/>
+                      <i class="pi pi-envelope text-sm"/>
                       <span>Messages</span>
-                      <Badge v-if="vintedUnreadMessages > 0" :value="vintedUnreadMessages" severity="danger" class="text-xs ml-auto"/>
+                      <Badge v-if="vintedUnreadMessages > 0" :value="vintedUnreadMessages" severity="danger" class="text-sm ml-auto"/>
                     </NuxtLink>
+                    -->
                     <NuxtLink
                       to="/dashboard/platforms/vinted/settings"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-cog text-xs"/>
+                      <i class="pi pi-cog text-sm"/>
                       <span>Paramètres</span>
                     </NuxtLink>
                   </div>
@@ -210,15 +216,15 @@
               <!-- eBay avec sous-menu -->
               <div>
                 <button
-                  class="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                  class="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                   :class="{ 'bg-primary-50 text-secondary-900 font-semibold': isEbayRoute }"
                   @click="toggleEbayMenu"
                 >
                   <div class="flex items-center gap-3">
-                    <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-4 h-4 object-contain">
+                    <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-5 h-5 object-contain">
                     <span>eBay</span>
                   </div>
-                  <i :class="['pi pi-chevron-down text-xs transition-transform duration-300', ebayMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+                  <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', ebayMenuOpen ? 'rotate-180' : 'rotate-0']"/>
                 </button>
                 <Transition
                   enter-active-class="transition-all duration-200 ease-out"
@@ -228,29 +234,29 @@
                   leave-from-class="opacity-100 max-h-40"
                   leave-to-class="opacity-0 max-h-0"
                 >
-                  <div v-if="ebayMenuOpen" class="ml-4 mt-1 space-y-0.5 overflow-hidden">
+                  <div v-if="ebayMenuOpen" class="ml-3 mt-1 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3">
                     <NuxtLink
                       to="/dashboard/platforms/ebay"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/platforms/ebay' }"
                     >
-                      <i class="pi pi-chart-line text-xs"/>
+                      <i class="pi pi-chart-line text-sm"/>
                       <span>Vue d'ensemble</span>
                     </NuxtLink>
                     <NuxtLink
                       to="/dashboard/platforms/ebay/products"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-box text-xs"/>
-                      <span>Produits eBay</span>
+                      <i class="pi pi-box text-sm"/>
+                      <span>Annonces eBay</span>
                     </NuxtLink>
                     <NuxtLink
                       to="/dashboard/platforms/ebay/settings"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-cog text-xs"/>
+                      <i class="pi pi-cog text-sm"/>
                       <span>Paramètres</span>
                     </NuxtLink>
                   </div>
@@ -260,15 +266,15 @@
               <!-- Etsy avec sous-menu -->
               <div>
                 <button
-                  class="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                  class="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                   :class="{ 'bg-primary-50 text-secondary-900 font-semibold': isEtsyRoute }"
                   @click="toggleEtsyMenu"
                 >
                   <div class="flex items-center gap-3">
-                    <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-4 h-4 object-contain">
+                    <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-5 h-5 object-contain">
                     <span>Etsy</span>
                   </div>
-                  <i :class="['pi pi-chevron-down text-xs transition-transform duration-300', etsyMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+                  <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', etsyMenuOpen ? 'rotate-180' : 'rotate-0']"/>
                 </button>
                 <Transition
                   enter-active-class="transition-all duration-200 ease-out"
@@ -278,29 +284,29 @@
                   leave-from-class="opacity-100 max-h-40"
                   leave-to-class="opacity-0 max-h-0"
                 >
-                  <div v-if="etsyMenuOpen" class="ml-4 mt-1 space-y-0.5 overflow-hidden">
+                  <div v-if="etsyMenuOpen" class="ml-3 mt-1 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3">
                     <NuxtLink
                       to="/dashboard/platforms/etsy"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/platforms/etsy' }"
                     >
-                      <i class="pi pi-chart-line text-xs"/>
+                      <i class="pi pi-chart-line text-sm"/>
                       <span>Vue d'ensemble</span>
                     </NuxtLink>
                     <NuxtLink
                       to="/dashboard/platforms/etsy/products"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-box text-xs"/>
-                      <span>Produits Etsy</span>
+                      <i class="pi pi-box text-sm"/>
+                      <span>Annonces Etsy</span>
                     </NuxtLink>
                     <NuxtLink
                       to="/dashboard/platforms/etsy/settings"
-                      class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-all text-gray-400 text-xs font-medium"
+                      class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                       active-class="bg-primary-50 text-secondary-900 font-semibold"
                     >
-                      <i class="pi pi-cog text-xs"/>
+                      <i class="pi pi-cog text-sm"/>
                       <span>Paramètres</span>
                     </NuxtLink>
                   </div>
@@ -310,7 +316,7 @@
           </Transition>
         </div>
 
-        <!-- Publications -->
+        <!-- MVP1: Publications désactivé
         <NuxtLink
           to="/dashboard/publications"
           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
@@ -319,8 +325,9 @@
           <i class="pi pi-send text-lg"/>
           <span>Publications</span>
         </NuxtLink>
+        -->
 
-        <!-- Statistiques -->
+        <!-- MVP1: Statistiques désactivé
         <NuxtLink
           to="/dashboard/stats"
           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
@@ -329,6 +336,7 @@
           <i class="pi pi-chart-bar text-lg"/>
           <span>Statistiques</span>
         </NuxtLink>
+        -->
 
         <!-- Abonnement -->
         <NuxtLink
@@ -340,15 +348,73 @@
           <span>Abonnement</span>
         </NuxtLink>
 
-        <!-- Paramètres -->
-        <NuxtLink
-          to="/dashboard/settings"
-          class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
-          active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
-        >
-          <i class="pi pi-cog text-lg"/>
-          <span>Paramètres</span>
-        </NuxtLink>
+        <!-- Paramètres avec sous-menu -->
+        <div>
+          <div class="flex items-center gap-1">
+            <NuxtLink
+              to="/dashboard/settings"
+              class="flex-1 flex items-center gap-3 px-4 py-3 rounded-l-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
+              active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
+            >
+              <i class="pi pi-cog text-lg"/>
+              <span>Paramètres</span>
+            </NuxtLink>
+            <button
+              class="px-3 py-3 rounded-r-xl hover:bg-gray-50 transition-all text-gray-600"
+              :class="{ 'bg-primary-50 text-secondary-900': settingsMenuOpen }"
+              @click="toggleSettingsMenu"
+            >
+              <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', settingsMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+            </button>
+          </div>
+
+          <!-- Sous-menu Paramètres -->
+          <Transition
+            enter-active-class="transition-all duration-200 ease-out"
+            enter-from-class="opacity-0 max-h-0"
+            enter-to-class="opacity-100 max-h-96"
+            leave-active-class="transition-all duration-150 ease-in"
+            leave-from-class="opacity-100 max-h-96"
+            leave-to-class="opacity-0 max-h-0"
+          >
+            <div v-if="settingsMenuOpen" class="mt-1 ml-3 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3">
+              <NuxtLink
+                to="/dashboard/settings"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/settings' }"
+              >
+                <i class="pi pi-user text-sm"/>
+                <span>Profil</span>
+              </NuxtLink>
+              <!-- MVP1: Notifications désactivé
+              <NuxtLink
+                to="/dashboard/settings/notifications"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                active-class="bg-primary-50 text-secondary-900 font-semibold"
+              >
+                <i class="pi pi-bell text-sm"/>
+                <span>Notifications</span>
+              </NuxtLink>
+              -->
+              <NuxtLink
+                to="/dashboard/settings/security"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                active-class="bg-primary-50 text-secondary-900 font-semibold"
+              >
+                <i class="pi pi-lock text-sm"/>
+                <span>Sécurité</span>
+              </NuxtLink>
+              <NuxtLink
+                to="/dashboard/settings/integrations"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                active-class="bg-primary-50 text-secondary-900 font-semibold"
+              >
+                <i class="pi pi-link text-sm"/>
+                <span>Intégrations</span>
+              </NuxtLink>
+            </div>
+          </Transition>
+        </div>
       </nav>
 
       <!-- User Section -->
@@ -543,6 +609,7 @@ const mobileMenuOpen = ref(false)
 // État des sous-menus
 const productsMenuOpen = ref(false)
 const platformsMenuOpen = ref(false)
+const settingsMenuOpen = ref(false)
 
 // État des sous-menus plateformes
 const vintedMenuOpen = ref(false)
@@ -668,6 +735,9 @@ const isVintedRoute = computed(() => route.path.startsWith('/dashboard/platforms
 const isEbayRoute = computed(() => route.path.startsWith('/dashboard/platforms/ebay'))
 const isEtsyRoute = computed(() => route.path.startsWith('/dashboard/platforms/etsy'))
 
+// Vérifier si on est sur une route paramètres
+const isSettingsRoute = computed(() => route.path.startsWith('/dashboard/settings'))
+
 // Platform watchers: Fetch status and start polling when on platform route
 watch(isVintedRoute, (isActive) => {
   if (isActive) {
@@ -728,6 +798,9 @@ watch(() => route.path, (newPath) => {
       etsyMenuOpen.value = true
     }
   }
+  if (newPath.startsWith('/dashboard/settings')) {
+    settingsMenuOpen.value = true
+  }
 }, { immediate: true })
 
 // Toggle des menus
@@ -737,6 +810,10 @@ const toggleProductsMenu = () => {
 
 const togglePlatformsMenu = () => {
   platformsMenuOpen.value = !platformsMenuOpen.value
+}
+
+const toggleSettingsMenu = () => {
+  settingsMenuOpen.value = !settingsMenuOpen.value
 }
 
 // Toggle des sous-menus plateformes
