@@ -4,8 +4,6 @@ Stoflow Backend - Application FastAPI
 Point d'entree principal de l'application FastAPI.
 """
 
-import os
-
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement depuis .env
@@ -14,7 +12,6 @@ load_dotenv()
 from fastapi import FastAPI
 from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
@@ -32,7 +29,7 @@ from api.vinted import router as vinted_router  # Now from api/vinted/__init__.p
 from middleware.rate_limit import rate_limit_middleware
 from middleware.security_headers import SecurityHeadersMiddleware
 from models.user.plugin_task import PluginTask, TaskStatus
-from services.file_service import FileService
+from services.r2_service import r2_service
 from services.datadome_scheduler import (
     start_datadome_scheduler,
     stop_datadome_scheduler,
@@ -199,10 +196,26 @@ async def startup_event():
     else:
         logger.info("✅ Aucune tâche en attente à nettoyer")
 
-    # Créer répertoire uploads
-    FileService.ensure_upload_directory()
-    logger.info("Upload directory initialized")
     logger.info("✅ All required secrets configured")
+
+    # ===== R2 STORAGE (2025-12-23) =====
+    # R2 is REQUIRED for image storage (no local fallback)
+    if r2_service.is_available:
+        logger.info(f"☁️ Cloudflare R2 storage enabled (bucket: {settings.r2_bucket_name})")
+    else:
+        error_msg = (
+            "R2 storage not configured. Image uploads will fail.\n"
+            "Set these environment variables:\n"
+            "  - R2_ACCESS_KEY_ID\n"
+            "  - R2_SECRET_ACCESS_KEY\n"
+            "  - R2_ENDPOINT\n"
+            "  - R2_PUBLIC_URL (optional but recommended)"
+        )
+        if settings.is_production:
+            logger.error(error_msg)
+            raise ValueError("R2 storage is required in production")
+        else:
+            logger.warning(f"⚠️ {error_msg}")
 
     # ===== DATADOME SCHEDULER (2025-12-19) =====
     # DISABLED: En stand-by - sera réactivé avec logique basée sur compteur de requêtes
@@ -288,11 +301,8 @@ app.include_router(ebay_webhook_router, prefix="/api")
 app.include_router(etsy_router, prefix="/api")
 app.include_router(etsy_oauth_router, prefix="/api")
 
-# Monter le répertoire uploads pour servir les images statiques
-# IMPORTANT: Ceci doit être fait APRÈS l'inclusion de tous les routers
-# pour éviter les conflits de routes
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# NOTE (2025-12-23): Images are served via Cloudflare R2 CDN
+# No local StaticFiles mount needed
 
 
 @app.get("/", tags=["Health"])
@@ -323,6 +333,10 @@ def health_check():
         "status": "healthy",
         "app_name": settings.app_name,
         "environment": settings.app_env,
+        "storage": {
+            "type": "r2" if r2_service.is_available else "local",
+            "bucket": settings.r2_bucket_name if r2_service.is_available else None,
+        },
     }
 
 

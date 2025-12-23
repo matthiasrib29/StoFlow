@@ -83,6 +83,31 @@ class Settings(BaseSettings):
     sentry_environment: str = "development"
     sentry_traces_sample_rate: float = 0.1
 
+    # Cloudflare R2 Storage
+    r2_account_id: Optional[str] = None
+    r2_access_key_id: Optional[str] = None
+    r2_secret_access_key: Optional[str] = None
+    r2_bucket_name: str = "stoflow-images"
+    r2_endpoint: Optional[str] = None  # https://<account_id>.r2.cloudflarestorage.com
+    r2_public_url: Optional[str] = None  # https://cdn.stoflow.io or R2 public URL
+
+    @property
+    def r2_enabled(self) -> bool:
+        """Check if R2 storage is configured."""
+        return bool(
+            self.r2_access_key_id
+            and self.r2_secret_access_key
+            and self.r2_endpoint
+        )
+
+    @property
+    def storage_base_url(self) -> str:
+        """Get the base URL for serving images."""
+        if self.r2_public_url:
+            return self.r2_public_url.rstrip("/")
+        # Fallback to local uploads
+        return ""
+
     def get_cors_origins_list(self) -> List[str]:
         """Get CORS origins as a list."""
         return [origin.strip() for origin in self.cors_origins.split(",")]
