@@ -86,6 +86,16 @@ export const ENV = {
 } as const;
 
 /**
+ * URLs backend disponibles
+ */
+export const BACKEND_URLS = {
+  LOCALHOST: 'http://localhost:8000',
+  PRODUCTION: 'https://api.stoflow.com',
+} as const;
+
+export type EnvironmentMode = 'localhost' | 'production';
+
+/**
  * Constantes applicatives (non configurables via .env)
  */
 export const CONSTANTS = {
@@ -117,6 +127,7 @@ export const CONSTANTS = {
     REFRESH_TOKEN: 'stoflow_refresh_token',
     USER_DATA: 'stoflow_user_data',
     CONFIG_OVERRIDES: 'config_overrides',
+    ENVIRONMENT_MODE: 'stoflow_environment_mode',
   } as const,
 
   /**
@@ -171,4 +182,38 @@ export function logConfig(): void {
   console.debug('  - Backend URL:', ENV.BACKEND_URL);
   console.debug('  - Poll Interval:', ENV.POLL_INTERVAL, 'ms');
   console.debug('  - Debug Logs:', ENV.ENABLE_DEBUG_LOGS);
+}
+
+/**
+ * Récupère l'URL backend active depuis le storage
+ * @returns L'URL backend selon le mode choisi (localhost ou production)
+ */
+export async function getActiveBackendUrl(): Promise<string> {
+  try {
+    const result = await chrome.storage.local.get(CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE);
+    const mode: EnvironmentMode = result[CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE] || 'localhost';
+    return mode === 'production' ? BACKEND_URLS.PRODUCTION : BACKEND_URLS.LOCALHOST;
+  } catch {
+    // Fallback si erreur (ex: contexte non-extension)
+    return BACKEND_URLS.LOCALHOST;
+  }
+}
+
+/**
+ * Récupère le mode d'environnement actuel
+ */
+export async function getEnvironmentMode(): Promise<EnvironmentMode> {
+  try {
+    const result = await chrome.storage.local.get(CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE);
+    return result[CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE] || 'localhost';
+  } catch {
+    return 'localhost';
+  }
+}
+
+/**
+ * Définit le mode d'environnement
+ */
+export async function setEnvironmentMode(mode: EnvironmentMode): Promise<void> {
+  await chrome.storage.local.set({ [CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE]: mode });
 }
