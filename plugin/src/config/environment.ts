@@ -90,7 +90,7 @@ export const ENV = {
  */
 export const BACKEND_URLS = {
   LOCALHOST: 'http://localhost:8000',
-  PRODUCTION: 'https://api.stoflow.com',
+  PRODUCTION: 'https://api.stoflow.io',
 } as const;
 
 export type EnvironmentMode = 'localhost' | 'production';
