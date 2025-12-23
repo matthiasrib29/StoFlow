@@ -34,10 +34,17 @@
 
 <script setup lang="ts">
 import VintedPageHeader from '~/components/platforms/VintedPageHeader.vue'
+import { usePlatformConnection } from '~/composables/usePlatformConnection'
 
 definePageMeta({
   layout: 'dashboard'
 })
 
-const isConnected = ref(false)
+// Connexion Vinted via composable
+const { isConnected, fetchStatus } = usePlatformConnection('vinted')
+
+// Charger l'état de connexion au montage
+onMounted(async () => {
+  await fetchStatus()
+})
 </script>
