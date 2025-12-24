@@ -12,73 +12,57 @@ interface Message {
 /**
  * Standalone function for SSO injection on localhost
  * Must be a top-level function for chrome.scripting.executeScript
+ *
+ * Note: This function runs in page context, cannot import Logger.
+ * Uses inline mini-logger for consistency.
  */
 function localhostSSOScript(): void {
-  console.log('');
-  console.log('🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀');
-  console.log('🚀 [STOFLOW SSO] SCRIPT INJECTION DÉMARRÉ');
-  console.log('🚀 URL:', window.location.href);
-  console.log('🚀 Time:', new Date().toISOString());
-  console.log('🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀');
-  console.log('');
+  // Mini-logger for injected script context
+  const PREFIX = '[Stoflow SSO]';
+  const DEBUG_ENABLED = true; // Set to false in production
+
+  const log = {
+    debug: (...args: any[]) => DEBUG_ENABLED && console.log(PREFIX, ...args),
+    info: (...args: any[]) => console.log(PREFIX, '✓', ...args),
+    warn: (...args: any[]) => console.warn(PREFIX, '⚠', ...args),
+    error: (...args: any[]) => console.error(PREFIX, '✗', ...args)
+  };
+
+  log.info('Script injection started', { url: window.location.href });
 
   // Prevent double injection
   if ((window as any).__stoflowInjected) {
-    console.log('📡 [STOFLOW] ⚠️ Script déjà injecté, skip');
+    log.debug('Already injected, skipping');
     return;
   }
   (window as any).__stoflowInjected = true;
-  console.log('📡 [STOFLOW] ✅ Flag __stoflowInjected positionné');
-
-  // Debug: Log all localStorage
-  console.log('');
-  console.log('📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦');
-  console.log('📦 [STOFLOW] CONTENU LOCALSTORAGE:');
-  console.log('📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦');
-  try {
-    const allKeys = Object.keys(localStorage);
-    console.log('📦 Nombre de clés:', allKeys.length);
-    allKeys.forEach(key => {
-      const value = localStorage.getItem(key);
-      const preview = value ? value.substring(0, 50) + (value.length > 50 ? '...' : '') : 'null';
-      console.log(`📦 ${key}: ${preview}`);
-    });
-  } catch (e) {
-    console.error('📦 Erreur lecture localStorage:', e);
-  }
-  console.log('📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦');
-  console.log('');
 
   // Get token from localStorage
   function getToken(): string | null {
-    console.log('🔍 [STOFLOW] Recherche du token...');
     const keys = ['stoflow_access_token', 'stoflow_token', 'access_token', 'auth_token', 'token'];
     for (const key of keys) {
-      console.log(`🔍 [STOFLOW] Vérification clé: ${key}`);
       const token = localStorage.getItem(key);
       if (token) {
-        console.log(`🔍 [STOFLOW] ✅ Token trouvé dans "${key}":`, token.substring(0, 30) + '...');
+        log.debug('Token found in', key);
         return token;
       }
     }
 
-    console.log('🔍 [STOFLOW] Vérification objet "auth"...');
+    // Try auth object
     const authData = localStorage.getItem('auth');
     if (authData) {
-      console.log('🔍 [STOFLOW] Objet auth trouvé, parsing...');
       try {
         const parsed = JSON.parse(authData);
-        console.log('🔍 [STOFLOW] Auth parsed keys:', Object.keys(parsed));
         if (parsed.access_token || parsed.token) {
-          const token = parsed.access_token || parsed.token;
-          console.log('🔍 [STOFLOW] ✅ Token trouvé dans auth object:', token.substring(0, 30) + '...');
-          return token;
+          log.debug('Token found in auth object');
+          return parsed.access_token || parsed.token;
         }
       } catch (e) {
-        console.error('🔍 [STOFLOW] Erreur parsing auth:', e);
+        log.error('Error parsing auth object', e);
       }
     }
-    console.log('🔍 [STOFLOW] ❌ Aucun token trouvé');
+
+    log.debug('No token found in localStorage');
     return null;
   }
 
@@ -87,108 +71,77 @@ function localhostSSOScript(): void {
     for (const key of keys) {
       const token = localStorage.getItem(key);
       if (token) {
-        console.log('🔍 [STOFLOW] Refresh token trouvé dans:', key);
         return token;
       }
     }
+
     const authData = localStorage.getItem('auth');
     if (authData) {
       try {
         const parsed = JSON.parse(authData);
         if (parsed.refresh_token) {
-          console.log('🔍 [STOFLOW] Refresh token trouvé dans auth object');
           return parsed.refresh_token;
         }
       } catch { /* ignore */ }
     }
-    console.log('🔍 [STOFLOW] Pas de refresh token');
+
     return null;
   }
 
   // Sync token on load
-  console.log('');
-  console.log('🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐');
-  console.log('🔐 [STOFLOW] TENTATIVE SYNC TOKEN');
-  console.log('🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐');
-
   const accessToken = getToken();
   const refreshToken = getRefreshToken();
 
-  console.log('🔐 Access Token:', accessToken ? '✅ Présent (' + accessToken.substring(0, 20) + '...)' : '❌ ABSENT');
-  console.log('🔐 Refresh Token:', refreshToken ? '✅ Présent' : '⚠️ Absent');
+  log.debug('Token status:', {
+    accessToken: accessToken ? 'present' : 'absent',
+    refreshToken: refreshToken ? 'present' : 'absent'
+  });
 
   if (accessToken) {
-    console.log('🔐 [STOFLOW] Envoi au background via chrome.runtime.sendMessage...');
-    console.log('🔐 chrome:', typeof chrome);
-    console.log('🔐 chrome.runtime:', typeof chrome?.runtime);
-    console.log('🔐 chrome.runtime.sendMessage:', typeof chrome?.runtime?.sendMessage);
+    log.debug('Sending token to background...');
 
     chrome.runtime.sendMessage({
       action: 'SYNC_TOKEN_FROM_WEBSITE',
       access_token: accessToken,
       refresh_token: refreshToken
     }).then((response: any) => {
-      console.log('');
-      console.log('✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅');
-      console.log('✅ [STOFLOW] RÉPONSE DU BACKGROUND:');
-      console.log('✅', JSON.stringify(response, null, 2));
-      console.log('✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅');
-      console.log('');
+      if (response?.success) {
+        log.info('Token synced successfully');
+      } else {
+        log.warn('Token sync failed', response?.error);
+      }
     }).catch((err: any) => {
-      console.error('');
-      console.error('❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌');
-      console.error('❌ [STOFLOW] ERREUR ENVOI AU BACKGROUND:');
-      console.error('❌', err);
-      console.error('❌ Message:', err?.message);
-      console.error('❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌');
-      console.error('');
+      log.error('Failed to send token to background', err?.message);
     });
   } else {
-    console.log('🔐 [STOFLOW] ⚠️ Pas de token à synchroniser');
+    log.debug('No token to sync');
   }
-  console.log('🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐');
-  console.log('');
 
   // Listen for postMessage from frontend
-  console.log('📬 [STOFLOW] Installation listener postMessage...');
   window.addEventListener('message', (event) => {
-    // Log ALL messages for debug
-    if (event.data && typeof event.data === 'object') {
-      console.log('📬 [STOFLOW] Message reçu:', event.data.type || 'no type', event.data);
-    }
-
     if (event.data?.type === 'STOFLOW_SYNC_TOKEN') {
-      console.log('');
-      console.log('📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬');
-      console.log('📬 [STOFLOW] TOKEN REÇU VIA POSTMESSAGE!');
-      console.log('📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬');
       const { access_token, refresh_token } = event.data;
-      console.log('📬 Access Token:', access_token ? access_token.substring(0, 30) + '...' : 'ABSENT');
-      console.log('📬 Refresh Token:', refresh_token ? 'Présent' : 'Absent');
+      log.debug('Token received via postMessage');
 
       if (access_token) {
-        console.log('📬 [STOFLOW] Envoi au background...');
         chrome.runtime.sendMessage({
           action: 'SYNC_TOKEN_FROM_WEBSITE',
           access_token,
           refresh_token
         }).then((response: any) => {
-          console.log('📬 [STOFLOW] ✅ Réponse:', response);
+          if (response?.success) {
+            log.info('Token synced via postMessage');
+          } else {
+            log.warn('PostMessage sync failed', response?.error);
+          }
         }).catch((err: any) => {
-          console.error('📬 [STOFLOW] ❌ Erreur:', err);
+          log.error('PostMessage sync error', err?.message);
         });
       }
-      console.log('📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬📬');
-      console.log('');
     }
   });
 
-  console.log('📬 [STOFLOW] ✅ Listener postMessage installé');
-  console.log('');
-  console.log('🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁');
-  console.log('🏁 [STOFLOW SSO] INJECTION TERMINÉE');
-  console.log('🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁');
-  console.log('');
+  log.info('Injection complete, listener active');
 }
 
 class BackgroundService {
@@ -213,26 +166,21 @@ class BackgroundService {
     // Écouter messages EXTERNES depuis localhost:3000 (SSO direct)
     if (chrome.runtime.onMessageExternal) {
       chrome.runtime.onMessageExternal.addListener((message: Message, sender, sendResponse) => {
-        BackgroundLogger.debug('');
-        BackgroundLogger.debug('🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐');
-        BackgroundLogger.debug('🌐 [BACKGROUND] MESSAGE EXTERNE REÇU !');
-        BackgroundLogger.debug('🌐 Sender URL:', sender.url);
-        BackgroundLogger.debug('🌐 Action:', message.action);
-        BackgroundLogger.debug('🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐');
+        BackgroundLogger.debug('External message received', { action: message.action, from: sender.url });
 
         // Vérifier que le message vient de localhost:3000 ou stoflow.com
         if (sender.url && (sender.url.includes('localhost:3000') || sender.url.includes('stoflow.com'))) {
           this.handleMessage(message, sender).then(sendResponse);
         } else {
-          BackgroundLogger.warn('🌐 ⚠️ Message externe rejeté (origine non autorisée);:', sender.url);
+          BackgroundLogger.warn('External message rejected (unauthorized origin)', sender.url);
           sendResponse({ success: false, error: 'Unauthorized origin' });
         }
 
         return true;
       });
-      BackgroundLogger.debug('🌐 [BACKGROUND] Listener onMessageExternal configuré');
+      BackgroundLogger.debug('onMessageExternal listener configured');
     } else {
-      BackgroundLogger.debug('⚠️ [BACKGROUND] onMessageExternal non disponible (Firefox?);');
+      BackgroundLogger.debug('onMessageExternal not available (Firefox?)');
     }
 
     // Écouter installation
@@ -241,42 +189,25 @@ class BackgroundService {
     });
 
     // Firefox MV3: Injection programmatique pour localhost (contourne les problèmes de permissions)
-    BackgroundLogger.debug('🔧 [BACKGROUND] Configuration listener tabs.onUpdated pour localhost...');
+    BackgroundLogger.debug('Configuring tabs.onUpdated listener for localhost');
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-      // Log all tab updates for debugging
-      if (tab.url && (tab.url.includes('localhost') || tab.url.includes('127.0.0.1'))) {
-        BackgroundLogger.debug(`📋 [TAB UPDATE] Tab ${tabId} - status: ${changeInfo.status} - url: ${tab.url}`);
-      }
-
       if (changeInfo.status === 'complete' && tab.url) {
         if (tab.url.includes('localhost:3000') || tab.url.includes('127.0.0.1:3000')) {
           // Avoid multiple injections on same tab
           if (!this.injectedTabs.has(tabId)) {
-            BackgroundLogger.debug('');
-            BackgroundLogger.debug('🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍');
-            BackgroundLogger.debug('🔍 [BACKGROUND] TAB LOCALHOST DÉTECTÉ!');
-            BackgroundLogger.debug('🔍 Tab ID:', tabId);
-            BackgroundLogger.debug('🔍 URL:', tab.url);
-            BackgroundLogger.debug('🔍 Already injected tabs:', Array.from(this.injectedTabs));
-            BackgroundLogger.debug('🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍');
-            BackgroundLogger.debug('');
-
+            BackgroundLogger.debug('Localhost tab detected', { tabId, url: tab.url });
             this.injectedTabs.add(tabId);
             // Small delay to ensure page is ready
-            BackgroundLogger.debug('⏳ [BACKGROUND] Attente 100ms avant injection...');
             setTimeout(() => this.injectLocalhostScript(tabId), 100);
-          } else {
-            BackgroundLogger.debug(`⏭️ [BACKGROUND] Tab ${tabId} déjà injecté, skip`);
           }
         }
       }
     });
-    BackgroundLogger.debug('🔧 [BACKGROUND] ✅ Listener tabs.onUpdated configuré');
+    BackgroundLogger.debug('tabs.onUpdated listener configured');
 
     // Clean up when tab is closed
     chrome.tabs.onRemoved.addListener((tabId) => {
       if (this.injectedTabs.has(tabId)) {
-        BackgroundLogger.debug(`🗑️ [BACKGROUND] Tab ${tabId} fermé, nettoyage`);
         this.injectedTabs.delete(tabId);
       }
     });
@@ -285,7 +216,6 @@ class BackgroundService {
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       if (tab.url && !tab.url.includes('localhost:3000') && !tab.url.includes('127.0.0.1:3000')) {
         if (this.injectedTabs.has(tabId)) {
-          BackgroundLogger.debug(`🗑️ [BACKGROUND] Tab ${tabId} navigué ailleurs, nettoyage`);
           this.injectedTabs.delete(tabId);
         }
       }
@@ -296,39 +226,17 @@ class BackgroundService {
    * Injecte le script SSO sur localhost via scripting API (Firefox MV3 compatible)
    */
   private async injectLocalhostScript(tabId: number): Promise<void> {
-    BackgroundLogger.debug('');
-    BackgroundLogger.debug('💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉');
-    BackgroundLogger.debug('💉 [BACKGROUND] DÉBUT INJECTION SCRIPT');
-    BackgroundLogger.debug('💉 Tab ID:', tabId);
-    BackgroundLogger.debug('💉 chrome.scripting disponible:', typeof chrome.scripting);
-    BackgroundLogger.debug('💉 chrome.scripting.executeScript:', typeof chrome.scripting?.executeScript);
-    BackgroundLogger.debug('💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉');
+    BackgroundLogger.debug('Injecting SSO script', { tabId });
 
     try {
-      BackgroundLogger.debug('💉 [BACKGROUND] Appel chrome.scripting.executeScript...');
-
-      // Injection inline avec fonction standalone (évite les problèmes de contexte)
-      const result = await chrome.scripting.executeScript({
+      await chrome.scripting.executeScript({
         target: { tabId },
         func: localhostSSOScript
       });
 
-      BackgroundLogger.debug('💉 [BACKGROUND] ✅ Script injecté avec succès!');
-      BackgroundLogger.debug('💉 [BACKGROUND] Résultat:', JSON.stringify(result));
-      BackgroundLogger.debug('💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉💉');
-      BackgroundLogger.debug('');
+      BackgroundLogger.success('SSO script injected successfully', { tabId });
     } catch (error: any) {
-      // Log detailed error info
-      BackgroundLogger.error('');
-      BackgroundLogger.error('❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌');
-      BackgroundLogger.error('❌ [BACKGROUND] ERREUR INJECTION SCRIPT');
-      BackgroundLogger.error('❌ Tab ID:', tabId);
-      BackgroundLogger.error('❌ Error object:', error);
-      BackgroundLogger.error('❌ Error message:', error?.message);
-      BackgroundLogger.error('❌ Error name:', error?.name);
-      BackgroundLogger.error('❌ Error stack:', error?.stack);
-      BackgroundLogger.error('❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌');
-      BackgroundLogger.error('');
+      BackgroundLogger.error('Script injection failed', error, { tabId });
       // Remove from set so we can retry
       this.injectedTabs.delete(tabId);
     }
@@ -338,12 +246,7 @@ class BackgroundService {
     message: Message,
     sender: chrome.runtime.MessageSender
   ): Promise<any> {
-    BackgroundLogger.debug('═══════════════════════════════════════════════════');
-    BackgroundLogger.debug('🔔 [BACKGROUND] MESSAGE REÇU');
-    BackgroundLogger.debug('Action:', message.action);
-    BackgroundLogger.debug('Sender:', sender);
-    BackgroundLogger.debug('Message complet:', JSON.stringify(message, null, 2));
-    BackgroundLogger.debug('═══════════════════════════════════════════════════');
+    BackgroundLogger.debug('Message received', { action: message.action });
 
     switch (message.action) {
       case 'SAVE_VINTED_COOKIES':
@@ -429,53 +332,31 @@ class BackgroundService {
   }
 
   private async syncTokenFromWebsite(message: any): Promise<any> {
-    BackgroundLogger.debug('');
-    BackgroundLogger.debug('🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐');
-    BackgroundLogger.debug('🔐 [BACKGROUND SSO] DÉBUT SYNCHRONISATION TOKEN');
-    BackgroundLogger.debug('🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐');
-    BackgroundLogger.debug('Message reçu:', message);
+    BackgroundLogger.debug('SSO token sync started');
 
     try {
       const { access_token, refresh_token } = message;
-      BackgroundLogger.debug('🔐 [BACKGROUND SSO] access_token:', access_token ? '✅ Présent (' + access_token.substring(0, 20) + '...)' : '❌ MANQUANT');
-      BackgroundLogger.debug('🔐 [BACKGROUND SSO] refresh_token:', refresh_token ? '✅ Présent' : '⚠️ Absent');
 
       if (!access_token) {
-        BackgroundLogger.error('🔐 [BACKGROUND SSO] ❌ ERREUR: access_token manquant !');
+        BackgroundLogger.error('SSO sync failed: access_token missing');
         throw new Error('access_token manquant');
       }
 
-      // Importer les constantes pour les clés de storage
-      BackgroundLogger.debug('🔐 [BACKGROUND SSO] Import des constantes...');
       const { CONSTANTS } = await import('../config/environment');
-      BackgroundLogger.debug('🔐 [BACKGROUND SSO] Clés storage:', CONSTANTS.STORAGE_KEYS);
 
-      // Stocker les tokens
-      BackgroundLogger.debug('🔐 [BACKGROUND SSO] Stockage dans chrome.storage.local...');
+      // Store tokens
       await chrome.storage.local.set({
         [CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN]: access_token,
         [CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN]: refresh_token || null
       });
 
-      BackgroundLogger.debug('🔐 [BACKGROUND SSO] ✅✅✅ TOKEN STOCKÉ AVEC SUCCÈS ✅✅✅');
-
-      // Vérifier que le token est bien stocké
-      const stored = await chrome.storage.local.get([CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN]);
-      BackgroundLogger.debug('🔐 [BACKGROUND SSO] Vérification stockage:', stored);
-
-      // Démarrer le polling automatiquement
-      BackgroundLogger.debug('🔐 [BACKGROUND SSO] 🚀 Démarrage du polling...');
+      // Start polling automatically
       this.pollingManager.start();
 
-      BackgroundLogger.debug('🔐 [BACKGROUND SSO] ✅ SYNCHRONISATION TERMINÉE');
-      BackgroundLogger.debug('🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐');
-      BackgroundLogger.debug('');
-
+      BackgroundLogger.success('SSO token synced successfully');
       return { success: true };
     } catch (error) {
-      BackgroundLogger.error('🔐 [BACKGROUND SSO] ❌❌❌ ERREUR:', error);
-      BackgroundLogger.error('🔐 [BACKGROUND SSO] Stack:', error.stack);
-      BackgroundLogger.debug('🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐');
+      BackgroundLogger.error('SSO token sync failed', error);
       return { success: false, error: error.message };
     }
   }
@@ -484,39 +365,25 @@ class BackgroundService {
    * Déconnexion depuis le site web (SSO)
    */
   private async logoutFromWebsite(): Promise<any> {
-    BackgroundLogger.debug('');
-    BackgroundLogger.debug('🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴');
-    BackgroundLogger.debug('🔴 [BACKGROUND SSO] DÉCONNEXION DEPUIS SITE WEB');
-    BackgroundLogger.debug('🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴');
+    BackgroundLogger.debug('SSO logout started');
 
     try {
-      // Importer les constantes pour les clés de storage
       const { CONSTANTS } = await import('../config/environment');
 
-      BackgroundLogger.debug('🔴 [BACKGROUND SSO] Suppression des tokens...');
-
-      // Supprimer les tokens
+      // Remove tokens
       await chrome.storage.local.remove([
         CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN,
         CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN,
         CONSTANTS.STORAGE_KEYS.USER_DATA
       ]);
 
-      BackgroundLogger.debug('🔴 [BACKGROUND SSO] ✅✅✅ TOKENS SUPPRIMÉS ✅✅✅');
-
-      // Arrêter le polling
-      BackgroundLogger.debug('🔴 [BACKGROUND SSO] 🛑 Arrêt du polling...');
+      // Stop polling
       this.pollingManager.stop();
 
-      BackgroundLogger.debug('🔴 [BACKGROUND SSO] ✅ DÉCONNEXION TERMINÉE');
-      BackgroundLogger.debug('🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴');
-      BackgroundLogger.debug('');
-
+      BackgroundLogger.success('SSO logout completed');
       return { success: true };
     } catch (error) {
-      BackgroundLogger.error('🔴 [BACKGROUND SSO] ❌❌❌ ERREUR:', error);
-      BackgroundLogger.error('🔴 [BACKGROUND SSO] Stack:', error.stack);
-      BackgroundLogger.debug('🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴');
+      BackgroundLogger.error('SSO logout failed', error);
       return { success: false, error: error.message };
     }
   }
