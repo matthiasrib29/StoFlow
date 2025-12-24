@@ -20,9 +20,7 @@ from models.public.doc_category import DocCategory
 from models.public.ebay_aspect_mapping import AspectMapping
 from models.public.ebay_category_mapping import EbayCategoryMapping
 from models.public.ebay_exchange_rate import ExchangeRate
-from models.public.category_platform_mapping import CategoryPlatformMapping
 from models.public.ebay_marketplace_config import MarketplaceConfig
-from models.public.platform_mapping import Platform, PlatformMapping
 from models.public.subscription_quota import SubscriptionQuota, DEFAULT_QUOTAS, DEFAULT_FEATURES
 from models.public.subscription_feature import SubscriptionFeature
 from models.public.user import User, UserRole, SubscriptionTier
@@ -50,7 +48,8 @@ from models.public.sleeve_length import SleeveLength
 from models.public.sport import Sport
 from models.public.trend import Trend
 from models.public.unique_feature import UniqueFeature
-from models.public.vinted_action_type import VintedActionType
+# Vinted schema models (re-exported for compatibility)
+from models.vinted.vinted_action_type import VintedActionType
 
 __all__ = [
     # Public schema
@@ -64,11 +63,8 @@ __all__ = [
     "Permission",
     "RolePermission",
     "PermissionCategory",
-    "PlatformMapping",
-    "Platform",
     "ClothingPrice",
     "AICredit",
-    "CategoryPlatformMapping",
     # Documentation models
     "DocCategory",
     "DocArticle",

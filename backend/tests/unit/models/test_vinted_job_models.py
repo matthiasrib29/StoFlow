@@ -12,7 +12,7 @@ import pytest
 
 from models.user.vinted_job import VintedJob, JobStatus
 from models.user.vinted_job_stats import VintedJobStats
-from models.public.vinted_action_type import VintedActionType
+from models.vinted.vinted_action_type import VintedActionType
 
 
 # =============================================================================

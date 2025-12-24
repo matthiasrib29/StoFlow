@@ -1,16 +1,17 @@
 """
-VintedOrder Model - Schema user_{id}
+VintedOrder Model - Schema vinted
 
-Ce modèle stocke les commandes/ventes Vinted synchronisées.
+Stores Vinted orders/sales (shared table).
 
 Business Rules (2025-12-12):
-- Une commande = une transaction Vinted
-- transaction_id = clé primaire (ID Vinted)
-- Stocke les informations acheteur/vendeur et expédition
-- Table liée: vinted_order_products pour les articles
+- One order = one Vinted transaction
+- transaction_id = primary key (Vinted ID)
+- Stores buyer/seller info and shipping details
+- Related table: vinted_order_products for items
 
 Author: Claude
 Date: 2025-12-12
+Updated: 2025-12-24 - Moved to vinted schema
 """
 
 from datetime import datetime
@@ -24,27 +25,9 @@ from shared.database import Base
 
 class VintedOrder(Base):
     """
-    Modèle VintedOrder - Commandes/ventes Vinted.
+    Vinted orders/sales.
 
-    Attributes:
-        transaction_id: ID transaction Vinted (PK)
-        buyer_id: ID acheteur Vinted
-        buyer_login: Login acheteur
-        seller_id: ID vendeur Vinted
-        seller_login: Login vendeur
-        status: Statut de la commande
-        total_price: Prix total
-        currency: Devise (EUR par défaut)
-        shipping_price: Frais de port
-        service_fee: Frais de service Vinted
-        buyer_protection_fee: Frais protection acheteur
-        seller_revenue: Revenu net vendeur
-        tracking_number: Numéro de suivi
-        carrier: Transporteur
-        created_at_vinted: Date création sur Vinted
-        shipped_at: Date expédition
-        delivered_at: Date livraison
-        completed_at: Date finalisation
+    Table: vinted.vinted_orders
     """
 
     __tablename__ = "vinted_orders"
@@ -52,124 +35,125 @@ class VintedOrder(Base):
         Index('idx_vinted_orders_buyer_id', 'buyer_id'),
         Index('idx_vinted_orders_status', 'status'),
         Index('idx_vinted_orders_created_at_vinted', 'created_at_vinted'),
+        {"schema": "vinted"}
     )
 
-    # Primary Key = transaction_id Vinted
+    # Primary Key = Vinted transaction_id
     transaction_id: Mapped[int] = mapped_column(
         BigInteger,
         primary_key=True,
-        comment="ID transaction Vinted (PK)"
+        comment="Vinted transaction ID (PK)"
     )
 
     # Participants
     buyer_id: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
-        comment="ID acheteur Vinted"
+        comment="Vinted buyer ID"
     )
     buyer_login: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
-        comment="Login acheteur"
+        comment="Buyer login"
     )
     seller_id: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
-        comment="ID vendeur Vinted"
+        comment="Vinted seller ID"
     )
     seller_login: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
-        comment="Login vendeur"
+        comment="Seller login"
     )
 
-    # Statut
+    # Status
     status: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
-        comment="Statut commande"
+        comment="Order status"
     )
 
-    # Montants
+    # Amounts
     total_price: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
         nullable=True,
-        comment="Prix total"
+        comment="Total price"
     )
     currency: Mapped[str | None] = mapped_column(
         String(3),
         nullable=True,
         server_default='EUR',
-        comment="Devise"
+        comment="Currency"
     )
     shipping_price: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
         nullable=True,
-        comment="Frais de port"
+        comment="Shipping cost"
     )
     service_fee: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
         nullable=True,
-        comment="Frais de service"
+        comment="Service fee"
     )
     buyer_protection_fee: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
         nullable=True,
-        comment="Protection acheteur"
+        comment="Buyer protection fee"
     )
     seller_revenue: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
         nullable=True,
-        comment="Revenu vendeur net"
+        comment="Net seller revenue"
     )
 
-    # Expédition
+    # Shipping
     tracking_number: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
-        comment="Numéro de suivi"
+        comment="Tracking number"
     )
     carrier: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
-        comment="Transporteur"
+        comment="Carrier"
     )
 
-    # Dates Vinted
+    # Vinted dates
     created_at_vinted: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        comment="Date création Vinted"
+        comment="Vinted creation date"
     )
     shipped_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        comment="Date expédition"
+        comment="Shipping date"
     )
     delivered_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        comment="Date livraison"
+        comment="Delivery date"
     )
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        comment="Date finalisation"
+        comment="Completion date"
     )
 
-    # Timestamps système
+    # System timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
-        comment="Date création locale"
+        comment="Local creation date"
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
-        comment="Date MAJ locale"
+        comment="Local update date"
     )
 
     # Relationships
@@ -189,20 +173,9 @@ class VintedOrder(Base):
 
 class VintedOrderProduct(Base):
     """
-    Modèle VintedOrderProduct - Articles d'une commande Vinted.
+    Products in a Vinted order.
 
-    Structure alignée avec la migration 20251212_1240.
-
-    Attributes:
-        id: ID auto-incrémenté (PK)
-        transaction_id: FK vers vinted_orders.transaction_id
-        vinted_item_id: ID article sur Vinted
-        product_id: ID produit Stoflow (si lié)
-        title: Titre du produit
-        price: Prix unitaire
-        size: Taille
-        brand: Marque
-        photo_url: URL photo principale
+    Table: vinted.vinted_order_products
     """
 
     __tablename__ = "vinted_order_products"
@@ -210,6 +183,7 @@ class VintedOrderProduct(Base):
         Index('idx_vinted_order_products_transaction_id', 'transaction_id'),
         Index('idx_vinted_order_products_vinted_item_id', 'vinted_item_id'),
         Index('idx_vinted_order_products_product_id', 'product_id'),
+        {"schema": "vinted"}
     )
 
     # Primary Key
@@ -219,51 +193,51 @@ class VintedOrderProduct(Base):
         autoincrement=True
     )
 
-    # Foreign Key vers VintedOrder
+    # Foreign Key to VintedOrder
     transaction_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("vinted_orders.transaction_id", ondelete="CASCADE"),
+        ForeignKey("vinted.vinted_orders.transaction_id", ondelete="CASCADE"),
         nullable=False,
-        comment="FK vers vinted_orders"
+        comment="FK to vinted_orders"
     )
 
     # IDs
     vinted_item_id: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
-        comment="ID article Vinted"
+        comment="Vinted item ID"
     )
     product_id: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
-        comment="ID produit Stoflow"
+        comment="Stoflow product ID"
     )
 
-    # Détails produit
+    # Product details
     title: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
-        comment="Titre produit"
+        comment="Product title"
     )
     price: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
         nullable=True,
-        comment="Prix unitaire"
+        comment="Unit price"
     )
     size: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
-        comment="Taille"
+        comment="Size"
     )
     brand: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
-        comment="Marque"
+        comment="Brand"
     )
     photo_url: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
-        comment="URL photo principale"
+        comment="Main photo URL"
     )
 
     # Timestamp
