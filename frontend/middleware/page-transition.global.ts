@@ -1,32 +1,36 @@
 /**
  * Middleware global pour transitions de pages contextuelles
- * Applique des transitions différentes selon le type de navigation
+ *
+ * Transitions désactivées pour les navigations internes au dashboard
+ * pour éviter le délai de 250ms causé par le mode 'out-in'.
+ * Les transitions sont uniquement appliquées pour les navigations
+ * depuis/vers les pages d'authentification.
  */
 
 export default defineNuxtRouteMiddleware((to, from) => {
-  // Déterminer le type de transition selon la route
-  const getTransitionName = (toRoute: any, fromRoute: any): string => {
-    // Navigation vers/depuis auth → fade simple
-    if (toRoute.path.includes('/login') || toRoute.path.includes('/register') ||
-        fromRoute.path.includes('/login') || fromRoute.path.includes('/register')) {
-      return 'fade'
-    }
-
-    // Navigation vers création/édition → slide-up (modal-like)
-    if (toRoute.path.includes('/create') || toRoute.path.includes('/edit') ||
-        toRoute.path.match(/\/\[id\]/)) {
-      return 'slide-up'
-    }
-
-    // Toutes les autres navigations → fade simple et rapide
-    return 'fade'
+  // Navigation interne au dashboard → pas de transition (navigation instantanée)
+  const isDashboardInternal = to.path.startsWith('/dashboard') && from.path.startsWith('/dashboard')
+  if (isDashboardInternal) {
+    to.meta.pageTransition = false
+    return
   }
 
-  const transitionName = getTransitionName(to, from)
+  // Navigation vers/depuis auth → fade simple
+  const isAuthTransition =
+    to.path.includes('/login') || to.path.includes('/register') ||
+    from.path.includes('/login') || from.path.includes('/register')
 
-  // Appliquer la transition via pageTransition
+  if (isAuthTransition) {
+    to.meta.pageTransition = {
+      name: 'fade',
+      mode: 'out-in'
+    }
+    return
+  }
+
+  // Navigation vers dashboard depuis landing ou vice versa → fade
   to.meta.pageTransition = {
-    name: transitionName,
+    name: 'fade',
     mode: 'out-in'
   }
 })
