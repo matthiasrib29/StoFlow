@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <!-- Page Header -->
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-secondary-900 mb-1">Profil</h1>

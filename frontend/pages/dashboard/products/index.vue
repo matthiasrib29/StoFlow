@@ -373,12 +373,7 @@ const handleDelete = async () => {
   try {
     await productsStore.deleteProduct(productToDelete.value.id)
 
-    toast?.add({
-      severity: 'success',
-      summary: 'Produit supprimé',
-      detail: `${productToDelete.value.title} a été supprimé`,
-      life: 3000
-    })
+    showSuccess('Produit supprimé', `${productToDelete.value.title} a été supprimé`, 3000)
 
     deleteDialog.value = false
     productToDelete.value = null
@@ -400,12 +395,7 @@ const handleBulkDelete = async () => {
       selectedProducts.value.map(p => productsStore.deleteProduct(p.id))
     )
 
-    toast?.add({
-      severity: 'success',
-      summary: 'Produits supprimés',
-      detail: `${selectedProducts.value.length} produit(s) supprimé(s)`,
-      life: 3000
-    })
+    showSuccess('Produits supprimés', `${selectedProducts.value.length} produit(s) supprimé(s)`, 3000)
 
     bulkDeleteDialog.value = false
     selectedProducts.value = []
@@ -424,12 +414,7 @@ const bulkActivate = async () => {
       )
     )
 
-    toast?.add({
-      severity: 'success',
-      summary: 'Produits activés',
-      detail: `${selectedProducts.value.length} produit(s) activé(s)`,
-      life: 3000
-    })
+    showSuccess('Produits activés', `${selectedProducts.value.length} produit(s) activé(s)`, 3000)
 
     selectedProducts.value = []
   } catch (error: any) {
@@ -445,12 +430,7 @@ const bulkDeactivate = async () => {
       )
     )
 
-    toast?.add({
-      severity: 'success',
-      summary: 'Produits désactivés',
-      detail: `${selectedProducts.value.length} produit(s) désactivé(s)`,
-      life: 3000
-    })
+    showSuccess('Produits désactivés', `${selectedProducts.value.length} produit(s) désactivé(s)`, 3000)
 
     selectedProducts.value = []
   } catch (error: any) {

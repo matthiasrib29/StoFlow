@@ -1,0 +1,326 @@
+/* ============================================
+   STOFLOW DESIGN SYSTEM
+   Charte graphique standardisee
+   ============================================ */
+
+/* ============================================
+   1. BOUTONS
+   ============================================ */
+
+/* Bouton Primaire - Gold standard */
+.btn-primary {
+  @apply bg-primary-400 hover:bg-primary-500 text-secondary-900
+         font-semibold rounded-lg px-4 py-2
+         transition-all duration-200 ease-out
+         focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2;
+}
+
+.btn-primary:active {
+  @apply scale-[0.98];
+}
+
+/* Bouton Secondaire - Gris neutre */
+.btn-secondary {
+  @apply bg-gray-100 hover:bg-gray-200 text-gray-700
+         font-medium rounded-lg px-4 py-2
+         transition-all duration-200 ease-out
+         focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2;
+}
+
+.btn-secondary:active {
+  @apply scale-[0.98];
+}
+
+/* Bouton Danger - Rouge */
+.btn-danger {
+  @apply bg-error-50 hover:bg-error-100 text-error-700
+         font-medium rounded-lg px-4 py-2
+         transition-all duration-200 ease-out
+         focus:outline-none focus:ring-2 focus:ring-error-300 focus:ring-offset-2;
+}
+
+.btn-danger-solid {
+  @apply bg-error-500 hover:bg-error-600 text-white
+         font-semibold rounded-lg px-4 py-2
+         transition-all duration-200 ease-out
+         focus:outline-none focus:ring-2 focus:ring-error-400 focus:ring-offset-2;
+}
+
+/* Bouton Success - Vert */
+.btn-success {
+  @apply bg-success-50 hover:bg-success-100 text-success-700
+         font-medium rounded-lg px-4 py-2
+         transition-all duration-200 ease-out
+         focus:outline-none focus:ring-2 focus:ring-success-300 focus:ring-offset-2;
+}
+
+.btn-success-solid {
+  @apply bg-success-500 hover:bg-success-600 text-white
+         font-semibold rounded-lg px-4 py-2
+         transition-all duration-200 ease-out
+         focus:outline-none focus:ring-2 focus:ring-success-400 focus:ring-offset-2;
+}
+
+/* Bouton Outline */
+.btn-outline {
+  @apply bg-transparent border border-gray-300 hover:bg-gray-50 text-gray-700
+         font-medium rounded-lg px-4 py-2
+         transition-all duration-200 ease-out
+         focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2;
+}
+
+.btn-outline-primary {
+  @apply bg-transparent border border-primary-400 hover:bg-primary-50 text-primary-600
+         font-medium rounded-lg px-4 py-2
+         transition-all duration-200 ease-out
+         focus:outline-none focus:ring-2 focus:ring-primary-300 focus:ring-offset-2;
+}
+
+/* Bouton Ghost (texte uniquement) */
+.btn-ghost {
+  @apply bg-transparent hover:bg-gray-100 text-gray-600
+         font-medium rounded-lg px-4 py-2
+         transition-all duration-200 ease-out
+         focus:outline-none focus:ring-2 focus:ring-gray-200 focus:ring-offset-2;
+}
+
+/* Tailles de boutons */
+.btn-sm {
+  @apply text-sm px-3 py-1.5;
+}
+
+.btn-lg {
+  @apply text-lg px-6 py-3;
+}
+
+/* ============================================
+   2. CARDS
+   ============================================ */
+
+/* Card standard */
+.card {
+  @apply bg-white rounded-xl border border-gray-100 shadow-sm
+         transition-shadow duration-200 ease-out;
+}
+
+.card:hover {
+  @apply shadow-md;
+}
+
+/* Card sans hover effect */
+.card-static {
+  @apply bg-white rounded-xl border border-gray-100 shadow-sm;
+}
+
+/* Stat Card (pour dashboard) */
+.stat-card {
+  @apply bg-white rounded-xl border border-gray-100 shadow-sm p-6
+         transition-all duration-300 ease-out;
+}
+
+.stat-card:hover {
+  @apply shadow-md;
+}
+
+/* Card avec header */
+.card-header {
+  @apply px-6 py-4 border-b border-gray-100;
+}
+
+.card-body {
+  @apply p-6;
+}
+
+.card-footer {
+  @apply px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl;
+}
+
+/* ============================================
+   3. BADGES & TAGS
+   ============================================ */
+
+/* Badge de base */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium;
+}
+
+/* Badge Statut - Success */
+.badge-success {
+  @apply bg-success-100 text-success-700;
+}
+
+/* Badge Statut - Warning */
+.badge-warning {
+  @apply bg-warning-100 text-warning-700;
+}
+
+/* Badge Statut - Error */
+.badge-error {
+  @apply bg-error-100 text-error-700;
+}
+
+/* Badge Statut - Info */
+.badge-info {
+  @apply bg-info-100 text-info-700;
+}
+
+/* Badge Neutre */
+.badge-neutral {
+  @apply bg-gray-100 text-gray-700;
+}
+
+/* Badge Primary */
+.badge-primary {
+  @apply bg-primary-100 text-primary-700;
+}
+
+/* ============================================
+   4. PLATEFORMES (Monochrome + icone coloree)
+   ============================================ */
+
+/* Container plateforme - style monochrome */
+.platform-badge {
+  @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
+         bg-gray-100 text-gray-700 text-sm font-medium;
+}
+
+/* Icones colorees des plateformes */
+.platform-icon-vinted {
+  @apply text-platform-vinted;
+}
+
+.platform-icon-ebay {
+  @apply text-platform-ebay;
+}
+
+.platform-icon-etsy {
+  @apply text-platform-etsy;
+}
+
+.platform-icon-facebook {
+  @apply text-platform-facebook;
+}
+
+/* ============================================
+   5. ALERTES / MESSAGES
+   ============================================ */
+
+.alert {
+  @apply rounded-lg p-4 flex items-start gap-3;
+}
+
+.alert-success {
+  @apply bg-success-50 text-success-800 border border-success-200;
+}
+
+.alert-warning {
+  @apply bg-warning-50 text-warning-800 border border-warning-200;
+}
+
+.alert-error {
+  @apply bg-error-50 text-error-800 border border-error-200;
+}
+
+.alert-info {
+  @apply bg-info-50 text-info-800 border border-info-200;
+}
+
+/* ============================================
+   6. FORMULAIRES
+   ============================================ */
+
+/* Label de formulaire */
+.form-label {
+  @apply block text-sm font-semibold text-gray-700 mb-1.5;
+}
+
+/* Description sous le label */
+.form-hint {
+  @apply text-xs text-gray-500 mt-1;
+}
+
+/* Message d'erreur */
+.form-error {
+  @apply text-xs text-error-600 mt-1;
+}
+
+/* Groupe de formulaire */
+.form-group {
+  @apply space-y-1;
+}
+
+/* ============================================
+   7. TYPOGRAPHIE
+   ============================================ */
+
+/* Titres de page */
+.page-title {
+  @apply text-3xl font-bold text-secondary-900;
+}
+
+.page-subtitle {
+  @apply text-gray-600 mt-1;
+}
+
+/* Titres de section */
+.section-title {
+  @apply text-xl font-semibold text-secondary-900;
+}
+
+/* Titres de card */
+.card-title {
+  @apply text-lg font-semibold text-secondary-900;
+}
+
+/* Texte secondaire */
+.text-muted {
+  @apply text-gray-500;
+}
+
+/* ============================================
+   8. ESPACEMENTS DE PAGE
+   ============================================ */
+
+/* Container de page dashboard */
+.page-container {
+  @apply p-6 lg:p-8;
+}
+
+/* Header de page avec actions */
+.page-header {
+  @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6;
+}
+
+/* ============================================
+   9. GRILLES STANDARDISEES
+   ============================================ */
+
+/* Grille de stats (4 colonnes) */
+.stats-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4;
+}
+
+/* Grille de cards (3 colonnes) */
+.cards-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+/* ============================================
+   10. ETATS VIDES
+   ============================================ */
+
+.empty-state {
+  @apply flex flex-col items-center justify-center py-12 text-center;
+}
+
+.empty-state-icon {
+  @apply w-16 h-16 text-gray-300 mb-4;
+}
+
+.empty-state-title {
+  @apply text-lg font-semibold text-gray-700 mb-2;
+}
+
+.empty-state-description {
+  @apply text-gray-500 mb-6 max-w-md;
+}

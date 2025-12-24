@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <!-- Page Header -->
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-secondary-900 mb-1">Notifications</h1>
@@ -31,7 +31,7 @@ definePageMeta({
 MVP1: Page Notifications désactivée - Code original commenté
 
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-secondary-900 mb-1">Notifications</h1>
       <p class="text-gray-600">Gérez vos préférences de notifications</p>

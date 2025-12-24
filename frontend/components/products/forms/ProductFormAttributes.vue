@@ -254,15 +254,16 @@ onMounted(async () => {
  */
 type AttributeField = 'condition' | 'label_size' | 'color' | 'material' | 'fit' | 'gender' | 'season'
 
-const handleAttributeUpdate = (field: AttributeField, value: string | null) => {
+const handleAttributeUpdate = (field: AttributeField, value: string | null | undefined) => {
+  const normalizedValue = value ?? null
   // Émettre l'événement correspondant
-  if (field === 'condition') emit('update:condition', value as string)
-  else if (field === 'label_size') emit('update:labelSize', value as string)
-  else if (field === 'color') emit('update:color', value as string)
-  else if (field === 'material') emit('update:material', value)
-  else if (field === 'fit') emit('update:fit', value)
-  else if (field === 'gender') emit('update:gender', value)
-  else if (field === 'season') emit('update:season', value)
+  if (field === 'condition') emit('update:condition', normalizedValue as string)
+  else if (field === 'label_size') emit('update:labelSize', normalizedValue as string)
+  else if (field === 'color') emit('update:color', normalizedValue as string)
+  else if (field === 'material') emit('update:material', normalizedValue)
+  else if (field === 'fit') emit('update:fit', normalizedValue)
+  else if (field === 'gender') emit('update:gender', normalizedValue)
+  else if (field === 'season') emit('update:season', normalizedValue)
 
   // Valider le champ si validation est fournie et le champ a déjà été touché
   if (props.validation && props.validation.touched.value.has(field)) {

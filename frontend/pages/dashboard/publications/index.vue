@@ -3,7 +3,7 @@
   Elle sera réactivée dans une version ultérieure
 -->
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <div class="text-center py-20">
       <i class="pi pi-clock text-6xl text-gray-300 mb-4"/>
       <h3 class="text-2xl font-bold text-secondary-900 mb-2">Bientôt disponible</h3>
@@ -22,7 +22,7 @@ definePageMeta({
   ORIGINAL CODE (MVP1 disabled):
 
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-secondary-900 mb-1">Publications</h1>
       <p class="text-gray-600">Gérez vos publications sur toutes les plateformes</p>

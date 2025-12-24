@@ -2,8 +2,8 @@
   <div
     class="conversation-item p-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors"
     :class="{
-      'bg-cyan-50': isSelected,
-      'bg-blue-50/50': conversation.is_unread && !isSelected
+      'bg-primary-50': isSelected,
+      'bg-info-50/50': conversation.is_unread && !isSelected
     }"
     @click="$emit('select', conversation)"
   >
@@ -22,7 +22,7 @@
         <!-- Unread indicator -->
         <div
           v-if="conversation.is_unread"
-          class="absolute -top-1 -right-1 w-3 h-3 bg-cyan-500 rounded-full border-2 border-white"
+          class="absolute -top-1 -right-1 w-3 h-3 bg-primary-400 rounded-full border-2 border-white"
         />
       </div>
 
@@ -31,7 +31,7 @@
         <div class="flex items-center justify-between">
           <span
             class="font-semibold text-secondary-900 truncate"
-            :class="{ 'text-cyan-700': conversation.is_unread }"
+            :class="{ 'text-primary-600': conversation.is_unread }"
           >
             {{ conversation.opposite_user?.login || 'Utilisateur' }}
           </span>

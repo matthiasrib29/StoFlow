@@ -351,12 +351,7 @@ const handlePayment = async () => {
 // Validation on mount
 onMounted(() => {
   if (!route.query.type || !route.query.price) {
-    toast?.add({
-      severity: 'warn',
-      summary: 'Informations manquantes',
-      detail: 'Redirection vers la page d\'abonnement',
-      life: 3000
-    })
+    showWarn('Informations manquantes', 'Redirection vers la page d\'abonnement', 3000)
     router.push('/dashboard/subscription')
   }
 })

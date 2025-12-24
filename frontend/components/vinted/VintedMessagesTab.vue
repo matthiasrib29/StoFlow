@@ -37,7 +37,7 @@
         <Button
           label="Sync"
           icon="pi pi-sync"
-          class="bg-cyan-500 hover:bg-cyan-600 text-white border-0"
+          class="btn-primary"
           :loading="messagesStore.isSyncing"
           @click="handleSyncInbox"
         />
@@ -48,13 +48,13 @@
     <div
       v-if="messagesStore.lastSyncResult"
       class="mb-4 p-3 rounded-lg flex items-center justify-between"
-      :class="messagesStore.lastSyncResult.errors.length > 0 ? 'bg-yellow-50' : 'bg-green-50'"
+      :class="messagesStore.lastSyncResult.errors.length > 0 ? 'bg-warning-50' : 'bg-success-50'"
     >
       <div class="flex items-center gap-2">
         <i
           :class="messagesStore.lastSyncResult.errors.length > 0
-            ? 'pi pi-exclamation-triangle text-yellow-600'
-            : 'pi pi-check-circle text-green-600'"
+            ? 'pi pi-exclamation-triangle text-warning-600'
+            : 'pi pi-check-circle text-success-600'"
         />
         <span class="text-sm">
           {{ messagesStore.lastSyncResult.synced }} conversation(s) synchronisée(s)
