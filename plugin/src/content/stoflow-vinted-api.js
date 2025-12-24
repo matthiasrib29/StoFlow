@@ -19,9 +19,28 @@
 (function() {
     'use strict';
 
+    // ===== MINI-LOGGER FOR INJECTED SCRIPT CONTEXT =====
+    const DEBUG_ENABLED = true; // Set to false in production
+    const log = {
+        // Stoflow API logs
+        api: {
+            debug: (...args) => DEBUG_ENABLED && console.log('[Stoflow API]', ...args),
+            info: (...args) => console.log('[Stoflow API]', '✓', ...args),
+            warn: (...args) => console.warn('[Stoflow API]', '⚠', ...args),
+            error: (...args) => console.error('[Stoflow API]', '✗', ...args)
+        },
+        // DataDome logs
+        dd: {
+            debug: (...args) => DEBUG_ENABLED && console.log('[DataDome]', ...args),
+            info: (...args) => console.log('[DataDome]', '✓', ...args),
+            warn: (...args) => console.warn('[DataDome]', '⚠', ...args),
+            error: (...args) => console.error('[DataDome]', '✗', ...args)
+        }
+    };
+
     // Éviter la double initialisation
     if (window.StoflowAPI && window.StoflowAPI._initialized) {
-        console.log('🛍️ [Stoflow] StoflowAPI déjà initialisé, skip');
+        log.api.debug('Already initialized, skipping');
         return;
     }
 
@@ -97,7 +116,7 @@
         async ping() {
             return new Promise((resolve) => {
                 if (!this.isPresent()) {
-                    console.log('🛡️ [DataDome] Not present on page');
+                    log.dd.debug('Not present on page');
                     resolve({
                         success: false,
                         pingCount: this._pingCount,
@@ -109,7 +128,7 @@
                 // Timeout if no response
                 const timeout = setTimeout(() => {
                     window.removeEventListener('dd_post_done', handler);
-                    console.log('🛡️ [DataDome] Ping timeout');
+                    log.dd.warn('Ping timeout (3s)');
                     resolve({
                         success: false,
                         pingCount: this._pingCount,
@@ -122,7 +141,7 @@
                     clearTimeout(timeout);
                     window.removeEventListener('dd_post_done', handler);
                     this._pingCount++;
-                    console.log(`🛡️ [DataDome] Ping OK (#${this._pingCount})`);
+                    log.dd.info(`Ping OK (#${this._pingCount})`);
                     resolve({
                         success: true,
                         pingCount: this._pingCount
@@ -132,7 +151,7 @@
                 window.addEventListener('dd_post_done', handler);
 
                 // Trigger the ping
-                console.log('🛡️ [DataDome] Triggering ping...');
+                log.dd.debug('Triggering ping...');
                 window.dispatchEvent(new CustomEvent('datadome-det-a'));
             });
         },
@@ -144,7 +163,7 @@
          */
         async reload() {
             if (this._isReloading) {
-                console.log('🛡️ [DataDome] Already reloading, skip');
+                log.dd.debug('Already reloading, skip');
                 return false;
             }
 
@@ -158,21 +177,21 @@
                 const version = window.dataDomeOptions?.version || '5.1.9';
                 const scriptUrl = `https://static-assets.vinted.com/datadome/${version}/tags.js`;
 
-                console.log(`🛡️ [DataDome] Reloading script: ${scriptUrl}`);
+                log.dd.debug('Reloading script:', scriptUrl);
 
                 // Create and inject new script
                 const script = document.createElement('script');
                 script.src = scriptUrl;
 
                 script.onload = () => {
-                    console.log('🛡️ [DataDome] Script reloaded successfully');
+                    log.dd.info('Script reloaded successfully');
                     this._isReloading = false;
                     // Wait for DataDome to initialize
                     setTimeout(() => resolve(true), 500);
                 };
 
                 script.onerror = () => {
-                    console.error('🛡️ [DataDome] Script reload failed');
+                    log.dd.error('Script reload failed');
                     this._isReloading = false;
                     resolve(false);
                 };
@@ -190,7 +209,7 @@
             let result = await this.ping();
 
             if (!result.success && !this._isReloading) {
-                console.log('🛡️ [DataDome] Ping failed, attempting reload...');
+                log.dd.debug('Ping failed, attempting reload...');
 
                 const reloadSuccess = await this.reload();
 
@@ -254,7 +273,7 @@
          * Force une réinitialisation de toutes les APIs
          */
         _reset() {
-            console.log('🛍️ [Stoflow] 🔄 Reset des APIs...');
+            log.api.debug('Resetting APIs...');
             this._apis = {};
             this._ready = null;
             this._initAttempts = 0;
@@ -300,7 +319,7 @@
                     this._initAttempts++;
 
                     if (!window.webpackChunk_N_E) {
-                        console.log(`🛍️ [Stoflow] ❌ Webpack non trouvé (tentative ${this._initAttempts}/${this._maxAttempts})`);
+                        log.api.debug(`Webpack not found (attempt ${this._initAttempts}/${this._maxAttempts})`);
                         if (this._initAttempts < this._maxAttempts) {
                             setTimeout(attemptInit, this._retryDelay * this._initAttempts);
                         } else {
@@ -314,7 +333,7 @@
                     const targetId = this._findModuleByPatterns(mainConfig.patterns);
 
                     if (!targetId) {
-                        console.log(`🛍️ [Stoflow] ❌ Module API non trouvé (tentative ${this._initAttempts}/${this._maxAttempts})`);
+                        log.api.debug(`API module not found (attempt ${this._initAttempts}/${this._maxAttempts})`);
                         if (this._initAttempts < this._maxAttempts) {
                             setTimeout(attemptInit, this._retryDelay * this._initAttempts);
                         } else {
@@ -323,7 +342,7 @@
                         return;
                     }
 
-                    console.log('🛍️ [Stoflow] 📍 Module principal trouvé, ID:', targetId);
+                    log.api.debug('Main module found, ID:', targetId);
 
                     try {
                         window.webpackChunk_N_E.push([
@@ -335,7 +354,7 @@
                                     if (module?.F) {
                                         this._apis.api = module.F;
                                         this._lastValidation = Date.now();
-                                        console.log('🛍️ [Stoflow] ✅ API principale Vinted connectée');
+                                        log.api.info('Main Vinted API connected');
 
                                         // Essayer de charger les autres APIs (non bloquant)
                                         this._loadSecondaryApis(require);
@@ -349,7 +368,7 @@
                                         }
                                     }
                                 } catch(e) {
-                                    console.log('🛍️ [Stoflow] ❌ Erreur chargement module:', e);
+                                    log.api.error('Module loading error:', e);
                                     if (this._initAttempts < this._maxAttempts) {
                                         setTimeout(attemptInit, this._retryDelay * this._initAttempts);
                                     } else {
@@ -359,7 +378,7 @@
                             }
                         ]);
                     } catch (error) {
-                        console.log('🛍️ [Stoflow] ❌ Erreur injection webpack:', error);
+                        log.api.error('Webpack injection error:', error);
                         if (this._initAttempts < this._maxAttempts) {
                             setTimeout(attemptInit, this._retryDelay * this._initAttempts);
                         } else {
@@ -387,11 +406,11 @@
                         const module = require(Number(moduleId));
                         if (module?.[config.exportKey]) {
                             this._apis[name] = module[config.exportKey];
-                            console.log(`🛍️ [Stoflow] ✅ API ${name} connectée`);
+                            log.api.debug(`API ${name} connected`);
                         }
                     }
                 } catch (e) {
-                    console.log(`🛍️ [Stoflow] ⚠️ API ${name} non disponible:`, e.message);
+                    log.api.debug(`API ${name} not available:`, e.message);
                 }
             }
         },
@@ -404,7 +423,7 @@
             const now = Date.now();
             if (now - this._lastValidation > this._validationInterval) {
                 if (!this._isApiValid(apiName)) {
-                    console.log(`🛍️ [Stoflow] ⚠️ API ${apiName} invalide détectée, reconnexion...`);
+                    log.api.warn(`API ${apiName} invalid, reconnecting...`);
                     await this.init(true);
                 }
                 this._lastValidation = now;
@@ -430,16 +449,16 @@
 
             // Check if we should ping DataDome
             if (this._requestCount % this._dataDomePingInterval === 0) {
-                console.log(`🛡️ [DataDome] Auto-ping triggered (request #${this._requestCount})`);
+                log.dd.debug(`Auto-ping triggered (request #${this._requestCount})`);
                 try {
                     const result = await DataDomeHandler.safePing();
                     if (result.success) {
-                        console.log(`🛡️ [DataDome] Auto-ping OK (total pings: ${result.pingCount})`);
+                        log.dd.info(`Auto-ping OK (total: ${result.pingCount})`);
                     } else {
-                        console.warn(`🛡️ [DataDome] Auto-ping failed: ${result.error}`);
+                        log.dd.warn(`Auto-ping failed: ${result.error}`);
                     }
                 } catch (error) {
-                    console.error('🛡️ [DataDome] Auto-ping error:', error);
+                    log.dd.error('Auto-ping error:', error);
                 }
                 this._lastDataDomePing = Date.now();
             }
@@ -470,7 +489,7 @@
                 return await api.get(endpoint, { params });
             } catch (error) {
                 if (error.message?.includes('Network') || error.code === 'ERR_NETWORK') {
-                    console.log('🛍️ [Stoflow] 🔄 Erreur réseau, tentative reconnexion...');
+                    log.api.warn('Network error, reconnecting...');
                     await this.init(true);
                     const newApi = await this._ensureReady('api');
                     return await newApi.get(endpoint, { params });
@@ -558,7 +577,7 @@
             // Check DataDome ping before each request (every 15 requests)
             await this._checkDataDomePing();
 
-            console.log(`🛍️ [Stoflow] 📄 Fetch HTML: ${url}`);
+            log.api.debug('Fetch HTML:', url);
 
             // Construire l'URL complète si relative
             let fullUrl = url;
@@ -583,20 +602,20 @@
                     const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
                     error.status = response.status;
                     error.statusText = response.statusText;
-                    console.error(`🛍️ [Stoflow] ❌ HTTP Error: ${response.status} ${response.statusText}`);
+                    log.api.error(`HTTP Error: ${response.status} ${response.statusText}`);
                     throw error;
                 }
 
                 const html = await response.text();
 
-                console.log(`🛍️ [Stoflow] ✅ HTML récupéré: ${html.length} caractères`);
+                log.api.debug(`HTML fetched: ${html.length} chars`);
 
                 return {
                     status: response.status,
                     html: html
                 };
             } catch (error) {
-                console.error('🛍️ [Stoflow] ❌ Erreur fetch HTML:', error);
+                log.api.error('Fetch HTML error:', error);
                 throw error;
             }
         },
@@ -638,29 +657,28 @@
     window.StoflowAPI = StoflowAPI;
 
     // ===== STARTUP: Eager init + DataDome ping =====
-    console.log('🛍️ [Stoflow] 🚀 Démarrage eager init...');
+    log.api.debug('Starting eager init...');
     StoflowAPI.init().then(async (ready) => {
         if (ready) {
-            console.log('🛍️ [Stoflow] ✅ API prête');
-            console.log('🛍️ [Stoflow] 📋 APIs disponibles:', StoflowAPI.getAvailableApis().join(', '));
+            log.api.info('API ready, available:', StoflowAPI.getAvailableApis().join(', '));
 
             // ===== STARTUP DATADOME PING =====
             if (DataDomeHandler.isPresent() && !StoflowAPI._startupPingDone) {
-                console.log('🛡️ [DataDome] 🚀 Startup ping...');
+                log.dd.debug('Startup ping...');
                 try {
                     const result = await DataDomeHandler.safePing();
                     StoflowAPI._startupPingDone = true;
                     if (result.success) {
-                        console.log(`🛡️ [DataDome] ✅ Startup ping OK (#${result.pingCount})`);
+                        log.dd.info(`Startup ping OK (#${result.pingCount})`);
                     } else {
-                        console.warn(`🛡️ [DataDome] ⚠️ Startup ping failed: ${result.error}`);
+                        log.dd.warn(`Startup ping failed: ${result.error}`);
                     }
                 } catch (error) {
-                    console.error('🛡️ [DataDome] ❌ Startup ping error:', error);
+                    log.dd.error('Startup ping error:', error);
                 }
             }
         } else {
-            console.log('🛍️ [Stoflow] ⚠️ API non disponible');
+            log.api.warn('API not available');
         }
     });
 
@@ -669,7 +687,7 @@
     const urlObserver = new MutationObserver(() => {
         if (location.href !== lastUrl) {
             lastUrl = location.href;
-            console.log('🛍️ [Stoflow] 🔄 Navigation détectée, revalidation API...');
+            log.api.debug('Navigation detected, will revalidate API');
             // Forcer revalidation au prochain appel
             StoflowAPI._lastValidation = 0;
         }
@@ -678,7 +696,7 @@
 
     // Log DataDome status on init
     if (DataDomeHandler.isPresent()) {
-        console.log('🛡️ [DataDome] Detected:', DataDomeHandler.getInfo());
+        log.dd.debug('Detected:', DataDomeHandler.getInfo());
     }
 
     // ===== MESSAGE LISTENERS =====
@@ -690,7 +708,7 @@
 
         // ===== INIT API =====
         if (message.type === 'STOFLOW_INIT_API') {
-            console.log('🛍️ [Stoflow] Initialisation API demandée...');
+            log.api.debug('Init requested');
             try {
                 const ready = await StoflowAPI.init(true);
                 window.postMessage({
@@ -707,7 +725,7 @@
         if (message.type === 'STOFLOW_API_CALL') {
             const { method, endpoint, params, data, config, requestId, apiName } = message;
 
-            console.log(`🛍️ [Stoflow] 📡 API CALL: ${method} ${endpoint} (api: ${apiName || 'api'})`);
+            log.api.debug(`${method} ${endpoint} (api: ${apiName || 'api'})`);
 
             try {
                 let response;
@@ -760,7 +778,7 @@
                 }, '*');
 
             } catch (error) {
-                console.error('🛍️ [Stoflow] ❌ API CALL Error:', error);
+                log.api.error('API call error:', error);
                 window.postMessage({
                     type: 'STOFLOW_API_RESPONSE',
                     requestId,
@@ -776,7 +794,7 @@
         if (message.type === 'STOFLOW_DATADOME_PING') {
             const { requestId } = message;
 
-            console.log('🛡️ [DataDome] Ping request received');
+            log.dd.debug('Ping request received');
 
             try {
                 const result = await DataDomeHandler.safePing();
@@ -795,7 +813,7 @@
                 }, '*');
 
             } catch (error) {
-                console.error('🛡️ [DataDome] Ping error:', error);
+                log.dd.error('Ping error:', error);
                 window.postMessage({
                     type: 'STOFLOW_DATADOME_PING_RESPONSE',
                     requestId,
@@ -809,7 +827,7 @@
         if (message.type === 'STOFLOW_FETCH_HTML') {
             const { url, requestId } = message;
 
-            console.log(`🛍️ [Stoflow] 📄 FETCH HTML: ${url}`);
+            log.api.debug('Fetch HTML request:', url);
 
             try {
                 const result = await StoflowAPI.fetchHtml(url);
@@ -823,7 +841,7 @@
                 }, '*');
 
             } catch (error) {
-                console.error('🛍️ [Stoflow] ❌ FETCH HTML Error:', error);
+                log.api.error('Fetch HTML error:', error);
                 window.postMessage({
                     type: 'STOFLOW_FETCH_HTML_RESPONSE',
                     requestId,
@@ -836,6 +854,6 @@
         }
     });
 
-    console.log('🛍️ [Stoflow] ✅ Vinted API Hook chargé (multi-API + fetchHtml + DataDome ping)');
+    log.api.info('Vinted API Hook loaded (multi-API + fetchHtml + DataDome)');
 
 })();
