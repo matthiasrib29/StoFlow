@@ -135,7 +135,23 @@ export const useAuthStore = defineStore('auth', {
 
         if (!response.ok) {
           const error = await response.json()
-          throw new Error(error.detail || 'Erreur lors de l\'inscription')
+          // Handle Pydantic validation errors (detail is an array of objects)
+          let errorMessage = 'Erreur lors de l\'inscription'
+          if (error.detail) {
+            if (typeof error.detail === 'string') {
+              errorMessage = error.detail
+            } else if (Array.isArray(error.detail)) {
+              // Extract messages from Pydantic validation errors
+              errorMessage = error.detail
+                .map((err: any) => {
+                  // Remove "Value error, " prefix if present
+                  const msg = err.msg || err.message || String(err)
+                  return msg.replace(/^Value error,\s*/i, '')
+                })
+                .join('\n')
+            }
+          }
+          throw new Error(errorMessage)
         }
 
         const data = await response.json()
