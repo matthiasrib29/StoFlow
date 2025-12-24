@@ -6,216 +6,226 @@
       <p class="text-gray-600">Gérez votre abonnement et vos crédits IA</p>
     </div>
 
-    <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center py-20">
-      <ProgressSpinner />
-    </div>
+    <!-- Client-only content to prevent hydration mismatch -->
+    <ClientOnly>
+      <!-- Loading -->
+      <div v-if="loading" class="flex items-center justify-center py-20">
+        <ProgressSpinner />
+      </div>
 
-    <!-- Error -->
-    <Message v-else-if="error" severity="error" :closable="false" class="mb-6">
-      {{ error }}
-    </Message>
+      <!-- Error -->
+      <Message v-else-if="error" severity="error" :closable="false" class="mb-6">
+        {{ error }}
+      </Message>
 
-    <!-- Content -->
-    <div v-else class="space-y-6">
-      <!-- Current Subscription Card -->
-      <Card class="shadow-md modern-rounded">
-        <template #title>
-          <div class="flex items-center justify-between">
+      <!-- Content -->
+      <div v-else class="space-y-6">
+        <!-- Current Subscription Card -->
+        <Card class="shadow-md modern-rounded">
+          <template #title>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <i class="pi pi-star-fill text-primary-400 text-2xl"/>
+                <span class="text-2xl font-bold text-secondary-900">Votre abonnement</span>
+              </div>
+              <Tag :value="currentTier.toUpperCase()" :severity="getTierSeverity(currentTier)" class="text-sm font-bold px-4 py-2" />
+            </div>
+          </template>
+          <template #content>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <!-- Products Quota -->
+              <div class="p-4 bg-secondary-50 rounded-lg border-l-4 border-primary-400">
+                <div class="flex items-center gap-3 mb-2">
+                  <i class="pi pi-box text-primary-400 text-xl"/>
+                  <span class="text-sm text-gray-600 font-medium">Produits</span>
+                </div>
+                <p class="text-2xl font-bold text-secondary-900">{{ currentProducts }} / {{ maxProducts }}</p>
+                <ProgressBar
+                  :value="productProgress"
+                  :show-value="false"
+                  class="mt-2 h-2"
+                  :pt="{
+                    value: { class: 'bg-primary-400' }
+                  }"
+                />
+              </div>
+
+              <!-- Platforms Quota -->
+              <div class="p-4 bg-secondary-50 rounded-lg border-l-4 border-primary-400">
+                <div class="flex items-center gap-3 mb-2">
+                  <i class="pi pi-globe text-primary-400 text-xl"/>
+                  <span class="text-sm text-gray-600 font-medium">Plateformes</span>
+                </div>
+                <p class="text-2xl font-bold text-secondary-900">{{ currentPlatforms }} / {{ maxPlatforms }}</p>
+                <ProgressBar
+                  :value="platformProgress"
+                  :show-value="false"
+                  class="mt-2 h-2"
+                  :pt="{
+                    value: { class: 'bg-primary-400' }
+                  }"
+                />
+              </div>
+
+              <!-- AI Credits -->
+              <div class="p-4 bg-secondary-50 rounded-lg border-l-4 border-primary-400">
+                <div class="flex items-center gap-3 mb-2">
+                  <i class="pi pi-sparkles text-primary-400 text-xl"/>
+                  <span class="text-sm text-gray-600 font-medium">Crédits IA</span>
+                </div>
+                <p class="text-2xl font-bold text-secondary-900">{{ aiCreditsRemaining }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ aiCreditsMonthly }} / mois</p>
+              </div>
+            </div>
+          </template>
+        </Card>
+
+        <!-- Upgrade Plans Section -->
+        <Card class="shadow-md modern-rounded">
+          <template #title>
             <div class="flex items-center gap-3">
-              <i class="pi pi-star-fill text-primary-400 text-2xl"/>
-              <span class="text-2xl font-bold text-secondary-900">Votre abonnement</span>
+              <i class="pi pi-arrow-up text-primary-400 text-xl"/>
+              <span class="text-xl font-bold text-secondary-900">Changer d'abonnement</span>
             </div>
-            <Tag :value="currentTier.toUpperCase()" :severity="getTierSeverity(currentTier)" class="text-sm font-bold px-4 py-2" />
-          </div>
-        </template>
-        <template #content>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Products Quota -->
-            <div class="p-4 bg-secondary-50 rounded-lg border-l-4 border-primary-400">
-              <div class="flex items-center gap-3 mb-2">
-                <i class="pi pi-box text-primary-400 text-xl"/>
-                <span class="text-sm text-gray-600 font-medium">Produits</span>
-              </div>
-              <p class="text-2xl font-bold text-secondary-900">{{ currentProducts }} / {{ maxProducts }}</p>
-              <ProgressBar
-                :value="productProgress"
-                :show-value="false"
-                class="mt-2 h-2"
-                :pt="{
-                  value: { class: 'bg-primary-400' }
-                }"
-              />
+          </template>
+          <template #content>
+            <div v-if="loadingTiers" class="text-center py-8">
+              <ProgressSpinner style="width: 40px; height: 40px" />
             </div>
 
-            <!-- Platforms Quota -->
-            <div class="p-4 bg-secondary-50 rounded-lg border-l-4 border-primary-400">
-              <div class="flex items-center gap-3 mb-2">
-                <i class="pi pi-globe text-primary-400 text-xl"/>
-                <span class="text-sm text-gray-600 font-medium">Plateformes</span>
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div
+                v-for="tier in availableTiers"
+                :key="tier.tier"
+                class="relative p-6 rounded-lg border-2 transition-all duration-200"
+                :class="[
+                  tier.is_current
+                    ? 'border-primary-400 bg-primary-50'
+                    : 'border-gray-200 hover:border-primary-400 hover:shadow-md cursor-pointer'
+                ]"
+                @click="!tier.is_current && selectTier(tier)"
+              >
+                <!-- Current Badge -->
+                <div v-if="tier.is_current" class="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Tag value="ACTUEL" severity="success" class="text-xs font-bold" />
+                </div>
+
+                <!-- Tier Name -->
+                <div class="text-center mb-4">
+                  <h3 class="text-xl font-bold text-secondary-900 uppercase">{{ tier.tier }}</h3>
+                </div>
+
+                <!-- Features -->
+                <div class="space-y-3 mb-6">
+                  <div class="flex items-center gap-2">
+                    <i class="pi pi-check-circle text-green-600"/>
+                    <span class="text-sm text-gray-700">{{ tier.max_products }} produits</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <i class="pi pi-check-circle text-green-600"/>
+                    <span class="text-sm text-gray-700">{{ tier.max_platforms }} plateformes</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <i class="pi pi-check-circle text-green-600"/>
+                    <span class="text-sm text-gray-700">{{ tier.ai_credits_monthly }} crédits IA/mois</span>
+                  </div>
+                </div>
+
+                <!-- Action Button -->
+                <Button
+                  v-if="!tier.is_current"
+                  :label="getTierButtonLabel(tier.tier)"
+                  class="w-full bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
+                  size="small"
+                  @click="selectTier(tier)"
+                />
+                <Button
+                  v-else
+                  label="Abonnement actuel"
+                  class="w-full bg-gray-300 text-gray-600 border-0 font-semibold cursor-not-allowed"
+                  size="small"
+                  disabled
+                />
               </div>
-              <p class="text-2xl font-bold text-secondary-900">{{ currentPlatforms }} / {{ maxPlatforms }}</p>
-              <ProgressBar
-                :value="platformProgress"
-                :show-value="false"
-                class="mt-2 h-2"
-                :pt="{
-                  value: { class: 'bg-primary-400' }
-                }"
-              />
+            </div>
+          </template>
+        </Card>
+
+        <!-- AI Credits Purchase Section -->
+        <Card class="shadow-md modern-rounded">
+          <template #title>
+            <div class="flex items-center gap-3">
+              <i class="pi pi-shopping-cart text-primary-400 text-xl"/>
+              <span class="text-xl font-bold text-secondary-900">Acheter des crédits IA supplémentaires</span>
+            </div>
+          </template>
+          <template #content>
+            <div class="mb-4">
+              <p class="text-gray-600">
+                Besoin de plus de crédits IA ? Achetez des packs supplémentaires sans changer d'abonnement.
+              </p>
             </div>
 
-            <!-- AI Credits -->
-            <div class="p-4 bg-secondary-50 rounded-lg border-l-4 border-primary-400">
-              <div class="flex items-center gap-3 mb-2">
-                <i class="pi pi-sparkles text-primary-400 text-xl"/>
-                <span class="text-sm text-gray-600 font-medium">Crédits IA</span>
-              </div>
-              <p class="text-2xl font-bold text-secondary-900">{{ aiCreditsRemaining }}</p>
-              <p class="text-xs text-gray-500 mt-1">{{ aiCreditsMonthly }} / mois</p>
-            </div>
-          </div>
-        </template>
-      </Card>
-
-      <!-- Upgrade Plans Section -->
-      <Card class="shadow-md modern-rounded">
-        <template #title>
-          <div class="flex items-center gap-3">
-            <i class="pi pi-arrow-up text-primary-400 text-xl"/>
-            <span class="text-xl font-bold text-secondary-900">Changer d'abonnement</span>
-          </div>
-        </template>
-        <template #content>
-          <div v-if="loadingTiers" class="text-center py-8">
-            <ProgressSpinner style="width: 40px; height: 40px" />
-          </div>
-
-          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div
-              v-for="tier in availableTiers"
-              :key="tier.tier"
-              class="relative p-6 rounded-lg border-2 transition-all duration-200"
-              :class="[
-                tier.is_current
-                  ? 'border-primary-400 bg-primary-50'
-                  : 'border-gray-200 hover:border-primary-400 hover:shadow-md cursor-pointer'
-              ]"
-              @click="!tier.is_current && selectTier(tier)"
-            >
-              <!-- Current Badge -->
-              <div v-if="tier.is_current" class="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Tag value="ACTUEL" severity="success" class="text-xs font-bold" />
-              </div>
-
-              <!-- Tier Name -->
-              <div class="text-center mb-4">
-                <h3 class="text-xl font-bold text-secondary-900 uppercase">{{ tier.tier }}</h3>
-              </div>
-
-              <!-- Features -->
-              <div class="space-y-3 mb-6">
-                <div class="flex items-center gap-2">
-                  <i class="pi pi-check-circle text-green-600"/>
-                  <span class="text-sm text-gray-700">{{ tier.max_products }} produits</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <i class="pi pi-check-circle text-green-600"/>
-                  <span class="text-sm text-gray-700">{{ tier.max_platforms }} plateformes</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <i class="pi pi-check-circle text-green-600"/>
-                  <span class="text-sm text-gray-700">{{ tier.ai_credits_monthly }} crédits IA/mois</span>
-                </div>
-              </div>
-
-              <!-- Action Button -->
-              <Button
-                v-if="!tier.is_current"
-                :label="getTierButtonLabel(tier.tier)"
-                class="w-full bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
-                size="small"
-                @click="selectTier(tier)"
-              />
-              <Button
-                v-else
-                label="Abonnement actuel"
-                class="w-full bg-gray-300 text-gray-600 border-0 font-semibold cursor-not-allowed"
-                size="small"
-                disabled
-              />
-            </div>
-          </div>
-        </template>
-      </Card>
-
-      <!-- AI Credits Purchase Section -->
-      <Card class="shadow-md modern-rounded">
-        <template #title>
-          <div class="flex items-center gap-3">
-            <i class="pi pi-shopping-cart text-primary-400 text-xl"/>
-            <span class="text-xl font-bold text-secondary-900">Acheter des crédits IA supplémentaires</span>
-          </div>
-        </template>
-        <template #content>
-          <div class="mb-4">
-            <p class="text-gray-600">
-              Besoin de plus de crédits IA ? Achetez des packs supplémentaires sans changer d'abonnement.
-            </p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div
-              v-for="pack in creditPacks"
-              :key="pack.credits"
-              class="relative p-6 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:shadow-md transition-all duration-200 cursor-pointer"
-              @click="selectCreditPack(pack)"
-            >
-              <!-- Popular Badge -->
-              <div v-if="pack.popular" class="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Tag value="POPULAIRE" severity="success" class="text-xs font-bold" />
-              </div>
-
-              <!-- Credits Amount -->
-              <div class="text-center mb-4">
-                <div class="text-3xl font-bold text-secondary-900 mb-1">{{ pack.credits }}</div>
-                <div class="text-sm text-gray-600">crédits IA</div>
-              </div>
-
-              <!-- Price -->
-              <div class="text-center mb-4">
-                <div class="text-2xl font-bold text-primary-400">{{ pack.price }}€</div>
-                <div class="text-xs text-gray-500">{{ pack.pricePerCredit }}€ / crédit</div>
-              </div>
-
-              <!-- Features -->
-              <div class="space-y-2 mb-6">
-                <div class="flex items-center gap-2 text-sm text-gray-600">
-                  <i class="pi pi-check-circle text-green-600"/>
-                  <span>Pas d'expiration</span>
-                </div>
-                <div class="flex items-center gap-2 text-sm text-gray-600">
-                  <i class="pi pi-check-circle text-green-600"/>
-                  <span>Utilisable immédiatement</span>
-                </div>
-                <div class="flex items-center gap-2 text-sm text-gray-600">
-                  <i class="pi pi-check-circle text-green-600"/>
-                  <span>Cumulable</span>
-                </div>
-              </div>
-
-              <!-- Buy Button -->
-              <Button
-                label="Acheter"
-                class="w-full bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
-                size="small"
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div
+                v-for="pack in creditPacks"
+                :key="pack.credits"
+                class="relative p-6 rounded-lg border-2 border-gray-200 hover:border-primary-400 hover:shadow-md transition-all duration-200 cursor-pointer"
                 @click="selectCreditPack(pack)"
-              />
+              >
+                <!-- Popular Badge -->
+                <div v-if="pack.popular" class="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Tag value="POPULAIRE" severity="success" class="text-xs font-bold" />
+                </div>
+
+                <!-- Credits Amount -->
+                <div class="text-center mb-4">
+                  <div class="text-3xl font-bold text-secondary-900 mb-1">{{ pack.credits }}</div>
+                  <div class="text-sm text-gray-600">crédits IA</div>
+                </div>
+
+                <!-- Price -->
+                <div class="text-center mb-4">
+                  <div class="text-2xl font-bold text-primary-400">{{ pack.price }}€</div>
+                  <div class="text-xs text-gray-500">{{ pack.pricePerCredit }}€ / crédit</div>
+                </div>
+
+                <!-- Features -->
+                <div class="space-y-2 mb-6">
+                  <div class="flex items-center gap-2 text-sm text-gray-600">
+                    <i class="pi pi-check-circle text-green-600"/>
+                    <span>Pas d'expiration</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-sm text-gray-600">
+                    <i class="pi pi-check-circle text-green-600"/>
+                    <span>Utilisable immédiatement</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-sm text-gray-600">
+                    <i class="pi pi-check-circle text-green-600"/>
+                    <span>Cumulable</span>
+                  </div>
+                </div>
+
+                <!-- Buy Button -->
+                <Button
+                  label="Acheter"
+                  class="w-full bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
+                  size="small"
+                  @click="selectCreditPack(pack)"
+                />
+              </div>
             </div>
-          </div>
-        </template>
-      </Card>
-    </div>
+          </template>
+        </Card>
+      </div>
+
+      <!-- Fallback for SSR -->
+      <template #fallback>
+        <div class="flex items-center justify-center py-20">
+          <ProgressSpinner />
+        </div>
+      </template>
+    </ClientOnly>
 
     <!-- Upgrade Confirmation Dialog -->
     <Dialog
