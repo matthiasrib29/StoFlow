@@ -786,7 +786,9 @@ const isAdminRoute = computed(() => route.path.startsWith('/dashboard/admin'))
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 // Platform watchers: Fetch status and start polling when on platform route
+// Only run client-side to avoid SSR auth issues
 watch(isVintedRoute, (isActive) => {
+  if (!import.meta.client) return
   if (isActive) {
     vintedConnection.fetchStatus()
     vintedJobs.fetchActiveJobs()
@@ -797,6 +799,7 @@ watch(isVintedRoute, (isActive) => {
 }, { immediate: true })
 
 watch(isEbayRoute, (isActive) => {
+  if (!import.meta.client) return
   if (isActive) {
     ebayConnection.fetchStatus()
     ebayJobs.fetchActiveJobs()
@@ -807,6 +810,7 @@ watch(isEbayRoute, (isActive) => {
 }, { immediate: true })
 
 watch(isEtsyRoute, (isActive) => {
+  if (!import.meta.client) return
   if (isActive) {
     etsyConnection.fetchStatus()
     etsyJobs.fetchActiveJobs()
