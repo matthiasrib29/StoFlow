@@ -1,19 +1,16 @@
 /**
  * Client-side initialization plugin
  *
- * Restores user session and preferences from localStorage on app startup
- * This plugin runs only on client-side (.client.ts suffix) because
- * localStorage is not available during server-side rendering (SSR)
- *
- * Combines functionality from:
- * - auth.client.ts: Restore authentication session
- * - locale.client.ts: Restore locale preferences
+ * Handles client-only initialization tasks:
  * - Plugin sync: Initialize secure communication with browser extension
+ * - Locale: Restore locale preferences
+ *
+ * Note: Auth session restoration is handled by auth.global.ts middleware
+ * to avoid duplicate loadFromStorage() calls on every navigation
  */
 import { initPluginListener } from '~/composables/usePluginSync'
 
 export default defineNuxtPlugin(() => {
-  const authStore = useAuthStore()
   const localeStore = useLocaleStore()
 
   // Initialize secure plugin communication listener
@@ -21,14 +18,12 @@ export default defineNuxtPlugin(() => {
   // a secure channel for token synchronization
   initPluginListener()
 
-  // Restore authentication session from localStorage
-  authStore.loadFromStorage()
-
   // Restore locale preference from localStorage (defaults to French if not set)
   localeStore.initLocale()
 
   // Dev logging
   if (import.meta.dev) {
+    const authStore = useAuthStore()
     console.log('[Init] Client initialized', {
       authenticated: authStore.isAuthenticated,
       locale: localeStore.currentLocale

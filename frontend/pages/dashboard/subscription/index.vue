@@ -6,20 +6,18 @@
       <p class="text-gray-600">Gérez votre abonnement et vos crédits IA</p>
     </div>
 
-    <!-- Client-only content to prevent hydration mismatch -->
-    <ClientOnly>
-      <!-- Loading -->
-      <div v-if="loading" class="flex items-center justify-center py-20">
-        <ProgressSpinner />
-      </div>
+    <!-- Loading -->
+    <div v-if="loading" class="flex items-center justify-center py-20">
+      <ProgressSpinner />
+    </div>
 
-      <!-- Error -->
-      <Message v-else-if="error" severity="error" :closable="false" class="mb-6">
-        {{ error }}
-      </Message>
+    <!-- Error -->
+    <Message v-else-if="error" severity="error" :closable="false" class="mb-6">
+      {{ error }}
+    </Message>
 
-      <!-- Content -->
-      <div v-else class="space-y-6">
+    <!-- Content (only rendered after data is loaded) -->
+    <div v-else class="space-y-6">
         <!-- Current Subscription Card -->
         <Card class="shadow-md modern-rounded">
           <template #title>
@@ -217,15 +215,7 @@
             </div>
           </template>
         </Card>
-      </div>
-
-      <!-- Fallback for SSR -->
-      <template #fallback>
-        <div class="flex items-center justify-center py-20">
-          <ProgressSpinner />
-        </div>
-      </template>
-    </ClientOnly>
+    </div>
 
     <!-- Upgrade Confirmation Dialog -->
     <Dialog
@@ -458,7 +448,7 @@ const loadTiers = async () => {
   }
 }
 
-// Fetch subscription data on mount (non-blocking for instant navigation)
+// Fetch subscription data on mount
 onMounted(async () => {
   await Promise.all([
     loadSubscriptionInfo(),
