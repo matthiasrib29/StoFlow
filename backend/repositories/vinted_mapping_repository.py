@@ -10,7 +10,7 @@ Business Rules (2025-12-18):
 - Fallback via is_default si pas de match exact
 
 Architecture:
-- Accès direct à la table public.vinted_mapping
+- Accès direct à la table vinted.mapping
 - Appelle la fonction PostgreSQL get_vinted_category pour le matching intelligent
 - Gère les attributs optionnels (fit, length, rise, material, etc.)
 
@@ -164,7 +164,7 @@ class VintedMappingRepository:
         result = self.db.execute(
             text("""
                 SELECT id, title, path, gender
-                FROM public.vinted_categories
+                FROM vinted.categories
                 WHERE id = :vinted_id
             """),
             {"vinted_id": vinted_id}
@@ -214,7 +214,7 @@ class VintedMappingRepository:
             result = self.db.execute(
                 text("""
                     SELECT my_category, my_gender
-                    FROM public.vinted_mapping
+                    FROM vinted.mapping
                     WHERE vinted_id = :vinted_id
                     ORDER BY is_default DESC
                     LIMIT 1
@@ -262,7 +262,7 @@ class VintedMappingRepository:
                         my_neckline,
                         my_sleeve_length,
                         is_default
-                    FROM public.vinted_mapping
+                    FROM vinted.mapping
                     WHERE vinted_id = :vinted_id
                     ORDER BY is_default DESC
                     LIMIT 1
@@ -319,7 +319,7 @@ class VintedMappingRepository:
         result = self.db.execute(
             text("""
                 SELECT EXISTS (
-                    SELECT 1 FROM public.vinted_mapping
+                    SELECT 1 FROM vinted.mapping
                     WHERE my_category = :category
                     AND my_gender = :gender
                 )
@@ -342,7 +342,7 @@ class VintedMappingRepository:
         result = self.db.execute(
             text("""
                 SELECT EXISTS (
-                    SELECT 1 FROM public.vinted_mapping
+                    SELECT 1 FROM vinted.mapping
                     WHERE my_category = :category
                     AND my_gender = :gender
                     AND is_default = true
@@ -380,8 +380,8 @@ class VintedMappingRepository:
                     vm.my_length,
                     vm.my_rise,
                     vm.is_default
-                FROM public.vinted_mapping vm
-                JOIN public.vinted_categories vc ON vm.vinted_id = vc.id
+                FROM vinted.mapping vm
+                JOIN vinted.categories vc ON vm.vinted_id = vc.id
                 WHERE vm.my_category = :category
                 AND vm.my_gender = :gender
                 ORDER BY vm.is_default DESC
@@ -413,7 +413,7 @@ class VintedMappingRepository:
         results = self.db.execute(
             text("""
                 SELECT issue, vinted_id, vinted_title, vinted_gender, my_category, my_gender
-                FROM public.mapping_validation
+                FROM vinted.mapping_validation
                 ORDER BY issue, my_category, my_gender
             """)
         ).fetchall()

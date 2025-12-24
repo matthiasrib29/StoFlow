@@ -21,10 +21,10 @@ class VintedCategory(Base):
     Stores Vinted's internal category structure with parent-child relationships.
     Used for mapping Stoflow categories to Vinted categories.
 
-    Table: vinted.vinted_categories
+    Table: vinted.categories
     """
 
-    __tablename__ = "vinted_categories"
+    __tablename__ = "categories"
     __table_args__ = {"schema": "vinted"}
 
     id: Mapped[int] = mapped_column(
@@ -47,7 +47,7 @@ class VintedCategory(Base):
 
     parent_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("vinted.vinted_categories.id", ondelete="CASCADE"),
+        ForeignKey("vinted.categories.id", ondelete="CASCADE"),
         nullable=True,
         comment="Parent category ID"
     )
