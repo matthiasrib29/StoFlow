@@ -6,8 +6,10 @@ Ce package contient tous les modeles SQLAlchemy pour l'application Stoflow.
 Structure:
 - models/public: Modeles du schema 'public' (partages entre tous les users)
 - models/user: Modeles des schemas users (isoles par user, user_{id})
+- models/vinted: Modeles du schema 'vinted' (donnees Vinted partagees)
 
 Updated (2025-12-12): Tous les modeles sont maintenant exportes.
+Updated (2025-12-24): Ajout du schema vinted pour les tables Vinted partagees.
 """
 
 # ===== PUBLIC SCHEMA MODELS =====
@@ -17,9 +19,6 @@ from models.public import (
     UserRole,
     SubscriptionTier,
     SubscriptionQuota,
-    # Platforms
-    Platform,
-    PlatformMapping,
     # Pricing & Credits
     ClothingPrice,
     AICredit,
@@ -51,6 +50,12 @@ from models.public import (
     Sport,
     Trend,
     UniqueFeature,
+)
+
+# ===== VINTED SCHEMA MODELS =====
+from models.vinted import (
+    VintedCategory,
+    VintedMapping,
 )
 
 # ===== USER SCHEMA MODELS (user_{id}) =====
@@ -92,9 +97,6 @@ __all__ = [
     "UserRole",
     "SubscriptionTier",
     "SubscriptionQuota",
-    # Platforms
-    "Platform",
-    "PlatformMapping",
     # Pricing & Credits
     "ClothingPrice",
     "AICredit",
@@ -104,6 +106,9 @@ __all__ = [
     "ExchangeRate",
     # Vinted Job System (public)
     "VintedActionType",
+    # ===== VINTED SCHEMA =====
+    "VintedCategory",
+    "VintedMapping",
     # Product Attributes
     "Brand",
     "Category",

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
 from models.user.vinted_order import VintedOrder
-from models.user.vinted_deletion import VintedDeletion
+from models.vinted.vinted_deletion import VintedDeletion
 from services.vinted import (
     VintedSyncService,
     VintedJobService,

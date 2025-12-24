@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models.user.vinted_product import VintedProduct
-from models.user.vinted_deletion import VintedDeletion
+from models.vinted.vinted_deletion import VintedDeletion
 from models.user.vinted_job import VintedJob
 from services.vinted.vinted_product_helpers import should_delete_product
 from shared.vinted_constants import VintedProductAPI

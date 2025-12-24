@@ -1,20 +1,18 @@
 """
-VintedDeletion Model - Schema user_{id}
+VintedDeletion Model - Schema vinted
 
-Ce modèle archive les produits supprimés de Vinted avec leurs statistiques.
-Utilisé pour analytics et suivi des performances.
-
-Adapté de pythonApiWOO/Models/vinted/VintedDeletionModel.py
+Archives deleted Vinted products with their statistics.
+Used for analytics and performance tracking.
 
 Business Rules (2025-12-12):
-- Créé lors de la suppression d'un VintedProduct
-- Conserve les stats au moment de la suppression (vues, favoris, etc.)
-- Calcule days_active automatiquement
-- Permet d'analyser la performance des produits supprimés
+- Created when a VintedProduct is deleted
+- Stores stats at deletion time (views, favorites, etc.)
+- Calculates days_active automatically
+- Allows analysis of deleted product performance
 
 Author: Claude
 Date: 2025-12-12
-Source: pythonApiWOO/Models/vinted/VintedDeletionModel.py
+Updated: 2025-12-24 - Moved to vinted schema
 """
 
 from datetime import date as date_type
@@ -28,21 +26,9 @@ from shared.database import Base
 
 class VintedDeletion(Base):
     """
-    Modèle VintedDeletion - Archive des produits Vinted supprimés.
+    Archive of deleted Vinted products.
 
-    Structure identique à pythonApiWOO pour compatibilité.
-
-    Attributes:
-        id: ID auto-incrémenté (PK)
-        id_vinted: ID Vinted du produit supprimé
-        id_site: ID du produit dans Stoflow (product_id)
-        price: Prix au moment de la suppression
-        date_published: Date de publication initiale
-        date_deleted: Date de suppression
-        view_count: Nombre de vues au moment de la suppression
-        favourite_count: Nombre de favoris
-        days_active: Nombre de jours en ligne
-        conversations: Nombre de conversations
+    Table: vinted.vinted_deletions
     """
 
     __tablename__ = "vinted_deletions"
@@ -51,6 +37,7 @@ class VintedDeletion(Base):
         Index('idx_vinted_deletions_id_site', 'id_site'),
         Index('idx_vinted_deletions_date_deleted', 'date_deleted'),
         Index('idx_vinted_deletions_days_active', 'days_active'),
+        {"schema": "vinted"}
     )
 
     # Primary Key
@@ -60,66 +47,66 @@ class VintedDeletion(Base):
         autoincrement=True
     )
 
-    # IDs externes
+    # External IDs
     id_vinted: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
         index=True,
-        comment="ID Vinted du produit supprimé"
+        comment="Vinted product ID (deleted)"
     )
     id_site: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
         index=True,
-        comment="ID du produit dans Stoflow (product_id)"
+        comment="Stoflow product ID"
     )
 
-    # Prix
+    # Price
     price: Mapped[Decimal | None] = mapped_column(
         Numeric(10, 2),
         nullable=True,
-        comment="Prix au moment de la suppression"
+        comment="Price at deletion time"
     )
 
     # Dates
     date_published: Mapped[date_type | None] = mapped_column(
         Date,
         nullable=True,
-        comment="Date de publication initiale"
+        comment="Initial publication date"
     )
     date_deleted: Mapped[date_type | None] = mapped_column(
         Date,
         nullable=True,
         index=True,
-        comment="Date de suppression"
+        comment="Deletion date"
     )
 
-    # Statistiques au moment de la suppression
+    # Statistics at deletion time
     view_count: Mapped[int] = mapped_column(
         Integer,
         nullable=True,
         default=0,
-        comment="Nombre de vues"
+        comment="View count"
     )
     favourite_count: Mapped[int] = mapped_column(
         Integer,
         nullable=True,
         default=0,
-        comment="Nombre de favoris"
+        comment="Favorite count"
     )
     conversations: Mapped[int] = mapped_column(
         Integer,
         nullable=True,
         default=0,
-        comment="Nombre de conversations"
+        comment="Conversation count"
     )
 
-    # Durée de vie
+    # Lifetime
     days_active: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
         index=True,
-        comment="Nombre de jours en ligne"
+        comment="Days online"
     )
 
     def __repr__(self) -> str:
@@ -129,19 +116,19 @@ class VintedDeletion(Base):
         )
 
     @classmethod
-    def from_vinted_product(cls, vinted_product: "VintedProduct") -> "VintedDeletion":
+    def from_vinted_product(cls, vinted_product) -> "VintedDeletion":
         """
-        Crée une VintedDeletion depuis un VintedProduct.
+        Create a VintedDeletion from a VintedProduct.
 
         Args:
-            vinted_product: Instance VintedProduct à archiver
+            vinted_product: VintedProduct instance to archive
 
         Returns:
-            VintedDeletion: Instance prête à être persistée
+            VintedDeletion: Instance ready to persist
         """
         from datetime import date
 
-        # Calcul de days_active
+        # Calculate days_active
         days_active = None
         if vinted_product.date:
             delta = date.today() - vinted_product.date
