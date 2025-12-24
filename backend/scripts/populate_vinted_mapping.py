@@ -354,7 +354,7 @@ def main():
 
     with engine.connect() as conn:
         # Clear existing data
-        conn.execute(text("DELETE FROM public.vinted_mapping"))
+        conn.execute(text("DELETE FROM vinted.mapping"))
         conn.commit()
         print(f"\n🗑️  Cleared existing mapping data")
 
@@ -368,7 +368,7 @@ def main():
 
             # Check if vinted_id exists
             exists = conn.execute(text(
-                "SELECT 1 FROM public.vinted_categories WHERE id = :id"
+                "SELECT 1 FROM vinted.categories WHERE id = :id"
             ), {"id": vinted_id}).fetchone()
 
             if not exists:
@@ -388,7 +388,7 @@ def main():
 
             try:
                 conn.execute(text("""
-                    INSERT INTO public.vinted_mapping
+                    INSERT INTO vinted.mapping
                     (vinted_id, vinted_gender, my_category, my_gender, my_fit, my_length, my_rise, my_material, my_pattern, my_neckline, my_sleeve_length, is_default, priority)
                     VALUES (:vinted_id, :vinted_gender, :my_category, :my_gender, :my_fit, :my_length, :my_rise, :my_material, :my_pattern, :my_neckline, :my_sleeve_length, :is_default, :priority)
                 """), {
@@ -429,12 +429,12 @@ def main():
         # Stats
         result = conn.execute(text("""
             SELECT
-                (SELECT COUNT(*) FROM public.vinted_categories WHERE is_leaf = TRUE) as total_vinted_leaves,
-                (SELECT COUNT(DISTINCT vinted_id) FROM public.vinted_mapping) as mapped_vinted,
+                (SELECT COUNT(*) FROM vinted.categories WHERE is_leaf = TRUE) as total_vinted_leaves,
+                (SELECT COUNT(DISTINCT vinted_id) FROM vinted.mapping) as mapped_vinted,
                 (SELECT COUNT(*) FROM public.expected_mappings) as expected_couples,
-                (SELECT COUNT(DISTINCT (my_category, my_gender)) FROM public.vinted_mapping) as mapped_couples,
-                (SELECT COUNT(*) FROM public.vinted_mapping WHERE is_default = TRUE) as defaults_count,
-                (SELECT COUNT(*) FROM public.mapping_validation) as total_issues
+                (SELECT COUNT(DISTINCT (my_category, my_gender)) FROM vinted.mapping) as mapped_couples,
+                (SELECT COUNT(*) FROM vinted.mapping WHERE is_default = TRUE) as defaults_count,
+                (SELECT COUNT(*) FROM vinted.mapping_validation) as total_issues
         """)).fetchone()
 
         print(f"\n📊 Statistics:")
@@ -448,7 +448,7 @@ def main():
         # Show issues
         issues = conn.execute(text("""
             SELECT issue, vinted_id, vinted_title, vinted_gender, my_category, my_gender
-            FROM public.mapping_validation
+            FROM vinted.mapping_validation
             ORDER BY issue, my_category, my_gender
             LIMIT 30
         """)).fetchall()
