@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-white">
-    <Card class="w-full max-w-md border-2 border-secondary-900 shadow-xl">
+    <Card class="w-full max-w-md border-2 border-secondary-900 shadow-md">
       <template #title>
         <div class="flex items-center gap-2 bg-primary-400 -mx-6 -mt-6 px-6 py-4 mb-4">
           <i class="pi pi-envelope text-secondary-900 text-2xl"/>
@@ -27,9 +27,9 @@
             Cliquez sur le lien dans l'email pour activer votre compte et pouvoir vous connecter.
           </p>
 
-          <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-6">
-            <p class="text-yellow-800 text-sm">
-              <i class="pi pi-info-circle mr-2"/>
+          <div class="alert alert-warning mb-6">
+            <i class="pi pi-info-circle"/>
+            <p class="text-sm">
               Pensez à vérifier vos <strong>spams</strong> si vous ne trouvez pas l'email.
             </p>
           </div>
@@ -53,7 +53,7 @@
               Réessayer dans {{ resendCooldown }}s
             </p>
 
-            <p v-if="resendSuccess" class="text-green-600 text-sm mt-2">
+            <p v-if="resendSuccess" class="text-success-600 text-sm mt-2">
               <i class="pi pi-check mr-1"/>
               Email renvoyé !
             </p>

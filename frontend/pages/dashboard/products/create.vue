@@ -171,10 +171,13 @@ const handleSubmit = async () => {
     })
 
     // Upload images si le produit est créé avec succès
-    if (photos.value.length > 0 && newProduct.id) {
+    if (newProduct && photos.value.length > 0 && newProduct.id) {
       try {
         for (let i = 0; i < photos.value.length; i++) {
-          await productsStore.uploadProductImage(newProduct.id, photos.value[i].file, i)
+          const photo = photos.value[i]
+          if (photo) {
+            await productsStore.uploadProductImage(newProduct.id, photo.file, i)
+          }
         }
 
         showSuccess(
@@ -190,7 +193,7 @@ const handleSubmit = async () => {
           5000
         )
       }
-    } else {
+    } else if (newProduct) {
       showSuccess(
         'Produit créé',
         `${form.value.title} a été créé avec succès (ID: ${newProduct.id})`,

@@ -487,7 +487,7 @@
     <div class="lg:ml-64 bg-white min-h-screen">
       <!-- Top Bar with Locale Selector -->
       <div class="bg-white sticky top-0 z-30 border-b border-gray-100 lg:border-0">
-        <div class="flex items-center justify-between px-4 lg:px-8 py-3">
+        <div class="flex items-center justify-between px-3 lg:px-6 py-2">
           <div class="flex items-center gap-4">
             <!-- Mobile Menu Button -->
             <button
@@ -749,12 +749,14 @@ const breadcrumbs = computed(() => {
     const segments = path.split('/').filter(Boolean)
     if (segments.length > 1) {
       const pageName = segments[segments.length - 1]
-      const labels: Record<string, string> = {
-        'publications': 'Publications',
-        'stats': 'Statistiques',
-        'settings': 'Paramètres'
+      if (pageName) {
+        const labels: Record<string, string> = {
+          'publications': 'Publications',
+          'stats': 'Statistiques',
+          'settings': 'Paramètres'
+        }
+        crumbs.push({ label: labels[pageName] || pageName })
       }
-      crumbs.push({ label: labels[pageName] || pageName })
     }
   }
 

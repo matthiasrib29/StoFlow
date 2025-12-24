@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <!-- Stat Cards -->
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
@@ -48,7 +48,7 @@
       v-model:visible="priceModalVisible"
       modal
       header="Modifier le prix"
-      :style="{ width: '400px' }"
+      class="w-[400px]"
     >
       <div v-if="selectedPublication" class="space-y-4">
         <div>

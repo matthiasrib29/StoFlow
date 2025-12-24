@@ -94,10 +94,12 @@ export const useEbayOAuth = () => {
    */
   const getOAuthUrl = (): string => {
     const baseUrl = 'https://auth.ebay.com/oauth2/authorize'
+    const clientId = (config.public.ebayClientId as string) || 'YOUR_EBAY_CLIENT_ID'
+    const redirectUri = (config.public.ebayRedirectUri as string) || `${window.location.origin}/dashboard/platforms/ebay/callback`
     const params = new URLSearchParams({
-      client_id: config.public.ebayClientId || 'YOUR_EBAY_CLIENT_ID',
+      client_id: clientId,
       response_type: 'code',
-      redirect_uri: config.public.ebayRedirectUri || `${window.location.origin}/dashboard/platforms/ebay/callback`,
+      redirect_uri: redirectUri,
       scope: [
         'https://api.ebay.com/oauth/api_scope',
         'https://api.ebay.com/oauth/api_scope/sell.marketing.readonly',
@@ -128,9 +130,7 @@ export const useEbayOAuth = () => {
       oauthLogger.debug('OAuth state generated and stored')
 
       // Get OAuth URL from backend with state parameter
-      const { auth_url } = await api.get<{ auth_url: string }>('/api/integrations/ebay/connect', {
-        params: { state }
-      })
+      const { auth_url } = await api.get<{ auth_url: string }>(`/api/integrations/ebay/connect?state=${encodeURIComponent(state)}`)
 
       // Validate that auth_url is on eBay domain (prevent redirect attacks)
       try {

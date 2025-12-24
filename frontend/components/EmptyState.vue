@@ -29,7 +29,7 @@
         v-if="actionLabel"
         :label="actionLabel"
         :icon="actionIcon"
-        class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
+        class="btn-primary"
         @click="$emit('action')"
       />
     </slot>

@@ -263,7 +263,10 @@ const processFiles = (files: File[]) => {
 }
 
 const removePhoto = (index: number) => {
-  URL.revokeObjectURL(props.photos[index].preview)
+  const photo = props.photos[index]
+  if (photo?.preview) {
+    URL.revokeObjectURL(photo.preview)
+  }
   const newPhotos = [...props.photos]
   newPhotos.splice(index, 1)
   emit('update:photos', newPhotos)

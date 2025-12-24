@@ -53,6 +53,7 @@ export default defineNuxtConfig({
 
   css: [
     'primeicons/primeicons.css',
+    '~/assets/css/design-system.css',
     '~/assets/css/modern-dashboard.css'
   ],
 

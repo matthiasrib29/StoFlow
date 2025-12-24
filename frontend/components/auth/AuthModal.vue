@@ -4,7 +4,7 @@
     modal
     :closable="true"
     :dismissable-mask="true"
-    :style="{ width: '450px' }"
+    class="w-[450px]"
     :draggable="false"
   >
     <template #header>
@@ -44,7 +44,7 @@
             :invalid="!!loginErrors.email"
             @keyup.enter="handleLogin"
           />
-          <small v-if="loginErrors.email" class="text-red-500">{{ loginErrors.email }}</small>
+          <small v-if="loginErrors.email" class="form-error">{{ loginErrors.email }}</small>
         </div>
 
         <div>
@@ -61,7 +61,7 @@
             :invalid="!!loginErrors.password"
             @keyup.enter="handleLogin"
           />
-          <small v-if="loginErrors.password" class="text-red-500">{{ loginErrors.password }}</small>
+          <small v-if="loginErrors.password" class="form-error">{{ loginErrors.password }}</small>
         </div>
       </div>
 
@@ -79,7 +79,7 @@
             class="w-full"
             :invalid="!!registerErrors.fullName"
           />
-          <small v-if="registerErrors.fullName" class="text-red-500">{{ registerErrors.fullName }}</small>
+          <small v-if="registerErrors.fullName" class="form-error">{{ registerErrors.fullName }}</small>
         </div>
 
         <div>
@@ -94,7 +94,7 @@
             class="w-full"
             :invalid="!!registerErrors.email"
           />
-          <small v-if="registerErrors.email" class="text-red-500">{{ registerErrors.email }}</small>
+          <small v-if="registerErrors.email" class="form-error">{{ registerErrors.email }}</small>
         </div>
 
         <div>
@@ -124,7 +124,7 @@
               </ul>
             </template>
           </Password>
-          <small v-if="registerErrors.password" class="text-red-500">{{ registerErrors.password }}</small>
+          <small v-if="registerErrors.password" class="form-error">{{ registerErrors.password }}</small>
         </div>
       </div>
 
@@ -341,11 +341,11 @@ const handleRegister = async () => {
   errorMessage.value = null
 
   try {
-    await authStore.register(
-      registerForm.email,
-      registerForm.password,
-      registerForm.fullName
-    )
+    await authStore.register({
+      email: registerForm.email,
+      password: registerForm.password,
+      full_name: registerForm.fullName
+    })
 
     showSuccess('Inscription réussie', `Bienvenue sur Stoflow, ${registerForm.fullName} !`)
 

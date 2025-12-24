@@ -430,7 +430,8 @@ const debouncedSearch = () => {
   }, 300)
 }
 
-const isCurrentUser = (userId: number) => {
+const isCurrentUser = (userId: number | null) => {
+  if (userId === null) return false
   return authStore.user?.id === userId
 }
 

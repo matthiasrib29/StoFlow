@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <!-- Page Header -->
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-secondary-900 mb-1">Intégrations</h1>
@@ -19,9 +19,9 @@
 
             <div class="space-y-4">
               <!-- Vinted -->
-              <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div class="flex items-center gap-4">
-                  <div class="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
+                  <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                     <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-8 h-8 object-contain">
                   </div>
                   <div>
@@ -30,7 +30,7 @@
                   </div>
                 </div>
                 <div class="flex items-center gap-3">
-                  <span class="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full">Connecté</span>
+                  <span class="badge badge-success">Connecté</span>
                   <Button
                     icon="pi pi-cog"
                     class="bg-gray-200 hover:bg-gray-300 text-secondary-900 border-0"
@@ -41,9 +41,9 @@
               </div>
 
               <!-- eBay -->
-              <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div class="flex items-center gap-4">
-                  <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                     <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-8 h-8 object-contain">
                   </div>
                   <div>
@@ -52,7 +52,7 @@
                   </div>
                 </div>
                 <div class="flex items-center gap-3">
-                  <span class="text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded-full">Non connecté</span>
+                  <span class="badge badge-neutral">Non connecté</span>
                   <Button
                     label="Connecter"
                     icon="pi pi-link"
@@ -64,9 +64,9 @@
               </div>
 
               <!-- Etsy -->
-              <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div class="flex items-center gap-4">
-                  <div class="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
+                  <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                     <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-8 h-8 object-contain">
                   </div>
                   <div>
@@ -75,7 +75,7 @@
                   </div>
                 </div>
                 <div class="flex items-center gap-3">
-                  <span class="text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded-full">Non connecté</span>
+                  <span class="badge badge-neutral">Non connecté</span>
                   <Button
                     label="Connecter"
                     icon="pi pi-link"

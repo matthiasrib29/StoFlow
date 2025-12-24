@@ -7,7 +7,7 @@
         <Button
           v-tooltip.top="'Non lus seulement'"
           :icon="showUnreadOnly ? 'pi pi-envelope' : 'pi pi-envelope-open'"
-          :class="showUnreadOnly ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-600'"
+          :class="showUnreadOnly ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'"
           class="border-0"
           size="small"
           text
