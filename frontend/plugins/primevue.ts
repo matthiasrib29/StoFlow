@@ -20,6 +20,8 @@ import Dialog from 'primevue/dialog'
 
 // Form Components - PrimeVue v4
 import Select from 'primevue/select'
+// Dropdown is deprecated in v4, Select is the replacement
+// Adding alias for backward compatibility
 import ToggleSwitch from 'primevue/toggleswitch'
 import Checkbox from 'primevue/checkbox'
 import Textarea from 'primevue/textarea'
@@ -110,6 +112,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   // Form Components - PrimeVue v4
   nuxtApp.vueApp.component('Select', Select)
+  nuxtApp.vueApp.component('Dropdown', Select) // Alias for backward compatibility (v3 name)
   nuxtApp.vueApp.component('ToggleSwitch', ToggleSwitch)
   nuxtApp.vueApp.component('Checkbox', Checkbox)
   nuxtApp.vueApp.component('Textarea', Textarea)
