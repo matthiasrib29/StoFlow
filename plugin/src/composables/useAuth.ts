@@ -81,7 +81,7 @@ export function useAuth() {
 
       token.value = data.access_token;
 
-      console.log('[Auth] ✅ Connexion réussie:', {
+      AuthLogger.success('Connexion réussie', {
         userId: data.user_id,
         role: data.role
       });
