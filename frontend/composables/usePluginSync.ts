@@ -144,26 +144,18 @@ export const syncTokenToPlugin = async (accessToken: string, refreshToken: strin
         return true
       }
     } else {
-      secureLog.warn('Plugin non détecté. En attente de l\'annonce du plugin...')
+      // Plugin non détecté - ne PAS bloquer, juste logger
+      // Le plugin se synchronisera au prochain STOFLOW_PLUGIN_READY
+      secureLog.debug('Plugin non détecté, sync différée')
 
-      // Attendre que le plugin s'annonce (max 5 secondes)
-      const waitForPlugin = new Promise<boolean>((resolve) => {
-        const timeout = setTimeout(() => {
+      // Lancer la détection en arrière-plan (non-bloquant)
+      setTimeout(() => {
+        if (!pluginOrigin) {
           secureLog.warn('Timeout: plugin non détecté après 5 secondes')
-          resolve(false)
-        }, 5000)
+        }
+      }, 5000)
 
-        const checkInterval = setInterval(() => {
-          if (pluginOrigin) {
-            clearTimeout(timeout)
-            clearInterval(checkInterval)
-            const success = sendTokensToPlugin(accessToken, refreshToken)
-            resolve(success)
-          }
-        }, 100)
-      })
-
-      return await waitForPlugin
+      return false
     }
 
     return false

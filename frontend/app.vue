@@ -9,13 +9,8 @@
 </template>
 
 <script setup lang="ts">
-// Nuxt auto-importe useAuthStore depuis stores/
-const authStore = useAuthStore()
-
-// Charger la session au démarrage
-onMounted(() => {
-  authStore.loadFromStorage()
-})
+// Note: loadFromStorage() is called by auth.global.ts middleware
+// No need to duplicate here - middleware handles session restoration
 </script>
 
 <style>
