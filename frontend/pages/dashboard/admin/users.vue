@@ -399,12 +399,10 @@ const tierOptions = [
   { label: 'Enterprise', value: 'enterprise' },
 ]
 
-// Fetch users once on page load (client-side only, requires auth token)
-if (import.meta.client) {
-  await callOnce(async () => {
-    await adminUsers.fetchUsers()
-  })
-}
+// Fetch users on mount (non-blocking for instant navigation)
+onMounted(async () => {
+  await adminUsers.fetchUsers()
+})
 
 // Methods
 const fetchUsers = async () => {

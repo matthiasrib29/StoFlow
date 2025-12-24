@@ -458,13 +458,11 @@ const loadTiers = async () => {
   }
 }
 
-// Fetch subscription data once on page load (client-side only, requires auth token)
-if (import.meta.client) {
-  await callOnce(async () => {
-    await Promise.all([
-      loadSubscriptionInfo(),
-      loadTiers()
-    ])
-  })
-}
+// Fetch subscription data on mount (non-blocking for instant navigation)
+onMounted(async () => {
+  await Promise.all([
+    loadSubscriptionInfo(),
+    loadTiers()
+  ])
+})
 </script>
