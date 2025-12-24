@@ -118,18 +118,46 @@
               id="password"
               v-model="password"
               placeholder="••••••••"
-              class="w-full"
+              :class="['w-full', { 'p-invalid': passwordTouched && !isPasswordValid }]"
               toggle-mask
-              :feedback="true"
+              :feedback="false"
               required
               :disabled="authStore.isLoading"
-            >
-              <template #footer>
-                <p class="text-xs text-gray-500 mt-2">
-                  Minimum 12 caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial
-                </p>
-              </template>
-            </Password>
+              @blur="passwordTouched = true"
+            />
+            <!-- Password requirements checklist -->
+            <div v-if="password.length > 0 || passwordTouched" class="mt-2 space-y-1">
+              <p
+                :class="['text-xs flex items-center gap-1', passwordRules.minLength ? 'text-green-600' : 'text-red-500']"
+              >
+                <i :class="['pi', passwordRules.minLength ? 'pi-check' : 'pi-times']" />
+                Minimum 12 caractères
+              </p>
+              <p
+                :class="['text-xs flex items-center gap-1', passwordRules.hasUppercase ? 'text-green-600' : 'text-red-500']"
+              >
+                <i :class="['pi', passwordRules.hasUppercase ? 'pi-check' : 'pi-times']" />
+                1 majuscule (A-Z)
+              </p>
+              <p
+                :class="['text-xs flex items-center gap-1', passwordRules.hasLowercase ? 'text-green-600' : 'text-red-500']"
+              >
+                <i :class="['pi', passwordRules.hasLowercase ? 'pi-check' : 'pi-times']" />
+                1 minuscule (a-z)
+              </p>
+              <p
+                :class="['text-xs flex items-center gap-1', passwordRules.hasDigit ? 'text-green-600' : 'text-red-500']"
+              >
+                <i :class="['pi', passwordRules.hasDigit ? 'pi-check' : 'pi-times']" />
+                1 chiffre (0-9)
+              </p>
+              <p
+                :class="['text-xs flex items-center gap-1', passwordRules.hasSpecial ? 'text-green-600' : 'text-red-500']"
+              >
+                <i :class="['pi', passwordRules.hasSpecial ? 'pi-check' : 'pi-times']" />
+                1 caractère spécial (!@#$%^&*)
+              </p>
+            </div>
           </div>
 
           <!-- Informations professionnelles (conditionnelles) -->
@@ -275,7 +303,30 @@ const estimatedProductsOptions = [
   { label: '500+ produits', value: '500+' }
 ]
 
+// Password validation rules (same as backend)
+const passwordRules = computed(() => ({
+  minLength: password.value.length >= 12,
+  hasUppercase: /[A-Z]/.test(password.value),
+  hasLowercase: /[a-z]/.test(password.value),
+  hasDigit: /[0-9]/.test(password.value),
+  hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password.value)
+}))
+
+const isPasswordValid = computed(() => {
+  const rules = passwordRules.value
+  return rules.minLength && rules.hasUppercase && rules.hasLowercase && rules.hasDigit && rules.hasSpecial
+})
+
+const passwordTouched = ref(false)
+
 const handleRegister = async () => {
+  // Validate password before submitting
+  passwordTouched.value = true
+  if (!isPasswordValid.value) {
+    authStore.error = 'Le mot de passe ne respecte pas les critères de sécurité'
+    return
+  }
+
   try {
     // Préparer les données d'inscription
     const registerData: RegisterData = {
