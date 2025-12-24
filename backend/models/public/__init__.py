@@ -19,7 +19,8 @@ from models.public.ebay_exchange_rate import ExchangeRate
 from models.public.category_platform_mapping import CategoryPlatformMapping
 from models.public.ebay_marketplace_config import MarketplaceConfig
 from models.public.platform_mapping import Platform, PlatformMapping
-from models.public.subscription_quota import SubscriptionQuota
+from models.public.subscription_quota import SubscriptionQuota, DEFAULT_QUOTAS, DEFAULT_FEATURES
+from models.public.subscription_feature import SubscriptionFeature
 from models.public.user import User, UserRole, SubscriptionTier
 from models.public.permission import Permission, RolePermission, PermissionCategory
 
@@ -53,6 +54,9 @@ __all__ = [
     "UserRole",
     "SubscriptionTier",
     "SubscriptionQuota",
+    "SubscriptionFeature",
+    "DEFAULT_QUOTAS",
+    "DEFAULT_FEATURES",
     "Permission",
     "RolePermission",
     "PermissionCategory",

@@ -3,6 +3,47 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
 
+  // SEO Meta Tags
+  app: {
+    head: {
+      title: 'Stoflow - Vendez sur Vinted, eBay et Etsy depuis une seule plateforme',
+      htmlAttrs: {
+        lang: 'fr'
+      },
+      meta: [
+        { charset: 'utf-8' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        {
+          name: 'description',
+          content: 'Synchronisez vos stocks, automatisez vos publications et gérez vos ventes multi-marketplace en un clic. Essai gratuit 14 jours. Support Vinted, eBay, Etsy.'
+        },
+        { name: 'author', content: 'Stoflow' },
+        { name: 'robots', content: 'index, follow' },
+        // Open Graph
+        { property: 'og:type', content: 'website' },
+        { property: 'og:site_name', content: 'Stoflow' },
+        { property: 'og:title', content: 'Stoflow - Vendez sur Vinted, eBay et Etsy depuis une seule plateforme' },
+        { property: 'og:description', content: 'Synchronisez vos stocks, automatisez vos publications et gérez vos ventes multi-marketplace en un clic. Essai gratuit 14 jours.' },
+        { property: 'og:image', content: '/images/og-stoflow.jpg' },
+        { property: 'og:locale', content: 'fr_FR' },
+        // Twitter Card
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'Stoflow - Vendez sur plusieurs marketplaces en un clic' },
+        { name: 'twitter:description', content: 'Gérez vos produits Vinted, eBay et Etsy depuis une seule plateforme. Essai gratuit 14 jours.' },
+        { name: 'twitter:image', content: '/images/og-stoflow.jpg' },
+        // Theme color
+        { name: 'theme-color', content: '#1a1a1a' },
+        // Apple
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
+      ],
+      link: [
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+        { rel: 'canonical', href: 'https://stoflow.io' }
+      ]
+    }
+  },
+
   modules: [
     '@pinia/nuxt',
     '@nuxtjs/tailwindcss',
