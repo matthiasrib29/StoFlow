@@ -22,8 +22,8 @@ class TestVintedToMyApp:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vc.id, vc.title, vc.gender
-                FROM public.vinted_categories vc
-                LEFT JOIN public.vinted_mapping vm ON vc.id = vm.vinted_id
+                FROM vinted.categories vc
+                LEFT JOIN vinted.mapping vm ON vc.id = vm.vinted_id
                 WHERE vc.is_active = TRUE
                 AND vm.id IS NULL
                 ORDER BY vc.gender, vc.title
@@ -42,8 +42,8 @@ class TestVintedToMyApp:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.vinted_id, vm.my_category, vm.my_gender
-                FROM public.vinted_mapping vm
-                LEFT JOIN public.vinted_categories vc ON vm.vinted_id = vc.id
+                FROM vinted.mapping vm
+                LEFT JOIN vinted.categories vc ON vm.vinted_id = vc.id
                 WHERE vc.id IS NULL
             """)).fetchall()
 
@@ -58,8 +58,8 @@ class TestVintedToMyApp:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.id, vm.vinted_id, vm.vinted_gender, vc.gender as actual_gender
-                FROM public.vinted_mapping vm
-                JOIN public.vinted_categories vc ON vm.vinted_id = vc.id
+                FROM vinted.mapping vm
+                JOIN vinted.categories vc ON vm.vinted_id = vc.id
                 WHERE vm.vinted_gender != vc.gender
             """)).fetchall()
 
@@ -91,7 +91,7 @@ class TestMyAppToVinted:
                     'formalwear', 'sportswear', 'clothing'
                 )
                 AND NOT EXISTS (
-                    SELECT 1 FROM public.vinted_mapping vm
+                    SELECT 1 FROM vinted.mapping vm
                     WHERE vm.my_category = c.name_en
                     AND vm.my_gender = g.gender
                 )
@@ -110,7 +110,7 @@ class TestMyAppToVinted:
             result = db.execute(text("""
                 SELECT my_category, my_gender,
                        COUNT(*) FILTER (WHERE is_default = TRUE) as default_count
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 GROUP BY my_category, my_gender
                 HAVING COUNT(*) FILTER (WHERE is_default = TRUE) != 1
                 ORDER BY my_category, my_gender
@@ -131,7 +131,7 @@ class TestMyAppToVinted:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT DISTINCT vm.my_category
-                FROM public.vinted_mapping vm
+                FROM vinted.mapping vm
                 LEFT JOIN product_attributes.categories c ON vm.my_category = c.name_en
                 WHERE c.name_en IS NULL
             """)).fetchall()
@@ -147,7 +147,7 @@ class TestMyAppToVinted:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.id, vm.my_category, vm.my_gender, c.genders
-                FROM public.vinted_mapping vm
+                FROM vinted.mapping vm
                 JOIN product_attributes.categories c ON vm.my_category = c.name_en
                 WHERE NOT (vm.my_gender = ANY(c.genders))
             """)).fetchall()
@@ -171,7 +171,7 @@ class TestAttributeValidity:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.id, vm.my_fit
-                FROM public.vinted_mapping vm
+                FROM vinted.mapping vm
                 WHERE vm.my_fit IS NOT NULL
                 AND NOT EXISTS (
                     SELECT 1 FROM product_attributes.fits f
@@ -188,7 +188,7 @@ class TestAttributeValidity:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.id, vm.my_length
-                FROM public.vinted_mapping vm
+                FROM vinted.mapping vm
                 WHERE vm.my_length IS NOT NULL
                 AND NOT EXISTS (
                     SELECT 1 FROM product_attributes.lengths l
@@ -205,7 +205,7 @@ class TestAttributeValidity:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.id, vm.my_rise
-                FROM public.vinted_mapping vm
+                FROM vinted.mapping vm
                 WHERE vm.my_rise IS NOT NULL
                 AND NOT EXISTS (
                     SELECT 1 FROM product_attributes.rises r
@@ -222,7 +222,7 @@ class TestAttributeValidity:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.id, vm.my_material
-                FROM public.vinted_mapping vm
+                FROM vinted.mapping vm
                 WHERE vm.my_material IS NOT NULL
                 AND NOT EXISTS (
                     SELECT 1 FROM product_attributes.materials m
@@ -239,7 +239,7 @@ class TestAttributeValidity:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.id, vm.my_pattern
-                FROM public.vinted_mapping vm
+                FROM vinted.mapping vm
                 WHERE vm.my_pattern IS NOT NULL
                 AND NOT EXISTS (
                     SELECT 1 FROM product_attributes.patterns p
@@ -256,7 +256,7 @@ class TestAttributeValidity:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.id, vm.my_neckline
-                FROM public.vinted_mapping vm
+                FROM vinted.mapping vm
                 WHERE vm.my_neckline IS NOT NULL
                 AND NOT EXISTS (
                     SELECT 1 FROM product_attributes.necklines n
@@ -273,7 +273,7 @@ class TestAttributeValidity:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT vm.id, vm.my_sleeve_length
-                FROM public.vinted_mapping vm
+                FROM vinted.mapping vm
                 WHERE vm.my_sleeve_length IS NOT NULL
                 AND NOT EXISTS (
                     SELECT 1 FROM product_attributes.sleeve_lengths s
@@ -295,8 +295,8 @@ class TestMappingConstraints:
             result = db.execute(text("""
                 SELECT indexname, indexdef
                 FROM pg_indexes
-                WHERE schemaname = 'public'
-                AND tablename = 'vinted_mapping'
+                WHERE schemaname = 'vinted'
+                AND tablename = 'mapping'
                 AND indexname = 'unique_default_per_couple'
             """)).fetchone()
 
@@ -311,7 +311,7 @@ class TestMappingConstraints:
             # Récupérer un couple existant avec un défaut
             couple = db.execute(text("""
                 SELECT my_category, my_gender
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 WHERE is_default = TRUE
                 LIMIT 1
             """)).fetchone()
@@ -321,7 +321,7 @@ class TestMappingConstraints:
             # Tenter d'insérer un 2ème défaut (doit échouer)
             with pytest.raises(Exception) as exc_info:
                 db.execute(text("""
-                    INSERT INTO public.vinted_mapping
+                    INSERT INTO vinted.mapping
                     (vinted_id, vinted_gender, my_category, my_gender, is_default)
                     VALUES (1, 'women', :cat, :gen, TRUE)
                 """), {"cat": couple.my_category, "gen": couple.my_gender})
@@ -338,7 +338,7 @@ class TestMappingConstraints:
             # Vérifier qu'il existe des couples avec plusieurs mappings non-défaut
             result = db.execute(text("""
                 SELECT my_category, my_gender, COUNT(*) as non_default_count
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 WHERE is_default = FALSE
                 GROUP BY my_category, my_gender
                 HAVING COUNT(*) > 1
@@ -354,7 +354,7 @@ class TestMappingConstraints:
             result = db.execute(text("""
                 SELECT vinted_id, COUNT(*) as mapping_count,
                        COUNT(DISTINCT my_category) as distinct_categories
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 GROUP BY vinted_id
                 HAVING COUNT(DISTINCT my_category) > 1
                 ORDER BY mapping_count DESC
@@ -378,8 +378,8 @@ class TestMappingConstraints:
             result = db.execute(text("""
                 SELECT indexname, indexdef
                 FROM pg_indexes
-                WHERE schemaname = 'public'
-                AND tablename = 'vinted_mapping'
+                WHERE schemaname = 'vinted'
+                AND tablename = 'mapping'
                 AND indexdef LIKE '%UNIQUE%'
                 AND indexdef LIKE '%vinted_id%'
                 AND indexdef NOT LIKE '%my_category%'
@@ -401,7 +401,7 @@ class TestMappingFunction:
             # Récupérer un couple avec plusieurs mappings
             couple = db.execute(text("""
                 SELECT my_category, my_gender
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 GROUP BY my_category, my_gender
                 HAVING COUNT(*) > 1
                 LIMIT 1
@@ -410,7 +410,7 @@ class TestMappingFunction:
             if couple:
                 # Récupérer le défaut attendu
                 expected = db.execute(text("""
-                    SELECT vinted_id FROM public.vinted_mapping
+                    SELECT vinted_id FROM vinted.mapping
                     WHERE my_category = :cat AND my_gender = :gen AND is_default = TRUE
                 """), {"cat": couple.my_category, "gen": couple.my_gender}).scalar()
 
@@ -430,7 +430,7 @@ class TestMappingFunction:
             # Trouver un mapping avec fit spécifique
             mapping = db.execute(text("""
                 SELECT my_category, my_gender, my_fit, vinted_id
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 WHERE my_fit IS NOT NULL AND is_default = FALSE
                 LIMIT 1
             """)).fetchone()
@@ -464,7 +464,7 @@ class TestMappingFunction:
         with get_db_context() as db:
             # Récupérer une catégorie existante
             category = db.execute(text("""
-                SELECT DISTINCT my_category FROM public.vinted_mapping LIMIT 1
+                SELECT DISTINCT my_category FROM vinted.mapping LIMIT 1
             """)).scalar()
 
             if category:
@@ -480,7 +480,7 @@ class TestMappingFunction:
             # Trouver un couple avec défaut
             couple = db.execute(text("""
                 SELECT my_category, my_gender, vinted_id as default_vinted_id
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 WHERE is_default = TRUE
                 LIMIT 1
             """)).fetchone()
@@ -504,7 +504,7 @@ class TestMappingFunction:
             # Trouver un couple avec plusieurs mappings incluant un défaut
             couple = db.execute(text("""
                 SELECT my_category, my_gender
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 GROUP BY my_category, my_gender
                 HAVING COUNT(*) > 1
                 AND SUM(CASE WHEN is_default THEN 1 ELSE 0 END) = 1
@@ -514,7 +514,7 @@ class TestMappingFunction:
             if couple:
                 # Récupérer le défaut attendu
                 default_id = db.execute(text("""
-                    SELECT vinted_id FROM public.vinted_mapping
+                    SELECT vinted_id FROM vinted.mapping
                     WHERE my_category = :cat AND my_gender = :gen AND is_default = TRUE
                 """), {"cat": couple.my_category, "gen": couple.my_gender}).scalar()
 
@@ -564,7 +564,7 @@ class TestMappingFunctionScoring:
             # Récupérer un couple existant
             couple = db.execute(text("""
                 SELECT my_category, my_gender
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 WHERE is_default = TRUE
                 LIMIT 1
             """)).fetchone()
@@ -595,7 +595,7 @@ class TestMappingFunctionScoring:
             # Trouver un couple avec plusieurs mappings et des attributs différents
             couple = db.execute(text("""
                 SELECT my_category, my_gender
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 WHERE my_fit IS NOT NULL
                 GROUP BY my_category, my_gender
                 HAVING COUNT(*) > 1
@@ -606,7 +606,7 @@ class TestMappingFunctionScoring:
                 # Récupérer tous les mappings pour ce couple
                 mappings = db.execute(text("""
                     SELECT vinted_id, my_fit, is_default
-                    FROM public.vinted_mapping
+                    FROM vinted.mapping
                     WHERE my_category = :cat AND my_gender = :gen
                     ORDER BY is_default DESC
                 """), {"cat": couple.my_category, "gen": couple.my_gender}).fetchall()
@@ -639,7 +639,7 @@ class TestMappingFunctionScoring:
             # Trouver un couple avec mappings sans attributs spécifiques
             couple = db.execute(text("""
                 SELECT my_category, my_gender
-                FROM public.vinted_mapping
+                FROM vinted.mapping
                 WHERE my_fit IS NULL
                 AND my_length IS NULL
                 AND my_rise IS NULL
@@ -651,7 +651,7 @@ class TestMappingFunctionScoring:
             if couple:
                 # Récupérer le défaut
                 default_id = db.execute(text("""
-                    SELECT vinted_id FROM public.vinted_mapping
+                    SELECT vinted_id FROM vinted.mapping
                     WHERE my_category = :cat AND my_gender = :gen AND is_default = TRUE
                 """), {"cat": couple.my_category, "gen": couple.my_gender}).scalar()
 
@@ -685,7 +685,7 @@ class TestMappingStatistics:
                     COUNT(*) FILTER (WHERE my_pattern IS NOT NULL) as with_pattern,
                     COUNT(*) FILTER (WHERE my_neckline IS NOT NULL) as with_neckline,
                     COUNT(*) FILTER (WHERE my_sleeve_length IS NOT NULL) as with_sleeve_length
-                FROM public.vinted_mapping
+                FROM vinted.mapping
             """)).fetchone()
 
             # Vérifier qu'on a des mappings
@@ -710,7 +710,7 @@ class TestMappingStatistics:
         with get_db_context() as db:
             result = db.execute(text("""
                 SELECT issue, COUNT(*) as count
-                FROM public.mapping_validation
+                FROM vinted.mapping_validation
                 GROUP BY issue
                 ORDER BY count DESC
             """)).fetchall()

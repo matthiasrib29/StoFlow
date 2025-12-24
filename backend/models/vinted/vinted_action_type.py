@@ -24,10 +24,10 @@ class VintedActionType(Base):
     Defines the different types of actions that can be performed on Vinted,
     along with their priority, rate limiting, and retry configuration.
 
-    Table: vinted.vinted_action_types
+    Table: vinted.action_types
     """
 
-    __tablename__ = "vinted_action_types"
+    __tablename__ = "action_types"
     __table_args__ = {"schema": "vinted"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

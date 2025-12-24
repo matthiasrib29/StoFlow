@@ -2,7 +2,7 @@
 Import Vinted categories from catalog.json
 
 Parses the Vinted catalog JSON and imports only clothing categories into
-the public.vinted_categories table.
+the vinted.categories table.
 
 Filter criteria - only import categories under:
 - Femmes > Vêtements (id: 4) → gender: women
@@ -174,7 +174,7 @@ def import_categories_to_db(categories: List[Dict]) -> int:
 
     with engine.connect() as conn:
         # First, truncate the table to start fresh
-        conn.execute(text("TRUNCATE TABLE public.vinted_categories CASCADE"))
+        conn.execute(text("TRUNCATE TABLE vinted.categories CASCADE"))
         conn.commit()
 
         # Insert categories one by one in topological order
@@ -182,7 +182,7 @@ def import_categories_to_db(categories: List[Dict]) -> int:
             try:
                 conn.execute(
                     text("""
-                        INSERT INTO public.vinted_categories
+                        INSERT INTO vinted.categories
                         (id, code, title, parent_id, path, is_leaf, gender)
                         VALUES (:id, :code, :title, :parent_id, :path, :is_leaf, :gender)
                         ON CONFLICT (id) DO UPDATE SET
@@ -276,13 +276,13 @@ def main():
 
     # Verify
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT COUNT(*) FROM public.vinted_categories")).scalar()
+        result = conn.execute(text("SELECT COUNT(*) FROM vinted.categories")).scalar()
         print(f"\n✅ Verification: {result} categories in database")
 
         # Show leaf count by gender
         result = conn.execute(text("""
             SELECT gender, COUNT(*) as total, SUM(CASE WHEN is_leaf THEN 1 ELSE 0 END) as leaves
-            FROM public.vinted_categories
+            FROM vinted.categories
             GROUP BY gender
             ORDER BY gender
         """)).fetchall()

@@ -62,12 +62,12 @@ class VintedJob(Base):
         comment="Groups jobs from same batch API call"
     )
 
-    # Action type reference (FK to public.vinted_action_types)
+    # Action type reference (FK to vinted.action_types)
     action_type_id: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         index=True,
-        comment="FK to public.vinted_action_types"
+        comment="FK to vinted.action_types"
     )
 
     # Product reference (optional, for product-specific jobs)
