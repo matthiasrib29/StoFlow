@@ -21,10 +21,10 @@ class VintedMapping(Base):
     Maps Stoflow categories (with optional attributes like fit, length, etc.)
     to Vinted category IDs. Supports default mappings per category+gender pair.
 
-    Table: vinted.vinted_mapping
+    Table: vinted.mapping
     """
 
-    __tablename__ = "vinted_mapping"
+    __tablename__ = "mapping"
     __table_args__ = {"schema": "vinted"}
 
     id: Mapped[int] = mapped_column(
@@ -36,9 +36,9 @@ class VintedMapping(Base):
     # Vinted side
     vinted_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("vinted.vinted_categories.id"),
+        ForeignKey("vinted.categories.id"),
         nullable=False,
-        comment="FK to vinted_categories"
+        comment="FK to vinted.categories"
     )
 
     vinted_gender: Mapped[str] = mapped_column(

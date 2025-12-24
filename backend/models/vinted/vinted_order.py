@@ -27,14 +27,14 @@ class VintedOrder(Base):
     """
     Vinted orders/sales.
 
-    Table: vinted.vinted_orders
+    Table: vinted.orders
     """
 
-    __tablename__ = "vinted_orders"
+    __tablename__ = "orders"
     __table_args__ = (
-        Index('idx_vinted_orders_buyer_id', 'buyer_id'),
-        Index('idx_vinted_orders_status', 'status'),
-        Index('idx_vinted_orders_created_at_vinted', 'created_at_vinted'),
+        Index('idx_orders_buyer_id', 'buyer_id'),
+        Index('idx_orders_status', 'status'),
+        Index('idx_orders_created_at_vinted', 'created_at_vinted'),
         {"schema": "vinted"}
     )
 
@@ -175,14 +175,14 @@ class VintedOrderProduct(Base):
     """
     Products in a Vinted order.
 
-    Table: vinted.vinted_order_products
+    Table: vinted.order_products
     """
 
-    __tablename__ = "vinted_order_products"
+    __tablename__ = "order_products"
     __table_args__ = (
-        Index('idx_vinted_order_products_transaction_id', 'transaction_id'),
-        Index('idx_vinted_order_products_vinted_item_id', 'vinted_item_id'),
-        Index('idx_vinted_order_products_product_id', 'product_id'),
+        Index('idx_order_products_transaction_id', 'transaction_id'),
+        Index('idx_order_products_vinted_item_id', 'vinted_item_id'),
+        Index('idx_order_products_product_id', 'product_id'),
         {"schema": "vinted"}
     )
 
@@ -196,9 +196,9 @@ class VintedOrderProduct(Base):
     # Foreign Key to VintedOrder
     transaction_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("vinted.vinted_orders.transaction_id", ondelete="CASCADE"),
+        ForeignKey("vinted.orders.transaction_id", ondelete="CASCADE"),
         nullable=False,
-        comment="FK to vinted_orders"
+        comment="FK to vinted.orders"
     )
 
     # IDs

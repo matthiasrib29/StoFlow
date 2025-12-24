@@ -28,15 +28,15 @@ class VintedDeletion(Base):
     """
     Archive of deleted Vinted products.
 
-    Table: vinted.vinted_deletions
+    Table: vinted.deletions
     """
 
-    __tablename__ = "vinted_deletions"
+    __tablename__ = "deletions"
     __table_args__ = (
-        Index('idx_vinted_deletions_id_vinted', 'id_vinted'),
-        Index('idx_vinted_deletions_id_site', 'id_site'),
-        Index('idx_vinted_deletions_date_deleted', 'date_deleted'),
-        Index('idx_vinted_deletions_days_active', 'days_active'),
+        Index('idx_deletions_id_vinted', 'id_vinted'),
+        Index('idx_deletions_id_site', 'id_site'),
+        Index('idx_deletions_date_deleted', 'date_deleted'),
+        Index('idx_deletions_days_active', 'days_active'),
         {"schema": "vinted"}
     )
 
