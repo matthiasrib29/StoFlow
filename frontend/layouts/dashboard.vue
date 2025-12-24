@@ -29,7 +29,12 @@
       <!-- Logo & Tenant -->
       <div class="p-6 border-b border-gray-100 flex-shrink-0">
         <h1 class="text-2xl font-bold text-secondary-900 mb-1">Stoflow</h1>
-        <p class="text-xs text-gray-500 font-medium">{{ authStore?.user?.tenant_name }}</p>
+        <ClientOnly>
+          <p class="text-xs text-gray-500 font-medium">{{ authStore?.user?.tenant_name }}</p>
+          <template #fallback>
+            <p class="text-xs text-gray-500 font-medium">&nbsp;</p>
+          </template>
+        </ClientOnly>
       </div>
 
       <!-- Navigation (scrollable) -->
@@ -475,7 +480,12 @@
             <i class="pi pi-user text-primary-600"/>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold truncate text-secondary-900">{{ authStore?.user?.full_name }}</p>
+            <ClientOnly>
+              <p class="text-sm font-semibold truncate text-secondary-900">{{ authStore?.user?.full_name }}</p>
+              <template #fallback>
+                <p class="text-sm font-semibold truncate text-secondary-900">&nbsp;</p>
+              </template>
+            </ClientOnly>
             <ClientOnly>
               <p class="text-xs text-gray-500 truncate">{{ authStore?.user?.email }}</p>
               <template #fallback>
