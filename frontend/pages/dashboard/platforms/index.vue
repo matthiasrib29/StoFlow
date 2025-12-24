@@ -203,16 +203,14 @@ const connectPlatform = async (platformId: string) => {
   }
 }
 
-// Fetch publications once on page load (client-side only, requires auth token)
-if (import.meta.client) {
-  await callOnce(async () => {
-    try {
-      await publicationsStore.fetchPublications()
-    } catch (error) {
-      console.error('Erreur chargement plateformes:', error)
-    }
-  })
-}
+// Fetch publications on mount (non-blocking for instant navigation)
+onMounted(async () => {
+  try {
+    await publicationsStore.fetchPublications()
+  } catch (error) {
+    console.error('Erreur chargement plateformes:', error)
+  }
+})
 </script>
 
 <style scoped>
