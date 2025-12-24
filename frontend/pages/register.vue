@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-white py-8 px-4">
+  <NuxtLayout name="auth">
     <Card class="w-full max-w-2xl border-2 border-secondary-900 shadow-xl">
       <template #title>
         <div class="flex items-center gap-2 bg-primary-400 -mx-6 -mt-6 px-6 py-4 mb-4">
@@ -260,11 +260,15 @@
         </div>
       </template>
     </Card>
-  </div>
+  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
 import type { RegisterData } from '~/stores/auth'
+
+definePageMeta({
+  layout: false
+})
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -360,10 +364,4 @@ const handleRegister = async () => {
   }
 }
 
-// Rediriger si déjà connecté
-onMounted(() => {
-  if (authStore.isAuthenticated) {
-    router.push('/dashboard')
-  }
-})
 </script>
