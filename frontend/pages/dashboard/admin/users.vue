@@ -354,8 +354,9 @@ definePageMeta({
 // Composables
 const authStore = useAuthStore()
 const adminUsers = useAdminUsers()
-const confirm = useConfirm()
-const toast = useToast()
+// SSR-safe: useConfirm and useToast require client-side services
+const confirm = import.meta.client ? useConfirm() : null
+const toast = import.meta.client ? useToast() : null
 
 // State
 const searchQuery = ref('')
@@ -398,10 +399,12 @@ const tierOptions = [
   { label: 'Enterprise', value: 'enterprise' },
 ]
 
-// Fetch users on mount
-onMounted(() => {
-  fetchUsers()
-})
+// Fetch users once on page load (client-side only, requires auth token)
+if (import.meta.client) {
+  await callOnce(async () => {
+    await adminUsers.fetchUsers()
+  })
+}
 
 // Methods
 const fetchUsers = async () => {
@@ -412,7 +415,7 @@ const fetchUsers = async () => {
       is_active: selectedStatus.value ?? undefined,
     })
   } catch (e: any) {
-    toast.add({
+    toast?.add({
       severity: 'error',
       summary: 'Erreur',
       detail: e.message || 'Impossible de charger les utilisateurs',
@@ -527,7 +530,7 @@ const saveUser = async () => {
 
       await adminUsers.updateUser(editingUserId.value, updateData)
 
-      toast.add({
+      toast?.add({
         severity: 'success',
         summary: 'Succès',
         detail: 'Utilisateur modifié avec succès',
@@ -545,7 +548,7 @@ const saveUser = async () => {
         is_active: userForm.value.is_active,
       })
 
-      toast.add({
+      toast?.add({
         severity: 'success',
         summary: 'Succès',
         detail: 'Utilisateur créé avec succès',
@@ -555,7 +558,7 @@ const saveUser = async () => {
 
     showUserDialog.value = false
   } catch (e: any) {
-    toast.add({
+    toast?.add({
       severity: 'error',
       summary: 'Erreur',
       detail: e.message || 'Impossible de sauvegarder l\'utilisateur',
@@ -569,14 +572,14 @@ const handleToggleActive = async (user: AdminUser) => {
     await adminUsers.toggleUserActive(user.id)
 
     const action = user.is_active ? 'désactivé' : 'activé'
-    toast.add({
+    toast?.add({
       severity: 'success',
       summary: 'Succès',
       detail: `Utilisateur ${action} avec succès`,
       life: 3000,
     })
   } catch (e: any) {
-    toast.add({
+    toast?.add({
       severity: 'error',
       summary: 'Erreur',
       detail: e.message || 'Impossible de modifier le statut',
@@ -589,14 +592,14 @@ const handleUnlock = async (user: AdminUser) => {
   try {
     await adminUsers.unlockUser(user.id)
 
-    toast.add({
+    toast?.add({
       severity: 'success',
       summary: 'Succès',
       detail: 'Compte déverrouillé avec succès',
       life: 3000,
     })
   } catch (e: any) {
-    toast.add({
+    toast?.add({
       severity: 'error',
       summary: 'Erreur',
       detail: e.message || 'Impossible de déverrouiller le compte',
@@ -606,7 +609,7 @@ const handleUnlock = async (user: AdminUser) => {
 }
 
 const confirmDelete = (user: AdminUser) => {
-  confirm.require({
+  confirm?.require({
     message: `Êtes-vous sûr de vouloir supprimer l'utilisateur "${user.full_name}" (${user.email}) ? Cette action est irréversible.`,
     header: 'Confirmation de suppression',
     icon: 'pi pi-exclamation-triangle',
@@ -617,14 +620,14 @@ const confirmDelete = (user: AdminUser) => {
       try {
         await adminUsers.deleteUser(user.id)
 
-        toast.add({
+        toast?.add({
           severity: 'success',
           summary: 'Succès',
           detail: 'Utilisateur supprimé avec succès',
           life: 3000,
         })
       } catch (e: any) {
-        toast.add({
+        toast?.add({
           severity: 'error',
           summary: 'Erreur',
           detail: e.message || 'Impossible de supprimer l\'utilisateur',

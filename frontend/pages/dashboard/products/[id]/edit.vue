@@ -90,38 +90,40 @@ interface Photo {
 
 const photos = ref<Photo[]>([])
 
-// Charger le produit
-onMounted(async () => {
-  try {
-    loading.value = true
+// Fetch product once on page load (client-side only, requires auth token)
+if (import.meta.client) {
+  await callOnce(async () => {
+    try {
+      loading.value = true
 
-    // Charger le produit depuis l'API
-    product.value = await productsStore.fetchProduct(id)
+      // Charger le produit depuis l'API
+      product.value = await productsStore.fetchProduct(id)
 
-    if (product.value) {
-      // Pré-remplir le formulaire avec les données existantes
-      form.value = {
-        title: product.value.title || '',
-        description: product.value.description || '',
-        price: parseFloat(product.value.price) || 0,
-        stock_quantity: product.value.stock_quantity || 1,
-        category: product.value.category || '',
-        brand: product.value.brand || '',
-        condition: product.value.condition || 'good',
-        label_size: product.value.label_size || '',
-        color: product.value.color || ''
+      if (product.value) {
+        // Pré-remplir le formulaire avec les données existantes
+        form.value = {
+          title: product.value.title || '',
+          description: product.value.description || '',
+          price: parseFloat(product.value.price) || 0,
+          stock_quantity: product.value.stock_quantity || 1,
+          category: product.value.category || '',
+          brand: product.value.brand || '',
+          condition: product.value.condition || 'good',
+          label_size: product.value.label_size || '',
+          color: product.value.color || ''
+        }
+
+        // Note: Les images existantes sont affichées via product_images
+        // L'utilisateur peut uploader de nouvelles images si nécessaire
       }
-
-      // Note: Les images existantes sont affichées via product_images
-      // L'utilisateur peut uploader de nouvelles images si nécessaire
+    } catch (error) {
+      console.error('Erreur chargement produit:', error)
+      showError('Erreur', 'Impossible de charger le produit', 5000)
+    } finally {
+      loading.value = false
     }
-  } catch (error) {
-    console.error('Erreur chargement produit:', error)
-    showError('Erreur', 'Impossible de charger le produit', 5000)
-  } finally {
-    loading.value = false
-  }
-})
+  })
+}
 
 const handleSubmit = async () => {
   isSubmitting.value = true

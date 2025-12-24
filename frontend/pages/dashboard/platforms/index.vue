@@ -126,6 +126,7 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from 'primevue/usetoast'
 
 definePageMeta({
   layout: 'dashboard'
@@ -202,14 +203,16 @@ const connectPlatform = async (platformId: string) => {
   }
 }
 
-// Charger les données
-onMounted(async () => {
-  try {
-    await publicationsStore.fetchPublications()
-  } catch (error) {
-    console.error('Erreur chargement plateformes:', error)
-  }
-})
+// Fetch publications once on page load (client-side only, requires auth token)
+if (import.meta.client) {
+  await callOnce(async () => {
+    try {
+      await publicationsStore.fetchPublications()
+    } catch (error) {
+      console.error('Erreur chargement plateformes:', error)
+    }
+  })
+}
 </script>
 
 <style scoped>

@@ -269,6 +269,7 @@
 
 <script setup lang="ts">
 import type { SubscriptionTier } from '~/composables/useSubscription'
+import { useToast } from 'primevue/usetoast'
 
 definePageMeta({
   layout: 'dashboard'
@@ -277,6 +278,9 @@ definePageMeta({
 const { showSuccess, showError, showInfo, showWarn } = useAppToast()
 const router = useRouter()
 const { getSubscriptionInfo, getAvailableTiers } = useSubscription()
+
+// SSR-safe: useToast requires client-side ToastService
+const toast = import.meta.client ? useToast() : null
 
 // State
 const loading = ref(true)
@@ -444,11 +448,13 @@ const loadTiers = async () => {
   }
 }
 
-// Load data on mount
-onMounted(async () => {
-  await Promise.all([
-    loadSubscriptionInfo(),
-    loadTiers()
-  ])
-})
+// Fetch subscription data once on page load (client-side only, requires auth token)
+if (import.meta.client) {
+  await callOnce(async () => {
+    await Promise.all([
+      loadSubscriptionInfo(),
+      loadTiers()
+    ])
+  })
+}
 </script>
