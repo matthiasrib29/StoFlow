@@ -196,3 +196,368 @@ class AdminUserDeleteResponse(BaseModel):
             }
         }
     }
+
+
+# ============================================================================
+# Admin Stats Schemas
+# ============================================================================
+
+
+class AdminStatsUsersByRole(BaseModel):
+    """User count by role."""
+
+    admin: int = Field(default=0, description="Number of admin users")
+    user: int = Field(default=0, description="Number of regular users")
+    support: int = Field(default=0, description="Number of support users")
+
+
+class AdminStatsOverview(BaseModel):
+    """Overview statistics for admin dashboard."""
+
+    total_users: int = Field(..., description="Total number of users")
+    active_users: int = Field(..., description="Number of active users")
+    inactive_users: int = Field(..., description="Number of inactive users")
+    locked_users: int = Field(..., description="Number of locked accounts")
+    users_by_role: AdminStatsUsersByRole = Field(..., description="Users grouped by role")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "total_users": 150,
+                "active_users": 120,
+                "inactive_users": 30,
+                "locked_users": 2,
+                "users_by_role": {
+                    "admin": 3,
+                    "user": 145,
+                    "support": 2
+                }
+            }
+        }
+    }
+
+
+class AdminStatsUsersByTier(BaseModel):
+    """User count by subscription tier."""
+
+    free: int = Field(default=0, description="Users on free tier")
+    starter: int = Field(default=0, description="Users on starter tier")
+    pro: int = Field(default=0, description="Users on pro tier")
+    enterprise: int = Field(default=0, description="Users on enterprise tier")
+
+
+class AdminStatsSubscriptions(BaseModel):
+    """Subscription statistics."""
+
+    users_by_tier: AdminStatsUsersByTier = Field(..., description="Users grouped by tier")
+    total_mrr: float = Field(..., description="Estimated monthly recurring revenue (EUR)")
+    paying_subscribers: int = Field(..., description="Number of paying subscribers")
+    active_subscriptions: int = Field(..., description="Total active subscriptions")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "users_by_tier": {
+                    "free": 100,
+                    "starter": 30,
+                    "pro": 15,
+                    "enterprise": 5
+                },
+                "total_mrr": 1049.55,
+                "paying_subscribers": 50,
+                "active_subscriptions": 150
+            }
+        }
+    }
+
+
+class AdminStatsRegistrationData(BaseModel):
+    """Single day registration data."""
+
+    date: str = Field(..., description="Date (YYYY-MM-DD)")
+    count: int = Field(..., description="Number of registrations")
+
+
+class AdminStatsRegistrations(BaseModel):
+    """Registration statistics over a period."""
+
+    period: str = Field(..., description="Period: week, month, or 3months")
+    start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
+    end_date: str = Field(..., description="End date (YYYY-MM-DD)")
+    data: List[AdminStatsRegistrationData] = Field(..., description="Daily registration data")
+    total: int = Field(..., description="Total registrations in period")
+    average_per_day: float = Field(..., description="Average registrations per day")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "period": "week",
+                "start_date": "2024-12-17",
+                "end_date": "2024-12-24",
+                "data": [
+                    {"date": "2024-12-17", "count": 3},
+                    {"date": "2024-12-18", "count": 5}
+                ],
+                "total": 25,
+                "average_per_day": 3.57
+            }
+        }
+    }
+
+
+class AdminRecentLogin(BaseModel):
+    """Recent login entry."""
+
+    id: int = Field(..., description="User ID")
+    email: str = Field(..., description="User email")
+    full_name: str = Field(..., description="User full name")
+    last_login: Optional[str] = Field(None, description="Last login timestamp (ISO format)")
+
+
+class AdminNewRegistration(BaseModel):
+    """New registration entry."""
+
+    id: int = Field(..., description="User ID")
+    email: str = Field(..., description="User email")
+    full_name: str = Field(..., description="User full name")
+    created_at: Optional[str] = Field(None, description="Registration timestamp (ISO format)")
+    subscription_tier: str = Field(..., description="Subscription tier")
+
+
+class AdminStatsRecentActivity(BaseModel):
+    """Recent activity statistics."""
+
+    recent_logins: List[AdminRecentLogin] = Field(..., description="Recent logins (last 24h)")
+    new_registrations: List[AdminNewRegistration] = Field(..., description="New registrations (last 7 days)")
+
+
+# ============================================================================
+# Admin Audit Log Schemas
+# ============================================================================
+
+
+class AdminAuditLogResponse(BaseModel):
+    """Response schema for a single audit log entry."""
+
+    id: int = Field(..., description="Audit log ID")
+    admin_id: Optional[int] = Field(None, description="Admin user ID")
+    admin_email: Optional[str] = Field(None, description="Admin email")
+    action: str = Field(..., description="Action type")
+    resource_type: str = Field(..., description="Resource type")
+    resource_id: Optional[str] = Field(None, description="Resource ID")
+    resource_name: Optional[str] = Field(None, description="Resource name")
+    details: Optional[dict] = Field(None, description="Action details (changed fields)")
+    ip_address: Optional[str] = Field(None, description="Client IP address")
+    created_at: datetime = Field(..., description="Timestamp")
+
+    model_config = {
+        "from_attributes": True,
+        "json_schema_extra": {
+            "example": {
+                "id": 1,
+                "admin_id": 1,
+                "admin_email": "admin@example.com",
+                "action": "UPDATE",
+                "resource_type": "user",
+                "resource_id": "42",
+                "resource_name": "user@example.com",
+                "details": {"changed": {"role": "admin"}, "before": {"role": "user"}},
+                "ip_address": "192.168.1.1",
+                "created_at": "2024-12-24T15:30:00Z"
+            }
+        }
+    }
+
+
+class AdminAuditLogListResponse(BaseModel):
+    """Paginated list of audit logs."""
+
+    logs: List[AdminAuditLogResponse] = Field(..., description="List of audit logs")
+    total: int = Field(..., description="Total count")
+    skip: int = Field(..., description="Records skipped")
+    limit: int = Field(..., description="Maximum records")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "logs": [],
+                "total": 100,
+                "skip": 0,
+                "limit": 50
+            }
+        }
+    }
+
+
+# ============================================================================
+# Admin Attribute Schemas (Brands, Categories, Colors, Materials)
+# ============================================================================
+
+
+# ----- Brand Schemas -----
+
+class AdminBrandCreate(BaseModel):
+    """Schema for creating a brand."""
+
+    name: str = Field(..., min_length=1, max_length=100, description="Brand name (EN, primary key)")
+    name_fr: Optional[str] = Field(None, max_length=100, description="Brand name (FR)")
+    description: Optional[str] = Field(None, description="Brand description")
+    vinted_id: Optional[str] = Field(None, description="Vinted marketplace ID")
+    monitoring: bool = Field(default=False, description="Special tracking flag")
+    sector_jeans: Optional[str] = Field(None, max_length=20, description="Jeans market segment")
+    sector_jacket: Optional[str] = Field(None, max_length=20, description="Jacket market segment")
+
+
+class AdminBrandUpdate(BaseModel):
+    """Schema for updating a brand. All fields optional except PK."""
+
+    name_fr: Optional[str] = Field(None, max_length=100, description="Brand name (FR)")
+    description: Optional[str] = Field(None, description="Brand description")
+    vinted_id: Optional[str] = Field(None, description="Vinted marketplace ID")
+    monitoring: Optional[bool] = Field(None, description="Special tracking flag")
+    sector_jeans: Optional[str] = Field(None, max_length=20, description="Jeans market segment")
+    sector_jacket: Optional[str] = Field(None, max_length=20, description="Jacket market segment")
+
+
+class AdminBrandResponse(BaseModel):
+    """Response schema for a brand."""
+
+    pk: str = Field(..., description="Primary key (name)")
+    name: str = Field(..., description="Brand name (EN)")
+    name_fr: Optional[str] = Field(None, description="Brand name (FR)")
+    description: Optional[str] = Field(None, description="Brand description")
+    vinted_id: Optional[str] = Field(None, description="Vinted marketplace ID")
+    monitoring: bool = Field(..., description="Special tracking flag")
+    sector_jeans: Optional[str] = Field(None, description="Jeans market segment")
+    sector_jacket: Optional[str] = Field(None, description="Jacket market segment")
+
+
+# ----- Category Schemas -----
+
+class AdminCategoryCreate(BaseModel):
+    """Schema for creating a category."""
+
+    name_en: str = Field(..., min_length=1, max_length=100, description="Category name (EN, primary key)")
+    parent_category: Optional[str] = Field(None, max_length=100, description="Parent category name")
+    name_fr: Optional[str] = Field(None, max_length=255, description="Category name (FR)")
+    name_de: Optional[str] = Field(None, max_length=255, description="Category name (DE)")
+    name_it: Optional[str] = Field(None, max_length=255, description="Category name (IT)")
+    name_es: Optional[str] = Field(None, max_length=255, description="Category name (ES)")
+    genders: Optional[List[str]] = Field(None, description="Available genders (men, women, boys, girls)")
+
+
+class AdminCategoryUpdate(BaseModel):
+    """Schema for updating a category. All fields optional except PK."""
+
+    parent_category: Optional[str] = Field(None, max_length=100, description="Parent category name")
+    name_fr: Optional[str] = Field(None, max_length=255, description="Category name (FR)")
+    name_de: Optional[str] = Field(None, max_length=255, description="Category name (DE)")
+    name_it: Optional[str] = Field(None, max_length=255, description="Category name (IT)")
+    name_es: Optional[str] = Field(None, max_length=255, description="Category name (ES)")
+    genders: Optional[List[str]] = Field(None, description="Available genders (men, women, boys, girls)")
+
+
+class AdminCategoryResponse(BaseModel):
+    """Response schema for a category."""
+
+    pk: str = Field(..., description="Primary key (name_en)")
+    name_en: str = Field(..., description="Category name (EN)")
+    name_fr: Optional[str] = Field(None, description="Category name (FR)")
+    name_de: Optional[str] = Field(None, description="Category name (DE)")
+    name_it: Optional[str] = Field(None, description="Category name (IT)")
+    name_es: Optional[str] = Field(None, description="Category name (ES)")
+    parent_category: Optional[str] = Field(None, description="Parent category name")
+    genders: Optional[List[str]] = Field(None, description="Available genders")
+
+
+# ----- Color Schemas -----
+
+class AdminColorCreate(BaseModel):
+    """Schema for creating a color."""
+
+    name_en: str = Field(..., min_length=1, max_length=100, description="Color name (EN, primary key)")
+    name_fr: Optional[str] = Field(None, max_length=100, description="Color name (FR)")
+    name_de: Optional[str] = Field(None, max_length=100, description="Color name (DE)")
+    name_it: Optional[str] = Field(None, max_length=100, description="Color name (IT)")
+    name_es: Optional[str] = Field(None, max_length=100, description="Color name (ES)")
+    name_nl: Optional[str] = Field(None, max_length=100, description="Color name (NL)")
+    name_pl: Optional[str] = Field(None, max_length=100, description="Color name (PL)")
+    hex_code: Optional[str] = Field(None, max_length=7, pattern=r"^#[0-9A-Fa-f]{6}$", description="Hex color code")
+
+
+class AdminColorUpdate(BaseModel):
+    """Schema for updating a color. All fields optional except PK."""
+
+    name_fr: Optional[str] = Field(None, max_length=100, description="Color name (FR)")
+    name_de: Optional[str] = Field(None, max_length=100, description="Color name (DE)")
+    name_it: Optional[str] = Field(None, max_length=100, description="Color name (IT)")
+    name_es: Optional[str] = Field(None, max_length=100, description="Color name (ES)")
+    name_nl: Optional[str] = Field(None, max_length=100, description="Color name (NL)")
+    name_pl: Optional[str] = Field(None, max_length=100, description="Color name (PL)")
+    hex_code: Optional[str] = Field(None, max_length=7, pattern=r"^#[0-9A-Fa-f]{6}$", description="Hex color code")
+
+
+class AdminColorResponse(BaseModel):
+    """Response schema for a color."""
+
+    pk: str = Field(..., description="Primary key (name_en)")
+    name_en: str = Field(..., description="Color name (EN)")
+    name_fr: Optional[str] = Field(None, description="Color name (FR)")
+    name_de: Optional[str] = Field(None, description="Color name (DE)")
+    name_it: Optional[str] = Field(None, description="Color name (IT)")
+    name_es: Optional[str] = Field(None, description="Color name (ES)")
+    name_nl: Optional[str] = Field(None, description="Color name (NL)")
+    name_pl: Optional[str] = Field(None, description="Color name (PL)")
+    hex_code: Optional[str] = Field(None, description="Hex color code")
+
+
+# ----- Material Schemas -----
+
+class AdminMaterialCreate(BaseModel):
+    """Schema for creating a material."""
+
+    name_en: str = Field(..., min_length=1, max_length=100, description="Material name (EN, primary key)")
+    name_fr: Optional[str] = Field(None, max_length=100, description="Material name (FR)")
+    name_de: Optional[str] = Field(None, max_length=100, description="Material name (DE)")
+    name_it: Optional[str] = Field(None, max_length=100, description="Material name (IT)")
+    name_es: Optional[str] = Field(None, max_length=100, description="Material name (ES)")
+    name_nl: Optional[str] = Field(None, max_length=100, description="Material name (NL)")
+    name_pl: Optional[str] = Field(None, max_length=100, description="Material name (PL)")
+    vinted_id: Optional[int] = Field(None, description="Vinted material ID")
+
+
+class AdminMaterialUpdate(BaseModel):
+    """Schema for updating a material. All fields optional except PK."""
+
+    name_fr: Optional[str] = Field(None, max_length=100, description="Material name (FR)")
+    name_de: Optional[str] = Field(None, max_length=100, description="Material name (DE)")
+    name_it: Optional[str] = Field(None, max_length=100, description="Material name (IT)")
+    name_es: Optional[str] = Field(None, max_length=100, description="Material name (ES)")
+    name_nl: Optional[str] = Field(None, max_length=100, description="Material name (NL)")
+    name_pl: Optional[str] = Field(None, max_length=100, description="Material name (PL)")
+    vinted_id: Optional[int] = Field(None, description="Vinted material ID")
+
+
+class AdminMaterialResponse(BaseModel):
+    """Response schema for a material."""
+
+    pk: str = Field(..., description="Primary key (name_en)")
+    name_en: str = Field(..., description="Material name (EN)")
+    name_fr: Optional[str] = Field(None, description="Material name (FR)")
+    name_de: Optional[str] = Field(None, description="Material name (DE)")
+    name_it: Optional[str] = Field(None, description="Material name (IT)")
+    name_es: Optional[str] = Field(None, description="Material name (ES)")
+    name_nl: Optional[str] = Field(None, description="Material name (NL)")
+    name_pl: Optional[str] = Field(None, description="Material name (PL)")
+    vinted_id: Optional[int] = Field(None, description="Vinted material ID")
+
+
+# ----- Generic Attribute List Response -----
+
+class AdminAttributeListResponse(BaseModel):
+    """Generic paginated list response for attributes."""
+
+    items: List[dict] = Field(..., description="List of attribute items")
+    total: int = Field(..., description="Total count")
+    skip: int = Field(..., description="Records skipped")
+    limit: int = Field(..., description="Maximum records")
