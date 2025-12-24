@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
-from models.user.vinted_order import VintedOrder
+from models.vinted.vinted_order import VintedOrder
 from models.vinted.vinted_deletion import VintedDeletion
 from services.vinted import (
     VintedSyncService,

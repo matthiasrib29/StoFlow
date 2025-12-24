@@ -16,7 +16,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from models.user.vinted_order import VintedOrder, VintedOrderProduct
+from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from services.plugin_task_helper import create_and_wait, _commit_and_restore_path
 from services.vinted.vinted_data_extractor import VintedDataExtractor
 from shared.vinted_constants import VintedOrderAPI, VintedConversationAPI
