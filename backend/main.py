@@ -15,8 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.admin import router as admin_router
+from api.admin_docs import router as admin_docs_router
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
+from api.docs import router as docs_router
 from api.public import router as public_router
 from api.ebay import router as ebay_router, products_router as ebay_products_router
 from api.ebay_oauth import router as ebay_oauth_router
@@ -314,6 +316,8 @@ app.middleware("http")(rate_limit_middleware)
 app.include_router(admin_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(public_router, prefix="/api")  # Public endpoints (no auth required)
+app.include_router(docs_router, prefix="/api")  # Public documentation (no auth required)
+app.include_router(admin_docs_router, prefix="/api")  # Admin documentation CRUD (admin only)
 app.include_router(attributes_router, prefix="/api")
 app.include_router(products_router, prefix="/api")
 app.include_router(integrations_router, prefix="/api")
