@@ -126,13 +126,16 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from 'primevue/usetoast'
 
 definePageMeta({
   layout: 'dashboard'
 })
 
 const publicationsStore = usePublicationsStore()
-// SSR-safe initialization: Only call PrimeVue hooks on client-side
+
+// SSR-safe: useToast requires client-side ToastService
+const toast = import.meta.client ? useToast() : null
 
 // Stats globales
 const platforms = computed(() => publicationsStore.integrations)
@@ -212,14 +215,16 @@ const connectPlatform = async (platformId: string) => {
   }
 }
 
-// Charger les données
-onMounted(async () => {
-  try {
-    await publicationsStore.fetchPublications()
-  } catch (error) {
-    console.error('Erreur chargement plateformes:', error)
-  }
-})
+// Fetch publications once on page load (client-side only, requires auth token)
+if (import.meta.client) {
+  await callOnce(async () => {
+    try {
+      await publicationsStore.fetchPublications()
+    } catch (error) {
+      console.error('Erreur chargement plateformes:', error)
+    }
+  })
+}
 </script>
 
 <style scoped>

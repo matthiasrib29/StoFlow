@@ -294,6 +294,7 @@
 <script setup lang="ts">
 import type { Product } from '~/stores/products'
 import { getProductImageUrl } from '~/stores/products'
+import { useToast } from 'primevue/usetoast'
 
 definePageMeta({
   layout: 'dashboard'
@@ -302,6 +303,9 @@ definePageMeta({
 const router = useRouter()
 const { showSuccess, showError, showInfo, showWarn } = useAppToast()
 const productsStore = useProductsStore()
+
+// SSR-safe: useToast requires client-side ToastService
+const toast = import.meta.client ? useToast() : null
 
 // View mode
 const viewMode = ref<'table' | 'grid'>('table')
@@ -463,16 +467,18 @@ const toggleSelection = (product: Product) => {
   }
 }
 
-// Load products on mount
-onMounted(async () => {
-  if (productsStore.products.length === 0) {
-    try {
-      await productsStore.fetchProducts()
-    } catch (error) {
-      showError('Erreur', 'Impossible de charger les produits', 5000)
+// Fetch products once on page load (client-side only, requires auth token)
+if (import.meta.client) {
+  await callOnce(async () => {
+    if (productsStore.products.length === 0) {
+      try {
+        await productsStore.fetchProducts()
+      } catch (error) {
+        showError('Erreur', 'Impossible de charger les produits', 5000)
+      }
     }
-  }
-})
+  })
+}
 </script>
 
 <style scoped>
