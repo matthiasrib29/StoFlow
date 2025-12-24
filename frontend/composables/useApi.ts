@@ -85,9 +85,9 @@ export const useApi = () => {
   ): Promise<T> => {
     const token = getAccessToken()
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     }
 
     // Ajouter le token Bearer si disponible
@@ -239,6 +239,7 @@ export const useApi = () => {
     put,
     patch,
     delete: del,
+    del,  // Alias for delete
     getAccessToken,
     getRefreshToken,
     saveTokens,

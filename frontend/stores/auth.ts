@@ -23,6 +23,7 @@ export interface User {
   full_name: string
   role: 'user' | 'admin'
   subscription_tier: 'starter' | 'standard' | 'premium' | 'business' | 'enterprise'
+  tenant_name?: string  // Database schema name for user's tenant
   // Onboarding fields (Added: 2024-12-08)
   business_name?: string
   account_type: 'individual' | 'professional'
@@ -223,7 +224,10 @@ export const useAuthStore = defineStore('auth', {
           email: email, // Temporaire - devrait venir d'un endpoint /me
           full_name: '', // À récupérer via un endpoint /me
           role: data.role as 'user' | 'admin',
-          subscription_tier: data.subscription_tier as User['subscription_tier']
+          subscription_tier: data.subscription_tier as User['subscription_tier'],
+          account_type: 'individual', // Default - should be fetched from /me
+          country: 'FR', // Default - should be fetched from /me
+          language: 'fr' // Default - should be fetched from /me
         }
 
         this.user = user

@@ -1,12 +1,12 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <!-- Contenu Vue d'ensemble -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <!-- Stat Cards -->
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
-              <div class="w-12 h-12 rounded-xl bg-cyan-100 flex items-center justify-center">
-                <i class="pi pi-send text-cyan-600 text-xl"/>
+              <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+                <i class="pi pi-send text-platform-vinted text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ stats.activePublications }}</h3>
@@ -25,8 +25,8 @@
 
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
-              <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                <i class="pi pi-heart-fill text-red-500 text-xl"/>
+              <div class="w-12 h-12 rounded-xl bg-error-100 flex items-center justify-center">
+                <i class="pi pi-heart-fill text-error-500 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ stats.totalFavourites }}</h3>
@@ -35,8 +35,8 @@
 
           <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
             <div class="flex items-center justify-between mb-4">
-              <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-                <i class="pi pi-euro text-green-600 text-xl"/>
+              <div class="w-12 h-12 rounded-xl bg-success-100 flex items-center justify-center">
+                <i class="pi pi-euro text-success-600 text-xl"/>
               </div>
             </div>
             <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ formatCurrency(stats.potentialRevenue) }}</h3>
@@ -68,7 +68,7 @@
               <Button
                 label="Synchroniser les produits Vinted"
                 icon="pi pi-sync"
-                class="w-full bg-cyan-500 hover:bg-cyan-600 text-white border-0 font-semibold"
+                class="w-full btn-primary"
                 :loading="syncLoading"
                 :disabled="syncLoading"
                 @click="handleSyncProducts"
@@ -99,7 +99,7 @@
                 <Button
                   label="Fermer"
                   icon="pi pi-times"
-                  class="bg-red-100 hover:bg-red-200 text-red-700 border-0"
+                  class="btn-danger"
                   size="small"
                   @click="rawSyncResult = null"
                 />
@@ -108,25 +108,25 @@
 
             <!-- Statistiques -->
             <div v-if="rawSyncResult.stats" class="grid grid-cols-5 gap-3 mb-4">
-              <div class="bg-blue-50 rounded-lg p-3 text-center">
-                <div class="text-2xl font-bold text-blue-600">{{ rawSyncResult.stats.created || 0 }}</div>
-                <div class="text-xs text-blue-700">Créés</div>
+              <div class="bg-info-50 rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-info-600">{{ rawSyncResult.stats.created || 0 }}</div>
+                <div class="text-xs text-info-700">Créés</div>
               </div>
-              <div class="bg-green-50 rounded-lg p-3 text-center">
-                <div class="text-2xl font-bold text-green-600">{{ rawSyncResult.stats.updated || rawSyncResult.stats.synced || 0 }}</div>
-                <div class="text-xs text-green-700">Mis à jour</div>
+              <div class="bg-success-50 rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-success-600">{{ rawSyncResult.stats.updated || rawSyncResult.stats.synced || 0 }}</div>
+                <div class="text-xs text-success-700">Mis à jour</div>
               </div>
-              <div class="bg-purple-50 rounded-lg p-3 text-center">
-                <div class="text-2xl font-bold text-purple-600">{{ rawSyncResult.stats.enriched || 0 }}</div>
-                <div class="text-xs text-purple-700">Enrichis</div>
+              <div class="bg-primary-50 rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-primary-600">{{ rawSyncResult.stats.enriched || 0 }}</div>
+                <div class="text-xs text-primary-700">Enrichis</div>
               </div>
-              <div class="bg-red-50 rounded-lg p-3 text-center">
-                <div class="text-2xl font-bold text-red-600">{{ rawSyncResult.stats.deleted || 0 }}</div>
-                <div class="text-xs text-red-700">Supprimés</div>
+              <div class="bg-error-50 rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-error-600">{{ rawSyncResult.stats.deleted || 0 }}</div>
+                <div class="text-xs text-error-700">Supprimés</div>
               </div>
-              <div class="bg-yellow-50 rounded-lg p-3 text-center">
-                <div class="text-2xl font-bold text-yellow-600">{{ (rawSyncResult.stats.errors || 0) + (rawSyncResult.stats.enrichment_errors || 0) }}</div>
-                <div class="text-xs text-yellow-700">Erreurs</div>
+              <div class="bg-warning-50 rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-warning-600">{{ (rawSyncResult.stats.errors || 0) + (rawSyncResult.stats.enrichment_errors || 0) }}</div>
+                <div class="text-xs text-warning-700">Erreurs</div>
               </div>
             </div>
 
@@ -153,7 +153,7 @@
                 <Button
                   label="Effacer"
                   icon="pi pi-times"
-                  class="bg-red-100 hover:bg-red-200 text-red-700 border-0"
+                  class="btn-danger"
                   size="small"
                   @click="syncedProducts = []"
                 />
@@ -179,7 +179,7 @@
               <Button
                 label="Connecter maintenant"
                 icon="pi pi-link"
-                class="bg-cyan-500 hover:bg-cyan-600 text-white border-0 font-semibold"
+                class="btn-primary"
                 @click="handleConnect"
               />
             </div>
@@ -192,7 +192,7 @@
       v-model:visible="priceModalVisible"
       modal
       header="Modifier le prix"
-      :style="{ width: '400px' }"
+      class="w-[400px]"
     >
       <div v-if="selectedPublication" class="space-y-4">
         <div>
@@ -235,7 +235,7 @@
       v-model:visible="syncModalVisible"
       modal
       header="Produits synchronisés depuis Vinted"
-      :style="{ width: '900px' }"
+      class="w-[900px]"
       :maximizable="true"
     >
       <div v-if="syncedProducts.length > 0">
@@ -1333,7 +1333,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #06b6d4, #0891b2);
+  background: linear-gradient(90deg, #facc15, #eab308);
   opacity: 0;
   transition: opacity 0.3s ease;
 }

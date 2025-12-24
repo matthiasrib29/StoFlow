@@ -184,7 +184,15 @@ const adjustedSize = computed(() => {
  * Gérer la mise à jour d'un champ dimension avec validation
  */
 const handleDimUpdate = (field: 'dim1' | 'dim2' | 'dim3' | 'dim4' | 'dim5' | 'dim6', value: number | null) => {
-  emit(`update:${field}`, value)
+  // Émettre l'événement correspondant
+  switch (field) {
+    case 'dim1': emit('update:dim1', value); break
+    case 'dim2': emit('update:dim2', value); break
+    case 'dim3': emit('update:dim3', value); break
+    case 'dim4': emit('update:dim4', value); break
+    case 'dim5': emit('update:dim5', value); break
+    case 'dim6': emit('update:dim6', value); break
+  }
 
   // Valider le champ si validation est fournie et le champ a déjà été touché
   if (props.validation && props.validation.touched.value.has(field)) {

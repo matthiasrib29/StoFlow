@@ -41,7 +41,8 @@ export interface VintedJob {
   expires_at: string | null
 }
 
-export interface JobsListResponse {
+// Note: Using internal interfaces to avoid conflicts with usePlatformJobs.ts exports
+interface VintedJobsListResponse {
   jobs: VintedJob[]
   total: number
   pending: number
@@ -50,7 +51,7 @@ export interface JobsListResponse {
   failed: number
 }
 
-export interface JobActionResponse {
+interface VintedJobActionResponse {
   success: boolean
   job_id: number
   new_status: string
@@ -82,7 +83,7 @@ export const useVintedJobs = () => {
         endpoint += `&status_filter=${statusFilter}`
       }
 
-      const response = await get<JobsListResponse>(endpoint)
+      const response = await get<VintedJobsListResponse>(endpoint)
       jobs.value = response.jobs
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch jobs'
@@ -101,9 +102,9 @@ export const useVintedJobs = () => {
 
       // Fetch pending and running jobs
       const [pendingRes, runningRes, pausedRes] = await Promise.all([
-        get<JobsListResponse>('/api/vinted/jobs?status_filter=pending&limit=50'),
-        get<JobsListResponse>('/api/vinted/jobs?status_filter=running&limit=50'),
-        get<JobsListResponse>('/api/vinted/jobs?status_filter=paused&limit=50'),
+        get<VintedJobsListResponse>('/api/vinted/jobs?status_filter=pending&limit=50'),
+        get<VintedJobsListResponse>('/api/vinted/jobs?status_filter=running&limit=50'),
+        get<VintedJobsListResponse>('/api/vinted/jobs?status_filter=paused&limit=50'),
       ])
 
       // Combine and sort by created_at desc
@@ -126,7 +127,7 @@ export const useVintedJobs = () => {
    */
   const cancelJob = async (jobId: number): Promise<boolean> => {
     try {
-      const response = await post<JobActionResponse>(`/api/vinted/jobs/${jobId}/cancel`)
+      const response = await post<VintedJobActionResponse>(`/api/vinted/jobs/${jobId}/cancel`)
       if (response.success) {
         // Update local state
         const jobIndex = activeJobs.value.findIndex(j => j.id === jobId)
@@ -149,7 +150,7 @@ export const useVintedJobs = () => {
    */
   const pauseJob = async (jobId: number): Promise<boolean> => {
     try {
-      const response = await post<JobActionResponse>(`/api/vinted/jobs/${jobId}/pause`)
+      const response = await post<VintedJobActionResponse>(`/api/vinted/jobs/${jobId}/pause`)
       if (response.success) {
         // Update local state
         const job = activeJobs.value.find(j => j.id === jobId)
@@ -171,7 +172,7 @@ export const useVintedJobs = () => {
    */
   const resumeJob = async (jobId: number): Promise<boolean> => {
     try {
-      const response = await post<JobActionResponse>(`/api/vinted/jobs/${jobId}/resume`)
+      const response = await post<VintedJobActionResponse>(`/api/vinted/jobs/${jobId}/resume`)
       if (response.success) {
         // Update local state
         const job = activeJobs.value.find(j => j.id === jobId)

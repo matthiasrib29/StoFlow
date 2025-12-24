@@ -91,7 +91,8 @@ defineEmits<{
   'toggle-selection': [product: Product]
 }>()
 
-const formatPrice = (price: number) => {
+const formatPrice = (price: number | null) => {
+  if (price === null) return '-'
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency: 'EUR'

@@ -21,6 +21,8 @@ interface Integration {
   last_sync?: string
   total_publications?: number
   active_publications?: number
+  views?: number
+  sales?: number
 }
 
 interface Activity {
@@ -81,11 +83,11 @@ export const usePublicationsStore = defineStore('publications', {
 
       try {
         const api = useApi()
-        const status = await api.get('/api/integrations/status')
+        const status = await api.get<{ integrations: Integration[] }>('/api/integrations/status')
 
         // Mettre à jour le statut de chaque intégration
-        if (status.integrations) {
-          status.integrations.forEach((apiIntegration: any) => {
+        if (status?.integrations) {
+          status.integrations.forEach((apiIntegration) => {
             const integration = this.integrations.find(i => i.platform === apiIntegration.platform)
             if (integration) {
               integration.is_connected = apiIntegration.is_connected

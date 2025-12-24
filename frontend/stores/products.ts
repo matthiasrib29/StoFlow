@@ -48,6 +48,7 @@ export interface Product {
 
   // Status et workflow
   status: string  // 'draft', 'published', 'sold', 'archived'
+  is_active?: boolean  // Indicates if product is active/visible
   published_at?: string | null
   sold_at?: string | null
 
@@ -62,6 +63,10 @@ export interface Product {
     image_path: string
     display_order: number
   }>
+
+  // Computed/Legacy properties (for backwards compatibility)
+  image_url?: string  // Primary image URL
+  size?: string  // Alias for label_size
 }
 
 /**
@@ -78,6 +83,10 @@ export const getProductImageUrl = (product: Product): string => {
   // Trier par display_order et prendre la première
   const sortedImages = [...product.product_images].sort((a, b) => a.display_order - b.display_order)
   const firstImage = sortedImages[0]
+
+  if (!firstImage) {
+    return '/images/placeholder-product.png'
+  }
 
   // Construire l'URL complète (ajouter / si image_path ne commence pas par /)
   const imagePath = firstImage.image_path.startsWith('/')
@@ -122,8 +131,8 @@ export const useProductsStore = defineStore('products', {
         const queryString = params.toString()
         const endpoint = `/api/products${queryString ? '?' + queryString : ''}`
 
-        const data = await api.get(endpoint)
-        this.products = data.products || []
+        const data = await api.get<{ products: Product[] }>(endpoint)
+        this.products = data?.products || []
       } catch (error: any) {
         this.error = error.message
         console.error('Error fetching products:', error)
@@ -142,7 +151,7 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        const product = await api.get(`/api/products/${id}`)
+        const product = await api.get<Product>(`/api/products/${id}`)
         this.selectedProduct = product
         return product
       } catch (error: any) {
@@ -163,8 +172,10 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        const newProduct = await api.post('/api/products', productData)
-        this.products.push(newProduct)
+        const newProduct = await api.post<Product>('/api/products', productData)
+        if (newProduct) {
+          this.products.push(newProduct)
+        }
         return newProduct
       } catch (error: any) {
         this.error = error.message
@@ -184,11 +195,11 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        const updatedProduct = await api.patch(`/api/products/${id}`, productData)
+        const updatedProduct = await api.patch<Product>(`/api/products/${id}`, productData)
 
         // Mettre à jour dans la liste locale
         const index = this.products.findIndex(p => p.id === id)
-        if (index !== -1) {
+        if (index !== -1 && updatedProduct) {
           this.products[index] = updatedProduct
         }
 

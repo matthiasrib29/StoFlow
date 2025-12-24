@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <!-- Page Header -->
     <VintedPageHeader
       title="Analytiques Vinted"
@@ -16,7 +16,7 @@
           <Button
             label="Connecter maintenant"
             icon="pi pi-link"
-            class="bg-cyan-500 hover:bg-cyan-600 text-white border-0 font-semibold"
+            class="btn-primary"
             @click="$router.push('/dashboard/platforms/vinted')"
           />
         </div>

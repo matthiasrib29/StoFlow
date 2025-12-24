@@ -94,12 +94,7 @@ const sessionId = computed(() => route.query.session_id as string)
 onMounted(async () => {
   // Vérifier que le session_id est présent
   if (!sessionId.value) {
-    toast?.add({
-      severity: 'warn',
-      summary: 'Session invalide',
-      detail: 'Aucune session de paiement trouvée',
-      life: 3000
-    })
+    showWarn('Session invalide', 'Aucune session de paiement trouvée', 3000)
     router.push('/dashboard/subscription')
     return
   }

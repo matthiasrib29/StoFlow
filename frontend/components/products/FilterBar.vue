@@ -10,7 +10,7 @@
               :model-value="search"
               placeholder="Rechercher..."
               class="search-input w-full h-full"
-              @update:model-value="$emit('update:search', $event)"
+              @update:model-value="onSearchUpdate($event as string)"
             />
           </div>
         </div>
@@ -23,7 +23,7 @@
             placeholder="Catégorie"
             class="w-full h-[42px]"
             show-clear
-            @update:model-value="$emit('update:category', $event)"
+            @update:model-value="onCategoryUpdate($event)"
           />
         </div>
 
@@ -37,7 +37,7 @@
             placeholder="Statut"
             class="w-full h-[42px]"
             show-clear
-            @update:model-value="$emit('update:status', $event)"
+            @update:model-value="onStatusUpdate($event)"
           />
         </div>
 
@@ -46,14 +46,14 @@
           <button
             type="button"
             :class="['view-btn', view === 'table' ? 'active' : '']"
-            @click="$emit('update:view', 'table')"
+            @click="onViewUpdate('table')"
           >
             <i class="pi pi-list"/>
           </button>
           <button
             type="button"
             :class="['view-btn', view === 'grid' ? 'active' : '']"
-            @click="$emit('update:view', 'grid')"
+            @click="onViewUpdate('grid')"
           >
             <i class="pi pi-th-large"/>
           </button>
@@ -70,23 +70,23 @@
             <Button
               label="Activer"
               icon="pi pi-check"
-              class="bg-green-500 hover:bg-green-600 text-white border-0 font-medium"
+              class="btn-success-solid"
               size="small"
-              @click="$emit('bulk-activate')"
+              @click="onBulkActivate"
             />
             <Button
               label="Désactiver"
               icon="pi pi-ban"
-              class="bg-orange-500 hover:bg-orange-600 text-white border-0 font-medium"
+              class="bg-warning-500 hover:bg-warning-600 text-white border-0 font-medium rounded-lg"
               size="small"
-              @click="$emit('bulk-deactivate')"
+              @click="onBulkDeactivate"
             />
             <Button
               label="Supprimer"
               icon="pi pi-trash"
-              class="bg-red-500 hover:bg-red-600 text-white border-0 font-medium"
+              class="btn-danger-solid"
               size="small"
-              @click="$emit('bulk-delete')"
+              @click="onBulkDelete"
             />
           </div>
         </div>
@@ -114,7 +114,7 @@ withDefaults(defineProps<Props>(), {
   showViewToggle: true
 })
 
-defineEmits<{
+const emit = defineEmits<{
   'update:search': [value: string]
   'update:category': [value: string | null]
   'update:status': [value: string | null]
@@ -123,6 +123,15 @@ defineEmits<{
   'bulk-deactivate': []
   'bulk-delete': []
 }>()
+
+// Handlers for template
+const onSearchUpdate = (value: string) => emit('update:search', value)
+const onCategoryUpdate = (value: string | null) => emit('update:category', value)
+const onStatusUpdate = (value: string | null) => emit('update:status', value)
+const onViewUpdate = (value: 'table' | 'grid') => emit('update:view', value)
+const onBulkActivate = () => emit('bulk-activate')
+const onBulkDeactivate = () => emit('bulk-deactivate')
+const onBulkDelete = () => emit('bulk-delete')
 
 const categoryOptions = [
   'Vêtements',

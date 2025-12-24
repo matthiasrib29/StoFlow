@@ -364,11 +364,8 @@ export const useEbayStore = defineStore('ebay', {
       await saveSyncSettings(settings)
       this.syncSettings = { ...this.syncSettings, ...settings }
     }
-  },
-
-  // Persist to localStorage
-  persist: {
-    key: 'stoflow-ebay',
-    pick: ['isConnected', 'account', 'syncSettings', 'selectedCategories']
   }
+
+  // Note: Persist to localStorage requires pinia-plugin-persistedstate
+  // For now, persistence is handled manually in useEbayOAuth composable
 })

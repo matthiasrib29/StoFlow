@@ -33,7 +33,7 @@ export const useLocaleStore = defineStore('locale', {
      * Retourne les infos de la locale courante
      */
     currentLocaleInfo: (state): LocaleOption => {
-      return AVAILABLE_LOCALES.find(l => l.code === state.currentLocale) || AVAILABLE_LOCALES[0]
+      return AVAILABLE_LOCALES.find(l => l.code === state.currentLocale) ?? AVAILABLE_LOCALES[0]!
     },
   },
 
