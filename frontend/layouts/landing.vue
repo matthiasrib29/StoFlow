@@ -26,6 +26,9 @@
             <a href="#faq" class="text-secondary-700 hover:text-secondary-900 transition-colors">
               FAQ
             </a>
+            <NuxtLink to="/docs" class="text-secondary-700 hover:text-secondary-900 transition-colors">
+              Documentation
+            </NuxtLink>
           </div>
 
           <!-- CTA Buttons -->
@@ -71,6 +74,9 @@
             <a href="#faq" class="text-secondary-700 hover:text-secondary-900" @click="mobileMenuOpen = false">
               FAQ
             </a>
+            <NuxtLink to="/docs" class="text-secondary-700 hover:text-secondary-900" @click="mobileMenuOpen = false">
+              Documentation
+            </NuxtLink>
             <Button
               label="Connexion"
               class="w-full bg-transparent text-secondary-900 border-2 border-secondary-900"
@@ -111,6 +117,7 @@
               <li><a href="#features" class="hover:text-white transition-colors">Fonctionnalités</a></li>
               <li><a href="#pricing" class="hover:text-white transition-colors">Tarifs</a></li>
               <li><a href="#faq" class="hover:text-white transition-colors">FAQ</a></li>
+              <li><NuxtLink to="/docs" class="hover:text-white transition-colors">Documentation</NuxtLink></li>
             </ul>
           </div>
 
