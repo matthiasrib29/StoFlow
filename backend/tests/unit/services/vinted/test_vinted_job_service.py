@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch, PropertyMock
 import pytest
 
-from models.public.vinted_action_type import VintedActionType
+from models.vinted.vinted_action_type import VintedActionType
 from models.user.vinted_job import VintedJob, JobStatus
 from models.user.vinted_job_stats import VintedJobStats
 from models.user.plugin_task import PluginTask, TaskStatus

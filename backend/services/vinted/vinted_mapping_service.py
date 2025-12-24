@@ -4,20 +4,19 @@ Vinted Mapping Service
 Service de mapping des attributs Product → IDs Vinted.
 Responsabilité: Traduction attributs internes vers IDs marketplace Vinted.
 
-Business Rules (Updated 2025-12-22):
+Business Rules (Updated 2025-12-24):
 - Brand: mapping via brand.vinted_id
 - Color: mapping non disponible (modèle simplifié)
 - Condition: mapping via condition.vinted_id (PK = note integer)
 - Size: mapping via size.vinted_id (mapping unique simplifié)
-- Category: mapping via CategoryMappingRepository (table category_platform_mappings)
+- Category: DEPRECATED - CategoryMappingRepository désactivé (modèle manquant)
 - Material: mapping via material.vinted_id
 
 Architecture:
 - Accès direct aux tables product_attributes (shared entre tenants)
-- CategoryMappingRepository pour le mapping catégorie multi-plateformes
 
 Created: 2024-12-10
-Updated: 2025-12-22 - Simplification des modèles Color/Size
+Updated: 2025-12-24 - CategoryMappingRepository désactivé
 Author: Claude
 """
 
@@ -29,7 +28,8 @@ from models.public.color import Color
 from models.public.condition import Condition
 from models.public.material import Material
 from models.public.size import Size
-from repositories.category_mapping_repository import CategoryMappingRepository
+# DEPRECATED: CategoryMappingRepository désactivé - modèle CategoryPlatformMapping manquant
+# from repositories.category_mapping_repository import CategoryMappingRepository
 
 
 class VintedMappingService:
@@ -222,12 +222,10 @@ class VintedMappingService:
         fit: Optional[str] = None
     ) -> Tuple[Optional[int], Optional[str], Optional[str]]:
         """
-        Mappe une catégorie vers son ID Vinted via CategoryMappingRepository.
+        DEPRECATED: CategoryMappingRepository désactivé - modèle CategoryPlatformMapping manquant.
 
-        Uses fallback strategy:
-        1. Exact match (category + gender + fit)
-        2. No-fit match (category + gender + fit=NULL)
-        3. Any fit match (category + gender, first found)
+        Cette fonction retourne toujours (None, None, None) jusqu'à ce que le modèle
+        CategoryPlatformMapping soit implémenté.
 
         Args:
             db: Session SQLAlchemy
@@ -236,28 +234,10 @@ class VintedMappingService:
             fit: Coupe du produit (optionnel), ex: "Slim", "Regular"
 
         Returns:
-            Tuple (category_id, category_name, category_path):
-            - category_id: ID Vinted catalog_id, ou None si non trouvé
-            - category_name: Nom de la catégorie Vinted
-            - category_path: Chemin de la catégorie (ex: "Hommes > Jeans > Slim")
-
-        Examples:
-            >>> cat_id, name, path = VintedMappingService.map_category(db, "Jeans", "Men", "Slim")
-            >>> print(cat_id)  # Ex: 89
-            89
-            >>> print(path)
-            'Hommes > Jeans > Slim'
+            Tuple (None, None, None) - DEPRECATED
         """
-        repo = CategoryMappingRepository(db)
-
-        # Normalize gender to match DB values
-        gender_normalized = VintedMappingService._normalize_gender(gender)
-
-        mapping = repo.get_vinted_mapping(category, gender_normalized, fit)
-
-        if mapping:
-            return mapping['id'], mapping['name'], mapping['path']
-
+        # DEPRECATED: CategoryMappingRepository désactivé
+        # Le modèle CategoryPlatformMapping n'existe pas encore
         return None, None, None
 
     @staticmethod
@@ -352,7 +332,7 @@ class VintedMappingService:
         gender = product.gender or 'unisex'
         parent_category = product.category.parent_category if hasattr(product, 'category') and hasattr(product.category, 'parent_category') else product.category
 
-        # Mapping catégorie via CategoryMappingRepository
+        # Mapping catégorie (DEPRECATED - retourne toujours None)
         category_name = product.category if isinstance(product.category, str) else (product.category.name_en if hasattr(product.category, 'name_en') else str(product.category))
         fit = getattr(product, 'fit', None)
 

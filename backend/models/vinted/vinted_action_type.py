@@ -2,10 +2,11 @@
 Vinted Action Type Model
 
 Reference table for Vinted action types with their configuration.
-Shared across all tenants (public schema).
+Shared across all tenants (vinted schema).
 
 Author: Claude
 Date: 2025-12-19
+Updated: 2025-12-24 - Moved to vinted schema
 """
 
 from datetime import datetime
@@ -23,11 +24,11 @@ class VintedActionType(Base):
     Defines the different types of actions that can be performed on Vinted,
     along with their priority, rate limiting, and retry configuration.
 
-    Table: public.vinted_action_types
+    Table: vinted.vinted_action_types
     """
 
     __tablename__ = "vinted_action_types"
-    __table_args__ = {"schema": "public"}
+    __table_args__ = {"schema": "vinted"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
