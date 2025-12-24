@@ -372,9 +372,9 @@
           <Transition
             enter-active-class="transition-all duration-300 ease-out"
             enter-from-class="opacity-0 max-h-0 -translate-y-2"
-            enter-to-class="opacity-100 max-h-40 translate-y-0"
+            enter-to-class="opacity-100 max-h-96 translate-y-0"
             leave-active-class="transition-all duration-200 ease-in"
-            leave-from-class="opacity-100 max-h-40 translate-y-0"
+            leave-from-class="opacity-100 max-h-96 translate-y-0"
             leave-to-class="opacity-0 max-h-0 -translate-y-2"
           >
             <div
@@ -382,12 +382,36 @@
               class="mt-1 ml-3 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3"
             >
               <NuxtLink
+                to="/dashboard/admin"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/admin' }"
+              >
+                <i class="pi pi-chart-bar text-sm"/>
+                <span>Tableau de bord</span>
+              </NuxtLink>
+              <NuxtLink
                 to="/dashboard/admin/users"
                 class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
                 active-class="bg-primary-50 text-secondary-900 font-semibold"
               >
                 <i class="pi pi-users text-sm"/>
                 <span>Gestion des utilisateurs</span>
+              </NuxtLink>
+              <NuxtLink
+                to="/dashboard/admin/attributes"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                active-class="bg-primary-50 text-secondary-900 font-semibold"
+              >
+                <i class="pi pi-database text-sm"/>
+                <span>Donnees de reference</span>
+              </NuxtLink>
+              <NuxtLink
+                to="/dashboard/admin/audit-logs"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                active-class="bg-primary-50 text-secondary-900 font-semibold"
+              >
+                <i class="pi pi-history text-sm"/>
+                <span>Logs d'audit</span>
               </NuxtLink>
             </div>
           </Transition>
