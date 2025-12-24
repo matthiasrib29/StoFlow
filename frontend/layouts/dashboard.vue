@@ -455,6 +455,17 @@
             </div>
           </Transition>
         </div>
+
+        <!-- Documentation (ouvre dans un nouvel onglet) -->
+        <a
+          href="/docs"
+          target="_blank"
+          class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
+        >
+          <i class="pi pi-book text-lg"/>
+          <span>Documentation</span>
+          <i class="pi pi-external-link text-xs text-gray-400 ml-auto"/>
+        </a>
       </nav>
 
       <!-- User Section -->
