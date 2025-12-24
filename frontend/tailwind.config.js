@@ -117,6 +117,34 @@ export default {
         'ui-bg-subtle': '#fafafa',
         'ui-border': '#f0f0f0',
         'ui-text-muted': '#6a6a6a',
+
+        // Couleurs pour avatars/gradients
+        pink: {
+          400: '#f472b6',
+          500: '#ec4899',
+        },
+        rose: {
+          500: '#f43f5e',
+        },
+        blue: {
+          400: '#60a5fa',
+          500: '#3b82f6',
+        },
+        indigo: {
+          500: '#6366f1',
+        },
+        orange: {
+          400: '#fb923c',
+          500: '#f97316',
+        },
+        amber: {
+          500: '#f59e0b',
+        },
+        green: {
+          400: '#4ade80',
+          500: '#22c55e',
+          600: '#16a34a',
+        },
       },
     },
   },
