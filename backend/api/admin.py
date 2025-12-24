@@ -7,7 +7,7 @@ All routes require ADMIN role.
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from api.dependencies import require_admin
@@ -19,6 +19,7 @@ from schemas.admin_schemas import (
     AdminUserListResponse,
     AdminUserDeleteResponse,
 )
+from services.admin_audit_service import AdminAuditService
 from services.admin_user_service import AdminUserService
 from shared.database import get_db
 from shared.logging_setup import get_logger
@@ -139,6 +140,7 @@ def get_user(
 @router.post("/users", response_model=AdminUserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(
     user_data: AdminUserCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> AdminUserResponse:
@@ -168,6 +170,23 @@ def create_user(
             subscription_tier=SubscriptionTier(user_data.subscription_tier),
             business_name=user_data.business_name,
         )
+
+        # Log audit
+        AdminAuditService.log_action(
+            db=db,
+            admin=current_user,
+            action=AdminAuditService.ACTION_CREATE,
+            resource_type=AdminAuditService.RESOURCE_USER,
+            resource_id=str(user.id),
+            resource_name=user.email,
+            details={
+                "role": user_data.role,
+                "subscription_tier": user_data.subscription_tier,
+                "is_active": user_data.is_active,
+            },
+            request=request,
+        )
+
         logger.info(f"Admin {current_user.email} created user {user.email}")
         return _user_to_response(user)
     except ValueError as e:
@@ -181,6 +200,7 @@ def create_user(
 def update_user(
     user_id: int,
     user_data: AdminUserUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> AdminUserResponse:
@@ -206,6 +226,14 @@ def update_user(
             detail="Cannot remove your own admin role"
         )
 
+    # Get user before update for audit
+    user_before = AdminUserService.get_user(db, user_id)
+    if not user_before:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {user_id} not found"
+        )
+
     try:
         user = AdminUserService.update_user(
             db=db,
@@ -225,6 +253,33 @@ def update_user(
                 detail=f"User with id {user_id} not found"
             )
 
+        # Build changed fields for audit
+        changed = {}
+        if user_data.email and user_data.email != user_before.email:
+            changed["email"] = user_data.email
+        if user_data.full_name and user_data.full_name != user_before.full_name:
+            changed["full_name"] = user_data.full_name
+        if user_data.role and user_data.role != user_before.role.value:
+            changed["role"] = user_data.role
+        if user_data.is_active is not None and user_data.is_active != user_before.is_active:
+            changed["is_active"] = user_data.is_active
+        if user_data.subscription_tier and user_data.subscription_tier != user_before.subscription_tier.value:
+            changed["subscription_tier"] = user_data.subscription_tier
+        if user_data.password:
+            changed["password"] = "(changed)"
+
+        # Log audit
+        AdminAuditService.log_action(
+            db=db,
+            admin=current_user,
+            action=AdminAuditService.ACTION_UPDATE,
+            resource_type=AdminAuditService.RESOURCE_USER,
+            resource_id=str(user_id),
+            resource_name=user.email,
+            details={"changed": changed} if changed else None,
+            request=request,
+        )
+
         logger.info(f"Admin {current_user.email} updated user {user_id}")
         return _user_to_response(user)
     except ValueError as e:
@@ -237,6 +292,7 @@ def update_user(
 @router.delete("/users/{user_id}", response_model=AdminUserDeleteResponse)
 def delete_user(
     user_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> AdminUserDeleteResponse:
@@ -262,6 +318,16 @@ def delete_user(
             detail="Cannot delete your own account"
         )
 
+    # Get user info before delete for audit
+    user_before = AdminUserService.get_user(db, user_id)
+    if not user_before:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {user_id} not found"
+        )
+
+    user_email = user_before.email
+
     success = AdminUserService.delete_user(db, user_id)
 
     if not success:
@@ -269,6 +335,18 @@ def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User with id {user_id} not found"
         )
+
+    # Log audit
+    AdminAuditService.log_action(
+        db=db,
+        admin=current_user,
+        action=AdminAuditService.ACTION_DELETE,
+        resource_type=AdminAuditService.RESOURCE_USER,
+        resource_id=str(user_id),
+        resource_name=user_email,
+        details={"hard_delete": True},
+        request=request,
+    )
 
     logger.info(f"Admin {current_user.email} deleted user {user_id}")
     return AdminUserDeleteResponse(
@@ -281,6 +359,7 @@ def delete_user(
 @router.post("/users/{user_id}/toggle-active", response_model=AdminUserResponse)
 def toggle_user_active(
     user_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> AdminUserResponse:
@@ -313,14 +392,28 @@ def toggle_user_active(
             detail=f"User with id {user_id} not found"
         )
 
-    action = "activated" if user.is_active else "deactivated"
-    logger.info(f"Admin {current_user.email} {action} user {user_id}")
+    action_str = "activated" if user.is_active else "deactivated"
+
+    # Log audit
+    AdminAuditService.log_action(
+        db=db,
+        admin=current_user,
+        action=AdminAuditService.ACTION_TOGGLE_ACTIVE,
+        resource_type=AdminAuditService.RESOURCE_USER,
+        resource_id=str(user_id),
+        resource_name=user.email,
+        details={"is_active": user.is_active},
+        request=request,
+    )
+
+    logger.info(f"Admin {current_user.email} {action_str} user {user_id}")
     return _user_to_response(user)
 
 
 @router.post("/users/{user_id}/unlock", response_model=AdminUserResponse)
 def unlock_user(
     user_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> AdminUserResponse:
@@ -346,6 +439,18 @@ def unlock_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User with id {user_id} not found"
         )
+
+    # Log audit
+    AdminAuditService.log_action(
+        db=db,
+        admin=current_user,
+        action=AdminAuditService.ACTION_UNLOCK,
+        resource_type=AdminAuditService.RESOURCE_USER,
+        resource_id=str(user_id),
+        resource_name=user.email,
+        details={"unlocked": True},
+        request=request,
+    )
 
     logger.info(f"Admin {current_user.email} unlocked user {user_id}")
     return _user_to_response(user)
