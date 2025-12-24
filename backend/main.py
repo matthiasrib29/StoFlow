@@ -14,6 +14,7 @@ from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from api.admin import router as admin_router
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
 from api.public import router as public_router
@@ -310,6 +311,7 @@ else:
 app.middleware("http")(rate_limit_middleware)
 
 # Enregistrement des routes
+app.include_router(admin_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(public_router, prefix="/api")  # Public endpoints (no auth required)
 app.include_router(attributes_router, prefix="/api")
