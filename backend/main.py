@@ -15,7 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.admin import router as admin_router
+from api.admin_attributes import router as admin_attributes_router
+from api.admin_audit import router as admin_audit_router
 from api.admin_docs import router as admin_docs_router
+from api.admin_stats import router as admin_stats_router
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
 from api.docs import router as docs_router
@@ -315,6 +318,9 @@ app.middleware("http")(rate_limit_middleware)
 
 # Enregistrement des routes
 app.include_router(admin_router, prefix="/api")
+app.include_router(admin_attributes_router, prefix="/api")
+app.include_router(admin_audit_router, prefix="/api")
+app.include_router(admin_stats_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(public_router, prefix="/api")  # Public endpoints (no auth required)
 app.include_router(docs_router, prefix="/api")  # Public documentation (no auth required)
