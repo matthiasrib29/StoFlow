@@ -8,11 +8,15 @@ Updated (2025-12-10): Les models d'attributs ont été réactivés.
 Ils existent maintenant dans le schema product_attributes (créé via migrations Alembic).
 
 Updated (2025-12-10): Ajout des modèles eBay (marketplace_config, aspect_mappings, exchange_rate_config).
+
+Updated (2024-12-24): Ajout des modèles Documentation (doc_categories, doc_articles).
 """
 
 # Public schema models
 from models.public.ai_credit import AICredit
 from models.public.clothing_price import ClothingPrice
+from models.public.doc_article import DocArticle
+from models.public.doc_category import DocCategory
 from models.public.ebay_aspect_mapping import AspectMapping
 from models.public.ebay_category_mapping import EbayCategoryMapping
 from models.public.ebay_exchange_rate import ExchangeRate
@@ -65,6 +69,9 @@ __all__ = [
     "ClothingPrice",
     "AICredit",
     "CategoryPlatformMapping",
+    # Documentation models
+    "DocCategory",
+    "DocArticle",
     # eBay public models
     "MarketplaceConfig",
     "AspectMapping",
