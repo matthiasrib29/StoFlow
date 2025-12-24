@@ -30,24 +30,19 @@ const ALLOWED_ORIGINS = [
 ];
 
 // Flag pour les logs (désactivés en production)
-const DEBUG = true; // TODO: Mettre à false en production
+const DEBUG_ENABLED = true; // TODO: Mettre à false en production
 
 /**
- * Logger sécurisé - évite les logs sensibles en production
+ * Mini-logger for content script context
+ * Consistent format with other plugin loggers
  */
-const logger = {
-  debug: (...args: any[]) => {
-    if (DEBUG) console.log('[Stoflow Plugin]', ...args);
-  },
-  info: (...args: any[]) => {
-    if (DEBUG) console.info('[Stoflow Plugin]', ...args);
-  },
-  warn: (...args: any[]) => {
-    console.warn('[Stoflow Plugin]', ...args);
-  },
-  error: (...args: any[]) => {
-    console.error('[Stoflow Plugin]', ...args);
-  }
+const PREFIX = '[Stoflow Web]';
+const log = {
+  debug: (...args: any[]) => DEBUG_ENABLED && console.log(PREFIX, ...args),
+  info: (...args: any[]) => console.log(PREFIX, '✓', ...args),
+  warn: (...args: any[]) => console.warn(PREFIX, '⚠', ...args),
+  error: (...args: any[]) => console.error(PREFIX, '✗', ...args),
+  success: (...args: any[]) => console.log(PREFIX, '✓', ...args)
 };
 
 // ==================== VALIDATION SÉCURITÉ ====================
@@ -79,7 +74,7 @@ function isValidTokenMessage(data: any): data is { type: string; access_token: s
  * Le frontend mémorisera notre origine pour les communications futures
  */
 function announceToFrontend() {
-  logger.debug('Annonce au frontend...');
+  log.debug('Annonce au frontend...');
 
   // Envoyer vers toutes les origines autorisées (le frontend écoutera)
   // Note: On envoie vers '*' car on ne connaît pas encore l'origine exacte du frontend
@@ -89,7 +84,7 @@ function announceToFrontend() {
     version: '1.0.0'
   }, '*');
 
-  logger.info('Plugin annoncé au frontend');
+  log.info('Plugin annoncé au frontend');
 }
 
 // ==================== GESTION DES TOKENS ====================
@@ -110,7 +105,7 @@ function getTokenFromLocalStorage(): string | null {
     for (const key of possibleKeys) {
       const token = localStorage.getItem(key);
       if (token) {
-        logger.debug(`Token trouvé dans localStorage.${key}`);
+        log.debug(`Token trouvé dans localStorage.${key}`);
         return token;
       }
     }
@@ -121,7 +116,7 @@ function getTokenFromLocalStorage(): string | null {
       try {
         const parsed = JSON.parse(authData);
         if (parsed.access_token || parsed.token) {
-          logger.debug('Token trouvé dans localStorage.auth');
+          log.debug('Token trouvé dans localStorage.auth');
           return parsed.access_token || parsed.token;
         }
       } catch {
@@ -131,7 +126,7 @@ function getTokenFromLocalStorage(): string | null {
 
     return null;
   } catch (error) {
-    logger.error('Erreur lecture localStorage:', error);
+    log.error('Erreur lecture localStorage:', error);
     return null;
   }
 }
@@ -165,7 +160,7 @@ function getRefreshTokenFromLocalStorage(): string | null {
 
     return null;
   } catch (error) {
-    logger.error('Erreur lecture refresh token:', error);
+    log.error('Erreur lecture refresh token:', error);
     return null;
   }
 }
@@ -174,7 +169,7 @@ function getRefreshTokenFromLocalStorage(): string | null {
  * Envoie le token au background script pour stockage
  */
 async function syncTokenToBackground(accessToken: string, refreshToken: string | null) {
-  logger.debug('Envoi du token au background...');
+  log.debug('Envoi du token au background...');
 
   try {
     const response = await chrome.runtime.sendMessage({
@@ -184,15 +179,15 @@ async function syncTokenToBackground(accessToken: string, refreshToken: string |
     });
 
     if (response?.success) {
-      logger.info('Token synchronisé avec succès');
+      log.info('Token synchronisé avec succès');
       showSyncNotification();
       return true;
     } else {
-      logger.error('Échec synchronisation:', response?.error);
+      log.error('Échec synchronisation:', response?.error);
       return false;
     }
   } catch (error) {
-    logger.error('Erreur envoi au background:', error);
+    log.error('Erreur envoi au background:', error);
     return false;
   }
 }
@@ -205,7 +200,7 @@ async function syncTokenFromLocalStorage() {
   const refreshToken = getRefreshTokenFromLocalStorage();
 
   if (!accessToken) {
-    logger.debug('Aucun token à synchroniser depuis localStorage');
+    log.debug('Aucun token à synchroniser depuis localStorage');
     return;
   }
 
@@ -276,7 +271,7 @@ function showSyncNotification() {
  * Configure le listener pour les messages postMessage du frontend
  */
 function setupMessageListener() {
-  logger.debug('Installation du listener postMessage...');
+  log.debug('Installation du listener postMessage...');
 
   window.addEventListener('message', async (event) => {
     // SÉCURITÉ CRITIQUE: Valider l'origine du message
@@ -294,15 +289,15 @@ function setupMessageListener() {
     switch (data.type) {
       case 'STOFLOW_FRONTEND_ACK':
         // Le frontend a reçu notre annonce
-        logger.info('Frontend a confirmé la réception (ACK)');
+        log.info('Frontend a confirmé la réception (ACK)');
         break;
 
       case 'STOFLOW_SYNC_TOKEN':
         // Le frontend envoie un token après login
-        logger.debug('Token reçu du frontend');
+        log.debug('Token reçu du frontend');
 
         if (!isValidTokenMessage(data)) {
-          logger.warn('Message de token invalide, ignoré');
+          log.warn('Message de token invalide, ignoré');
           return;
         }
 
@@ -311,15 +306,15 @@ function setupMessageListener() {
 
       case 'STOFLOW_LOGOUT':
         // Le frontend signale une déconnexion
-        logger.info('Logout reçu du frontend');
+        log.info('Logout reçu du frontend');
 
         try {
           await chrome.runtime.sendMessage({
             action: 'LOGOUT_FROM_WEBSITE'
           });
-          logger.info('Logout synchronisé');
+          log.info('Logout synchronisé');
         } catch (error) {
-          logger.error('Erreur logout:', error);
+          log.error('Erreur logout:', error);
         }
         break;
 
@@ -329,7 +324,7 @@ function setupMessageListener() {
     }
   });
 
-  logger.debug('Listener postMessage installé');
+  log.debug('Listener postMessage installé');
 }
 
 /**
@@ -339,7 +334,7 @@ function setupLocalStorageObserver() {
   // Observer les changements via storage event (autres onglets)
   window.addEventListener('storage', (event) => {
     if (event.key?.includes('token') || event.key === 'auth') {
-      logger.debug('Token modifié (storage event), re-synchronisation...');
+      log.debug('Token modifié (storage event), re-synchronisation...');
       setTimeout(() => syncTokenFromLocalStorage(), 100);
     }
   });
@@ -349,18 +344,18 @@ function setupLocalStorageObserver() {
   localStorage.setItem = function(key: string, value: string) {
     originalSetItem(key, value);
     if (key.includes('token') || key === 'auth') {
-      logger.debug('Token modifié (setItem), re-synchronisation...');
+      log.debug('Token modifié (setItem), re-synchronisation...');
       setTimeout(() => syncTokenFromLocalStorage(), 100);
     }
   };
 
-  logger.debug('Observer localStorage installé');
+  log.debug('Observer localStorage installé');
 }
 
 // ==================== INITIALISATION ====================
 
 function init() {
-  logger.info('Content script chargé sur', window.location.href);
+  log.info('Content script chargé sur', window.location.href);
 
   // 1. S'annoncer au frontend
   announceToFrontend();
@@ -384,7 +379,7 @@ function init() {
     }
   }, 30000);
 
-  logger.info('Initialisation terminée');
+  log.info('Initialisation terminée');
 }
 
 // Démarrer
