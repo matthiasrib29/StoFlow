@@ -22,17 +22,18 @@
         'fixed left-0 top-0 h-full w-64 bg-white shadow-sm border-r border-gray-200 z-50',
         'transition-transform duration-300 ease-in-out',
         'lg:translate-x-0 lg:z-10',
+        'flex flex-col',
         mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
       ]"
     >
       <!-- Logo & Tenant -->
-      <div class="p-6 border-b border-gray-100">
+      <div class="p-6 border-b border-gray-100 flex-shrink-0">
         <h1 class="text-2xl font-bold text-secondary-900 mb-1">Stoflow</h1>
         <p class="text-xs text-gray-500 font-medium">{{ authStore?.user?.tenant_name }}</p>
       </div>
 
-      <!-- Navigation -->
-      <nav class="px-3 py-6 space-y-1">
+      <!-- Navigation (scrollable) -->
+      <nav class="px-3 py-6 space-y-1 flex-1 overflow-y-auto">
         <!-- Accueil -->
         <NuxtLink
           to="/dashboard"
@@ -418,7 +419,7 @@
       </nav>
 
       <!-- User Section -->
-      <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100 bg-gray-50">
+      <div class="flex-shrink-0 p-4 border-t border-gray-100 bg-gray-50">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
             <i class="pi pi-user text-primary-600"/>
