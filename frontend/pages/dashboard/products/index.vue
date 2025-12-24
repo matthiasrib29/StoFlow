@@ -447,18 +447,16 @@ const toggleSelection = (product: Product) => {
   }
 }
 
-// Fetch products once on page load (client-side only, requires auth token)
-if (import.meta.client) {
-  await callOnce(async () => {
-    if (productsStore.products.length === 0) {
-      try {
-        await productsStore.fetchProducts()
-      } catch (error) {
-        showError('Erreur', 'Impossible de charger les produits', 5000)
-      }
+// Fetch products on mount (non-blocking for instant navigation)
+onMounted(async () => {
+  if (productsStore.products.length === 0) {
+    try {
+      await productsStore.fetchProducts()
+    } catch (error) {
+      showError('Erreur', 'Impossible de charger les produits', 5000)
     }
-  })
-}
+  }
+})
 </script>
 
 <style scoped>
