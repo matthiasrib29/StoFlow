@@ -81,17 +81,18 @@ const connectedIntegrationsRef = computed(() => publicationsStore.connectedInteg
 const { displayValue: animatedTotalProducts } = useCountUp(totalProductsRef, { duration: 1500, delay: 0 })
 const { displayValue: animatedConnectedIntegrations } = useCountUp(connectedIntegrationsRef, { duration: 1500, delay: 100 })
 
-// Charger les données au montage
-onMounted(async () => {
-  try {
-    // Charger les produits
-    if (productsStore.products.length === 0) {
-      await productsStore.fetchProducts()
+// Fetch products once on page load (client-side only, requires auth token)
+if (import.meta.client) {
+  await callOnce(async () => {
+    try {
+      if (productsStore.products.length === 0) {
+        await productsStore.fetchProducts()
+      }
+    } catch (error) {
+      console.error('Erreur chargement dashboard:', error)
     }
-  } catch (error) {
-    console.error('Erreur chargement dashboard:', error)
-  }
-})
+  })
+}
 </script>
 
 <style scoped>

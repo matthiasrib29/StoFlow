@@ -1292,32 +1292,34 @@ const getPercentage = (value: number, total: number): string => {
   return ((value / total) * 100).toFixed(0)
 }
 
-// Load data on mount
-onMounted(async () => {
-  try {
-    loading.value = true
-    await Promise.all([
-      fetchConnectionStatus(),
-      fetchVintedProducts(),
-      fetchVintedStats(),
-      fetchOrders()
-    ])
+// Fetch Vinted data once on page load (client-side only, requires auth token)
+if (import.meta.client) {
+  await callOnce(async () => {
+    try {
+      loading.value = true
+      await Promise.all([
+        fetchConnectionStatus(),
+        fetchVintedProducts(),
+        fetchVintedStats(),
+        fetchOrders()
+      ])
 
-    // Load messages stats if connected (for unread badge)
-    if (isConnected.value) {
-      try {
-        await messagesStore.fetchStats()
-      } catch (e) {
-        // Silent fail - just for badge display
-        console.debug('Could not fetch messages stats:', e)
+      // Load messages stats if connected (for unread badge)
+      if (isConnected.value) {
+        try {
+          await messagesStore.fetchStats()
+        } catch (e) {
+          // Silent fail - just for badge display
+          console.debug('Could not fetch messages stats:', e)
+        }
       }
+    } catch (error) {
+      console.error('Erreur chargement données:', error)
+    } finally {
+      loading.value = false
     }
-  } catch (error) {
-    console.error('Erreur chargement données:', error)
-  } finally {
-    loading.value = false
-  }
-})
+  })
+}
 </script>
 
 <style scoped>
