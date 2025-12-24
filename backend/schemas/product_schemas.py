@@ -232,7 +232,7 @@ class ProductResponse(BaseModel):
     # Attributs
     category: str
     brand: str | None
-    condition: int
+    condition: int | None  # Optional for DRAFT products (validated on publish)
     size: str | None
     label_size: str | None
     color: str | None
