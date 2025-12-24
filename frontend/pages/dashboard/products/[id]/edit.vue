@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <div v-if="loading" class="flex items-center justify-center py-20">
       <ProgressSpinner />
     </div>
@@ -133,14 +133,14 @@ const handleSubmit = async () => {
     const productData = {
       title: form.value.title,
       description: form.value.description,
-      price: form.value.price.toString(),
+      price: parseFloat(String(form.value.price)) || null,
       stock_quantity: form.value.stock_quantity,
       brand: form.value.brand,
       category: form.value.category,
       label_size: form.value.label_size,
       color: form.value.color,
       condition: form.value.condition,
-      status: 'draft'
+      status: 'draft' as const
     }
 
     // Update product

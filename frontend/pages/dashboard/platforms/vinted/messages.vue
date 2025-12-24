@@ -3,7 +3,7 @@
   Elle sera réactivée dans une version ultérieure
 -->
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <div class="text-center py-20">
       <i class="pi pi-clock text-6xl text-gray-300 mb-4"/>
       <h3 class="text-2xl font-bold text-secondary-900 mb-2">Bientôt disponible</h3>
@@ -22,7 +22,7 @@ definePageMeta({
   ORIGINAL CODE (MVP1 disabled):
 
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <VintedPageHeader
       title="Messages Vinted"
       subtitle="Gérez vos conversations avec les acheteurs"

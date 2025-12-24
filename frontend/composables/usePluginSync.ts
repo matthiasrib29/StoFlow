@@ -121,10 +121,10 @@ export const syncTokenToPlugin = async (accessToken: string, refreshToken: strin
 
   try {
     // Méthode 1 : Via chrome.runtime (plus sécurisé, si l'extension autorise externally_connectable)
-    if (typeof chrome !== 'undefined' && chrome.runtime) {
+    if (typeof window !== 'undefined' && window.chrome?.runtime) {
       try {
         secureLog.debug('Tentative via chrome.runtime.sendMessage...')
-        await chrome.runtime.sendMessage(EXTENSION_ID, {
+        await window.chrome.runtime.sendMessage(EXTENSION_ID, {
           action: 'SYNC_TOKEN_FROM_WEBSITE',
           access_token: accessToken,
           refresh_token: refreshToken
@@ -183,9 +183,9 @@ export const syncLogoutToPlugin = async () => {
 
   try {
     // Méthode 1 : Via chrome.runtime
-    if (typeof chrome !== 'undefined' && chrome.runtime) {
+    if (typeof window !== 'undefined' && window.chrome?.runtime) {
       try {
-        await chrome.runtime.sendMessage(EXTENSION_ID, {
+        await window.chrome.runtime.sendMessage(EXTENSION_ID, {
           action: 'LOGOUT_FROM_WEBSITE'
         })
         secureLog.info('Logout synchronisé via chrome.runtime')
@@ -225,8 +225,8 @@ export const isPluginInstalled = async (): Promise<boolean> => {
 
   // Essayer via chrome.runtime
   try {
-    if (typeof chrome !== 'undefined' && chrome.runtime) {
-      await chrome.runtime.sendMessage(EXTENSION_ID, { action: 'PING' })
+    if (typeof window !== 'undefined' && window.chrome?.runtime) {
+      await window.chrome.runtime.sendMessage(EXTENSION_ID, { action: 'PING' })
       return true
     }
   } catch {
@@ -253,11 +253,11 @@ export const resetPluginConnection = () => {
 }
 
 // Injecter l'API browser/chrome de Firefox dans window si pas déjà présent
-if (typeof window !== 'undefined' && !window.chrome && typeof browser !== 'undefined') {
-  window.chrome = {
+if (typeof window !== 'undefined' && !window.chrome && window.browser?.runtime) {
+  (window as any).chrome = {
     runtime: {
       sendMessage: (extensionId: string, message: any) => {
-        return browser.runtime.sendMessage(extensionId, message)
+        return window.browser!.runtime!.sendMessage(extensionId, message)
       }
     }
   }

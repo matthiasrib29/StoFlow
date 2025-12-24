@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <!-- Page Header -->
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-secondary-900 mb-1">Plateformes</h1>
@@ -133,9 +133,7 @@ definePageMeta({
 })
 
 const publicationsStore = usePublicationsStore()
-
-// SSR-safe: useToast requires client-side ToastService
-const toast = import.meta.client ? useToast() : null
+const { showSuccess, showError } = useAppToast()
 
 // Stats globales
 const platforms = computed(() => publicationsStore.integrations)
@@ -155,19 +153,19 @@ const enrichedPlatforms = computed(() => {
     switch(p.platform) {
       case 'vinted':
         bgColor = 'bg-white'
-        iconColor = 'text-cyan-600'
+        iconColor = 'text-platform-vinted'
         icon = 'pi-shopping-bag'
         logo = '/images/platforms/vinted-logo.png'
         break
       case 'ebay':
         bgColor = 'bg-white'
-        iconColor = 'text-blue-600'
+        iconColor = 'text-platform-ebay'
         icon = 'pi-shop'
         logo = '/images/platforms/ebay-logo.png'
         break
       case 'etsy':
         bgColor = 'bg-white'
-        iconColor = 'text-orange-600'
+        iconColor = 'text-platform-etsy'
         icon = 'pi-heart'
         logo = '/images/platforms/etsy-logo.png'
         break
@@ -199,19 +197,9 @@ const formatDate = (dateStr: string): string => {
 const connectPlatform = async (platformId: string) => {
   try {
     await publicationsStore.connectIntegration(platformId as any)
-    toast?.add({
-      severity: 'success',
-      summary: 'Connexion réussie',
-      detail: 'La plateforme a été connectée',
-      life: 3000
-    })
+    showSuccess('Connexion réussie', 'La plateforme a été connectée', 3000)
   } catch (error: any) {
-    toast?.add({
-      severity: 'error',
-      summary: 'Erreur',
-      detail: error.message || 'Impossible de connecter la plateforme',
-      life: 5000
-    })
+    showError('Erreur', error.message || 'Impossible de connecter la plateforme', 5000)
   }
 }
 

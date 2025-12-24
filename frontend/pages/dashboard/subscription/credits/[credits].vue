@@ -293,6 +293,7 @@ const totalCreditsAfterPurchase = computed(() => {
 const savingsComparedToSmallest = computed(() => {
   if (!selectedPack.value) return 0
   const smallestPack = allPacks.value[0]
+  if (!smallestPack) return 0
   const smallestPackCost = smallestPack.price
   const costForSameCredits = (selectedPack.value.credits / smallestPack.credits) * smallestPackCost
   return costForSameCredits - selectedPack.value.price

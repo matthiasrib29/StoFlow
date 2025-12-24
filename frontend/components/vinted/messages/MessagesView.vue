@@ -36,7 +36,7 @@
           <Button
             v-tooltip.top="'Synchroniser les messages'"
             icon="pi pi-sync"
-            class="bg-cyan-100 text-cyan-700 border-0"
+            class="bg-primary-100 text-primary-700 border-0"
             size="small"
             :loading="isLoadingMessages"
             @click="$emit('sync')"

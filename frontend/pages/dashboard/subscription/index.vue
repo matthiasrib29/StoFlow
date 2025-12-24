@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <!-- Header -->
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-secondary-900 mb-2">Abonnement</h1>
@@ -403,15 +403,10 @@ const confirmUpgrade = async () => {
 
     // Update is_current flags
     availableTiers.value.forEach(tier => {
-      tier.is_current = tier.tier === selectedTier.value.tier
+      tier.is_current = tier.tier === selectedTier.value?.tier
     })
 
-    toast?.add({
-      severity: 'success',
-      summary: 'Abonnement modifié',
-      detail: `Vous êtes maintenant sur l'abonnement ${selectedTier.value.tier.toUpperCase()}`,
-      life: 3000
-    })
+    showSuccess('Abonnement modifié', `Vous êtes maintenant sur l'abonnement ${selectedTier.value?.tier?.toUpperCase() || ''}`, 3000)
 
     showUpgradeDialog.value = false
   } catch (err: any) {
@@ -447,12 +442,7 @@ const loadTiers = async () => {
     availableTiers.value = tiers
   } catch (err: any) {
     console.error('Error loading tiers:', err)
-    toast?.add({
-      severity: 'warn',
-      summary: 'Avertissement',
-      detail: 'Impossible de charger les tiers d\'abonnement',
-      life: 3000
-    })
+    showWarn('Avertissement', 'Impossible de charger les tiers d\'abonnement', 3000)
   } finally {
     loadingTiers.value = false
   }

@@ -97,7 +97,8 @@ const lineWidths = computed(() => {
       widths.push('60%')
     } else {
       // Lignes complètes avec légère variation
-      widths.push(['100%', '95%', '90%'][i % 3])
+      const variations = ['100%', '95%', '90%'] as const
+      widths.push(variations[i % 3]!)
     }
   }
   return widths

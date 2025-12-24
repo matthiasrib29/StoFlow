@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8">
+  <div class="page-container">
     <!-- Non connecté: Message de connexion -->
     <Card v-if="!ebayStore.isConnected" class="shadow-lg modern-rounded border-0">
       <template #content>
@@ -51,19 +51,19 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div class="stat-card bg-white rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-3">
-            <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-              <i class="pi pi-send text-blue-600 text-lg"/>
+            <div class="w-10 h-10 rounded-xl bg-info-100 flex items-center justify-center">
+              <i class="pi pi-send text-info-600 text-lg"/>
             </div>
-            <span class="text-xs text-green-600 font-medium">+5 ce mois</span>
+            <span class="text-xs text-success-600 font-medium">+5 ce mois</span>
           </div>
-          <h3 class="text-2xl font-bold text-secondary-900 mb-1">{{ ebayStore.stats.activeLis }}</h3>
+          <h3 class="text-2xl font-bold text-secondary-900 mb-1">{{ ebayStore.stats.activeListings }}</h3>
           <p class="text-xs text-gray-600">Annonces actives</p>
         </div>
 
         <div class="stat-card bg-white rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-3">
-            <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-              <i class="pi pi-eye text-purple-600 text-lg"/>
+            <div class="w-10 h-10 rounded-xl bg-secondary-100 flex items-center justify-center">
+              <i class="pi pi-eye text-secondary-600 text-lg"/>
             </div>
           </div>
           <h3 class="text-2xl font-bold text-secondary-900 mb-1">{{ formatNumber(ebayStore.stats.totalViews) }}</h3>
@@ -72,8 +72,8 @@
 
         <div class="stat-card bg-white rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-3">
-            <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-              <i class="pi pi-check-circle text-green-600 text-lg"/>
+            <div class="w-10 h-10 rounded-xl bg-success-100 flex items-center justify-center">
+              <i class="pi pi-check-circle text-success-600 text-lg"/>
             </div>
           </div>
           <h3 class="text-2xl font-bold text-secondary-900 mb-1">{{ ebayStore.stats.totalSales }}</h3>
@@ -98,7 +98,7 @@
       v-model:visible="priceModalVisible"
       modal
       header="Modifier le prix"
-      :style="{ width: '400px' }"
+      class="w-[400px]"
     >
       <div v-if="selectedPublication" class="space-y-4">
         <div>
@@ -141,7 +141,7 @@
       v-model:visible="shippingPolicyModal"
       modal
       header="Nouvelle politique d'expédition"
-      :style="{ width: '500px' }"
+      class="w-[500px]"
     >
       <div class="space-y-4">
         <div>
@@ -208,7 +208,7 @@
       v-model:visible="returnPolicyModal"
       modal
       header="Nouvelle politique de retour"
-      :style="{ width: '500px' }"
+      class="w-[500px]"
     >
       <div class="space-y-4">
         <div>
