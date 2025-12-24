@@ -101,7 +101,14 @@ export const useProductsStore = defineStore('products', {
     products: [] as Product[],
     selectedProduct: null as Product | null,
     isLoading: false,
-    error: null as string | null
+    error: null as string | null,
+    // Pagination
+    pagination: {
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      totalPages: 0
+    }
   }),
 
   getters: {
@@ -113,9 +120,15 @@ export const useProductsStore = defineStore('products', {
 
   actions: {
     /**
-     * Charger tous les produits depuis l'API
+     * Charger les produits depuis l'API avec pagination
      */
-    async fetchProducts(filters?: { status?: string; category?: string; brand?: string }) {
+    async fetchProducts(options?: {
+      page?: number
+      limit?: number
+      status?: string
+      category?: string
+      brand?: string
+    }) {
       this.isLoading = true
       this.error = null
 
@@ -124,15 +137,30 @@ export const useProductsStore = defineStore('products', {
 
         // Build query params
         const params = new URLSearchParams()
-        if (filters?.status) params.append('status', filters.status)
-        if (filters?.category) params.append('category', filters.category)
-        if (filters?.brand) params.append('brand', filters.brand)
+        params.append('page', String(options?.page || 1))
+        params.append('limit', String(options?.limit || 20))
+        if (options?.status) params.append('status', options.status)
+        if (options?.category) params.append('category', options.category)
+        if (options?.brand) params.append('brand', options.brand)
 
         const queryString = params.toString()
-        const endpoint = `/api/products${queryString ? '?' + queryString : ''}`
+        const endpoint = `/api/products?${queryString}`
 
-        const data = await api.get<{ products: Product[] }>(endpoint)
+        const data = await api.get<{
+          products: Product[]
+          total: number
+          page: number
+          page_size: number
+          total_pages: number
+        }>(endpoint)
+
         this.products = data?.products || []
+        this.pagination = {
+          total: data?.total || 0,
+          page: data?.page || 1,
+          pageSize: data?.page_size || 20,
+          totalPages: data?.total_pages || 0
+        }
       } catch (error: any) {
         this.error = error.message
         console.error('Error fetching products:', error)

@@ -49,12 +49,17 @@
         v-model:selection="selectedProducts"
         :value="filteredProducts"
         data-key="id"
+        :lazy="true"
         :paginator="true"
-        :rows="10"
-        :rows-per-page-options="[5, 10, 20, 50]"
+        :rows="rowsPerPage"
+        :total-records="productsStore.pagination.total"
+        :first="(currentPage - 1) * rowsPerPage"
+        :rows-per-page-options="[10, 20, 50, 100]"
         paginator-template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-        current-page-report-template="{first}-{last} sur {totalRecords}"
+        current-page-report-template="{first}-{last} sur {totalRecords} produits"
+        :loading="productsStore.isLoading"
         class="products-table"
+        @page="onPageChange"
       >
         <template #empty>
           <div class="text-center py-16">
@@ -310,6 +315,10 @@ const toast = import.meta.client ? useToast() : null
 // View mode
 const viewMode = ref<'table' | 'grid'>('table')
 
+// Pagination
+const currentPage = ref(1)
+const rowsPerPage = ref(20)
+
 // Filters
 const searchQuery = ref('')
 const selectedCategory = ref<string | null>(null)
@@ -447,15 +456,36 @@ const toggleSelection = (product: Product) => {
   }
 }
 
-// Fetch products on mount (non-blocking for instant navigation)
-onMounted(async () => {
-  if (productsStore.products.length === 0) {
-    try {
-      await productsStore.fetchProducts()
-    } catch (error) {
-      showError('Erreur', 'Impossible de charger les produits', 5000)
-    }
+// Pagination handler
+const onPageChange = async (event: { page: number; rows: number }) => {
+  currentPage.value = event.page + 1  // PrimeVue uses 0-based index
+  rowsPerPage.value = event.rows
+  await loadProducts()
+}
+
+// Load products with current pagination
+const loadProducts = async () => {
+  try {
+    await productsStore.fetchProducts({
+      page: currentPage.value,
+      limit: rowsPerPage.value,
+      status: selectedStatus.value || undefined,
+      category: selectedCategory.value || undefined
+    })
+  } catch (error) {
+    showError('Erreur', 'Impossible de charger les produits', 5000)
   }
+}
+
+// Watch filters to reload products
+watch([selectedStatus, selectedCategory], async () => {
+  currentPage.value = 1  // Reset to first page
+  await loadProducts()
+})
+
+// Fetch products on mount
+onMounted(async () => {
+  await loadProducts()
 })
 </script>
 
