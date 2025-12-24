@@ -348,6 +348,45 @@
           <span>Abonnement</span>
         </NuxtLink>
 
+        <!-- Administration (Admin only) -->
+        <div v-if="isAdmin">
+          <button
+            class="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
+            :class="{ 'bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100': isAdminRoute }"
+            @click="toggleAdminMenu"
+          >
+            <div class="flex items-center gap-3">
+              <i class="pi pi-shield text-lg"/>
+              <span>Administration</span>
+            </div>
+            <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', adminMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+          </button>
+
+          <!-- Sous-menu Administration -->
+          <Transition
+            enter-active-class="transition-all duration-300 ease-out"
+            enter-from-class="opacity-0 max-h-0 -translate-y-2"
+            enter-to-class="opacity-100 max-h-40 translate-y-0"
+            leave-active-class="transition-all duration-200 ease-in"
+            leave-from-class="opacity-100 max-h-40 translate-y-0"
+            leave-to-class="opacity-0 max-h-0 -translate-y-2"
+          >
+            <div
+              v-if="adminMenuOpen"
+              class="mt-1 ml-3 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3"
+            >
+              <NuxtLink
+                to="/dashboard/admin/users"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                active-class="bg-primary-50 text-secondary-900 font-semibold"
+              >
+                <i class="pi pi-users text-sm"/>
+                <span>Gestion des utilisateurs</span>
+              </NuxtLink>
+            </div>
+          </Transition>
+        </div>
+
         <!-- Paramètres avec sous-menu -->
         <div>
           <div class="flex items-center gap-1">
@@ -610,6 +649,7 @@ const mobileMenuOpen = ref(false)
 const productsMenuOpen = ref(false)
 const platformsMenuOpen = ref(false)
 const settingsMenuOpen = ref(false)
+const adminMenuOpen = ref(false)
 
 // État des sous-menus plateformes
 const vintedMenuOpen = ref(false)
@@ -738,6 +778,12 @@ const isEtsyRoute = computed(() => route.path.startsWith('/dashboard/platforms/e
 // Vérifier si on est sur une route paramètres
 const isSettingsRoute = computed(() => route.path.startsWith('/dashboard/settings'))
 
+// Vérifier si on est sur une route admin
+const isAdminRoute = computed(() => route.path.startsWith('/dashboard/admin'))
+
+// Vérifier si l'utilisateur est admin
+const isAdmin = computed(() => authStore.user?.role === 'admin')
+
 // Platform watchers: Fetch status and start polling when on platform route
 watch(isVintedRoute, (isActive) => {
   if (isActive) {
@@ -801,6 +847,9 @@ watch(() => route.path, (newPath) => {
   if (newPath.startsWith('/dashboard/settings')) {
     settingsMenuOpen.value = true
   }
+  if (newPath.startsWith('/dashboard/admin')) {
+    adminMenuOpen.value = true
+  }
 }, { immediate: true })
 
 // Toggle des menus
@@ -814,6 +863,10 @@ const togglePlatformsMenu = () => {
 
 const toggleSettingsMenu = () => {
   settingsMenuOpen.value = !settingsMenuOpen.value
+}
+
+const toggleAdminMenu = () => {
+  adminMenuOpen.value = !adminMenuOpen.value
 }
 
 // Toggle des sous-menus plateformes
