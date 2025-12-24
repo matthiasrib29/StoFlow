@@ -98,7 +98,7 @@ def upgrade() -> None:
         DROP CONSTRAINT IF EXISTS vinted_job_stats_action_type_id_fkey
     """))
 
-    # Drop FK from all user schemas
+    # Drop FK from all user schemas (only if tables exist)
     result = conn.execute(text("""
         SELECT schema_name FROM information_schema.schemata
         WHERE schema_name LIKE 'user_%'
@@ -106,14 +106,33 @@ def upgrade() -> None:
     user_schemas = [row[0] for row in result]
 
     for schema in user_schemas:
-        conn.execute(text(f"""
-            ALTER TABLE {schema}.vinted_jobs
-            DROP CONSTRAINT IF EXISTS vinted_jobs_action_type_id_fkey
-        """))
-        conn.execute(text(f"""
-            ALTER TABLE {schema}.vinted_job_stats
-            DROP CONSTRAINT IF EXISTS vinted_job_stats_action_type_id_fkey
-        """))
+        # Check if vinted_jobs table exists in this schema
+        table_exists = conn.execute(text(f"""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = '{schema}' AND table_name = 'vinted_jobs'
+            )
+        """)).scalar()
+
+        if table_exists:
+            conn.execute(text(f"""
+                ALTER TABLE {schema}.vinted_jobs
+                DROP CONSTRAINT IF EXISTS vinted_jobs_action_type_id_fkey
+            """))
+
+        # Check if vinted_job_stats table exists
+        stats_exists = conn.execute(text(f"""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = '{schema}' AND table_name = 'vinted_job_stats'
+            )
+        """)).scalar()
+
+        if stats_exists:
+            conn.execute(text(f"""
+                ALTER TABLE {schema}.vinted_job_stats
+                DROP CONSTRAINT IF EXISTS vinted_job_stats_action_type_id_fkey
+            """))
 
     print("  ✅ Dropped all foreign keys")
 
@@ -166,18 +185,37 @@ def upgrade() -> None:
         FOREIGN KEY (action_type_id) REFERENCES vinted.vinted_action_types(id)
     """))
 
-    # FK from user schemas to vinted schema
+    # FK from user schemas to vinted schema (only if tables exist)
     for schema in user_schemas:
-        conn.execute(text(f"""
-            ALTER TABLE {schema}.vinted_jobs
-            ADD CONSTRAINT vinted_jobs_action_type_id_fkey
-            FOREIGN KEY (action_type_id) REFERENCES vinted.vinted_action_types(id)
-        """))
-        conn.execute(text(f"""
-            ALTER TABLE {schema}.vinted_job_stats
-            ADD CONSTRAINT vinted_job_stats_action_type_id_fkey
-            FOREIGN KEY (action_type_id) REFERENCES vinted.vinted_action_types(id)
-        """))
+        # Check if vinted_jobs table exists in this schema
+        table_exists = conn.execute(text(f"""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = '{schema}' AND table_name = 'vinted_jobs'
+            )
+        """)).scalar()
+
+        if table_exists:
+            conn.execute(text(f"""
+                ALTER TABLE {schema}.vinted_jobs
+                ADD CONSTRAINT vinted_jobs_action_type_id_fkey
+                FOREIGN KEY (action_type_id) REFERENCES vinted.vinted_action_types(id)
+            """))
+
+        # Check if vinted_job_stats table exists
+        stats_exists = conn.execute(text(f"""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = '{schema}' AND table_name = 'vinted_job_stats'
+            )
+        """)).scalar()
+
+        if stats_exists:
+            conn.execute(text(f"""
+                ALTER TABLE {schema}.vinted_job_stats
+                ADD CONSTRAINT vinted_job_stats_action_type_id_fkey
+                FOREIGN KEY (action_type_id) REFERENCES vinted.vinted_action_types(id)
+            """))
 
     print("  ✅ All foreign keys recreated")
 
@@ -345,14 +383,33 @@ def downgrade() -> None:
     schemas = [row[0] for row in result]
 
     for schema in schemas:
-        conn.execute(text(f"""
-            ALTER TABLE {schema}.vinted_jobs
-            DROP CONSTRAINT IF EXISTS vinted_jobs_action_type_id_fkey
-        """))
-        conn.execute(text(f"""
-            ALTER TABLE {schema}.vinted_job_stats
-            DROP CONSTRAINT IF EXISTS vinted_job_stats_action_type_id_fkey
-        """))
+        # Check if vinted_jobs table exists in this schema
+        table_exists = conn.execute(text(f"""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = '{schema}' AND table_name = 'vinted_jobs'
+            )
+        """)).scalar()
+
+        if table_exists:
+            conn.execute(text(f"""
+                ALTER TABLE {schema}.vinted_jobs
+                DROP CONSTRAINT IF EXISTS vinted_jobs_action_type_id_fkey
+            """))
+
+        # Check if vinted_job_stats table exists
+        stats_exists = conn.execute(text(f"""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = '{schema}' AND table_name = 'vinted_job_stats'
+            )
+        """)).scalar()
+
+        if stats_exists:
+            conn.execute(text(f"""
+                ALTER TABLE {schema}.vinted_job_stats
+                DROP CONSTRAINT IF EXISTS vinted_job_stats_action_type_id_fkey
+            """))
 
     # Drop internal FKs
     conn.execute(text("""
@@ -392,18 +449,37 @@ def downgrade() -> None:
         ON DELETE CASCADE
     """))
 
-    # Recreate FKs from tenant schemas
+    # Recreate FKs from tenant schemas (only if tables exist)
     for schema in schemas:
-        conn.execute(text(f"""
-            ALTER TABLE {schema}.vinted_jobs
-            ADD CONSTRAINT vinted_jobs_action_type_id_fkey
-            FOREIGN KEY (action_type_id) REFERENCES public.vinted_action_types(id)
-        """))
-        conn.execute(text(f"""
-            ALTER TABLE {schema}.vinted_job_stats
-            ADD CONSTRAINT vinted_job_stats_action_type_id_fkey
-            FOREIGN KEY (action_type_id) REFERENCES public.vinted_action_types(id)
-        """))
+        # Check if vinted_jobs table exists in this schema
+        table_exists = conn.execute(text(f"""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = '{schema}' AND table_name = 'vinted_jobs'
+            )
+        """)).scalar()
+
+        if table_exists:
+            conn.execute(text(f"""
+                ALTER TABLE {schema}.vinted_jobs
+                ADD CONSTRAINT vinted_jobs_action_type_id_fkey
+                FOREIGN KEY (action_type_id) REFERENCES public.vinted_action_types(id)
+            """))
+
+        # Check if vinted_job_stats table exists
+        stats_exists = conn.execute(text(f"""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = '{schema}' AND table_name = 'vinted_job_stats'
+            )
+        """)).scalar()
+
+        if stats_exists:
+            conn.execute(text(f"""
+                ALTER TABLE {schema}.vinted_job_stats
+                ADD CONSTRAINT vinted_job_stats_action_type_id_fkey
+                FOREIGN KEY (action_type_id) REFERENCES public.vinted_action_types(id)
+            """))
 
     # Drop vinted schema
     conn.execute(text("DROP SCHEMA IF EXISTS vinted"))
