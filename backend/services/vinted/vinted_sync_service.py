@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from models.user.product import Product, ProductStatus
 from models.user.vinted_product import VintedProduct
-from models.user.vinted_deletion import VintedDeletion
+from models.vinted.vinted_deletion import VintedDeletion
 from services.plugin_task_helper import create_and_wait
 from services.vinted.vinted_api_sync import VintedApiSyncService
 from services.vinted.vinted_order_sync import VintedOrderSyncService

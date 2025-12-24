@@ -23,7 +23,7 @@ from typing import Optional
 from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session
 
-from models.public.vinted_action_type import VintedActionType
+from models.vinted.vinted_action_type import VintedActionType
 from models.user.plugin_task import PluginTask, TaskStatus
 from models.user.vinted_job import JobStatus, VintedJob
 from models.user.vinted_job_stats import VintedJobStats

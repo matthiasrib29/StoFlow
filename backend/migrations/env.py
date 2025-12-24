@@ -22,7 +22,6 @@ from shared.database import Base
 # NOTE (2025-12-09): Seuls les models actifs sont importés
 # Les tables d'attributs (brands, categories, etc.) ont été désactivées
 from models.public.user import User, SubscriptionTier
-from models.public.platform_mapping import PlatformMapping
 from models.public.subscription_quota import SubscriptionQuota
 from models.public.ai_credit import AICredit
 # DISABLED: Attribute tables (do not exist in DB)

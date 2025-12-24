@@ -18,8 +18,9 @@ from models.user.publication_history import PublicationHistory, PublicationStatu
 from models.user.vinted_connection import VintedConnection, DataDomeStatus
 from models.user.vinted_conversation import VintedConversation, VintedMessage
 from models.user.vinted_product import VintedProduct
-from models.user.vinted_order import VintedOrder, VintedOrderProduct
-from models.user.vinted_deletion import VintedDeletion
+# Vinted schema models (re-exported for compatibility)
+from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
+from models.vinted.vinted_deletion import VintedDeletion
 from models.user.vinted_job import VintedJob, JobStatus
 from models.user.vinted_job_stats import VintedJobStats
 
