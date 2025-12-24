@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-white">
-    <Card class="w-full max-w-md border-2 border-secondary-900 shadow-md">
+  <NuxtLayout name="auth">
+    <Card class="w-full max-w-md border-2 border-secondary-900 shadow-xl">
       <template #title>
         <div class="flex items-center gap-2 bg-primary-400 -mx-6 -mt-6 px-6 py-4 mb-4">
           <i class="pi pi-envelope text-secondary-900 text-2xl"/>
@@ -68,10 +68,13 @@
         </div>
       </template>
     </Card>
-  </div>
+  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
+definePageMeta({
+  layout: false
+})
 const route = useRoute()
 const config = useRuntimeConfig()
 
