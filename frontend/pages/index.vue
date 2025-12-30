@@ -602,9 +602,10 @@
 <script setup lang="ts">
 import type { PricingPlan } from '~/composables/usePricing'
 
-// Disable default layout
+// Disable default layout and page transitions for instant navigation
 definePageMeta({
-  layout: false
+  layout: false,
+  pageTransition: false
 })
 
 // Pricing - Dynamic from API

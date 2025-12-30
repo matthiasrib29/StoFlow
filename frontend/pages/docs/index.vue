@@ -6,7 +6,7 @@
         <div class="flex items-center justify-between">
           <!-- Logo & Back -->
           <div class="flex items-center gap-4">
-            <NuxtLink to="/" class="flex items-center gap-2 text-secondary-900 hover:text-primary-600 transition-colors">
+            <NuxtLink to="/" class="flex items-center gap-2 text-secondary-900 hover:text-primary-600">
               <div class="w-8 h-8 bg-secondary-900 rounded-lg flex items-center justify-center">
                 <span class="text-primary-400 font-bold text-sm">S</span>
               </div>
@@ -20,13 +20,13 @@
           <div class="hidden md:flex items-center gap-4">
             <NuxtLink
               to="/login"
-              class="text-gray-600 hover:text-secondary-900 transition-colors"
+              class="text-gray-600 hover:text-secondary-900"
             >
               Connexion
             </NuxtLink>
             <NuxtLink
               to="/register"
-              class="px-4 py-2 bg-secondary-900 text-white rounded-lg hover:bg-secondary-800 transition-colors"
+              class="px-4 py-2 bg-secondary-900 text-white rounded-lg hover:bg-secondary-800"
             >
               Essai gratuit
             </NuxtLink>
@@ -58,8 +58,12 @@
             </p>
           </div>
 
-          <!-- Categories Grid -->
-          <div v-if="!loading && categories.length > 0" class="space-y-12">
+          <!-- Categories Grid (stays visible during reload with reduced opacity) -->
+          <div
+            v-if="categories.length > 0"
+            class="space-y-12 transition-opacity duration-150"
+            :class="{ 'opacity-60': loading }"
+          >
             <section v-for="category in categories" :key="category.id">
               <!-- Category Header -->
               <div class="flex items-center gap-3 mb-6">
@@ -102,8 +106,8 @@
             </section>
           </div>
 
-          <!-- Loading State -->
-          <div v-else-if="loading" class="space-y-8">
+          <!-- Loading State (only on initial load) -->
+          <div v-else-if="loading && categories.length === 0" class="space-y-8">
             <div v-for="i in 2" :key="i" class="animate-pulse">
               <div class="flex items-center gap-3 mb-6">
                 <div class="w-10 h-10 bg-gray-200 rounded-lg" />
@@ -181,7 +185,7 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: false // Custom layout for docs page
+  layout: 'docs' // Use docs layout for consistent rendering
 })
 
 // SEO

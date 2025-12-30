@@ -15,6 +15,20 @@ export default defineNuxtRouteMiddleware((to, from) => {
     return
   }
 
+  // Navigation interne à la documentation → pas de transition
+  const isDocsInternal = to.path.startsWith('/docs') && from.path.startsWith('/docs')
+  if (isDocsInternal) {
+    to.meta.pageTransition = false
+    return
+  }
+
+  // Navigation vers/depuis la documentation → pas de transition
+  const isDocsTransition = to.path.startsWith('/docs') || from.path.startsWith('/docs')
+  if (isDocsTransition) {
+    to.meta.pageTransition = false
+    return
+  }
+
   // Navigation vers/depuis auth → fade simple
   const isAuthTransition =
     to.path.includes('/login') || to.path.includes('/register') ||
