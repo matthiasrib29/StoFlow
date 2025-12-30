@@ -22,15 +22,13 @@ import { CONSTANTS } from '../config/environment';
 
 // Origines autorisées pour recevoir des messages (frontend Stoflow)
 const ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:3001',
   'https://stoflow.io',
   'https://www.stoflow.io',
   'https://app.stoflow.io'
 ];
 
 // Flag pour les logs (désactivés en production)
-const DEBUG_ENABLED = true; // TODO: Mettre à false en production
+const DEBUG_ENABLED = false;
 
 /**
  * Mini-logger for content script context

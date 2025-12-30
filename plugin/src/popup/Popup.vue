@@ -1,29 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { useAuth } from '../composables/useAuth';
 import LoginForm from '../components/LoginForm.vue';
 import DevModeBanner from '../components/DevModeBanner.vue';
 import VintedSessionInfo from '../components/VintedSessionInfo.vue';
-import {
-  getEnvironmentMode,
-  setEnvironmentMode,
-  type EnvironmentMode
-} from '../config/environment';
 
 const { isAuthenticated, user, checkAuth } = useAuth();
 
-const environmentMode = ref<EnvironmentMode>('localhost');
-
 onMounted(async () => {
   await checkAuth();
-  environmentMode.value = await getEnvironmentMode();
 });
-
-const toggleEnvironment = async () => {
-  const newMode: EnvironmentMode = environmentMode.value === 'localhost' ? 'production' : 'localhost';
-  environmentMode.value = newMode;
-  await setEnvironmentMode(newMode);
-};
 </script>
 
 <template>
@@ -65,17 +51,6 @@ const toggleEnvironment = async () => {
         </div>
       </div>
     </main>
-
-    <!-- Environment Toggle Footer -->
-    <footer class="environment-footer">
-      <div class="env-toggle" @click="toggleEnvironment">
-        <span class="env-label">Backend:</span>
-        <div class="env-switch" :class="{ production: environmentMode === 'production' }">
-          <span class="env-option" :class="{ active: environmentMode === 'localhost' }">Local</span>
-          <span class="env-option" :class="{ active: environmentMode === 'production' }">Prod</span>
-        </div>
-      </div>
-    </footer>
   </div>
 </template>
 
@@ -181,56 +156,5 @@ h2 {
   font-size: 13px;
   color: #1e40af;
   line-height: 1.5;
-}
-
-/* Environment Toggle Footer */
-.environment-footer {
-  position: sticky;
-  bottom: 0;
-  background: white;
-  border-top: 1px solid #e5e7eb;
-  padding: 12px 16px;
-}
-
-.env-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.env-label {
-  font-size: 12px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.env-switch {
-  display: flex;
-  background: #f3f4f6;
-  border-radius: 6px;
-  padding: 2px;
-  transition: background 0.2s;
-}
-
-.env-option {
-  padding: 4px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #9ca3af;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.env-option.active {
-  background: white;
-  color: #111827;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.env-switch.production .env-option.active {
-  background: #3b82f6;
-  color: white;
 }
 </style>

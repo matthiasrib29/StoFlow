@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     ai_cache_ttl_seconds: int = 2592000
     ai_cache_enabled: bool = True
 
+    # Anthropic Claude
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-20250514"
+    anthropic_max_tokens: int = 1024
+    anthropic_temperature: float = 0.7
+
     # Vinted
     vinted_base_url: str = "https://www.vinted.fr"
     vinted_api_url: str = "https://www.vinted.fr/api/v2"

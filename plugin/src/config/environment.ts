@@ -16,10 +16,9 @@
 export const ENV = {
   /**
    * URL de l'API backend Stoflow
-   * Configurable via VITE_BACKEND_URL
-   * @default http://localhost:8000 (dev)
+   * @default https://api.stoflow.io
    */
-  BACKEND_URL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000',
+  BACKEND_URL: import.meta.env.VITE_BACKEND_URL || 'https://api.stoflow.io',
 
   /**
    * Intervalle de polling initial (en ms)
@@ -86,14 +85,9 @@ export const ENV = {
 } as const;
 
 /**
- * URLs backend disponibles
+ * URL backend production
  */
-export const BACKEND_URLS = {
-  LOCALHOST: 'http://localhost:8000',
-  PRODUCTION: 'https://api.stoflow.io',
-} as const;
-
-export type EnvironmentMode = 'localhost' | 'production';
+export const BACKEND_URL = 'https://api.stoflow.io';
 
 /**
  * Constantes applicatives (non configurables via .env)
@@ -127,7 +121,6 @@ export const CONSTANTS = {
     REFRESH_TOKEN: 'stoflow_refresh_token',
     USER_DATA: 'stoflow_user_data',
     CONFIG_OVERRIDES: 'config_overrides',
-    ENVIRONMENT_MODE: 'stoflow_environment_mode',
   } as const,
 
   /**
@@ -185,35 +178,9 @@ export function logConfig(): void {
 }
 
 /**
- * Récupère l'URL backend active depuis le storage
- * @returns L'URL backend selon le mode choisi (localhost ou production)
+ * Récupère l'URL backend (production uniquement)
+ * @returns L'URL backend production
  */
-export async function getActiveBackendUrl(): Promise<string> {
-  try {
-    const result = await chrome.storage.local.get(CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE);
-    const mode: EnvironmentMode = result[CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE] || 'localhost';
-    return mode === 'production' ? BACKEND_URLS.PRODUCTION : BACKEND_URLS.LOCALHOST;
-  } catch {
-    // Fallback si erreur (ex: contexte non-extension)
-    return BACKEND_URLS.LOCALHOST;
-  }
-}
-
-/**
- * Récupère le mode d'environnement actuel
- */
-export async function getEnvironmentMode(): Promise<EnvironmentMode> {
-  try {
-    const result = await chrome.storage.local.get(CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE);
-    return result[CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE] || 'localhost';
-  } catch {
-    return 'localhost';
-  }
-}
-
-/**
- * Définit le mode d'environnement
- */
-export async function setEnvironmentMode(mode: EnvironmentMode): Promise<void> {
-  await chrome.storage.local.set({ [CONSTANTS.STORAGE_KEYS.ENVIRONMENT_MODE]: mode });
+export function getActiveBackendUrl(): string {
+  return BACKEND_URL;
 }
