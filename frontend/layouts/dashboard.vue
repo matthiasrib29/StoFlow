@@ -344,15 +344,55 @@
         </NuxtLink>
         -->
 
-        <!-- Abonnement -->
-        <NuxtLink
-          to="/dashboard/subscription"
-          class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
-          active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
-        >
-          <i class="pi pi-star text-lg"/>
-          <span>Abonnement</span>
-        </NuxtLink>
+        <!-- Abonnement avec sous-menu -->
+        <div>
+          <div class="flex items-center gap-1">
+            <NuxtLink
+              to="/dashboard/subscription"
+              class="flex-1 flex items-center gap-3 px-4 py-3 rounded-l-xl hover:bg-gray-50 transition-all text-gray-600 font-medium"
+              active-class="bg-primary-50 text-secondary-900 font-semibold shadow-sm border border-primary-100"
+            >
+              <i class="pi pi-star text-lg"/>
+              <span>Abonnement</span>
+            </NuxtLink>
+            <button
+              class="px-3 py-3 rounded-r-xl hover:bg-gray-50 transition-all text-gray-600"
+              :class="{ 'bg-primary-50 text-secondary-900': subscriptionMenuOpen }"
+              @click="toggleSubscriptionMenu"
+            >
+              <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', subscriptionMenuOpen ? 'rotate-180' : 'rotate-0']"/>
+            </button>
+          </div>
+
+          <!-- Sous-menu Abonnement -->
+          <Transition
+            enter-active-class="transition-all duration-200 ease-out"
+            enter-from-class="opacity-0 max-h-0"
+            enter-to-class="opacity-100 max-h-40"
+            leave-active-class="transition-all duration-150 ease-in"
+            leave-from-class="opacity-100 max-h-40"
+            leave-to-class="opacity-0 max-h-0"
+          >
+            <div v-if="subscriptionMenuOpen" class="mt-1 ml-3 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3">
+              <NuxtLink
+                to="/dashboard/subscription/plans"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                active-class="bg-primary-50 text-secondary-900 font-semibold"
+              >
+                <i class="pi pi-sync text-sm"/>
+                <span>Changer d'abonnement</span>
+              </NuxtLink>
+              <NuxtLink
+                to="/dashboard/subscription/credits"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+                active-class="bg-primary-50 text-secondary-900 font-semibold"
+              >
+                <i class="pi pi-bolt text-sm"/>
+                <span>Crédits IA</span>
+              </NuxtLink>
+            </div>
+          </Transition>
+        </div>
 
         <!-- Administration (Admin only) -->
         <div v-if="isAdmin">
@@ -694,6 +734,7 @@ const mobileMenuOpen = ref(false)
 // État des sous-menus
 const productsMenuOpen = ref(false)
 const platformsMenuOpen = ref(false)
+const subscriptionMenuOpen = ref(false)
 const settingsMenuOpen = ref(false)
 const adminMenuOpen = ref(false)
 
@@ -823,6 +864,9 @@ const isVintedRoute = computed(() => route.path.startsWith('/dashboard/platforms
 const isEbayRoute = computed(() => route.path.startsWith('/dashboard/platforms/ebay'))
 const isEtsyRoute = computed(() => route.path.startsWith('/dashboard/platforms/etsy'))
 
+// Vérifier si on est sur une route abonnement
+const isSubscriptionRoute = computed(() => route.path.startsWith('/dashboard/subscription'))
+
 // Vérifier si on est sur une route paramètres
 const isSettingsRoute = computed(() => route.path.startsWith('/dashboard/settings'))
 
@@ -896,6 +940,9 @@ watch(() => route.path, (newPath) => {
       etsyMenuOpen.value = true
     }
   }
+  if (newPath.startsWith('/dashboard/subscription')) {
+    subscriptionMenuOpen.value = true
+  }
   if (newPath.startsWith('/dashboard/settings')) {
     settingsMenuOpen.value = true
   }
@@ -911,6 +958,10 @@ const toggleProductsMenu = () => {
 
 const togglePlatformsMenu = () => {
   platformsMenuOpen.value = !platformsMenuOpen.value
+}
+
+const toggleSubscriptionMenu = () => {
+  subscriptionMenuOpen.value = !subscriptionMenuOpen.value
 }
 
 const toggleSettingsMenu = () => {
