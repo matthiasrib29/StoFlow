@@ -88,7 +88,12 @@ export const getProductImageUrl = (product: Product): string => {
     return '/images/placeholder-product.png'
   }
 
-  // Construire l'URL complète (ajouter / si image_path ne commence pas par /)
+  // Si l'URL est déjà absolue (R2/CDN), la retourner telle quelle
+  if (firstImage.image_path.startsWith('http://') || firstImage.image_path.startsWith('https://')) {
+    return firstImage.image_path
+  }
+
+  // Sinon, construire l'URL complète avec l'API (images locales legacy)
   const imagePath = firstImage.image_path.startsWith('/')
     ? firstImage.image_path
     : `/${firstImage.image_path}`
