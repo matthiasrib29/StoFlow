@@ -254,9 +254,18 @@ const processing = ref(false)
 // Payment info from query params
 const paymentType = computed(() => route.query.type as string)
 const tierName = computed(() => route.query.tier as string)
-const credits = computed(() => route.query.credits as string)
-const itemDescription = computed(() => route.query.description as string)
+const creditsAmount = computed(() => route.query.credits as string)
 const basePrice = computed(() => parseFloat(route.query.price as string || '0'))
+
+// Item description based on payment type
+const itemDescription = computed(() => {
+  if (paymentType.value === 'upgrade' && tierName.value) {
+    return `Abonnement ${tierName.value.toUpperCase()}`
+  } else if (paymentType.value === 'credits' && creditsAmount.value) {
+    return `Pack ${creditsAmount.value} crédits IA`
+  }
+  return 'Achat StoFlow'
+})
 
 // Countries
 const countries = ref([
@@ -276,7 +285,7 @@ const itemDetails = computed(() => {
   if (paymentType.value === 'upgrade') {
     return `Abonnement mensuel - Renouvellement automatique`
   } else {
-    return `${credits.value} crédits IA - Pas d'expiration`
+    return `${creditsAmount.value} crédits IA - Pas d'expiration`
   }
 })
 
@@ -294,11 +303,11 @@ const totalPrice = computed(() => {
 
 // Methods
 const goBack = () => {
-  // Retour vers la page de détails appropriée
-  if (paymentType.value === 'upgrade' && tierName.value) {
-    router.push(`/dashboard/subscription/upgrade/${tierName.value}`)
-  } else if (paymentType.value === 'credits' && credits.value) {
-    router.push(`/dashboard/subscription/credits/${credits.value}`)
+  // Retour vers la page appropriée
+  if (paymentType.value === 'upgrade') {
+    router.push('/dashboard/subscription/plans')
+  } else if (paymentType.value === 'credits') {
+    router.push('/dashboard/subscription/credits')
   } else {
     router.push('/dashboard/subscription')
   }
@@ -331,11 +340,11 @@ const handlePayment = async () => {
         payment_type: 'subscription',
         tier: tierName.value
       })
-    } else if (paymentType.value === 'credits' && credits.value) {
+    } else if (paymentType.value === 'credits' && creditsAmount.value) {
       // Rediriger vers Stripe Checkout pour l'achat de crédits
       await redirectToCheckout({
         payment_type: 'credits',
-        credits: parseInt(credits.value)
+        credits: parseInt(creditsAmount.value)
       })
     }
 
