@@ -5,10 +5,10 @@
     @dragleave.prevent="handleDragLeave"
     @drop.prevent="handleDrop"
   >
-    <!-- Drag Overlay -->
+    <!-- Drag Overlay for file upload -->
     <transition name="fade">
       <div
-        v-if="isDragging"
+        v-if="isDraggingFile"
         class="absolute inset-0 bg-primary-400 bg-opacity-90 rounded-lg z-30 flex items-center justify-center pointer-events-none"
       >
         <div class="text-center">
@@ -20,8 +20,8 @@
       </div>
     </transition>
 
-    <!-- Photo Preview Horizontal Scroll -->
-    <div v-if="photos.length > 0" class="relative mb-4">
+    <!-- Photo Preview Horizontal Scroll with Drag & Drop Reorder -->
+    <div v-if="allImages.length > 0" class="relative mb-4">
       <!-- Navigation Button Left -->
       <button
         v-if="canScrollLeft"
@@ -32,36 +32,56 @@
         <i class="pi pi-chevron-left text-xl font-bold"/>
       </button>
 
-      <!-- Photos Container -->
+      <!-- Photos Container with Draggable -->
       <div
         ref="scrollContainer"
         class="overflow-x-auto scroll-smooth pb-2 hide-scrollbar"
         @scroll="checkScrollPosition"
       >
-        <div class="flex gap-4 min-w-max px-12">
-          <div
-            v-for="(photo, index) in photos"
-            :key="index"
-            class="relative group rounded-lg overflow-hidden shadow-md flex-shrink-0 hover:shadow-xl transition-shadow duration-300"
-            style="width: 280px; height: 280px;"
-          >
-            <img :src="photo.preview" class="w-full h-full object-cover" >
-
-            <!-- Delete Button - Top Right -->
-            <button
-              class="absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
-              aria-label="Supprimer la photo"
-              @click="removePhoto(index)"
+        <draggable
+          v-model="allImages"
+          item-key="key"
+          class="flex gap-4 min-w-max px-12"
+          ghost-class="opacity-50"
+          drag-class="rotate-3"
+          :animation="200"
+          @start="onDragStart"
+          @end="onDragEnd"
+        >
+          <template #item="{ element, index }">
+            <div
+              class="relative group rounded-lg overflow-hidden shadow-md flex-shrink-0 hover:shadow-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
+              style="width: 280px; height: 280px;"
             >
-              <i class="pi pi-times text-sm font-bold"/>
-            </button>
+              <img :src="element.preview" class="w-full h-full object-cover select-none" draggable="false">
 
-            <!-- Main Badge - Top Left -->
-            <div v-if="index === 0" class="absolute top-2 left-2 bg-primary-400 text-secondary-900 text-xs font-bold px-2 py-1 rounded z-10">
-              Principale
+              <!-- Delete Button - Top Right -->
+              <button
+                class="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full border-2 border-secondary-900 shadow-[0_4px_12px_rgba(0,0,0,0.4)] opacity-80 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                style="background-color: #facc15; color: #1a1a1a;"
+                aria-label="Supprimer la photo"
+                @click.stop="removeImage(element)"
+              >
+                <i class="pi pi-times text-sm font-bold"/>
+              </button>
+
+              <!-- Main Badge - Top Left (first image) -->
+              <div v-if="index === 0" class="absolute top-2 left-2 bg-primary-400 text-secondary-900 text-xs font-bold px-2 py-1 rounded z-10">
+                Principale
+              </div>
+
+              <!-- New Badge - Bottom Left (for new photos) -->
+              <div v-if="element.type === 'new'" class="absolute bottom-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded z-10">
+                Nouvelle
+              </div>
+
+              <!-- Drag Handle Indicator -->
+              <div class="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <i class="pi pi-arrows-alt"/>
+              </div>
             </div>
-          </div>
-        </div>
+          </template>
+        </draggable>
       </div>
 
       <!-- Navigation Button Right -->
@@ -73,10 +93,16 @@
       >
         <i class="pi pi-chevron-right text-xl font-bold"/>
       </button>
+
+      <!-- Reorder Hint -->
+      <p class="text-xs text-gray-400 text-center mt-2">
+        <i class="pi pi-info-circle mr-1"/>
+        Glissez-déposez pour réorganiser l'ordre des photos
+      </p>
     </div>
 
-    <!-- Upload Zone - Only show when no photos -->
-    <div v-if="photos.length === 0" class="border-2 border-dashed rounded-xl p-6 transition-all duration-300 border-gray-300 hover:border-primary-400">
+    <!-- Upload Zone - Only show when no images at all -->
+    <div v-if="allImages.length === 0" class="border-2 border-dashed rounded-xl p-6 transition-all duration-300 border-gray-300 hover:border-primary-400">
       <div class="flex flex-col items-center justify-center gap-4">
         <!-- Icon -->
         <div class="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 bg-primary-400">
@@ -92,7 +118,7 @@
             ou cliquez sur le bouton ci-dessous
           </p>
           <p class="text-xs text-primary-600 font-bold mt-2">
-            ⚠️ Au moins 1 photo est obligatoire
+            Au moins 1 photo est obligatoire
           </p>
         </div>
 
@@ -104,7 +130,7 @@
             multiple
             accept="image/*"
             class="hidden"
-            :disabled="photos.length >= maxPhotos"
+            :disabled="allImages.length >= maxPhotos"
             @change="handleFileUpload"
           >
           <div class="flex items-center gap-3 px-6 py-3 bg-primary-400 hover:bg-primary-500 text-secondary-900 font-bold rounded-lg transition-all duration-200 hover:scale-105">
@@ -124,31 +150,59 @@
 </template>
 
 <script setup lang="ts">
+import draggable from 'vuedraggable'
+
+// Types
 interface Photo {
   file: File
   preview: string
 }
 
+interface ExistingImage {
+  id: number
+  url: string
+  position: number
+}
+
+// Unified image type for drag and drop
+interface UnifiedImage {
+  key: string
+  type: 'existing' | 'new'
+  preview: string
+  // For existing images
+  id?: number
+  originalPosition?: number
+  // For new photos
+  file?: File
+  photoIndex?: number
+}
+
 interface Props {
   photos: Photo[]
+  existingImages?: ExistingImage[]
   maxPhotos?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  maxPhotos: 20
+  maxPhotos: 20,
+  existingImages: () => []
 })
 
 const emit = defineEmits<{
   'update:photos': [photos: Photo[]]
+  'update:existingImages': [images: ExistingImage[]]
+  'remove-existing': [imageId: number]
+  'reorder': [order: { existingImages: ExistingImage[], photos: Photo[] }]
 }>()
 
-const { showSuccess, showError, showWarn } = useAppToast()
+const { showSuccess, showWarn } = useAppToast()
 
 // File input ref
 const fileInput = ref<HTMLInputElement | null>(null)
 
-// Drag and drop state
-const isDragging = ref(false)
+// Drag states
+const isDraggingFile = ref(false)
+const isDraggingReorder = ref(false)
 let dragCounter = 0
 
 // Scroll navigation
@@ -156,9 +210,65 @@ const scrollContainer = ref<HTMLElement | null>(null)
 const canScrollLeft = ref(false)
 const canScrollRight = ref(false)
 
+// Create unified list of all images for drag and drop
+const allImages = computed({
+  get: () => {
+    const images: UnifiedImage[] = []
+
+    // Add existing images
+    props.existingImages.forEach((img, idx) => {
+      images.push({
+        key: `existing-${img.id}`,
+        type: 'existing',
+        preview: img.url,
+        id: img.id,
+        originalPosition: img.position
+      })
+    })
+
+    // Add new photos
+    props.photos.forEach((photo, idx) => {
+      images.push({
+        key: `new-${idx}-${photo.preview}`,
+        type: 'new',
+        preview: photo.preview,
+        file: photo.file,
+        photoIndex: idx
+      })
+    })
+
+    return images
+  },
+  set: (newOrder: UnifiedImage[]) => {
+    // Separate existing images and new photos
+    const reorderedExisting: ExistingImage[] = []
+    const reorderedPhotos: Photo[] = []
+
+    newOrder.forEach((item, index) => {
+      if (item.type === 'existing' && item.id !== undefined) {
+        reorderedExisting.push({
+          id: item.id,
+          url: item.preview,
+          position: index // New position based on order
+        })
+      } else if (item.type === 'new' && item.file) {
+        reorderedPhotos.push({
+          file: item.file,
+          preview: item.preview
+        })
+      }
+    })
+
+    // Emit updates
+    emit('update:existingImages', reorderedExisting)
+    emit('update:photos', reorderedPhotos)
+    emit('reorder', { existingImages: reorderedExisting, photos: reorderedPhotos })
+  }
+})
+
+// Scroll functions
 const checkScrollPosition = () => {
   if (!scrollContainer.value) return
-
   const { scrollLeft, scrollWidth, clientWidth } = scrollContainer.value
   canScrollLeft.value = scrollLeft > 0
   canScrollRight.value = scrollLeft < scrollWidth - clientWidth - 10
@@ -166,52 +276,60 @@ const checkScrollPosition = () => {
 
 const scrollLeft = () => {
   if (!scrollContainer.value) return
-  scrollContainer.value.scrollBy({
-    left: -300,
-    behavior: 'smooth'
-  })
+  scrollContainer.value.scrollBy({ left: -300, behavior: 'smooth' })
 }
 
 const scrollRight = () => {
   if (!scrollContainer.value) return
-  scrollContainer.value.scrollBy({
-    left: 300,
-    behavior: 'smooth'
-  })
+  scrollContainer.value.scrollBy({ left: 300, behavior: 'smooth' })
 }
 
-// Check scroll position when photos change
-watch(() => props.photos.length, () => {
-  nextTick(() => {
-    checkScrollPosition()
-  })
+// Watch for changes
+watch([() => props.photos.length, () => props.existingImages.length], () => {
+  nextTick(() => checkScrollPosition())
 })
 
-// Initial check
 onMounted(() => {
   checkScrollPosition()
 })
 
-// Drag and drop handlers
+// Drag handlers for reordering
+const onDragStart = () => {
+  isDraggingReorder.value = true
+}
+
+const onDragEnd = () => {
+  isDraggingReorder.value = false
+}
+
+// File drag and drop handlers
 const handleDragOver = (event: DragEvent) => {
+  // Only show overlay if dragging files, not reordering
+  if (isDraggingReorder.value) return
+  if (!event.dataTransfer?.types.includes('Files')) return
+
   event.preventDefault()
-  if (!isDragging.value) {
+  if (!isDraggingFile.value) {
     dragCounter++
-    isDragging.value = true
+    isDraggingFile.value = true
   }
 }
 
 const handleDragLeave = (event: DragEvent) => {
+  if (isDraggingReorder.value) return
+
   event.preventDefault()
   dragCounter--
   if (dragCounter === 0) {
-    isDragging.value = false
+    isDraggingFile.value = false
   }
 }
 
 const handleDrop = (event: DragEvent) => {
+  if (isDraggingReorder.value) return
+
   event.preventDefault()
-  isDragging.value = false
+  isDraggingFile.value = false
   dragCounter = 0
 
   const files = Array.from(event.dataTransfer?.files || [])
@@ -225,7 +343,6 @@ const handleFileUpload = (event: Event) => {
 }
 
 const processFiles = (files: File[]) => {
-  // Filter only image files
   const imageFiles = files.filter(file => file.type.startsWith('image/'))
 
   if (imageFiles.length === 0) {
@@ -233,8 +350,7 @@ const processFiles = (files: File[]) => {
     return
   }
 
-  // Check limit
-  const remainingSlots = props.maxPhotos - props.photos.length
+  const remainingSlots = props.maxPhotos - allImages.value.length
 
   if (remainingSlots === 0) {
     showWarn('Limite atteinte', `Vous avez atteint la limite de ${props.maxPhotos} photos`)
@@ -246,30 +362,35 @@ const processFiles = (files: File[]) => {
     return
   }
 
-  // Add photos with preview
   const newPhotos = imageFiles.map(file => ({
     file,
     preview: URL.createObjectURL(file)
   }))
 
   emit('update:photos', [...props.photos, ...newPhotos])
-
   showSuccess('Photos ajoutées', `${newPhotos.length} photo(s) ajoutée(s) avec succès`, 2000)
 
-  // Reset file input
   if (fileInput.value) {
     fileInput.value.value = ''
   }
 }
 
-const removePhoto = (index: number) => {
-  const photo = props.photos[index]
-  if (photo?.preview) {
-    URL.revokeObjectURL(photo.preview)
+const removeImage = (element: UnifiedImage) => {
+  if (element.type === 'existing' && element.id !== undefined) {
+    emit('remove-existing', element.id)
+  } else if (element.type === 'new') {
+    // Find index in photos array
+    const idx = props.photos.findIndex(p => p.preview === element.preview)
+    if (idx !== -1) {
+      const photo = props.photos[idx]
+      if (photo?.preview) {
+        URL.revokeObjectURL(photo.preview)
+      }
+      const newPhotos = [...props.photos]
+      newPhotos.splice(idx, 1)
+      emit('update:photos', newPhotos)
+    }
   }
-  const newPhotos = [...props.photos]
-  newPhotos.splice(index, 1)
-  emit('update:photos', newPhotos)
 }
 
 // Expose method to open file selector from parent
@@ -303,5 +424,10 @@ defineExpose({
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Drag animation */
+.rotate-3 {
+  transform: rotate(3deg);
 }
 </style>

@@ -356,6 +356,27 @@ export const useProductsStore = defineStore('products', {
       } finally {
         this.isLoading = false
       }
+    },
+
+    /**
+     * Réorganiser les images d'un produit
+     * @param productId ID du produit
+     * @param imageOrder Mapping imageId -> newPosition
+     */
+    async reorderProductImages(productId: number, imageOrder: Record<number, number>) {
+      this.isLoading = true
+      this.error = null
+
+      try {
+        const api = useApi()
+        await api.put(`/api/products/${productId}/images/reorder`, imageOrder)
+      } catch (error: any) {
+        this.error = error.message
+        console.error('Error reordering images:', error)
+        throw error
+      } finally {
+        this.isLoading = false
+      }
     }
   }
 })
