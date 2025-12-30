@@ -1,10 +1,8 @@
 /**
- * Types HTTP partagés pour le proxy générique
+ * Types HTTP partagés pour les appels API
  *
  * Ces types sont utilisés par:
- * - src/content/proxy.ts (content script)
  * - src/background/PollingManager.ts (background)
- * - src/composables/useHttpProxy.ts (composable Vue)
  */
 
 /**
@@ -276,44 +274,6 @@ export interface TaskResult {
 }
 
 /**
- * Données utilisateur Vinted extraites du HTML
- */
-export interface VintedUserData {
-  /**
-   * Token CSRF Vinted
-   */
-  csrf_token: string;
-
-  /**
-   * ID anonyme Vinted
-   */
-  anon_id: string;
-
-  /**
-   * ID utilisateur Vinted
-   */
-  user_id: number;
-
-  /**
-   * Login/pseudo de l'utilisateur (optionnel)
-   */
-  login?: string;
-
-  /**
-   * Email de l'utilisateur (optionnel)
-   */
-  email?: string;
-}
-
-/**
- * Message Chrome pour exécuter une requête HTTP
- */
-export interface ExecuteHttpRequestMessage {
-  action: 'EXECUTE_HTTP_REQUEST';
-  request: HttpRequest;
-}
-
-/**
  * Message Chrome pour récupérer les données utilisateur Vinted
  */
 export interface GetUserDataMessage {
@@ -323,4 +283,4 @@ export interface GetUserDataMessage {
 /**
  * Type union de tous les messages possibles
  */
-export type ChromeMessage = ExecuteHttpRequestMessage | GetUserDataMessage;
+export type ChromeMessage = GetUserDataMessage;
