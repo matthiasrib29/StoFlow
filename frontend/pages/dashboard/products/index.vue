@@ -196,7 +196,7 @@
     </div>
 
     <!-- Grid View -->
-    <div v-else v-auto-animate class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 stagger-grid">
+    <div v-else v-auto-animate class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 stagger-grid">
       <ProductsProductCard
         v-for="product in filteredProducts"
         :key="product.id"
