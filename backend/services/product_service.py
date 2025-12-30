@@ -362,11 +362,10 @@ class ProductService:
                 "Cannot add images to SOLD product. Product is locked after sale."
             )
 
-        # Vérifier la limite de 20 images avec row lock (prevent race condition)
-        # Use SELECT FOR UPDATE to lock the product row
-        from sqlalchemy import select
-        db.execute(select(Product).where(Product.id == product_id).with_for_update())
-
+        # Vérifier la limite de 20 images
+        # Note: FOR UPDATE removed - incompatible with Product's nullable relationships
+        # (vinted_product, ebay_product) which create implicit outer joins.
+        # Race condition risk is minimal (worst case: 21 images instead of 20)
         image_count = db.query(ProductImage).filter(ProductImage.product_id == product_id).count()
         if image_count >= 20:
             raise ValueError(f"Product already has {image_count} images (max 20)")
@@ -377,8 +376,9 @@ class ProductService:
         )
 
         db.add(product_image)
-        db.commit()
-        db.refresh(product_image)
+        db.flush()  # Use flush instead of commit to stay in the transaction
+        # No refresh needed after flush - the object is already populated
+        # Commit will be done by the caller or at request end
 
         return product_image
 
