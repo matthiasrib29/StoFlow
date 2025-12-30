@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
 from models.user.vinted_job import JobStatus, VintedJob
+from models.user.product import Product
 from services.vinted.vinted_job_service import VintedJobService
 from services.vinted.vinted_job_processor import VintedJobProcessor
 from .shared import get_active_vinted_connection
@@ -40,7 +41,9 @@ class JobResponse(BaseModel):
     batch_id: Optional[str] = None
     action_type_id: int
     action_code: Optional[str] = None
+    action_name: Optional[str] = None  # Human-readable name for frontend
     product_id: Optional[int] = None
+    product_title: Optional[str] = None  # Product title for display
     status: str
     priority: int
     error_message: Optional[str] = None
@@ -121,6 +124,50 @@ class InterruptedJobsResponse(BaseModel):
 
 
 # =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+
+def build_job_response(
+    job: VintedJob,
+    service: VintedJobService,
+    db: Session,
+    include_progress: bool = True
+) -> JobResponse:
+    """
+    Build a JobResponse with all fields including action_name and product_title.
+    """
+    action_type = service.get_action_type_by_id(job.action_type_id)
+    progress = service.get_job_progress(job.id) if include_progress else None
+
+    # Get product title if job has a product_id
+    product_title = None
+    if job.product_id:
+        product = db.query(Product).filter(Product.id == job.product_id).first()
+        if product:
+            product_title = product.title
+
+    return JobResponse(
+        id=job.id,
+        batch_id=job.batch_id,
+        action_type_id=job.action_type_id,
+        action_code=action_type.code if action_type else None,
+        action_name=action_type.name if action_type else None,
+        product_id=job.product_id,
+        product_title=product_title,
+        status=job.status.value,
+        priority=job.priority,
+        error_message=job.error_message,
+        retry_count=job.retry_count,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        expires_at=job.expires_at,
+        created_at=job.created_at,
+        progress=progress if progress and progress["total"] > 0 else None,
+    )
+
+
+# =============================================================================
 # ENDPOINTS
 # =============================================================================
 
@@ -172,30 +219,8 @@ async def list_jobs(
         .all()
     )
 
-    # Build response with action codes and progress
-    job_responses = []
-    for job in jobs:
-        action_type = service.get_action_type_by_id(job.action_type_id)
-        progress = service.get_job_progress(job.id)
-
-        job_responses.append(
-            JobResponse(
-                id=job.id,
-                batch_id=job.batch_id,
-                action_type_id=job.action_type_id,
-                action_code=action_type.code if action_type else None,
-                product_id=job.product_id,
-                status=job.status.value,
-                priority=job.priority,
-                error_message=job.error_message,
-                retry_count=job.retry_count,
-                started_at=job.started_at,
-                completed_at=job.completed_at,
-                expires_at=job.expires_at,
-                created_at=job.created_at,
-                progress=progress if progress["total"] > 0 else None,
-            )
-        )
+    # Build response with action codes, names, product titles and progress
+    job_responses = [build_job_response(job, service, db) for job in jobs]
 
     return JobListResponse(
         jobs=job_responses,
@@ -220,26 +245,7 @@ async def get_interrupted_jobs(user_db: tuple = Depends(get_user_db)):
 
     interrupted = service.get_interrupted_jobs()
 
-    job_responses = []
-    for job in interrupted:
-        action_type = service.get_action_type_by_id(job.action_type_id)
-        job_responses.append(
-            JobResponse(
-                id=job.id,
-                batch_id=job.batch_id,
-                action_type_id=job.action_type_id,
-                action_code=action_type.code if action_type else None,
-                product_id=job.product_id,
-                status=job.status.value,
-                priority=job.priority,
-                error_message=job.error_message,
-                retry_count=job.retry_count,
-                started_at=job.started_at,
-                completed_at=job.completed_at,
-                expires_at=job.expires_at,
-                created_at=job.created_at,
-            )
-        )
+    job_responses = [build_job_response(job, service, db, include_progress=False) for job in interrupted]
 
     return InterruptedJobsResponse(
         has_interrupted=len(interrupted) > 0,
@@ -309,25 +315,7 @@ async def get_job(
             detail=f"Job not found: {job_id}",
         )
 
-    action_type = service.get_action_type_by_id(job.action_type_id)
-    progress = service.get_job_progress(job_id)
-
-    return JobResponse(
-        id=job.id,
-        batch_id=job.batch_id,
-        action_type_id=job.action_type_id,
-        action_code=action_type.code if action_type else None,
-        product_id=job.product_id,
-        status=job.status.value,
-        priority=job.priority,
-        error_message=job.error_message,
-        retry_count=job.retry_count,
-        started_at=job.started_at,
-        completed_at=job.completed_at,
-        expires_at=job.expires_at,
-        created_at=job.created_at,
-        progress=progress if progress["total"] > 0 else None,
-    )
+    return build_job_response(job, service, db)
 
 
 @router.post("/batch", response_model=BatchCreateResponse, status_code=status.HTTP_201_CREATED)
@@ -362,26 +350,7 @@ async def create_batch_jobs(
             detail=str(e),
         )
 
-    job_responses = []
-    for job in jobs:
-        action_type = service.get_action_type_by_id(job.action_type_id)
-        job_responses.append(
-            JobResponse(
-                id=job.id,
-                batch_id=job.batch_id,
-                action_type_id=job.action_type_id,
-                action_code=action_type.code if action_type else None,
-                product_id=job.product_id,
-                status=job.status.value,
-                priority=job.priority,
-                error_message=job.error_message,
-                retry_count=job.retry_count,
-                started_at=job.started_at,
-                completed_at=job.completed_at,
-                expires_at=job.expires_at,
-                created_at=job.created_at,
-            )
-        )
+    job_responses = [build_job_response(job, service, db, include_progress=False) for job in jobs]
 
     return BatchCreateResponse(
         batch_id=batch_id,
