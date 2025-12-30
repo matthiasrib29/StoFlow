@@ -351,6 +351,43 @@ async def submit_task_result(
         task.result = error_details
         task.completed_at = utc_now()
 
+        # ===== GESTION 503 "No Vinted Tab" (2025-12-30) =====
+        # Si le plugin n'a pas d'onglet Vinted ouvert, annuler toutes les tasks en attente
+        # pour éviter une boucle infinie de tentatives inutiles
+        cancelled_count = 0
+        is_no_vinted_tab = (
+            http_status == 503
+            or "No Vinted Tab" in error_message
+            or error_details.get("detail") == "No Vinted Tab"
+        )
+
+        if is_no_vinted_tab:
+            logger.warning(
+                f"[No Vinted Tab] Detected on task #{task_id_val} - "
+                "Cancelling all pending tasks to avoid infinite loop"
+            )
+
+            # Récupérer toutes les tasks PENDING pour les annuler
+            pending_tasks = (
+                db.query(PluginTask)
+                .filter(
+                    PluginTask.status == TaskStatus.PENDING,
+                    PluginTask.id != task_id,  # Exclure la task actuelle (déjà FAILED)
+                )
+                .all()
+            )
+
+            for pending_task in pending_tasks:
+                pending_task.status = TaskStatus.CANCELLED
+                pending_task.error_message = "Cancelled: No Vinted Tab available"
+                pending_task.completed_at = utc_now()
+                cancelled_count += 1
+
+            if cancelled_count > 0:
+                logger.info(
+                    f"[No Vinted Tab] Cancelled {cancelled_count} pending task(s)"
+                )
+
         db.commit()
 
         logger.warning(
@@ -358,7 +395,7 @@ async def submit_task_result(
             f"HTTP {http_status}: {error_message}"
         )
 
-        return {
+        response = {
             "success": False,
             "task_id": task_id_val,
             "status": TaskStatus.FAILED.value,
@@ -369,3 +406,10 @@ async def submit_task_result(
                 "details": error_details,
             },
         }
+
+        # Ajouter info sur les tasks annulées si applicable
+        if cancelled_count > 0:
+            response["cancelled_pending_tasks"] = cancelled_count
+            response["message"] += f" ({cancelled_count} pending tasks cancelled)"
+
+        return response

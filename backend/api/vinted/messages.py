@@ -30,6 +30,40 @@ router = APIRouter()
 # CONVERSATIONS ENDPOINTS
 # =============================================================================
 
+# IMPORTANT: /conversations/stats MUST be defined BEFORE /conversations/{conversation_id}
+# Otherwise FastAPI will try to parse "stats" as an integer conversation_id
+
+@router.get("/conversations/stats")
+async def get_conversations_stats(
+    user_db: tuple = Depends(get_user_db),
+) -> dict:
+    """
+    Statistiques sur les conversations.
+
+    Returns:
+        {
+            "total_conversations": int,
+            "unread_conversations": int
+        }
+    """
+    db, current_user = user_db
+
+    try:
+        total = VintedConversationRepository.count(db, unread_only=False)
+        unread = VintedConversationRepository.count(db, unread_only=True)
+
+        return {
+            "total_conversations": total,
+            "unread_conversations": unread,
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur stats conversations: {str(e)}"
+        )
+
+
 @router.get("/conversations")
 async def list_conversations(
     user_db: tuple = Depends(get_user_db),
@@ -350,36 +384,3 @@ async def search_messages(
         )
 
 
-# =============================================================================
-# STATS ENDPOINT
-# =============================================================================
-
-@router.get("/conversations/stats")
-async def get_conversations_stats(
-    user_db: tuple = Depends(get_user_db),
-) -> dict:
-    """
-    Statistiques sur les conversations.
-
-    Returns:
-        {
-            "total_conversations": int,
-            "unread_conversations": int
-        }
-    """
-    db, current_user = user_db
-
-    try:
-        total = VintedConversationRepository.count(db, unread_only=False)
-        unread = VintedConversationRepository.count(db, unread_only=True)
-
-        return {
-            "total_conversations": total,
-            "unread_conversations": unread,
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur stats conversations: {str(e)}"
-        )
