@@ -541,3 +541,99 @@ def reorder_product_images(
         return images
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+# ===== ROUTES IA =====
+
+
+@router.post(
+    "/{product_id}/generate-description",
+    status_code=status.HTTP_200_OK,
+)
+def generate_product_description(
+    product_id: int,
+    user_db: tuple = Depends(get_user_db),
+):
+    """
+    Génère une description IA pour un produit.
+
+    Business Rules:
+    - Authentification requise
+    - USER: peut uniquement générer pour SES produits
+    - ADMIN: peut générer pour tous les produits
+    - SUPPORT: lecture seule (ne peut pas générer)
+    - Vérifie les crédits IA avant génération
+    - Décrémente les crédits après génération
+    - Log dans AIGenerationLog
+
+    Raises:
+        402 PAYMENT REQUIRED: Si crédits insuffisants
+        403 FORBIDDEN: Si USER essaie de générer pour le produit d'un autre ou si SUPPORT
+        404 NOT FOUND: Si produit non trouvé
+        401 UNAUTHORIZED: Si pas authentifié
+        500 INTERNAL SERVER ERROR: Si erreur API Claude
+    """
+    from schemas.ai_schemas import AIDescriptionResponse
+    from services.ai import AIDescriptionService
+    from shared.config import settings
+    from shared.exceptions import AIGenerationError, AIQuotaExceededError
+
+    db, current_user = user_db
+
+    logger.info(
+        f"[API:products] generate_description: user_id={current_user.id}, product_id={product_id}"
+    )
+
+    try:
+        # SUPPORT ne peut pas générer (lecture seule)
+        ensure_can_modify(current_user, "produit")
+
+        # Récupérer le produit
+        product = ProductService.get_product_by_id(db, product_id)
+
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Product with id {product_id} not found",
+            )
+
+        # Vérifier ownership
+        ensure_user_owns_resource(current_user, product, "produit", allow_support=False)
+
+        # Récupérer les crédits mensuels de l'abonnement
+        monthly_credits = 0
+        if hasattr(current_user, "subscription_quota") and current_user.subscription_quota:
+            monthly_credits = current_user.subscription_quota.ai_credits_monthly or 0
+
+        # Générer la description
+        description, tokens_used, cost = AIDescriptionService.generate_description(
+            db=db,
+            product=product,
+            user_id=current_user.id,
+            monthly_credits=monthly_credits,
+        )
+
+        logger.info(
+            f"[API:products] generate_description success: product_id={product_id}, "
+            f"tokens={tokens_used}"
+        )
+
+        return AIDescriptionResponse(
+            description=description,
+            model=settings.anthropic_model,
+            tokens_used=tokens_used,
+            cost=cost,
+            cached=False,
+        )
+
+    except AIQuotaExceededError as e:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=str(e),
+        )
+    except AIGenerationError as e:
+        logger.error(f"[API:products] generate_description failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )

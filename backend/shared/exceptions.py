@@ -394,6 +394,23 @@ class TaskExecutionError(ServiceError):
     pass
 
 
+# ===== AI EXCEPTIONS =====
+
+class AIError(StoflowError):
+    """Erreur liée aux services IA."""
+    pass
+
+
+class AIQuotaExceededError(AIError):
+    """Crédits IA insuffisants."""
+    pass
+
+
+class AIGenerationError(AIError):
+    """Erreur lors de la génération IA."""
+    pass
+
+
 __all__ = [
     # Base
     "StoflowError",
@@ -458,4 +475,9 @@ __all__ = [
     "ServiceError",
     "SKUGenerationError",
     "TaskExecutionError",
+
+    # AI
+    "AIError",
+    "AIQuotaExceededError",
+    "AIGenerationError",
 ]

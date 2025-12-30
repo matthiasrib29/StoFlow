@@ -42,6 +42,7 @@
           <ProductsProductForm
             v-model="form"
             :is-submitting="isSubmitting"
+            :product-id="id"
             @submit="handleSubmit"
             @cancel="$router.push('/dashboard/products')"
           />
