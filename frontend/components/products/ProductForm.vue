@@ -28,9 +28,21 @@
         </div>
 
         <div class="md:col-span-2">
-          <label for="description" class="block text-xs font-semibold mb-1 text-secondary-900">
-            Description *
-          </label>
+          <div class="flex items-center justify-between mb-1">
+            <label for="description" class="block text-xs font-semibold text-secondary-900">
+              Description *
+            </label>
+            <Button
+              v-if="productId"
+              type="button"
+              label="Générer avec IA"
+              icon="pi pi-sparkles"
+              class="p-button-sm p-button-outlined p-button-secondary"
+              :loading="isGeneratingDescription"
+              :disabled="isGeneratingDescription"
+              @click="generateDescription"
+            />
+          </div>
           <Textarea
             id="description"
             :model-value="modelValue.description"
@@ -246,11 +258,13 @@ interface Props {
   modelValue: ProductFormData
   isSubmitting?: boolean
   submitLabel?: string
+  productId?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isSubmitting: false,
-  submitLabel: 'Créer le produit'
+  submitLabel: 'Créer le produit',
+  productId: undefined
 })
 
 const emit = defineEmits<{
@@ -280,7 +294,13 @@ const localeStore = useLocaleStore()
 
 // Validation du formulaire
 const validation = useProductFormValidation()
-const { showError, showWarn } = useAppToast()
+const { showSuccess, showError, showWarn } = useAppToast()
+
+// API pour la génération IA
+const { post } = useApi()
+
+// État pour la génération de description IA
+const isGeneratingDescription = ref(false)
 
 // État pour les suggestions de marques (autocomplete)
 const brandSuggestions = ref<AttributeOption[]>([])
@@ -357,5 +377,37 @@ const handleSubmit = () => {
 const handleBrandSearch = async (event: { query: string }) => {
   const results = await searchBrands(event.query)
   brandSuggestions.value = results
+}
+
+// Générer une description avec l'IA
+const generateDescription = async () => {
+  if (!props.productId) {
+    showError('Erreur', 'Sauvegardez d\'abord le produit avant de générer une description')
+    return
+  }
+
+  isGeneratingDescription.value = true
+
+  try {
+    const response = await post<{ description: string }>(
+      `/products/${props.productId}/generate-description`
+    )
+
+    if (response?.description) {
+      // Mettre à jour la description dans le formulaire
+      updateField('description', response.description)
+      showSuccess('Description générée', 'La description a été générée par l\'IA')
+    }
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Erreur lors de la génération'
+
+    if (message.includes('Crédits IA insuffisants') || error?.status === 402) {
+      showError('Crédits insuffisants', 'Vous n\'avez plus de crédits IA. Upgradez votre abonnement.')
+    } else {
+      showError('Erreur', message)
+    }
+  } finally {
+    isGeneratingDescription.value = false
+  }
 }
 </script>
