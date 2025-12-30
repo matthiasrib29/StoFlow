@@ -53,6 +53,9 @@ def get_db() -> Generator[Session, None, None]:
     """
     Dependency pour FastAPI : fournit une session database.
 
+    Auto-commits on success, rollbacks on exception.
+    Services should use flush() instead of commit() to stay in transaction.
+
     Usage dans routes:
         @app.get("/api/endpoint")
         def my_endpoint(db: Session = Depends(get_db)):
@@ -61,6 +64,10 @@ def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
+        db.commit()  # Auto-commit on success
+    except Exception:
+        db.rollback()  # Rollback on error
+        raise
     finally:
         db.close()
 

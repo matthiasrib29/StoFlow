@@ -411,10 +411,11 @@ def get_user_db(
     # Passe db pour vérifier que le schema existe réellement
     schema_name = _validate_schema_name(current_user.schema_name, db)
 
-    # Use SET LOCAL to ensure search_path persists within the transaction
-    # SET LOCAL is transaction-scoped and won't be affected by connection pooling
+    # Use SET (not SET LOCAL) to ensure search_path persists after commits
+    # SET LOCAL was transaction-scoped and reset after each commit, causing issues
+    # with db.refresh() calls after db.commit() in services
     # Note: schema_name is safe after double validation (regex + existence check)
-    db.execute(text(f"SET LOCAL search_path TO {schema_name}, public"))
+    db.execute(text(f"SET search_path TO {schema_name}, public"))
 
     # Verify search_path was applied
     result = db.execute(text("SHOW search_path"))
@@ -426,7 +427,7 @@ def get_user_db(
     if schema_name not in actual_path:
         logger.warning(f"[get_user_db] search_path mismatch! Expected {schema_name}, got {actual_path}")
         # Force re-apply
-        db.execute(text(f"SET LOCAL search_path TO {schema_name}, public"))
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
 
     return db, current_user
 
