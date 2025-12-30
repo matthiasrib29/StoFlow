@@ -46,11 +46,13 @@ export interface DocsIndexResponse {
 
 export const useDocs = () => {
   const config = useRuntimeConfig()
-  const categories = ref<DocCategory[]>([])
-  const currentCategory = ref<DocCategory | null>(null)
-  const currentArticle = ref<DocArticleDetail | null>(null)
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+
+  // Use useState for persistent state across route changes (prevents flash)
+  const categories = useState<DocCategory[]>('docs-categories', () => [])
+  const currentCategory = useState<DocCategory | null>('docs-current-category', () => null)
+  const currentArticle = useState<DocArticleDetail | null>('docs-current-article', () => null)
+  const loading = useState<boolean>('docs-loading', () => false)
+  const error = useState<string | null>('docs-error', () => null)
 
   /**
    * Fetch documentation index (all categories with articles).

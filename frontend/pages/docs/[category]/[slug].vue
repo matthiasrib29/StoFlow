@@ -6,14 +6,14 @@
         <div class="flex items-center justify-between">
           <!-- Logo & Back -->
           <div class="flex items-center gap-4">
-            <NuxtLink to="/" class="flex items-center gap-2 text-secondary-900 hover:text-primary-600 transition-colors">
+            <NuxtLink to="/" class="flex items-center gap-2 text-secondary-900 hover:text-primary-600">
               <div class="w-8 h-8 bg-secondary-900 rounded-lg flex items-center justify-center">
                 <span class="text-primary-400 font-bold text-sm">S</span>
               </div>
               <span class="text-xl font-bold">Stoflow</span>
             </NuxtLink>
             <span class="text-gray-300">|</span>
-            <NuxtLink to="/docs" class="text-gray-600 hover:text-secondary-900 transition-colors">
+            <NuxtLink to="/docs" class="text-gray-600 hover:text-secondary-900">
               Documentation
             </NuxtLink>
           </div>
@@ -22,13 +22,13 @@
           <div class="hidden md:flex items-center gap-4">
             <NuxtLink
               to="/login"
-              class="text-gray-600 hover:text-secondary-900 transition-colors"
+              class="text-gray-600 hover:text-secondary-900"
             >
               Connexion
             </NuxtLink>
             <NuxtLink
               to="/register"
-              class="px-4 py-2 bg-secondary-900 text-white rounded-lg hover:bg-secondary-800 transition-colors"
+              class="px-4 py-2 bg-secondary-900 text-white rounded-lg hover:bg-secondary-800"
             >
               Essai gratuit
             </NuxtLink>
@@ -55,7 +55,7 @@
           <nav class="mb-6">
             <ol class="flex items-center gap-2 text-sm text-gray-500">
               <li>
-                <NuxtLink to="/docs" class="hover:text-secondary-900 transition-colors">
+                <NuxtLink to="/docs" class="hover:text-secondary-900">
                   Documentation
                 </NuxtLink>
               </li>
@@ -63,7 +63,7 @@
               <li v-if="article?.category_name">
                 <NuxtLink
                   :to="`/docs/${categorySlug}`"
-                  class="hover:text-secondary-900 transition-colors"
+                  class="hover:text-secondary-900"
                 >
                   {{ article.category_name }}
                 </NuxtLink>
@@ -75,37 +75,40 @@
             </ol>
           </nav>
 
-          <!-- Loading State -->
-          <div v-if="loading" class="bg-white rounded-xl border border-gray-200 p-8">
-            <div class="animate-pulse space-y-4">
-              <div class="h-8 bg-gray-200 rounded w-3/4" />
-              <div class="h-4 bg-gray-100 rounded w-1/4" />
-              <div class="space-y-3 mt-8">
-                <div class="h-4 bg-gray-100 rounded" />
-                <div class="h-4 bg-gray-100 rounded" />
-                <div class="h-4 bg-gray-100 rounded w-5/6" />
+          <!-- Loading State (only shown on initial load) -->
+            <div v-if="loading && !article" class="bg-white rounded-xl border border-gray-200 p-8">
+              <div class="animate-pulse space-y-4">
+                <div class="h-8 bg-gray-200 rounded w-3/4" />
+                <div class="h-4 bg-gray-100 rounded w-1/4" />
+                <div class="space-y-3 mt-8">
+                  <div class="h-4 bg-gray-100 rounded" />
+                  <div class="h-4 bg-gray-100 rounded" />
+                  <div class="h-4 bg-gray-100 rounded w-5/6" />
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Error State -->
-          <div v-else-if="error" class="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <i class="pi pi-exclamation-circle text-5xl text-red-400 mb-4" />
-            <h3 class="text-xl font-semibold text-secondary-900 mb-2">
-              Article introuvable
-            </h3>
-            <p class="text-gray-600 mb-4">{{ error }}</p>
-            <NuxtLink
-              to="/docs"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            <!-- Error State -->
+            <div v-else-if="error && !article" class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <i class="pi pi-exclamation-circle text-5xl text-red-400 mb-4" />
+              <h3 class="text-xl font-semibold text-secondary-900 mb-2">
+                Article introuvable
+              </h3>
+              <p class="text-gray-600 mb-4">{{ error }}</p>
+              <NuxtLink
+                to="/docs"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                <i class="pi pi-arrow-left" />
+                Retour &agrave; la documentation
+              </NuxtLink>
+            </div>
+
+            <!-- Article Content -->
+            <div
+              v-else-if="article"
+              class="bg-white rounded-xl border border-gray-200 p-8"
             >
-              <i class="pi pi-arrow-left" />
-              Retour &agrave; la documentation
-            </NuxtLink>
-          </div>
-
-          <!-- Article Content -->
-          <div v-else-if="article" class="bg-white rounded-xl border border-gray-200 p-8">
             <!-- Article Header -->
             <header class="mb-8 pb-6 border-b border-gray-100">
               <div class="flex items-center gap-2 mb-4">
@@ -189,7 +192,7 @@
 import { marked } from 'marked'
 
 definePageMeta({
-  layout: false // Custom layout for docs page
+  layout: 'docs' // Use docs layout for consistent rendering
 })
 
 const route = useRoute()

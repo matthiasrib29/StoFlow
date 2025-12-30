@@ -20,32 +20,23 @@
           />
         </button>
 
-        <!-- Articles List -->
-        <Transition
-          enter-active-class="transition-all duration-200 ease-out"
-          enter-from-class="opacity-0 max-h-0"
-          enter-to-class="opacity-100 max-h-96"
-          leave-active-class="transition-all duration-150 ease-in"
-          leave-from-class="opacity-100 max-h-96"
-          leave-to-class="opacity-0 max-h-0"
+        <!-- Articles List (no transition to prevent flash) -->
+        <ul
+          v-if="expandedCategories.includes(category.slug)"
+          class="ml-4 mt-1 space-y-1"
         >
-          <ul
-            v-if="expandedCategories.includes(category.slug)"
-            class="ml-4 mt-1 space-y-1 overflow-hidden"
-          >
-            <li v-for="article in category.articles" :key="article.id">
-              <NuxtLink
-                :to="`/docs/${category.slug}/${article.slug}`"
-                class="block px-3 py-1.5 text-sm text-gray-600 hover:text-secondary-900 hover:bg-gray-50 rounded-md transition-colors"
-                :class="{
-                  'bg-primary-50 text-secondary-900 font-medium': isActiveArticle(category.slug, article.slug)
-                }"
-              >
-                {{ article.title }}
-              </NuxtLink>
-            </li>
-          </ul>
-        </Transition>
+          <li v-for="article in category.articles" :key="article.id">
+            <NuxtLink
+              :to="`/docs/${category.slug}/${article.slug}`"
+              class="block px-3 py-1.5 text-sm text-gray-600 hover:text-secondary-900 hover:bg-gray-50 rounded-md"
+              :class="{
+                'bg-primary-50 text-secondary-900 font-medium': isActiveArticle(category.slug, article.slug)
+              }"
+            >
+              {{ article.title }}
+            </NuxtLink>
+          </li>
+        </ul>
       </div>
 
       <!-- Empty State -->
@@ -80,16 +71,17 @@ const props = defineProps<{
 
 const route = useRoute()
 
-// Track expanded categories
-const expandedCategories = ref<string[]>([])
+// Track expanded categories (use useState to persist across route changes)
+const expandedCategories = useState<string[]>('docs-expanded-categories', () => [])
 
-// Initialize expanded categories based on current route
+// Initialize expanded categories based on current route (only if empty)
 onMounted(() => {
-  if (props.activeCategorySlug) {
-    expandedCategories.value = [props.activeCategorySlug]
-  } else if (props.categories.length > 0) {
-    // Expand first category by default
-    expandedCategories.value = [props.categories[0].slug]
+  if (expandedCategories.value.length === 0) {
+    if (props.activeCategorySlug) {
+      expandedCategories.value = [props.activeCategorySlug]
+    } else if (props.categories.length > 0) {
+      expandedCategories.value = [props.categories[0].slug]
+    }
   }
 })
 

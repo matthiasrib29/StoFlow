@@ -5,6 +5,9 @@ export default defineNuxtConfig({
 
   // SEO Meta Tags
   app: {
+    // Disable all transitions to prevent white flash
+    pageTransition: false,
+    layoutTransition: false,
     head: {
       title: 'Stoflow - Vendez sur Vinted, eBay et Etsy depuis une seule plateforme',
       htmlAttrs: {
