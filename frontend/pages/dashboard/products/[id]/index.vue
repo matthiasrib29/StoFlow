@@ -56,7 +56,7 @@
             <div class="space-y-4">
               <div>
                 <h3 class="text-3xl font-bold text-primary-600">
-                  {{ product.price !== null ? product.price.toFixed(2) : '-' }} €
+                  {{ product.price !== null ? Number(product.price).toFixed(2) : '-' }} €
                 </h3>
               </div>
 
