@@ -54,7 +54,7 @@ export function useAuth() {
     try {
       AuthLogger.debug('[Auth] 🔐 Tentative de connexion:', credentials.email);
 
-      const backendUrl = await getActiveBackendUrl();
+      const backendUrl = getActiveBackendUrl();
       const response = await fetch(`${backendUrl}/api/auth/login?source=plugin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
