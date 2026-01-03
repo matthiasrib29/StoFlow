@@ -13,8 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 import pytest
 
-# Configuration pytest-asyncio pour les tests async
-pytest_plugins = ('pytest_asyncio',)
+# Note: pytest_plugins moved to root conftest.py (pytest requirement)
 
 
 # Override la fixture session-scoped du parent pour éviter la connexion DB

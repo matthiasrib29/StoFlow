@@ -13,28 +13,26 @@ from pydantic import BaseModel, Field, field_validator
 # ===== PRODUCT IMAGE SCHEMAS =====
 
 
-class ProductImageCreate(BaseModel):
-    """Schema pour créer une image de produit (utilisé lors de l'upload)."""
+class ProductImageItem(BaseModel):
+    """
+    Schema pour une image de produit stockée en JSONB.
 
-    display_order: int = Field(default=0, ge=0, description="Ordre d'affichage (0 = première image)")
+    Structure: {url, order, created_at}
+    """
+
+    url: str = Field(..., description="URL de l'image (CDN R2)")
+    order: int = Field(..., ge=0, description="Ordre d'affichage (0 = première image)")
+    created_at: datetime = Field(..., description="Date de création")
 
     model_config = {
         "json_schema_extra": {
-            "example": {"display_order": 0}
+            "example": {
+                "url": "https://cdn.stoflow.io/1/products/5/abc123.jpg",
+                "order": 0,
+                "created_at": "2026-01-03T10:00:00Z"
+            }
         }
     }
-
-
-class ProductImageResponse(BaseModel):
-    """Schema pour la réponse contenant une image de produit."""
-
-    id: int
-    product_id: int
-    image_path: str
-    display_order: int
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
 
 
 # ===== PRODUCT SCHEMAS =====
@@ -47,7 +45,7 @@ class ProductCreate(BaseModel):
     Business Rules (Updated 2025-12-12):
     - ID auto-incrémenté comme identifiant unique (PostgreSQL SERIAL)
     - Category, condition OBLIGATOIRES
-    - Brand, label_size, color OPTIONNELS (alignés avec DB nullable=True)
+    - Brand, size_original, color OPTIONNELS (alignés avec DB nullable=True)
     - Prix peut être NULL (calculé automatiquement si absent)
     - Stock défaut: 1 (pièce unique)
     """
@@ -62,8 +60,8 @@ class ProductCreate(BaseModel):
 
     # Attributs optionnels mais recommandés (alignés avec DB nullable=True)
     brand: str | None = Field(None, max_length=100, description="Marque (FK product_attributes.brands)")
-    size: str | None = Field(None, max_length=100, description="Taille standardisée (FK product_attributes.sizes)")
-    label_size: str | None = Field(None, max_length=100, description="Taille étiquette (texte libre)")
+    size_normalized: str | None = Field(None, max_length=100, description="Taille standardisée (FK product_attributes.sizes)")
+    size_original: str | None = Field(None, max_length=100, description="Taille originale étiquette (texte libre)")
     color: str | None = Field(None, max_length=100, description="Couleur (FK product_attributes.colors)")
 
     # Attributs optionnels avec FK
@@ -77,16 +75,18 @@ class ProductCreate(BaseModel):
     pattern: str | None = Field(None, max_length=100, description="Motif (FK product_attributes.patterns)")
 
     # Attributs supplémentaires (sans FK)
-    condition_sup: str | None = Field(None, max_length=255, description="État supplémentaire/détails")
+    condition_sup: list[str] | None = Field(None, description="Détails état supplémentaires (JSONB array ex: ['Tache légère', 'Bouton manquant'])")
     rise: str | None = Field(None, max_length=100, description="Hauteur de taille (pantalons)")
     closure: str | None = Field(None, max_length=100, description="Type de fermeture")
     sleeve_length: str | None = Field(None, max_length=100, description="Longueur de manches")
     origin: str | None = Field(None, max_length=100, description="Origine/provenance")
     decade: str | None = Field(None, max_length=100, description="Décennie")
     trend: str | None = Field(None, max_length=100, description="Tendance")
-    name_sup: str | None = Field(None, max_length=100, description="Titre supplémentaire")
     location: str | None = Field(None, max_length=100, description="Emplacement physique")
     model: str | None = Field(None, max_length=100, description="Référence modèle")
+
+    # Features descriptifs (JSONB arrays)
+    unique_feature: list[str] | None = Field(None, description="Features uniques (JSONB array ex: ['Vintage', 'Logo brodé'])")
 
     # Dimensions (measurements en cm)
     dim1: int | None = Field(None, ge=0, description="Tour de poitrine/Épaules (cm)")
@@ -100,7 +100,7 @@ class ProductCreate(BaseModel):
     stock_quantity: int = Field(default=1, ge=0, description="Quantité en stock (défaut: 1)")
 
     # ===== SECURITY VALIDATION (2025-12-05): XSS Protection =====
-    @field_validator('description', 'title', 'condition_sup', 'name_sup')
+    @field_validator('description', 'title')
     @classmethod
     def validate_no_html(cls, value: str | None) -> str | None:
         """
@@ -121,6 +121,18 @@ class ProductCreate(BaseModel):
             )
         return value
 
+    @field_validator('condition_sup', 'unique_feature')
+    @classmethod
+    def validate_no_html_in_list(cls, value: list[str] | None) -> list[str] | None:
+        """Valide que les éléments d'une liste ne contiennent pas de HTML."""
+        if value:
+            for item in value:
+                if '<' in item or '>' in item:
+                    raise ValueError(
+                        "HTML tags are not allowed in list items. Please use plain text only."
+                    )
+        return value
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -130,8 +142,8 @@ class ProductCreate(BaseModel):
                     "category": "Jeans",
                     "brand": "Levi's",
                     "condition": 8,
-                    "size": "W32/L34",
-                    "label_size": "32 x 34",
+                    "size_normalized": "W32/L34",
+                    "size_original": "32 x 34",
                     "color": "Blue",
                     "material": "Denim",
                     "fit": "Regular",
@@ -147,8 +159,8 @@ class ProductCreate(BaseModel):
                     "category": "Shoes",
                     "brand": "Nike",
                     "condition": 10,
-                    "size": "L",
-                    "label_size": "42 EU",
+                    "size_normalized": "L",
+                    "size_original": "42 EU",
                     "color": "White",
                     "gender": "Men",
                     "stock_quantity": 1
@@ -172,8 +184,8 @@ class ProductUpdate(BaseModel):
     category: str | None = Field(None, max_length=255)
     condition: int | None = Field(None, ge=0, le=10)
     brand: str | None = Field(None, max_length=100)
-    size: str | None = Field(None, max_length=100)
-    label_size: str | None = Field(None, max_length=100)
+    size_normalized: str | None = Field(None, max_length=100)
+    size_original: str | None = Field(None, max_length=100)
     color: str | None = Field(None, max_length=100)
     material: str | None = Field(None, max_length=100)
     fit: str | None = Field(None, max_length=100)
@@ -184,16 +196,17 @@ class ProductUpdate(BaseModel):
     length: str | None = Field(None, max_length=100)
     pattern: str | None = Field(None, max_length=100)
 
-    condition_sup: str | None = Field(None, max_length=255)
+    condition_sup: list[str] | None = Field(None)
     rise: str | None = Field(None, max_length=100)
     closure: str | None = Field(None, max_length=100)
     sleeve_length: str | None = Field(None, max_length=100)
     origin: str | None = Field(None, max_length=100)
     decade: str | None = Field(None, max_length=100)
     trend: str | None = Field(None, max_length=100)
-    name_sup: str | None = Field(None, max_length=100)
     location: str | None = Field(None, max_length=100)
     model: str | None = Field(None, max_length=100)
+
+    unique_feature: list[str] | None = Field(None)
 
     dim1: int | None = Field(None, ge=0)
     dim2: int | None = Field(None, ge=0)
@@ -205,7 +218,7 @@ class ProductUpdate(BaseModel):
     stock_quantity: int | None = Field(None, ge=0)
 
     # ===== SECURITY VALIDATION (2025-12-05): XSS Protection =====
-    @field_validator('description', 'title', 'condition_sup', 'name_sup')
+    @field_validator('description', 'title')
     @classmethod
     def validate_no_html(cls, value: str | None) -> str | None:
         """Valide qu'un champ texte ne contient pas de HTML (XSS protection)."""
@@ -214,6 +227,18 @@ class ProductUpdate(BaseModel):
                 "HTML tags are not allowed. Please use plain text only. "
                 "Found forbidden characters: < or >"
             )
+        return value
+
+    @field_validator('condition_sup', 'unique_feature')
+    @classmethod
+    def validate_no_html_in_list(cls, value: list[str] | None) -> list[str] | None:
+        """Valide que les éléments d'une liste ne contiennent pas de HTML."""
+        if value:
+            for item in value:
+                if '<' in item or '>' in item:
+                    raise ValueError(
+                        "HTML tags are not allowed in list items. Please use plain text only."
+                    )
         return value
 
 
@@ -233,8 +258,8 @@ class ProductResponse(BaseModel):
     category: str
     brand: str | None
     condition: int | None  # Optional for DRAFT products (validated on publish)
-    size: str | None
-    label_size: str | None
+    size_normalized: str | None
+    size_original: str | None
     color: str | None
     material: str | None
     fit: str | None
@@ -245,16 +270,17 @@ class ProductResponse(BaseModel):
     length: str | None
     pattern: str | None
 
-    condition_sup: str | None
+    condition_sup: list[str] | None
     rise: str | None
     closure: str | None
     sleeve_length: str | None
     origin: str | None
     decade: str | None
     trend: str | None
-    name_sup: str | None
     location: str | None
     model: str | None
+
+    unique_feature: list[str] | None
 
     # Dimensions
     dim1: int | None
@@ -271,18 +297,13 @@ class ProductResponse(BaseModel):
     status: str
 
     # Dates
-    scheduled_publish_at: datetime | None
-    published_at: datetime | None
     sold_at: datetime | None
     deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
-    # Metadata
-    integration_metadata: dict | None
-
-    # Images
-    product_images: list[ProductImageResponse] = []
+    # Images (JSONB)
+    images: list[ProductImageItem] = []
 
     model_config = {"from_attributes": True}
 

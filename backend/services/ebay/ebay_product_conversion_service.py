@@ -328,9 +328,10 @@ class EbayProductConversionService:
         """
         description = f"<p>{product.description or 'No description'}</p>"
 
-        # Ajouter condition supplémentaire si présente
+        # Ajouter condition supplémentaire si présente (JSONB array)
         if product.condition_sup:
-            description += f"<p><strong>Condition:</strong> {product.condition_sup}</p>"
+            condition_details = ", ".join(product.condition_sup) if isinstance(product.condition_sup, list) else str(product.condition_sup)
+            description += f"<p><strong>Condition:</strong> {condition_details}</p>"
 
         return description
 
@@ -393,12 +394,12 @@ class EbayProductConversionService:
             aspects[colour_name] = [translated_color or product.color]
 
         # Size - translate both name AND value
-        if product.label_size:
+        if product.size_original:
             size_name = aspect_name_translations.get("Size", "Size")
             translated_size = self._aspect_value_service.get_aspect_value(
-                product.label_size, "size", marketplace_id
+                product.size_original, "size", marketplace_id
             )
-            aspects[size_name] = [translated_size or product.label_size]
+            aspects[size_name] = [translated_size or product.size_original]
 
         # Material - translate both name AND value
         if product.material:

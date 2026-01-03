@@ -29,18 +29,19 @@ class EbayMapper(BaseMarketplaceMapper):
 
     # ===== MAPPING EBAY → STOFLOW =====
 
-    # Mapping Condition IDs eBay → Stoflow
+    # Mapping Condition IDs eBay → Stoflow (Integer 0-10)
+    # Stoflow scale: 10=Neuf avec étiquettes, 9=Neuf sans étiquettes, 8=Très bon, 7=Bon, 6=Satisfaisant, 5=À réparer
     CONDITION_MAP = {
-        1000: "NEW",           # New
-        1500: "NEW",           # New other
-        1750: "NEW",           # New with defects
-        2000: "EXCELLENT",     # Manufacturer refurbished
-        2500: "EXCELLENT",     # Seller refurbished
-        3000: "EXCELLENT",     # Used - Excellent
-        4000: "GOOD",          # Used - Good
-        5000: "FAIR",          # Used - Fair
-        6000: "POOR",          # Used - Poor
-        7000: "POOR",          # For parts or not working
+        1000: 10,           # New → Neuf avec étiquettes
+        1500: 9,            # New other → Neuf sans étiquettes
+        1750: 8,            # New with defects → Très bon état
+        2000: 8,            # Manufacturer refurbished → Très bon état
+        2500: 8,            # Seller refurbished → Très bon état
+        3000: 8,            # Used - Excellent → Très bon état
+        4000: 7,            # Used - Good → Bon état
+        5000: 6,            # Used - Fair → Satisfaisant
+        6000: 5,            # Used - Poor → À réparer
+        7000: 5,            # For parts or not working → À réparer
     }
 
     # Mapping Category IDs eBay → Catégories Stoflow (FALLBACK - use DB mapping)
@@ -66,7 +67,15 @@ class EbayMapper(BaseMarketplaceMapper):
     # ===== MAPPING STOFLOW → EBAY =====
 
     # Reverse mapping (FALLBACK - without gender distinction)
+    # Stoflow condition (Integer 0-10) → eBay condition ID
     REVERSE_CONDITION_MAP = {
+        10: 1000,  # Neuf avec étiquettes → New
+        9: 1500,   # Neuf sans étiquettes → New other
+        8: 3000,   # Très bon état → Used - Excellent
+        7: 4000,   # Bon état → Used - Good
+        6: 5000,   # Satisfaisant → Used - Fair
+        5: 6000,   # À réparer → Used - Poor
+        # Legacy string support
         "NEW": 1000,
         "EXCELLENT": 3000,
         "GOOD": 4000,
@@ -223,7 +232,7 @@ class EbayMapper(BaseMarketplaceMapper):
             "brand": ebay_item.get("brand"),
             "category": category,
             "condition": condition,
-            "label_size": ebay_item.get("size"),
+            "size_original": ebay_item.get("size"),
             "color": ebay_item.get("color"),
 
             # Images
@@ -264,7 +273,7 @@ class EbayMapper(BaseMarketplaceMapper):
         }
         """
         # Map condition
-        condition = stoflow_product.get("condition", "GOOD")
+        condition = stoflow_product.get("condition", 7)  # 7 = Bon état (default)
         condition_id = EbayMapper.map_condition_to_platform(condition)
 
         # Map category (with gender for accurate mapping)
@@ -294,7 +303,7 @@ class EbayMapper(BaseMarketplaceMapper):
 
             # Optionnel
             "brand": stoflow_product.get("brand"),
-            "size": stoflow_product.get("label_size"),
+            "size": stoflow_product.get("size_original"),
             "color": stoflow_product.get("color"),
         }
 

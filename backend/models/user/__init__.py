@@ -13,7 +13,6 @@ from models.user.ebay_product_marketplace import EbayProductMarketplace
 from models.user.ebay_promoted_listing import EbayPromotedListing
 from models.user.plugin_task import PluginTask, TaskStatus
 from models.user.product import Product, ProductStatus
-from models.user.product_image import ProductImage
 from models.user.publication_history import PublicationHistory, PublicationStatus
 from models.user.vinted_connection import VintedConnection, DataDomeStatus
 from models.user.vinted_conversation import VintedConversation, VintedMessage
@@ -27,7 +26,6 @@ from models.user.vinted_job_stats import VintedJobStats
 __all__ = [
     "Product",
     "ProductStatus",
-    "ProductImage",
     "VintedProduct",
     "VintedConnection",
     "DataDomeStatus",

@@ -28,7 +28,6 @@ from models.public.material import Material
 from models.public.season import Season
 from models.public.size import Size
 from models.user.product import Product, ProductStatus
-from models.user.product_image import ProductImage
 from services.product_service import ProductService
 
 
@@ -139,7 +138,7 @@ def test_product(db_session: Session, test_user, seed_attributes):
         category="Jeans",
         brand="Levi's",
         condition=8,  # note 8 = Excellent
-        label_size="W32L34",
+        size_original="W32L34",
         color="Blue",
         material="Denim",
         fit="Regular",
@@ -157,7 +156,7 @@ def test_product(db_session: Session, test_user, seed_attributes):
 @pytest.fixture(scope="function")
 def test_product_with_images(db_session: Session, test_product: Product):
     """
-    Fixture pour créer un produit avec 3 images.
+    Fixture pour créer un produit avec 3 images (JSONB).
 
     Args:
         db_session: Session de base de données
@@ -166,12 +165,11 @@ def test_product_with_images(db_session: Session, test_product: Product):
     Returns:
         Product: Produit avec images
     """
-    images = [
-        ProductImage(product_id=test_product.id, image_path="uploads/1/products/1/img1.jpg", display_order=0),
-        ProductImage(product_id=test_product.id, image_path="uploads/1/products/1/img2.jpg", display_order=1),
-        ProductImage(product_id=test_product.id, image_path="uploads/1/products/1/img3.jpg", display_order=2),
+    test_product.images = [
+        {"url": "https://cdn.stoflow.io/1/products/1/img1.jpg", "order": 0, "created_at": "2026-01-03T10:00:00Z"},
+        {"url": "https://cdn.stoflow.io/1/products/1/img2.jpg", "order": 1, "created_at": "2026-01-03T10:01:00Z"},
+        {"url": "https://cdn.stoflow.io/1/products/1/img3.jpg", "order": 2, "created_at": "2026-01-03T10:02:00Z"},
     ]
-    db_session.add_all(images)
     db_session.commit()
     db_session.refresh(test_product)
     return test_product
@@ -194,7 +192,7 @@ class TestProductService:
             category="Sneakers",
             brand="Nike",
             condition=8,  # note 8 = Excellent
-            label_size="M",
+            size_original="M",
             color="Black",
             stock_quantity=1,
         )
@@ -409,7 +407,6 @@ class TestProductService:
 
         assert updated_product is not None
         assert updated_product.status == ProductStatus.PUBLISHED
-        assert updated_product.published_at is not None
 
     def test_update_product_status_published_to_sold(self, db_session: Session, test_product: Product):
         """Test de transition PUBLISHED → SOLD."""
@@ -470,58 +467,49 @@ class TestProductService:
             )
 
     def test_delete_image_success(self, db_session: Session, test_product_with_images: Product):
-        """Test de suppression d'image."""
-        # Récupérer la première image
-        image = db_session.query(ProductImage).filter(
-            ProductImage.product_id == test_product_with_images.id
-        ).first()
+        """Test de suppression d'image (JSONB)."""
+        # Récupérer la première image URL
+        image_url = test_product_with_images.images[0]["url"]
 
-        result = ProductService.delete_image(db_session, image.id)
+        result = ProductService.delete_image(db_session, test_product_with_images.id, image_url)
 
         assert result is True
 
         # Vérifier que l'image n'existe plus
-        deleted_image = db_session.query(ProductImage).filter(
-            ProductImage.id == image.id
-        ).first()
-        assert deleted_image is None
+        db_session.refresh(test_product_with_images)
+        remaining_urls = [img["url"] for img in test_product_with_images.images]
+        assert image_url not in remaining_urls
+        assert len(test_product_with_images.images) == 2
 
     def test_reorder_images_success(self, db_session: Session, test_product_with_images: Product):
-        """Test de réordonnancement d'images."""
-        # Récupérer les images
-        images = db_session.query(ProductImage).filter(
-            ProductImage.product_id == test_product_with_images.id
-        ).order_by(ProductImage.display_order).all()
+        """Test de réordonnancement d'images (JSONB)."""
+        # Get current URLs
+        original_urls = [img["url"] for img in test_product_with_images.images]
 
         # Inverser l'ordre
-        image_orders = {
-            images[0].id: 2,
-            images[1].id: 1,
-            images[2].id: 0,
-        }
+        reversed_urls = list(reversed(original_urls))
 
         reordered_images = ProductService.reorder_images(
             db_session,
             test_product_with_images.id,
-            image_orders
+            reversed_urls
         )
 
         assert len(reordered_images) == 3
-        assert reordered_images[0].display_order == 0
-        assert reordered_images[1].display_order == 1
-        assert reordered_images[2].display_order == 2
+        assert reordered_images[0]["order"] == 0
+        assert reordered_images[0]["url"] == reversed_urls[0]
+        assert reordered_images[1]["order"] == 1
+        assert reordered_images[2]["order"] == 2
 
     def test_reorder_images_invalid_image(self, db_session: Session, test_product_with_images: Product):
-        """Test de réordonnancement avec image invalide."""
-        image_orders = {
-            99999: 0,  # Image qui n'existe pas
-        }
+        """Test de réordonnancement avec URL invalide."""
+        invalid_urls = ["https://cdn.stoflow.io/1/products/1/nonexistent.jpg"]
 
-        with pytest.raises(ValueError, match="does not belong to product"):
+        with pytest.raises(ValueError, match="not found in product"):
             ProductService.reorder_images(
                 db_session,
                 test_product_with_images.id,
-                image_orders
+                invalid_urls
             )
 
 

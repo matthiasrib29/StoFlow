@@ -60,7 +60,7 @@ def test_validate_product_attributes_complete_valid(db_session: Session, seed_at
         'condition': 'GOOD',
         'brand': "Levi's",
         'color': 'Blue',
-        'label_size': 'M',
+        'size_original': 'M',
         'material': 'Cotton',
         'fit': 'Slim',
         'gender': 'Men',
@@ -164,7 +164,7 @@ def test_validates_all_9_attributes(db_session: Session, seed_attributes):
     """
     expected_attributes = {
         'category', 'condition',  # Required
-        'brand', 'color', 'label_size', 'material', 'fit', 'gender', 'season'  # Optional
+        'brand', 'color', 'size_original', 'material', 'fit', 'gender', 'season'  # Optional
     }
 
     configured_attributes = set(AttributeValidator.ATTRIBUTE_CONFIGS.keys())

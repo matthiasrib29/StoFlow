@@ -67,12 +67,12 @@ class VintedPricingService:
             ValueError: Si prix final < 1.00€ (non publiable sur Vinted)
 
         Examples:
-            >>> product = Product(brand="Levi's", category="Jeans", condition="EXCELLENT")
+            >>> product = Product(brand="Levi's", category="Jeans", condition=8)  # 8 = Très bon état
             >>> price = VintedPricingService.calculate_vinted_price(db, product)
             >>> print(price)  # Ex: 45.00€ base → 49.50€ → 49.90€
             Decimal('49.90')
 
-            >>> product = Product(brand="NoName", category="T-shirt", condition="FAIR", price=0.50)
+            >>> product = Product(brand="NoName", category="T-shirt", condition=6, price=0.50)  # 6 = Satisfaisant
             >>> VintedPricingService.calculate_vinted_price(db, product)
             ValueError: Prix calculé incohérent: 0.55€ < 1.00€ minimum Vinted
         """

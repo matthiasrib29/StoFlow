@@ -238,7 +238,7 @@ class VintedPublisher:
                 "brand": str,
                 "category": str,
                 "condition": str,
-                "label_size": str,
+                "size_original": str,
                 "color": str,
                 "images": [str, ...]  # URLs Stoflow CDN
             }
@@ -268,9 +268,9 @@ class VintedPublisher:
                 vinted_payload["brand_id"] = brand_id
 
         # 4. Résoudre size_id (optionnel)
-        if stoflow_product.get("label_size"):
+        if stoflow_product.get("size_original"):
             size_id = await self.search_size(
-                stoflow_product["label_size"],
+                stoflow_product["size_original"],
                 vinted_payload["catalog_id"]
             )
             if size_id:

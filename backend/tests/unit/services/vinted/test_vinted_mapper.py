@@ -23,12 +23,13 @@ class TestVintedMapperStatic:
     """Tests pour les méthodes statiques (fallback sans DB)."""
 
     def test_condition_map_values(self):
-        """Test que les conditions sont bien mappées."""
-        assert VintedMapper.CONDITION_MAP[1] == "new"
-        assert VintedMapper.CONDITION_MAP[2] == "excellent"
-        assert VintedMapper.CONDITION_MAP[3] == "good"
-        assert VintedMapper.CONDITION_MAP[4] == "fair"
-        assert VintedMapper.CONDITION_MAP[5] == "poor"
+        """Test que les conditions Vinted sont bien mappées vers integers Stoflow."""
+        # Vinted status_id → Stoflow condition (Integer 0-10)
+        assert VintedMapper.CONDITION_MAP[1] == 10  # Neuf avec étiquette → 10
+        assert VintedMapper.CONDITION_MAP[2] == 8   # Très bon état → 8
+        assert VintedMapper.CONDITION_MAP[3] == 7   # Bon état → 7
+        assert VintedMapper.CONDITION_MAP[4] == 6   # Satisfaisant → 6
+        assert VintedMapper.CONDITION_MAP[5] == 5   # Utilisé → 5
 
     def test_reverse_condition_map_lowercase(self):
         """Test reverse mapping des conditions en minuscules."""
@@ -74,8 +75,8 @@ class TestVintedMapperStatic:
         assert result["description"] == "Jean vintage en bon état"
         assert result["price"] == 45.0
         assert result["brand"] == "Levi's"
-        assert result["condition"] == "excellent"  # status_id=2
-        assert result["label_size"] == "W32L34"
+        assert result["condition"] == 8  # status_id=2 → Très bon état
+        assert result["size_original"] == "W32L34"
         assert result["color"] == "Blue"
         assert result["stock_quantity"] == 1
         assert len(result["images"]) == 2
@@ -93,7 +94,7 @@ class TestVintedMapperStatic:
         assert result["title"] == "Product"
         assert result["price"] == 10.0
         assert result["brand"] is None
-        assert result["condition"] == "good"  # Default
+        assert result["condition"] == 7  # Default (status_id=3 → Bon état)
         assert result["images"] == []
 
     def test_stoflow_to_platform_basic(self):
@@ -104,8 +105,8 @@ class TestVintedMapperStatic:
             "price": 45.99,
             "brand": "Levi's",
             "category": "jeans",
-            "condition": "EXCELLENT",
-            "label_size": "W32",
+            "condition": 8,  # 8 = Très bon état
+            "size_original": "W32",
             "color": "Blue"
         }
 
@@ -248,7 +249,7 @@ class TestVintedMapperDimensions:
             "price": 25.0,
             "category": "t-shirt",
             "gender": "men",
-            "condition": "good",
+            "condition": 7,
             "dim1": 52,
             "dim2": 70
         }
@@ -267,7 +268,7 @@ class TestVintedMapperDimensions:
             "price": 45.0,
             "category": "jeans",
             "gender": "men",
-            "condition": "good",
+            "condition": 7,
             "dim1": 80,  # Taille
             "dim2": 100  # Longueur
         }
@@ -290,7 +291,7 @@ class TestVintedMapperAliases:
 
     def test_stoflow_to_vinted_alias(self):
         """Test alias stoflow_to_vinted."""
-        stoflow = {"title": "Test", "price": 10, "category": "jeans", "condition": "good"}
+        stoflow = {"title": "Test", "price": 10, "category": "jeans", "condition": 7}
         result = VintedMapper.stoflow_to_vinted(stoflow)
         assert result["title"] == "Test"
 
