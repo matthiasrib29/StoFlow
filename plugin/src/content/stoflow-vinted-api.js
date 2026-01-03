@@ -301,6 +301,90 @@
         },
 
         /**
+         * Vérifie si un objet est une instance Axios valide
+         * Signatures vérifiées:
+         *   - .defaults.headers (configuration headers)
+         *   - .interceptors.request/.response (intercepteurs)
+         *   - Méthodes HTTP: get, post, put, delete
+         *   - .defaults.baseURL (indicateur Vinted)
+         */
+        _isAxiosInstance(obj) {
+            if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
+
+            // Signatures obligatoires d'Axios
+            const hasDefaults = obj.defaults && typeof obj.defaults === 'object';
+            const hasHeaders = hasDefaults && obj.defaults.headers;
+            const hasInterceptors = obj.interceptors &&
+                                   obj.interceptors.request &&
+                                   obj.interceptors.response;
+
+            // Méthodes HTTP obligatoires
+            const hasGet = typeof obj.get === 'function';
+            const hasPost = typeof obj.post === 'function';
+            const hasPut = typeof obj.put === 'function';
+            const hasDelete = typeof obj.delete === 'function';
+
+            // baseURL est un bon indicateur pour Vinted
+            const hasBaseURL = hasDefaults && typeof obj.defaults.baseURL === 'string';
+
+            return hasHeaders && hasInterceptors && hasGet && hasPost && hasPut && hasDelete && hasBaseURL;
+        },
+
+        /**
+         * Trouve l'instance Axios par signatures d'objet (plus robuste que patterns de code)
+         * Parcourt tous les modules webpack chargés et vérifie les exports
+         * @returns {{moduleId: string, exportKey: string, instance: object}|null}
+         */
+        _findAxiosBySignature() {
+            if (!window.webpackChunk_N_E) return null;
+
+            let webpackRequire = null;
+
+            // Récupérer le require webpack
+            try {
+                window.webpackChunk_N_E.push([
+                    ['stoflow-require-hack-' + Date.now()],
+                    {},
+                    (req) => { webpackRequire = req; }
+                ]);
+            } catch (e) {
+                log.api.debug('Failed to get webpack require:', e);
+                return null;
+            }
+
+            if (!webpackRequire || !webpackRequire.c) {
+                log.api.debug('Webpack require or cache not available');
+                return null;
+            }
+
+            log.api.debug('Searching for Axios by signature in', Object.keys(webpackRequire.c).length, 'modules');
+
+            // Itérer sur tous les modules chargés
+            for (const moduleId in webpackRequire.c) {
+                const module = webpackRequire.c[moduleId];
+                if (!module?.exports) continue;
+
+                // Vérifier les différentes clés d'export (A, F, default, a, etc.)
+                for (const key of ['A', 'F', 'default', 'a', 'Z']) {
+                    const candidate = module.exports[key];
+                    if (this._isAxiosInstance(candidate)) {
+                        log.api.debug(`Found Axios instance at module ${moduleId}, export key: ${key}`);
+                        return { moduleId, exportKey: key, instance: candidate };
+                    }
+                }
+
+                // Vérifier l'export direct
+                if (this._isAxiosInstance(module.exports)) {
+                    log.api.debug(`Found Axios instance at module ${moduleId} (direct export)`);
+                    return { moduleId, exportKey: null, instance: module.exports };
+                }
+            }
+
+            log.api.debug('No Axios instance found by signature');
+            return null;
+        },
+
+        /**
          * Initialise ou réinitialise le hook vers les APIs Vinted
          */
         async init(force = false) {
@@ -330,9 +414,22 @@
 
                     // Chercher l'API principale avec les patterns spécifiques
                     const mainConfig = API_CONFIGS.api;
-                    const targetId = this._findModuleByPatterns(mainConfig.patterns);
+                    let targetId = this._findModuleByPatterns(mainConfig.patterns);
 
+                    // Si patterns échouent, essayer la détection par signature (plus robuste)
                     if (!targetId) {
+                        log.api.debug('Pattern search failed, trying signature detection...');
+                        const signatureResult = this._findAxiosBySignature();
+
+                        if (signatureResult) {
+                            // Trouvé par signature - utiliser directement l'instance
+                            this._apis.api = signatureResult.instance;
+                            this._lastValidation = Date.now();
+                            log.api.info('Main Vinted API connected via signature detection');
+                            resolve(true);
+                            return;
+                        }
+
                         log.api.debug(`API module not found (attempt ${this._initAttempts}/${this._maxAttempts})`);
                         if (this._initAttempts < this._maxAttempts) {
                             setTimeout(attemptInit, this._retryDelay * this._initAttempts);
@@ -650,6 +747,43 @@
                 default:
                     throw new Error(`Méthode ${method} non supportée`);
             }
+        },
+
+        // ===== SESSION REFRESH =====
+
+        /**
+         * Rafraîchit la session Vinted via /web/api/auth/refresh
+         * Cette route Next.js régénère les cookies de session
+         * Appelé par le backend quand une tâche retourne 401
+         * @returns {Promise<{success: boolean, error?: string}>}
+         */
+        async refreshVintedSession() {
+            log.api.debug('Refreshing Vinted session via /web/api/auth/refresh...');
+
+            try {
+                const response = await fetch('https://www.vinted.fr/web/api/auth/refresh', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    log.api.info('Vinted session refreshed successfully');
+                    // Force reinit API après refresh
+                    await this.init(true);
+                    return { success: true };
+                } else {
+                    const error = `HTTP ${response.status}: ${response.statusText}`;
+                    log.api.warn('Session refresh failed:', error);
+                    return { success: false, error };
+                }
+            } catch (error) {
+                log.api.error('Session refresh error:', error);
+                return { success: false, error: error.message };
+            }
         }
     };
 
@@ -852,8 +986,35 @@
                 }, '*');
             }
         }
+
+        // ===== REFRESH VINTED SESSION =====
+        if (message.type === 'STOFLOW_REFRESH_SESSION') {
+            const { requestId } = message;
+
+            log.api.debug('Refresh session request received');
+
+            try {
+                const result = await StoflowAPI.refreshVintedSession();
+
+                window.postMessage({
+                    type: 'STOFLOW_REFRESH_SESSION_RESPONSE',
+                    requestId,
+                    success: result.success,
+                    error: result.error || null
+                }, '*');
+
+            } catch (error) {
+                log.api.error('Refresh session error:', error);
+                window.postMessage({
+                    type: 'STOFLOW_REFRESH_SESSION_RESPONSE',
+                    requestId,
+                    success: false,
+                    error: error.message
+                }, '*');
+            }
+        }
     });
 
-    log.api.info('Vinted API Hook loaded (multi-API + fetchHtml + DataDome)');
+    log.api.info('Vinted API Hook loaded (multi-API + fetchHtml + DataDome + refreshSession)');
 
 })();
