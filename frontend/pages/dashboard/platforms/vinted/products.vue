@@ -200,8 +200,37 @@
               </template>
             </Column>
 
+            <!-- Link Status -->
+            <Column header="Liaison" style="width: 150px">
+              <template #body="{ data }">
+                <div v-if="data.product_id" class="flex items-center gap-2">
+                  <Tag severity="success" value="Lié" />
+                  <Button
+                    icon="pi pi-eye"
+                    class="p-button-text p-button-sm p-button-success"
+                    v-tooltip.top="'Voir le produit'"
+                    @click="goToProduct(data.product_id)"
+                  />
+                  <Button
+                    icon="pi pi-times"
+                    class="p-button-text p-button-sm p-button-danger"
+                    v-tooltip.top="'Délier'"
+                    @click="unlinkProduct(data)"
+                  />
+                </div>
+                <div v-else>
+                  <Button
+                    label="Lier"
+                    icon="pi pi-link"
+                    class="p-button-outlined p-button-sm"
+                    @click="openLinkModal(data)"
+                  />
+                </div>
+              </template>
+            </Column>
+
             <!-- Actions -->
-            <Column header="Actions" style="width: 100px">
+            <Column header="Actions" style="width: 80px">
               <template #body="{ data }">
                 <div class="flex gap-2">
                   <Button
@@ -217,20 +246,32 @@
         </div>
       </template>
     </Card>
+
+    <!-- Link Product Modal -->
+    <LinkProductModal
+      v-model="showLinkModal"
+      :vinted-product="selectedVintedProduct"
+      @linked="handleLinked"
+      @created="handleCreated"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import VintedPageHeader from '~/components/platforms/VintedPageHeader.vue'
+import LinkProductModal from '~/components/vinted/LinkProductModal.vue'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
 
 definePageMeta({
   layout: 'dashboard'
 })
 
+const toast = useToast()
+
 interface VintedProduct {
   id: number
   vinted_id: number
+  product_id: number | null  // Link to Stoflow Product
   title: string
   description: string | null
   price: number | null
@@ -258,6 +299,10 @@ const syncing = ref(false)
 const error = ref<string | null>(null)
 const searchQuery = ref('')
 const statusFilter = ref<string | null>(null)
+
+// Link modal state
+const showLinkModal = ref(false)
+const selectedVintedProduct = ref<VintedProduct | null>(null)
 
 // Options
 const statusOptions = [
@@ -361,6 +406,59 @@ function openVinted(url: string | null) {
   if (url) {
     window.open(url, '_blank')
   }
+}
+
+// Link functions
+function openLinkModal(product: VintedProduct) {
+  selectedVintedProduct.value = product
+  showLinkModal.value = true
+}
+
+function handleLinked(vintedId: number, productId: number) {
+  // Update product in list
+  const index = products.value.findIndex(p => p.vinted_id === vintedId)
+  if (index !== -1) {
+    products.value[index].product_id = productId
+  }
+}
+
+function handleCreated(vintedId: number, productId: number) {
+  // Update product in list
+  const index = products.value.findIndex(p => p.vinted_id === vintedId)
+  if (index !== -1) {
+    products.value[index].product_id = productId
+  }
+}
+
+async function unlinkProduct(product: VintedProduct) {
+  try {
+    await api.delete(`/api/vinted/products/${product.vinted_id}/link`)
+
+    // Update product in list
+    const index = products.value.findIndex(p => p.vinted_id === product.vinted_id)
+    if (index !== -1) {
+      products.value[index].product_id = null
+    }
+
+    toast.add({
+      severity: 'success',
+      summary: 'Produit délié',
+      detail: 'Le produit a été délié avec succès',
+      life: 3000
+    })
+  } catch (e: any) {
+    console.error('Error unlinking product:', e)
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: e.message || 'Impossible de délier le produit',
+      life: 5000
+    })
+  }
+}
+
+function goToProduct(productId: number) {
+  navigateTo(`/dashboard/products/${productId}/edit`)
 }
 
 // Init
