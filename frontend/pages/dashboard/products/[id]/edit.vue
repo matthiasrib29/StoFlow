@@ -69,6 +69,8 @@
         <ProductsProductForm
           v-model="form"
           :is-submitting="isSubmitting"
+          :product-id="id"
+          :has-images="existingImages.length > 0 || newPhotos.length > 0"
           submit-label="Enregistrer les modifications"
           @submit="handleSubmit"
           @cancel="$router.push('/dashboard/products')"
