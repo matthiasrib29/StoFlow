@@ -1,50 +1,15 @@
 /**
- * Middleware global pour transitions de pages contextuelles
+ * Middleware global pour transitions de pages
  *
- * Transitions désactivées pour les navigations internes au dashboard
- * pour éviter le délai de 250ms causé par le mode 'out-in'.
- * Les transitions sont uniquement appliquées pour les navigations
- * depuis/vers les pages d'authentification.
+ * Toutes les transitions sont désactivées pour éviter les pages blanches
+ * causées par le mode 'out-in' sans styles CSS correspondants.
+ *
+ * Les transitions globales sont déjà désactivées dans nuxt.config.ts,
+ * ce middleware s'assure qu'aucune transition n'est activée dynamiquement.
  */
 
-export default defineNuxtRouteMiddleware((to, from) => {
-  // Navigation interne au dashboard → pas de transition (navigation instantanée)
-  const isDashboardInternal = to.path.startsWith('/dashboard') && from.path.startsWith('/dashboard')
-  if (isDashboardInternal) {
-    to.meta.pageTransition = false
-    return
-  }
-
-  // Navigation interne à la documentation → pas de transition
-  const isDocsInternal = to.path.startsWith('/docs') && from.path.startsWith('/docs')
-  if (isDocsInternal) {
-    to.meta.pageTransition = false
-    return
-  }
-
-  // Navigation vers/depuis la documentation → pas de transition
-  const isDocsTransition = to.path.startsWith('/docs') || from.path.startsWith('/docs')
-  if (isDocsTransition) {
-    to.meta.pageTransition = false
-    return
-  }
-
-  // Navigation vers/depuis auth → fade simple
-  const isAuthTransition =
-    to.path.includes('/login') || to.path.includes('/register') ||
-    from.path.includes('/login') || from.path.includes('/register')
-
-  if (isAuthTransition) {
-    to.meta.pageTransition = {
-      name: 'fade',
-      mode: 'out-in'
-    }
-    return
-  }
-
-  // Navigation vers dashboard depuis landing ou vice versa → fade
-  to.meta.pageTransition = {
-    name: 'fade',
-    mode: 'out-in'
-  }
+export default defineNuxtRouteMiddleware((to) => {
+  // Désactiver toutes les transitions pour une navigation instantanée
+  to.meta.pageTransition = false
+  to.meta.layoutTransition = false
 })
