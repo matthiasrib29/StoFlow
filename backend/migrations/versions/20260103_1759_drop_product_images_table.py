@@ -34,6 +34,18 @@ def get_user_schemas():
     return [row[0] for row in result]
 
 
+def table_exists(schema: str, table: str) -> bool:
+    """Check if a table exists in a specific schema."""
+    connection = op.get_bind()
+    result = connection.execute(sa.text(
+        "SELECT EXISTS ("
+        "  SELECT 1 FROM information_schema.tables "
+        "  WHERE table_schema = :schema AND table_name = :table"
+        ")"
+    ), {"schema": schema, "table": table})
+    return result.scalar()
+
+
 def upgrade() -> None:
     """
     Drop product_images table from all user schemas.
@@ -43,6 +55,11 @@ def upgrade() -> None:
     user_schemas = get_user_schemas()
 
     for schema in user_schemas:
+        # Skip if product_images table doesn't exist
+        if not table_exists(schema, 'product_images'):
+            print(f"  ⚠️  Skipping {schema} - product_images table does not exist")
+            continue
+
         print(f"Dropping product_images table from schema: {schema}")
 
         # Drop the index first

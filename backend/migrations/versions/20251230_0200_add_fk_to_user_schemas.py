@@ -63,15 +63,33 @@ def get_user_schemas(connection) -> list[str]:
     return [row[0] for row in result]
 
 
+def table_exists(connection, schema: str, table: str) -> bool:
+    """Check if a table exists in a specific schema."""
+    result = connection.execute(sa.text(
+        "SELECT EXISTS ("
+        "  SELECT 1 FROM information_schema.tables "
+        "  WHERE table_schema = :schema AND table_name = :table"
+        ")"
+    ), {"schema": schema, "table": table})
+    return result.scalar()
+
+
 def upgrade() -> None:
     """
     Add foreign key constraints to all user schemas.
     """
     connection = op.get_bind()
 
+    # Get all user schemas with products table
+    all_schemas = get_user_schemas(connection)
+    user_schemas = [s for s in all_schemas if table_exists(connection, s, 'products')]
+    skipped = len(all_schemas) - len(user_schemas)
+    if skipped > 0:
+        print(f"\n⚠️  Skipping {skipped} schemas without products table\n")
+
     # 1. Fix apostrophe encoding issue
     print("\n=== Fixing apostrophe encoding issues ===")
-    for schema in get_user_schemas(connection):
+    for schema in user_schemas:
         result = connection.execute(sa.text(f"""
             UPDATE {schema}.products
             SET brand = REPLACE(brand, E'\\u2019', E'\\x27')
@@ -90,7 +108,7 @@ def upgrade() -> None:
         'spring/summer': 'Summer',  # Map to closest match
         'fall/winter': 'Winter',    # Map to closest match
     }
-    for schema in get_user_schemas(connection):
+    for schema in user_schemas:
         for old_val, new_val in season_mapping.items():
             result = connection.execute(sa.text(f"""
                 UPDATE {schema}.products
@@ -101,8 +119,7 @@ def upgrade() -> None:
                 print(f"  {schema}: {old_val} -> {new_val}: {result.rowcount} rows")
     print("  ✓ Season values normalized\n")
 
-    # Get all user schemas
-    user_schemas = get_user_schemas(connection)
+    # Add FK constraints
     print(f"=== Adding FK constraints to {len(user_schemas)} user schemas ===\n")
 
     for schema in user_schemas:

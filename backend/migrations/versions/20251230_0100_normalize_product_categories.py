@@ -109,6 +109,17 @@ def get_user_schemas(connection) -> list[str]:
     return [row[0] for row in result]
 
 
+def table_exists(connection, schema: str, table: str) -> bool:
+    """Check if a table exists in a specific schema."""
+    result = connection.execute(sa.text(
+        "SELECT EXISTS ("
+        "  SELECT 1 FROM information_schema.tables "
+        "  WHERE table_schema = :schema AND table_name = :table"
+        ")"
+    ), {"schema": schema, "table": table})
+    return result.scalar()
+
+
 def upgrade() -> None:
     """
     Normalize categories and extract attributes for all user schemas.
@@ -130,6 +141,11 @@ def upgrade() -> None:
 
     for schema in user_schemas:
         print(f"Processing {schema}...")
+
+        # Skip if products table doesn't exist in this schema
+        if not table_exists(connection, schema, 'products'):
+            print(f"  ⚠️  Skipping {schema} - products table does not exist\n")
+            continue
 
         # 1. Apply category mapping and extract attributes
         for old_cat, (new_cat, material, neckline, pattern, fit) in CATEGORY_MAPPING.items():
