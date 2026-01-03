@@ -36,6 +36,17 @@ def get_user_schemas(connection) -> list[str]:
     return schemas
 
 
+def table_exists(connection, schema: str, table: str) -> bool:
+    """Check if a table exists in a specific schema."""
+    result = connection.execute(sa.text(
+        "SELECT EXISTS ("
+        "  SELECT 1 FROM information_schema.tables "
+        "  WHERE table_schema = :schema AND table_name = :table"
+        ")"
+    ), {"schema": schema, "table": table})
+    return result.scalar()
+
+
 def upgrade() -> None:
     """
     Rename size columns in all schemas.
@@ -47,6 +58,11 @@ def upgrade() -> None:
 
     for schema in schemas:
         print(f"Processing {schema}...")
+
+        # Skip if products table doesn't exist in this schema
+        if not table_exists(connection, schema, 'products'):
+            print(f"  ⚠️  Skipping {schema} - products table does not exist\n")
+            continue
 
         # 1. Drop FK constraint on size (if exists)
         try:
