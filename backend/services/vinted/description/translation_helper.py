@@ -56,21 +56,33 @@ class TranslationHelper:
         'Burgundy': 'Bordeaux',
     }
 
-    # Mapping condition → texte lisible
+    # Mapping condition (Integer 0-10) → texte lisible
+    # 10 = Neuf avec étiquettes, 9 = Neuf sans étiquettes, 8 = Très bon état
+    # 7 = Bon état, 6 = Satisfaisant, 5 = À réparer
     CONDITIONS = {
+        10: 'Neuf avec étiquettes',
+        9: 'Neuf sans étiquettes',
+        8: 'Très bon état',
+        7: 'Bon état',
+        6: 'État correct',
+        5: 'À rénover',
+        # Legacy string support (fallback)
         'EXCELLENT': 'Très bon état',
         'GOOD': 'Bon état',
         'FAIR': 'État correct',
         'POOR': 'À rénover',
         'NEW': 'Neuf',
-        'a': 'Très bon état',
-        'b': 'Bon état',
-        'c': 'État correct',
-        'd': 'À rénover',
     }
 
-    # Texte par défaut selon la condition
+    # Texte par défaut selon la condition (Integer 0-10)
     CONDITION_DEFAULTS = {
+        10: 'Neuf avec étiquettes, jamais porté.',
+        9: 'Neuf sans étiquettes, jamais porté.',
+        8: 'Très peu porté, comme neuf.',
+        7: "Quelques signes d'usure légers mais rien de grave.",
+        6: "Signes d'usure visibles mais encore en bon état d'usage.",
+        5: 'Usé, nécessite quelques réparations.',
+        # Legacy string support (fallback)
         'NEW': 'Jamais porté, avec ou sans étiquette.',
         'EXCELLENT': 'Très peu porté, comme neuf.',
         'GOOD': "Quelques signes d'usure légers mais rien de grave.",

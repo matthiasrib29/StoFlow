@@ -339,3 +339,116 @@ def auth_headers(client: TestClient, test_user):
     return {
         "Authorization": f"Bearer {data['access_token']}"
     }
+
+
+@pytest.fixture(scope="function")
+def seed_attributes(db_session: Session):
+    """
+    Fixture pour seed les attributs de produits dans product_attributes schema.
+
+    Crée des données de test pour:
+    - brands, categories, colors, conditions, sizes
+    - materials, fits, genders, seasons
+
+    Note: Utilise merge() pour éviter les erreurs de duplicate key si les données
+    existent déjà (migrations Alembic peuvent avoir seed des données).
+    """
+    from models.public.brand import Brand
+    from models.public.category import Category
+    from models.public.color import Color
+    from models.public.condition import Condition
+    from models.public.size import Size
+    from models.public.material import Material
+    from models.public.fit import Fit
+    from models.public.gender import Gender
+    from models.public.season import Season
+
+    # Brands - use merge to avoid duplicates
+    brands = [
+        Brand(name="Levi's"),
+        Brand(name="Nike"),
+        Brand(name="Adidas"),
+    ]
+    for b in brands:
+        db_session.merge(b)
+
+    # Categories
+    categories = [
+        Category(name_en="Jeans", name_fr="Jeans"),
+        Category(name_en="Tops", name_fr="Hauts"),
+        Category(name_en="Jackets", name_fr="Vestes"),
+    ]
+    for c in categories:
+        db_session.merge(c)
+
+    # Colors
+    colors = [
+        Color(name_en="Blue", name_fr="Bleu"),
+        Color(name_en="Black", name_fr="Noir"),
+        Color(name_en="White", name_fr="Blanc"),
+    ]
+    for c in colors:
+        db_session.merge(c)
+
+    # Conditions
+    conditions = [
+        Condition(note=10, name_en="NEW_WITH_TAGS", name_fr="Neuf avec étiquettes"),
+        Condition(note=8, name_en="EXCELLENT", name_fr="Excellent état"),
+        Condition(note=6, name_en="GOOD", name_fr="Bon état"),
+        Condition(note=4, name_en="FAIR", name_fr="État correct"),
+    ]
+    for c in conditions:
+        db_session.merge(c)
+
+    # Sizes
+    sizes = [
+        Size(name_en="XS", name_fr="XS"),
+        Size(name_en="S", name_fr="S"),
+        Size(name_en="M", name_fr="M"),
+        Size(name_en="L", name_fr="L"),
+        Size(name_en="XL", name_fr="XL"),
+    ]
+    for s in sizes:
+        db_session.merge(s)
+
+    # Materials
+    materials = [
+        Material(name_en="Cotton", name_fr="Coton"),
+        Material(name_en="Polyester", name_fr="Polyester"),
+        Material(name_en="Denim", name_fr="Denim"),
+    ]
+    for m in materials:
+        db_session.merge(m)
+
+    # Fits
+    fits = [
+        Fit(name_en="Slim", name_fr="Slim"),
+        Fit(name_en="Regular", name_fr="Regular"),
+        Fit(name_en="Loose", name_fr="Loose"),
+    ]
+    for f in fits:
+        db_session.merge(f)
+
+    # Genders
+    genders = [
+        Gender(name_en="Men", name_fr="Homme"),
+        Gender(name_en="Women", name_fr="Femme"),
+        Gender(name_en="Unisex", name_fr="Unisexe"),
+    ]
+    for g in genders:
+        db_session.merge(g)
+
+    # Seasons
+    seasons = [
+        Season(name_en="All-Season", name_fr="Toutes saisons"),
+        Season(name_en="Summer", name_fr="Été"),
+        Season(name_en="Winter", name_fr="Hiver"),
+    ]
+    for s in seasons:
+        db_session.merge(s)
+
+    db_session.commit()
+
+    yield
+
+    # Cleanup is handled by cleanup_data fixture

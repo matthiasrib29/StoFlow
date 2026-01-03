@@ -63,7 +63,6 @@ from models.user import (
     # Products
     Product,
     ProductStatus,
-    ProductImage,
     # Publications
     PublicationHistory,
     PublicationStatus,
@@ -135,7 +134,6 @@ __all__ = [
     # Products
     "Product",
     "ProductStatus",
-    "ProductImage",
     # Publications
     "PublicationHistory",
     "PublicationStatus",

@@ -13,8 +13,7 @@ from schemas.auth_schemas import (
 )
 from schemas.product_schemas import (
     ProductCreate,
-    ProductImageCreate,
-    ProductImageResponse,
+    ProductImageItem,
     ProductListResponse,
     ProductResponse,
     ProductUpdate,
@@ -30,6 +29,5 @@ __all__ = [
     "ProductUpdate",
     "ProductResponse",
     "ProductListResponse",
-    "ProductImageCreate",
-    "ProductImageResponse",
+    "ProductImageItem",
 ]

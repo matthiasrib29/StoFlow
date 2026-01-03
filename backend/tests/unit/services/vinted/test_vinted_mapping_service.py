@@ -427,7 +427,7 @@ class TestMapAllAttributes:
         mock_product = Mock()
         mock_product.brand = "Levi's"
         mock_product.color = "Blue"
-        mock_product.condition = "EXCELLENT"
+        mock_product.condition = 8
         mock_product.size = "32"
         mock_product.category = "Jeans"
         mock_product.gender = "male"
@@ -470,7 +470,7 @@ class TestMapAllAttributes:
         mock_product = Mock()
         mock_product.brand = "Levi's"
         mock_product.color = "Blue"
-        mock_product.condition = "EXCELLENT"
+        mock_product.condition = 8
         mock_product.size = "32"
         mock_product.category = "Jeans"
         mock_product.gender = "male"
@@ -504,7 +504,7 @@ class TestMapAllAttributes:
         mock_product = Mock()
         mock_product.brand = "Nike"
         mock_product.color = "White"
-        mock_product.condition = "GOOD"
+        mock_product.condition = 7
         mock_product.size = "L"
         mock_product.category = "T-shirt"
         mock_product.gender = "male"

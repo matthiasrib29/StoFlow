@@ -55,13 +55,14 @@ class VintedMapper(BaseMarketplaceMapper):
 
     # ===== MAPPING VINTED → STOFLOW (FALLBACK STATIQUE) =====
 
-    # Mapping Condition IDs Vinted → Stoflow condition names
+    # Mapping Vinted status_id → Stoflow condition (Integer 0-10)
+    # Stoflow scale: 10=Neuf avec étiquettes, 9=Neuf sans étiquettes, 8=Très bon, 7=Bon, 6=Satisfaisant, 5=À réparer
     CONDITION_MAP = {
-        1: "new",        # Neuf avec étiquette
-        2: "excellent",  # Très bon état
-        3: "good",       # Bon état
-        4: "fair",       # Satisfaisant
-        5: "poor"        # Utilisé
+        1: 10,  # Neuf avec étiquette → 10
+        2: 8,   # Très bon état → 8
+        3: 7,   # Bon état → 7
+        4: 6,   # Satisfaisant → 6
+        5: 5    # Utilisé → 5
     }
 
     # Fallback statique - utilisé si pas de session DB
@@ -99,7 +100,14 @@ class VintedMapper(BaseMarketplaceMapper):
         "EXCELLENT": 2,
         "GOOD": 3,
         "FAIR": 4,
-        "POOR": 5
+        "POOR": 5,
+        # Integer keys (new format: 0-10 scale)
+        10: 1,  # Neuf avec étiquettes
+        9: 1,   # Neuf sans étiquettes
+        8: 2,   # Très bon état → Vinted status 2
+        7: 3,   # Bon état → Vinted status 3
+        6: 4,   # Satisfaisant → Vinted status 4
+        5: 5,   # À réparer → Vinted status 5
     }
 
     # Fallback reverse mapping - DEPRECATED, use get_vinted_category_id_from_db()
@@ -174,7 +182,7 @@ class VintedMapper(BaseMarketplaceMapper):
             "brand": vinted_item.get("brand_title"),
             "category": category,
             "condition": condition,
-            "label_size": vinted_item.get("size_title"),
+            "size_original": vinted_item.get("size_title"),
             "color": vinted_item.get("color"),
 
             # Images
@@ -206,13 +214,13 @@ class VintedMapper(BaseMarketplaceMapper):
             "brand": "Levi's",
             "category": "Jeans",
             "condition": "EXCELLENT",
-            "label_size": "W32L34",
+            "size_original": "W32L34",
             "color": "Blue",
             "images": ["url1", "url2", ...]
         }
         """
         # Map condition
-        condition = stoflow_product.get("condition", "GOOD")
+        condition = stoflow_product.get("condition", 7)  # 7 = Bon état (default)
         status_id = VintedMapper.map_condition_to_platform(condition)
 
         # Map category
@@ -235,7 +243,7 @@ class VintedMapper(BaseMarketplaceMapper):
 
             # Optionnel mais recommandé
             "brand_title": stoflow_product.get("brand"),
-            "size_title": stoflow_product.get("label_size"),
+            "size_title": stoflow_product.get("size_original"),
             "color": stoflow_product.get("color"),
 
             # Flags
@@ -431,9 +439,13 @@ class VintedMapper(BaseMarketplaceMapper):
                 "Check vinted_mapping table."
             )
 
-        # Map condition
-        condition = stoflow_product.get("condition", "good")
-        status_id = self.REVERSE_CONDITION_MAP.get(condition.lower(), 3)
+        # Map condition (Integer 0-10 → Vinted status_id)
+        condition = stoflow_product.get("condition", 7)  # 7 = Bon état (default)
+        # Support both int and legacy str conditions
+        if isinstance(condition, str):
+            status_id = self.REVERSE_CONDITION_MAP.get(condition.lower(), 3)
+        else:
+            status_id = self.REVERSE_CONDITION_MAP.get(condition, 3)
 
         result = {
             "title": stoflow_product.get("title", ""),
@@ -443,7 +455,7 @@ class VintedMapper(BaseMarketplaceMapper):
             "catalog_id": catalog_id,
             "status_id": status_id,
             "brand_title": stoflow_product.get("brand"),
-            "size_title": stoflow_product.get("label_size"),
+            "size_title": stoflow_product.get("size_original"),
             "color": stoflow_product.get("color"),
             "is_for_sell": True,
             "is_visible": 1,

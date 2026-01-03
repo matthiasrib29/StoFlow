@@ -41,24 +41,25 @@ class TestEbayMapperPlatformToStoflow:
         assert result["description"] == "Classic vintage jeans..."
         assert result["price"] == 45.0
         assert result["brand"] == "Levi's"
-        assert result["condition"] == "EXCELLENT"  # conditionId 3000
+        assert result["condition"] == 8  # conditionId 3000 → Très bon état
         assert result["category"] == "jeans"  # categoryId 11483 → jeans
-        assert result["label_size"] == "32"
+        assert result["size_original"] == "32"
         assert result["color"] == "Blue"
         assert len(result["images"]) == 2
         assert result["stock_quantity"] == 2
 
     def test_condition_mapping(self):
-        """Test all eBay condition mappings."""
+        """Test all eBay condition mappings (Integer 0-10)."""
+        # Mapping: 10=Neuf avec étiquettes, 9=Neuf sans étiquettes, 8=Très bon, 7=Bon, 6=Satisfaisant, 5=À réparer
         conditions = {
-            1000: "NEW",
-            1500: "NEW",
-            2000: "EXCELLENT",
-            3000: "EXCELLENT",
-            4000: "GOOD",
-            5000: "FAIR",
-            6000: "POOR",
-            7000: "POOR",
+            1000: 10,  # New → Neuf avec étiquettes
+            1500: 9,   # New other → Neuf sans étiquettes
+            2000: 8,   # Manufacturer refurbished → Très bon état
+            3000: 8,   # Used - Excellent → Très bon état
+            4000: 7,   # Used - Good → Bon état
+            5000: 6,   # Used - Fair → Satisfaisant
+            6000: 5,   # Used - Poor → À réparer
+            7000: 5,   # For parts → À réparer
         }
 
         for condition_id, expected_condition in conditions.items():
@@ -124,8 +125,8 @@ class TestEbayMapperStoflowToPlatform:
             "price": 45.99,
             "brand": "Levi's",
             "category": "Jeans",
-            "condition": "EXCELLENT",
-            "label_size": "32",
+            "condition": 8,  # 8 = Très bon état
+            "size_original": "32",
             "color": "Blue",
             "stock_quantity": 2,
         }
@@ -137,17 +138,19 @@ class TestEbayMapperStoflowToPlatform:
         assert result["price"]["currency"] == "EUR"
         # Jeans has multiple IDs (57989 homme, 11554 femme), reverse map picks one
         assert result["categoryId"] in ["57989", "11554"]
-        assert result["conditionId"] == "3000"  # EXCELLENT
+        assert result["conditionId"] == "3000"  # 8 → Très bon état → eBay 3000
         assert result["quantity"] == 2
 
     def test_condition_reverse_mapping(self):
-        """Test reverse condition mapping."""
+        """Test reverse condition mapping (Integer 0-10 → eBay conditionId)."""
+        # Stoflow condition (Integer) → eBay conditionId (string)
         conditions = {
-            "NEW": "1000",
-            "EXCELLENT": "3000",
-            "GOOD": "4000",
-            "FAIR": "5000",
-            "POOR": "6000",
+            10: "1000",  # Neuf avec étiquettes → New
+            9: "1500",   # Neuf sans étiquettes → New other
+            8: "3000",   # Très bon état → Used - Excellent
+            7: "4000",   # Bon état → Used - Good
+            6: "5000",   # Satisfaisant → Used - Fair
+            5: "6000",   # À réparer → Used - Poor
         }
 
         for condition, expected_condition_id in conditions.items():
@@ -164,7 +167,7 @@ class TestEbayMapperStoflowToPlatform:
         stoflow_product = {
             "title": "Test",
             "category": "UnsupportedCategory",
-            "condition": "GOOD",
+            "condition": 7,  # 7 = Bon état
         }
 
         with pytest.raises(ValueError) as exc_info:
@@ -311,7 +314,7 @@ class TestEbayMapperDbBackedCategoryMapping:
             "title": "Test Jeans",
             "category": "jeans",
             "gender": "men",
-            "condition": "GOOD",
+            "condition": 7,
         }
 
         with patch.object(
@@ -328,7 +331,7 @@ class TestEbayMapperDbBackedCategoryMapping:
             "title": "Test Jeans",
             "category": "jeans",
             "gender": "men",
-            "condition": "GOOD",
+            "condition": 7,
         }
 
         # Without session, should use static fallback

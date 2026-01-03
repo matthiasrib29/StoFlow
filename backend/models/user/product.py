@@ -4,13 +4,13 @@ Product Model - Schema Utilisateur
 Ce modèle représente un produit créé par un utilisateur.
 Chaque produit est isolé dans le schema de l'utilisateur (user_{id}).
 
-Business Rules (Updated: 2025-12-09):
+Business Rules (Updated: 2026-01-03):
 - Statuts complets avec workflow MVP (DRAFT, PUBLISHED, SOLD, ARCHIVED)
 - Réplication complète de pythonApiWOO (26+ attributs)
 - Foreign keys vers tables d'attributs (public schema)
 - Soft delete via deleted_at
 - ID auto-incrémenté comme identifiant unique (SERIAL)
-- Images gérées via ProductImage (table séparée)
+- Images stockées en JSONB: [{url, order, created_at}]
 """
 
 import os
@@ -97,74 +97,142 @@ class Product(Base):
         Index("idx_product_status", "status"),
         Index("idx_product_created_at", "created_at"),
         Index("idx_product_deleted_at", "deleted_at"),
-        # Foreign Key Constraints (cross-schema)
-        # NOTE (2025-12-09): ForeignKeys désactivées car les tables d'attributs
-        # (brands, categories, colors, etc.) n'existent plus en DB
-        # Les colonnes restent en String pour flexibilité (valeurs libres)
-        # TODO: Réactiver si tables d'attributs sont recréées
-        # ForeignKeyConstraint(
-        #     ["brand"],
-        #     ["brands.name"] if os.getenv('TESTING') else ["product_attributes.brands.name"],
-        #     onupdate="CASCADE",
-        #     ondelete="SET NULL",
-        #     name="fk_products_brand",
-        # ),
-        # ForeignKeyConstraint(
-        #     ["category"],
-        #     ["categories.name_en"] if os.getenv('TESTING') else ["product_attributes.categories.name_en"],
-        #     onupdate="CASCADE",
-        #     ondelete="RESTRICT",
-        #     name="fk_products_category",
-        # ),
-        # ForeignKeyConstraint(
-        #     ["condition"],
-        #     ["conditions.name"] if os.getenv('TESTING') else ["product_attributes.conditions.name"],
-        #     onupdate="CASCADE",
-        #     ondelete="RESTRICT",
-        #     name="fk_products_condition",
-        # ),
-        # ForeignKeyConstraint(
-        #     ["label_size"],
-        #     ["sizes.name"] if os.getenv('TESTING') else ["product_attributes.sizes.name"],
-        #     onupdate="CASCADE",
-        #     ondelete="SET NULL",
-        #     name="fk_products_size",
-        # ),
-        # ForeignKeyConstraint(
-        #     ["color"],
-        #     ["colors.name_en"] if os.getenv('TESTING') else ["product_attributes.colors.name_en"],
-        #     onupdate="CASCADE",
-        #     ondelete="SET NULL",
-        #     name="fk_products_color",
-        # ),
-        # ForeignKeyConstraint(
-        #     ["material"],
-        #     ["materials.name_en"] if os.getenv('TESTING') else ["product_attributes.materials.name_en"],
-        #     onupdate="CASCADE",
-        #     ondelete="SET NULL",
-        #     name="fk_products_material",
-        # ),
-        # ForeignKeyConstraint(
-        #     ["fit"],
-        #     ["fits.name_en"] if os.getenv('TESTING') else ["public.fits.name_en"],
-        #     onupdate="CASCADE",
-        #     ondelete="SET NULL",
-        #     name="fk_products_fit",
-        # ),
-        # ForeignKeyConstraint(
-        #     ["gender"],
-        #     ["genders.name_en"] if os.getenv('TESTING') else ["public.genders.name_en"],
-        #     onupdate="CASCADE",
-        #     ondelete="SET NULL",
-        #     name="fk_products_gender",
-        # ),
-        # ForeignKeyConstraint(
-        #     ["season"],
-        #     ["seasons.name_en"] if os.getenv('TESTING') else ["product_attributes.seasons.name_en"],
-        #     onupdate="CASCADE",
-        #     ondelete="SET NULL",
-        #     name="fk_products_season",
-        # ),
+        # Foreign Key Constraints (cross-schema to product_attributes)
+        # NOTE (2025-12-30): FK réactivées - tables product_attributes existent
+        # Ces FK assurent l'intégrité référentielle des attributs produit
+        ForeignKeyConstraint(
+            ["brand"],
+            ["brands.name"] if os.getenv('TESTING') else ["product_attributes.brands.name"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_brand",
+        ),
+        ForeignKeyConstraint(
+            ["category"],
+            ["categories.name_en"] if os.getenv('TESTING') else ["product_attributes.categories.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_category",
+        ),
+        ForeignKeyConstraint(
+            ["condition"],
+            ["conditions.note"] if os.getenv('TESTING') else ["product_attributes.conditions.note"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_condition",
+        ),
+        ForeignKeyConstraint(
+            ["size_normalized"],
+            ["sizes.name_en"] if os.getenv('TESTING') else ["product_attributes.sizes.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_size_normalized",
+        ),
+        ForeignKeyConstraint(
+            ["color"],
+            ["colors.name_en"] if os.getenv('TESTING') else ["product_attributes.colors.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_color",
+        ),
+        ForeignKeyConstraint(
+            ["material"],
+            ["materials.name_en"] if os.getenv('TESTING') else ["product_attributes.materials.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_material",
+        ),
+        ForeignKeyConstraint(
+            ["fit"],
+            ["fits.name_en"] if os.getenv('TESTING') else ["product_attributes.fits.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_fit",
+        ),
+        ForeignKeyConstraint(
+            ["gender"],
+            ["genders.name_en"] if os.getenv('TESTING') else ["product_attributes.genders.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_gender",
+        ),
+        ForeignKeyConstraint(
+            ["season"],
+            ["seasons.name_en"] if os.getenv('TESTING') else ["product_attributes.seasons.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_season",
+        ),
+        ForeignKeyConstraint(
+            ["neckline"],
+            ["necklines.name_en"] if os.getenv('TESTING') else ["product_attributes.necklines.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_neckline",
+        ),
+        ForeignKeyConstraint(
+            ["pattern"],
+            ["patterns.name_en"] if os.getenv('TESTING') else ["product_attributes.patterns.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_pattern",
+        ),
+        ForeignKeyConstraint(
+            ["sport"],
+            ["sports.name_en"] if os.getenv('TESTING') else ["product_attributes.sports.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_sport",
+        ),
+        ForeignKeyConstraint(
+            ["length"],
+            ["lengths.name_en"] if os.getenv('TESTING') else ["product_attributes.lengths.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_length",
+        ),
+        ForeignKeyConstraint(
+            ["rise"],
+            ["rises.name_en"] if os.getenv('TESTING') else ["product_attributes.rises.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_rise",
+        ),
+        ForeignKeyConstraint(
+            ["closure"],
+            ["closures.name_en"] if os.getenv('TESTING') else ["product_attributes.closures.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_closure",
+        ),
+        ForeignKeyConstraint(
+            ["sleeve_length"],
+            ["sleeve_lengths.name_en"] if os.getenv('TESTING') else ["product_attributes.sleeve_lengths.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_sleeve_length",
+        ),
+        ForeignKeyConstraint(
+            ["origin"],
+            ["origins.name_en"] if os.getenv('TESTING') else ["product_attributes.origins.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_origin",
+        ),
+        ForeignKeyConstraint(
+            ["decade"],
+            ["decades.name_en"] if os.getenv('TESTING') else ["product_attributes.decades.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_decade",
+        ),
+        ForeignKeyConstraint(
+            ["trend"],
+            ["trends.name_en"] if os.getenv('TESTING') else ["product_attributes.trends.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_trend",
+        ),
     )
 
     # ===== PRIMARY KEY =====
@@ -189,11 +257,11 @@ class Product(Base):
     condition: Mapped[int | None] = mapped_column(
         Integer, nullable=True, comment="État - note 0-10 (FK product_attributes.conditions.note)"
     )
-    size: Mapped[str | None] = mapped_column(
+    size_normalized: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True, comment="Taille standardisée (FK product_attributes.sizes)"
     )
-    label_size: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Taille étiquette (texte libre)"
+    size_original: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="Taille originale de l'étiquette (texte libre)"
     )
     color: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True, comment="Couleur (FK public.colors)"
@@ -223,36 +291,35 @@ class Product(Base):
         String(100), nullable=True, comment="Motif (FK product_attributes.patterns)"
     )
 
-    # ===== ATTRIBUTS SUPPLÉMENTAIRES (SANS FK) =====
-    condition_sup: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, comment="État supplémentaire/détails"
-    )
+    # ===== ATTRIBUTS AVEC FK (SUITE) =====
     rise: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Hauteur de taille (pantalons)"
+        String(100), nullable=True, comment="Hauteur de taille (FK product_attributes.rises)"
     )
     closure: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Type de fermeture"
+        String(100), nullable=True, comment="Type de fermeture (FK product_attributes.closures)"
     )
     sleeve_length: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Longueur de manches"
+        String(100), nullable=True, comment="Longueur de manches (FK product_attributes.sleeve_lengths)"
     )
     origin: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Origine/provenance"
+        String(100), nullable=True, comment="Origine/provenance (FK product_attributes.origins)"
     )
     decade: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Décennie"
+        String(100), nullable=True, comment="Décennie (FK product_attributes.decades)"
     )
     trend: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Tendance"
+        String(100), nullable=True, comment="Tendance (FK product_attributes.trends)"
     )
-    name_sup: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Titre supplémentaire"
+
+    # ===== ATTRIBUTS TEXTE LIBRE (SANS FK) =====
+    condition_sup: Mapped[list | None] = mapped_column(
+        JSONB, nullable=True, comment="Détails état supplémentaires (JSONB array ex: ['Tache légère', 'Bouton manquant'])"
     )
     location: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Emplacement physique"
+        String(100), nullable=True, comment="Emplacement physique (texte libre)"
     )
     model: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Référence modèle"
+        String(100), nullable=True, comment="Référence modèle (texte libre)"
     )
 
     # ===== ATTRIBUTS DE TARIFICATION (PRICING) =====
@@ -273,8 +340,8 @@ class Product(Base):
     )
 
     # ===== FEATURES DESCRIPTIFS =====
-    unique_feature: Mapped[str | None] = mapped_column(
-        Text, nullable=True, comment="Features uniques séparées par virgules (ex: Vintage,Logo brodé,Pièce unique)"
+    unique_feature: Mapped[list | None] = mapped_column(
+        JSONB, nullable=True, comment="Features uniques (JSONB array ex: ['Vintage', 'Logo brodé', 'Pièce unique'])"
     )
     marking: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="Marquages/écritures visibles séparés par virgules (dates, codes, textes)"
@@ -305,11 +372,14 @@ class Product(Base):
         Integer, default=0, nullable=False, comment="Quantité en stock"
     )
 
-    # ===== IMAGES (DEPRECATED - Utiliser product_images relationship) =====
-    images: Mapped[str | None] = mapped_column(
-        Text,
+    # ===== IMAGES (JSONB) =====
+    # Structure: [{"url": "...", "order": 0, "created_at": "..."}, ...]
+    # Max 20 images par produit (limite Vinted)
+    images: Mapped[list | None] = mapped_column(
+        JSONB,
         nullable=True,
-        comment="DEPRECATED: JSON array d'URLs. Utiliser product_images relationship",
+        server_default="[]",
+        comment="Product images as JSONB array [{url, order, created_at}]",
     )
 
     # ===== STATUS ET WORKFLOW =====
@@ -322,14 +392,6 @@ class Product(Base):
     )
 
     # ===== DATES IMPORTANTES =====
-    scheduled_publish_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="Date de publication programmée (si status=scheduled)",
-    )
-    published_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True, comment="Date de publication effective"
-    )
     sold_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, comment="Date de vente"
     )
@@ -338,13 +400,6 @@ class Product(Base):
         nullable=True,
         index=True,
         comment="Date de suppression (soft delete)",
-    )
-
-    # ===== INTEGRATION METADATA =====
-    integration_metadata: Mapped[dict | None] = mapped_column(
-        JSONB,  # NOTE: Always JSONB (PostgreSQL) - tests now use PostgreSQL (not SQLite)
-        nullable=True,
-        comment="Métadonnées pour intégrations (vinted_id, source, etc.)",
     )
 
     # ===== TIMESTAMPS =====
@@ -359,14 +414,6 @@ class Product(Base):
     )
 
     # ===== RELATIONSHIPS =====
-
-    # ProductImages (nouvelle table)
-    product_images: Mapped[list["ProductImage"]] = relationship(
-        "ProductImage",
-        back_populates="product",
-        order_by="ProductImage.display_order",
-        cascade="all, delete-orphan",
-    )
 
     # Marketplace relations
     # VintedProduct (1:1 relationship via product_id FK in vinted_products)
@@ -405,7 +452,7 @@ class Product(Base):
     #     "Condition", foreign_keys=[condition], viewonly=True
     # )
     # size_rel: Mapped["Size | None"] = relationship(
-    #     "Size", foreign_keys=[label_size], viewonly=True
+    #     "Size", foreign_keys=[size_normalized], viewonly=True
     # )
     # color_rel: Mapped["Color | None"] = relationship(
     #     "Color", foreign_keys=[color], viewonly=True

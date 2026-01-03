@@ -57,7 +57,7 @@ class BaseMarketplaceMapper(ABC):
                     "brand": str | None,
                     "category": str,
                     "condition": str,  # NEW, EXCELLENT, GOOD, FAIR, POOR
-                    "label_size": str | None,
+                    "size_original": str | None,
                     "color": str | None,
                     "images": list[str],
                     "stock_quantity": int,
@@ -147,22 +147,22 @@ class BaseMarketplaceMapper(ABC):
             platform_condition_id: ID ou valeur condition plateforme
 
         Returns:
-            str: Condition Stoflow (défaut: "GOOD")
+            int: Condition Stoflow (Integer 0-10, défaut: 7 = Bon état)
         """
-        return cls.CONDITION_MAP.get(platform_condition_id, "GOOD")
+        return cls.CONDITION_MAP.get(platform_condition_id, 7)
 
     @classmethod
-    def map_condition_to_platform(cls, stoflow_condition: str):
+    def map_condition_to_platform(cls, stoflow_condition: int | str):
         """
         Mappe une condition Stoflow vers la plateforme.
 
         Args:
-            stoflow_condition: Condition Stoflow
+            stoflow_condition: Condition Stoflow (Integer 0-10 or legacy string)
 
         Returns:
-            ID ou valeur condition plateforme (défaut: valeur pour "GOOD")
+            ID ou valeur condition plateforme (défaut: valeur pour 7 = Bon état)
         """
-        default_value = cls.REVERSE_CONDITION_MAP.get("GOOD")
+        default_value = cls.REVERSE_CONDITION_MAP.get(7)
         return cls.REVERSE_CONDITION_MAP.get(stoflow_condition, default_value)
 
     @classmethod

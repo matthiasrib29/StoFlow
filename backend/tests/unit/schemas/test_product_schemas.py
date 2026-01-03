@@ -5,10 +5,11 @@ Couverture:
 - ProductCreate validation (champs obligatoires, XSS protection)
 - ProductUpdate validation
 - ProductResponse structure
-- ProductImageCreate/Response
+- ProductImageItem (JSONB structure)
 
 Author: Claude
 Date: 2025-12-10
+Updated: 2026-01-03 - Migration vers JSONB pour les images
 """
 
 import pytest
@@ -20,31 +21,41 @@ from schemas.product_schemas import (
     ProductCreate,
     ProductUpdate,
     ProductResponse,
-    ProductImageCreate,
-    ProductImageResponse,
+    ProductImageItem,
     ProductListResponse,
 )
 
 
-class TestProductImageCreate:
-    """Tests pour le schema ProductImageCreate."""
+class TestProductImageItem:
+    """Tests pour le schema ProductImageItem (JSONB)."""
 
-    def test_default_display_order(self):
-        """Test ordre d'affichage par défaut."""
-        image = ProductImageCreate()
+    def test_valid_image_item(self):
+        """Test image item valide."""
+        image = ProductImageItem(
+            url="https://cdn.stoflow.io/1/products/5/abc123.jpg",
+            order=0,
+            created_at=datetime.now()
+        )
 
-        assert image.display_order == 0
+        assert image.url == "https://cdn.stoflow.io/1/products/5/abc123.jpg"
+        assert image.order == 0
 
-    def test_custom_display_order(self):
-        """Test ordre d'affichage personnalisé."""
-        image = ProductImageCreate(display_order=5)
-
-        assert image.display_order == 5
-
-    def test_negative_display_order_rejected(self):
-        """Test que display_order négatif est rejeté."""
+    def test_negative_order_rejected(self):
+        """Test que order négatif est rejeté."""
         with pytest.raises(ValidationError):
-            ProductImageCreate(display_order=-1)
+            ProductImageItem(
+                url="https://cdn.stoflow.io/1/products/5/abc123.jpg",
+                order=-1,
+                created_at=datetime.now()
+            )
+
+    def test_missing_url_rejected(self):
+        """Test que url manquant est rejeté."""
+        with pytest.raises(ValidationError):
+            ProductImageItem(
+                order=0,
+                created_at=datetime.now()
+            )
 
 
 class TestProductCreateRequiredFields:
@@ -56,9 +67,9 @@ class TestProductCreateRequiredFields:
             title="Test Product",
             description="Test description",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,  # 8 = Très bon état (EXCELLENT)
             brand="Levi's",
-            label_size="32",
+            size_original="32",
             color="Blue"
         )
 
@@ -72,9 +83,9 @@ class TestProductCreateRequiredFields:
             ProductCreate(
                 description="Test description",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -86,9 +97,9 @@ class TestProductCreateRequiredFields:
             ProductCreate(
                 title="Test Product",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -100,9 +111,9 @@ class TestProductCreateRequiredFields:
             ProductCreate(
                 title="Test Product",
                 description="Test description",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -116,7 +127,7 @@ class TestProductCreateRequiredFields:
                 description="Test description",
                 category="Jeans",
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -129,24 +140,24 @@ class TestProductCreateRequiredFields:
             title="Test Product",
             description="Test description",
             category="Jeans",
-            condition="EXCELLENT",
-            label_size="32",
+            condition=8,
+            size_original="32",
             color="Blue"
         )
         assert product.brand is None
 
-    def test_optional_label_size(self):
-        """Test que label_size est optionnel."""
-        # label_size est maintenant optionnel - pas d'erreur attendue
+    def test_optional_size_original(self):
+        """Test que size_original est optionnel."""
+        # size_original est maintenant optionnel - pas d'erreur attendue
         product = ProductCreate(
             title="Test Product",
             description="Test description",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             brand="Levi's",
             color="Blue"
         )
-        assert product.label_size is None
+        assert product.size_original is None
 
     def test_optional_color(self):
         """Test que color est optionnel."""
@@ -155,9 +166,9 @@ class TestProductCreateRequiredFields:
             title="Test Product",
             description="Test description",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             brand="Levi's",
-            label_size="32"
+            size_original="32"
         )
         assert product.color is None
 
@@ -172,9 +183,9 @@ class TestProductCreateXSSProtection:
                 title="<script>alert('xss')</script>",
                 description="Normal description",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -187,9 +198,9 @@ class TestProductCreateXSSProtection:
                 title="Normal title",
                 description="<iframe src='evil.com'></iframe>",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -202,9 +213,9 @@ class TestProductCreateXSSProtection:
                 title="Test <Product>",
                 description="Normal description",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -217,11 +228,11 @@ class TestProductCreateXSSProtection:
                 title="Normal title",
                 description="Normal description",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue",
-                condition_sup="<b>Bad</b>"
+                condition_sup=["<b>Bad</b>"]
             )
 
         assert "HTML" in str(exc_info.value)
@@ -232,9 +243,9 @@ class TestProductCreateXSSProtection:
             title="Levi's 501 Vintage Jeans - Great Condition!",
             description="These are amazing jeans (1990s) - 100% cotton. Size: W32 L34.",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             brand="Levi's",
-            label_size="32",
+            size_original="32",
             color="Blue"
         )
 
@@ -251,22 +262,21 @@ class TestProductCreateOptionalFields:
             description="Full description with all fields",
             price=Decimal("49.99"),
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             brand="Levi's",
-            label_size="32",
+            size_original="32",
             color="Blue",
             material="Denim",
             fit="Regular",
             gender="Men",
             season="All Season",
-            condition_sup="Minor wear",
+            condition_sup=["Minor wear"],
             rise="Mid Rise",
             closure="Button",
             sleeve_length=None,
             origin="USA",
             decade="90s",
             trend="Vintage",
-            name_sup="Classic",
             location="A3",
             model="501",
             dim1=32,
@@ -289,9 +299,9 @@ class TestProductCreateOptionalFields:
             description="Test",
             price=None,
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             brand="Levi's",
-            label_size="32",
+            size_original="32",
             color="Blue"
         )
 
@@ -305,9 +315,9 @@ class TestProductCreateOptionalFields:
                 description="Test",
                 price=Decimal("0"),
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -317,9 +327,9 @@ class TestProductCreateOptionalFields:
             title="Test",
             description="Test",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             brand="Levi's",
-            label_size="32",
+            size_original="32",
             color="Blue"
         )
 
@@ -332,9 +342,9 @@ class TestProductCreateOptionalFields:
                 title="Test",
                 description="Test",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue",
                 stock_quantity=-1
             )
@@ -346,9 +356,9 @@ class TestProductCreateOptionalFields:
                 title="Test",
                 description="Test",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue",
                 dim1=-5
             )
@@ -399,8 +409,9 @@ class TestProductResponse:
             price = Decimal("29.99")
             category = "Jeans"
             brand = "Levi's"
-            condition = "EXCELLENT"
-            label_size = "32"
+            condition = 8  # 8 = Très bon état
+            size_normalized = None
+            size_original = "32"
             color = "Blue"
             material = None
             fit = None
@@ -413,13 +424,13 @@ class TestProductResponse:
             origin = None
             decade = None
             trend = None
-            name_sup = None
             location = None
             model = None
             pattern = None
             neckline = None
             length = None
             sport = None
+            unique_feature = None
             dim1 = None
             dim2 = None
             dim3 = None
@@ -428,20 +439,18 @@ class TestProductResponse:
             dim6 = None
             stock_quantity = 1
             status = "draft"
-            scheduled_publish_at = None
-            published_at = None
             sold_at = None
             deleted_at = None
             created_at = datetime.now()
             updated_at = datetime.now()
-            integration_metadata = None
-            product_images = []
+            images = []  # JSONB: [{url, order, created_at}, ...]
 
         response = ProductResponse.model_validate(MockProduct())
 
         assert response.id == 1
         assert response.title == "Test Product"
         assert response.price == Decimal("29.99")
+        assert response.images == []
 
 
 class TestProductListResponse:
@@ -474,9 +483,9 @@ class TestProductCreateFieldLengths:
                 title="A" * 501,  # > 500
                 description="Test",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -487,9 +496,9 @@ class TestProductCreateFieldLengths:
                 title="",  # empty
                 description="Test",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -500,9 +509,9 @@ class TestProductCreateFieldLengths:
                 title="Test",
                 description="Test",
                 category="A" * 256,  # > 255
-                condition="EXCELLENT",
+                condition=8,
                 brand="Levi's",
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
 
@@ -513,8 +522,8 @@ class TestProductCreateFieldLengths:
                 title="Test",
                 description="Test",
                 category="Jeans",
-                condition="EXCELLENT",
+                condition=8,
                 brand="A" * 101,  # > 100
-                label_size="32",
+                size_original="32",
                 color="Blue"
             )
