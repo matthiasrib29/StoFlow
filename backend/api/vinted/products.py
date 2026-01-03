@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
 from models.user.vinted_product import VintedProduct
-from services.vinted import VintedSyncService
+from services.vinted import VintedSyncService, VintedJobService, VintedJobProcessor
 from .shared import get_active_vinted_connection
 
 router = APIRouter()
@@ -204,24 +204,50 @@ async def get_product(
 @router.post("/products/sync")
 async def sync_products(
     user_db: tuple = Depends(get_user_db),
+    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
 ) -> dict:
     """
     Synchronise les produits depuis la garde-robe Vinted.
 
-    Seuls les produits avec un SKU [123] dans le titre ET existant en BDD locale
-    sont synchronisés. Les autres sont ignorés (pas de suppression).
+    Crée un VintedJob pour tracer l'opération dans l'UI.
+
+    Args:
+        process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
 
     Returns:
-        {"synced": int, "skipped": int, "errors": int}
+        {
+            "job_id": int,
+            "status": str,
+            "result": dict | None (si process_now=True)
+        }
     """
     db, current_user = user_db
 
     connection = get_active_vinted_connection(db, current_user.id)
 
     try:
-        service = VintedSyncService(shop_id=connection.vinted_user_id)
-        result = await service.sync_products_from_api(db)
-        return result
+        job_service = VintedJobService(db)
+
+        # Create sync job (product_id=None for sync operations)
+        job = job_service.create_job(
+            action_code="sync",
+            product_id=None
+        )
+        db.commit()
+
+        response = {
+            "job_id": job.id,
+            "status": job.status.value,
+        }
+
+        # Execute immediately if requested
+        if process_now:
+            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            result = await processor._execute_job(job)
+            response["result"] = result
+            response["status"] = "completed" if result.get("success") else "failed"
+
+        return response
 
     except HTTPException:
         raise
@@ -232,62 +258,65 @@ async def sync_products(
         )
 
 
-@router.post("/products/{product_id}/publish")
-async def publish_product(
-    product_id: int,
-    user_db: tuple = Depends(get_user_db),
-) -> dict:
-    """
-    Publie un produit sur Vinted.
-
-    Returns:
-        {"success": bool, "vinted_id": int, "url": str, "price": float}
-    """
-    db, current_user = user_db
-
-    connection = get_active_vinted_connection(db, current_user.id)
-
-    try:
-        service = VintedSyncService(shop_id=connection.vinted_user_id)
-        result = await service.publish_product(db, product_id)
-
-        if not result.get("success"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=result.get("error", "Publication échouée")
-            )
-
-        return result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur publication: {str(e)}"
-        )
+# Note: POST /products/{product_id}/publish is in publishing.py (uses job system)
 
 
 @router.put("/products/{product_id}")
 async def update_product(
     product_id: int,
     user_db: tuple = Depends(get_user_db),
+    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
 ) -> dict:
     """
     Met à jour un produit Vinted (prix, titre, description).
 
+    Crée un VintedJob pour tracer l'opération dans l'UI.
+
+    Args:
+        product_id: ID du produit à mettre à jour
+        process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
+
     Returns:
-        {"success": bool, "product_id": int}
+        {
+            "job_id": int,
+            "status": str,
+            "result": dict | None (si process_now=True)
+        }
     """
     db, current_user = user_db
 
     connection = get_active_vinted_connection(db, current_user.id)
 
     try:
-        service = VintedSyncService(shop_id=connection.vinted_user_id)
-        result = await service.update_product(db, product_id)
-        return result
+        job_service = VintedJobService(db)
 
+        # Create update job
+        job = job_service.create_job(
+            action_code="update",
+            product_id=product_id
+        )
+        db.commit()
+
+        response = {
+            "job_id": job.id,
+            "status": job.status.value,
+            "product_id": product_id,
+        }
+
+        # Execute immediately if requested
+        if process_now:
+            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            result = await processor._execute_job(job)
+            response["result"] = result
+            response["status"] = "completed" if result.get("success") else "failed"
+
+        return response
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:
