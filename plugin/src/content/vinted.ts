@@ -68,8 +68,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const action = message.action;
 
   /**
-   * GET_VINTED_USER_INFO - Extract userId + login from Vinted page
-   * Used by check_vinted_connection task
+   * GET_VINTED_USER_INFO - Extract userId + login from Vinted page (DOM parsing)
+   * Used by check_vinted_connection task (legacy)
    */
   if (action === 'GET_VINTED_USER_INFO') {
     VintedLogger.debug('');
@@ -108,6 +108,132 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: error.message });
     }
     return true;
+  }
+
+  /**
+   * GET_VINTED_USER_PROFILE - Fetch full user profile from Vinted API
+   * Uses /api/v2/users/current endpoint with fallback to DOM parsing
+   * Returns user info + seller stats (item_count, feedback_count, etc.)
+   */
+  if (action === 'GET_VINTED_USER_PROFILE') {
+    VintedLogger.debug('');
+    VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
+    VintedLogger.debug('👤 [VINTED] Message reçu: GET_VINTED_USER_PROFILE');
+    VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
+
+    (async () => {
+      try {
+        // Try API call first
+        VintedLogger.debug('👤 Tentative appel API /api/v2/users/current...');
+
+        const requestId = `profile_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        let responseSent = false;
+
+        // Promise wrapper for API call
+        const apiResult = await new Promise<any>((resolve, reject) => {
+          const responseListener = (event: MessageEvent) => {
+            if (event.source !== window) return;
+            if (responseSent) return;
+
+            const msg = event.data;
+            if (msg.type === 'STOFLOW_API_RESPONSE' && msg.requestId === requestId) {
+              responseSent = true;
+              window.removeEventListener('message', responseListener);
+              clearTimeout(timeoutId);
+
+              if (msg.success && msg.data?.user) {
+                resolve(msg.data);
+              } else {
+                reject(new Error(msg.error || 'API call failed'));
+              }
+            }
+          };
+
+          window.addEventListener('message', responseListener);
+
+          const timeoutId = setTimeout(() => {
+            if (responseSent) return;
+            responseSent = true;
+            window.removeEventListener('message', responseListener);
+            reject(new Error('API timeout'));
+          }, 10000); // 10s timeout for API call
+
+          // Send message to injected script
+          window.postMessage({
+            type: 'STOFLOW_API_CALL',
+            requestId,
+            method: 'GET',
+            endpoint: '/users/current',
+            params: {},
+            data: null,
+            config: {}
+          }, '*');
+        });
+
+        // API call succeeded - extract full profile
+        const user = apiResult.user;
+        VintedLogger.debug('👤 ✅ API success! User:', user.login);
+
+        const response = {
+          success: true,
+          source: 'api',
+          data: {
+            userId: user.id,
+            login: user.login,
+            // Seller stats
+            stats: {
+              item_count: user.item_count,
+              total_items_count: user.total_items_count,
+              given_item_count: user.given_item_count,
+              taken_item_count: user.taken_item_count,
+              followers_count: user.followers_count,
+              feedback_count: user.feedback_count,
+              feedback_reputation: user.feedback_reputation,
+              positive_feedback_count: user.positive_feedback_count,
+              negative_feedback_count: user.negative_feedback_count,
+              is_business: user.business,
+              is_on_holiday: user.is_on_holiday
+            }
+          }
+        };
+
+        VintedLogger.debug('👤 ✅ Réponse avec stats:', response);
+        VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
+        sendResponse(response);
+
+      } catch (apiError: any) {
+        // API failed - fallback to DOM parsing
+        VintedLogger.warn('👤 ⚠️ API failed, fallback to DOM parsing:', apiError.message);
+
+        try {
+          const userInfo = getVintedUserInfo();
+
+          const response = {
+            success: true,
+            source: 'dom',
+            data: {
+              userId: userInfo.userId,
+              login: userInfo.login,
+              stats: null // No stats from DOM parsing
+            }
+          };
+
+          VintedLogger.debug('👤 ✅ Fallback DOM success:', response);
+          VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
+          sendResponse(response);
+
+        } catch (domError: any) {
+          VintedLogger.error('👤 ❌ Both API and DOM failed:', domError.message);
+          VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
+          sendResponse({
+            success: false,
+            error: `API: ${apiError.message}, DOM: ${domError.message}`
+          });
+        }
+      }
+    })();
+
+    return true; // Async response
   }
 
   /**

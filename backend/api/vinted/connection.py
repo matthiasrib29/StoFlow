@@ -19,30 +19,34 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
 from models.user.vinted_connection import VintedConnection
-from .shared import VintedConnectRequest
+from .shared import VintedConnectRequest, VintedConnectWithStatsRequest
 
 router = APIRouter()
 
 
 @router.post("/connect")
 async def connect_vinted(
-    request: VintedConnectRequest,
+    request: VintedConnectWithStatsRequest,
     user_db: tuple = Depends(get_user_db),
 ) -> dict:
     """
     Connecte/synchronise le compte Vinted de l'utilisateur.
 
-    Le plugin extrait userId + login depuis le HTML Vinted et les envoie ici.
+    Supports two modes:
+    - API mode: Plugin calls /api/v2/users/current and sends full profile with stats
+    - DOM mode: Plugin extracts userId + login from HTML (legacy fallback)
 
     Args:
-        request: Body JSON avec vinted_user_id et login
+        request: Body JSON avec vinted_user_id, login, et optionnellement stats
 
     Returns:
-        {"success": True, "vinted_user_id": int, "login": str}
+        {"success": True, "vinted_user_id": int, "login": str, "stats_updated": bool}
     """
     db, current_user = user_db
     vinted_user_id = request.vinted_user_id
     login = request.login
+    stats = request.stats
+    source = request.source or "unknown"
 
     try:
         now = datetime.now(timezone.utc)
@@ -67,13 +71,21 @@ async def connect_vinted(
             )
             db.add(connection)
 
+        # Update seller stats if provided (from API call)
+        stats_updated = False
+        if stats:
+            connection.update_seller_stats(stats.model_dump())
+            stats_updated = True
+
         db.commit()
 
         return {
             "success": True,
             "vinted_user_id": vinted_user_id,
             "login": login,
-            "last_sync": now.isoformat()
+            "last_sync": now.isoformat(),
+            "stats_updated": stats_updated,
+            "source": source
         }
 
     except Exception as e:
@@ -89,20 +101,23 @@ async def check_vinted_connection(
     user_db: tuple = Depends(get_user_db),
 ) -> dict:
     """
-    Vérifie la connexion Vinted via le plugin.
+    Vérifie la connexion Vinted via le plugin et récupère le profil complet.
 
     Flow:
     1. Frontend appelle cet endpoint
-    2. Backend crée une task get_vinted_user_info
-    3. Plugin récupère la task via polling et l'exécute
-    4. Plugin renvoie userId/login extraits du DOM Vinted
-    5. Backend sauvegarde la connexion et renvoie au frontend
+    2. Backend crée une task get_vinted_user_profile
+    3. Plugin récupère la task et appelle l'API /api/v2/users/current
+    4. Si l'API échoue, fallback sur extraction DOM
+    5. Plugin renvoie userId/login + stats vendeur (si API)
+    6. Backend sauvegarde la connexion et les stats
 
     Returns:
         {
             "connected": bool,
             "vinted_user_id": int | null,
             "login": str | null,
+            "source": "api" | "dom",
+            "stats_updated": bool,
             "message": str
         }
 
@@ -110,16 +125,18 @@ async def check_vinted_connection(
         408: Timeout si le plugin ne répond pas dans les 30s
         400: Si le plugin n'est pas connecté à Vinted
     """
-    from services.plugin_task_helper import verify_vinted_connection
+    from services.plugin_task_helper import verify_vinted_connection_with_profile
 
     db, current_user = user_db
 
     try:
-        result = await verify_vinted_connection(db, timeout=30)
+        result = await verify_vinted_connection_with_profile(db, timeout=30)
 
         if result.get("connected"):
             vinted_user_id = result.get("userId")
             login = result.get("login")
+            source = result.get("source", "unknown")
+            stats = result.get("stats")
             now = datetime.now(timezone.utc)
 
             connection = db.query(VintedConnection).filter(
@@ -140,12 +157,20 @@ async def check_vinted_connection(
                 )
                 db.add(connection)
 
+            # Update seller stats if available (from API call)
+            stats_updated = False
+            if stats:
+                connection.update_seller_stats(stats)
+                stats_updated = True
+
             db.commit()
 
             return {
                 "connected": True,
                 "vinted_user_id": vinted_user_id,
                 "login": login,
+                "source": source,
+                "stats_updated": stats_updated,
                 "message": f"Connecté en tant que {login}"
             }
         else:
@@ -153,6 +178,8 @@ async def check_vinted_connection(
                 "connected": False,
                 "vinted_user_id": None,
                 "login": None,
+                "source": None,
+                "stats_updated": False,
                 "message": "Non connecté à Vinted. Ouvrez vinted.fr et connectez-vous."
             }
 
