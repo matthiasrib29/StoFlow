@@ -233,9 +233,14 @@ export class PollingManager {
    * Exécute une tâche spécifique
    */
   private async executeTask(task: any): Promise<any> {
-    // Tâche spéciale: extraction userId/login depuis DOM
+    // Tâche spéciale: extraction userId/login depuis DOM (legacy)
     if (task.task_type === 'get_vinted_user_info') {
       return await this.executeGetVintedUserInfo();
+    }
+
+    // Tâche spéciale: récupération profil complet via API avec fallback DOM
+    if (task.task_type === 'get_vinted_user_profile') {
+      return await this.executeGetVintedUserProfile();
     }
 
     // Tâche spéciale: ping DataDome pour maintenir la session
@@ -394,8 +399,62 @@ export class PollingManager {
       connected: !!(response.data?.userId && response.data?.login),
       userId: response.data?.userId || null,
       login: response.data?.login || null,
+      source: 'dom',
       timestamp: new Date().toISOString()
     };
+  }
+
+  /**
+   * Execute GET_VINTED_USER_PROFILE task
+   * Calls Vinted API /api/v2/users/current with fallback to DOM parsing
+   * Returns full user profile with seller stats
+   */
+  private async executeGetVintedUserProfile(): Promise<any> {
+    BackgroundLogger.debug('[Long Polling] 👤 Executing get_vinted_user_profile (API + fallback)...');
+
+    const vintedTabs = await chrome.tabs.query({ url: 'https://www.vinted.fr/*' });
+
+    if (vintedTabs.length === 0) {
+      const error: any = new Error('Aucun onglet Vinted ouvert');
+      error.status = 503;
+      error.statusText = 'No Vinted Tab';
+      throw error;
+    }
+
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(vintedTabs[0].id!, {
+        action: 'GET_VINTED_USER_PROFILE'
+      });
+    } catch (sendError: any) {
+      BackgroundLogger.error('[Long Polling] Content script non accessible (UserProfile):', sendError.message);
+      const error: any = new Error('Content script Vinted non chargé. Rechargez la page Vinted.');
+      error.status = 503;
+      error.statusText = 'Content Script Unavailable';
+      throw error;
+    }
+
+    if (!response?.success) {
+      throw new Error(response?.error || 'Impossible de récupérer le profil Vinted');
+    }
+
+    const result: any = {
+      connected: !!(response.data?.userId && response.data?.login),
+      userId: response.data?.userId || null,
+      login: response.data?.login || null,
+      source: response.source || 'unknown',
+      timestamp: new Date().toISOString()
+    };
+
+    // Add stats if available (from API call)
+    if (response.data?.stats) {
+      result.stats = response.data.stats;
+      BackgroundLogger.debug('[Long Polling] 👤 ✅ Profile with stats retrieved:', result.login);
+    } else {
+      BackgroundLogger.debug('[Long Polling] 👤 ✅ Profile retrieved (no stats - DOM fallback):', result.login);
+    }
+
+    return result;
   }
 
   /**
