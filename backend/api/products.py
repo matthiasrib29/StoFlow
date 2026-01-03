@@ -696,7 +696,7 @@ async def analyze_product_images(
         ensure_user_owns_resource(current_user, product, "produit", allow_support=False)
 
         # Vérifier qu'il y a des images
-        if not product.product_images:
+        if not product.images:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Le produit n'a pas d'images à analyser.",
