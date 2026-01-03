@@ -85,6 +85,7 @@ def _commit_and_restore_path(db: Session) -> None:
 # RATE LIMITER - Anti-bot detection
 # =============================================================================
 
+
 class VintedRateLimiter:
     """
     Rate limiter avec délais aléatoires pour éviter la détection bot.
@@ -98,17 +99,15 @@ class VintedRateLimiter:
     # Configuration des délais par pattern d'URL (min_delay, max_delay en secondes)
     DELAY_CONFIG = {
         # Opérations sensibles - délais longs
-        'item_upload': (3.0, 6.0),       # Création de produit
-        'items/.*/delete': (2.5, 5.0),   # Suppression
-        'photos': (2.0, 4.0),            # Upload d'images
-
+        "item_upload": (3.0, 6.0),  # Création de produit
+        "items/.*/delete": (2.5, 5.0),  # Suppression
+        "photos": (2.0, 4.0),  # Upload d'images
         # Opérations de lecture - délais courts
-        'wardrobe': (0.5, 1.5),          # Liste produits
-        'my_orders': (0.5, 1.5),         # Commandes
-        'users': (0.3, 1.0),             # Info utilisateur
-
+        "wardrobe": (0.5, 1.5),  # Liste produits
+        "my_orders": (0.5, 1.5),  # Commandes
+        "users": (0.3, 1.0),  # Info utilisateur
         # Par défaut
-        'default': (0.3, 1.0),
+        "default": (0.3, 1.0),
     }
 
     # Multiplicateur pour les opérations d'écriture (PUT/DELETE)
@@ -124,14 +123,14 @@ class VintedRateLimiter:
     def _get_delay_config(cls, path: str) -> tuple[float, float]:
         """Retourne (min_delay, max_delay) pour une URL donnée."""
         for pattern, delays in cls.DELAY_CONFIG.items():
-            if pattern == 'default':
+            if pattern == "default":
                 continue
             if re.search(pattern, path, re.IGNORECASE):
                 return delays
-        return cls.DELAY_CONFIG['default']
+        return cls.DELAY_CONFIG["default"]
 
     @classmethod
-    async def wait_before_request(cls, path: str, http_method: str = 'GET') -> float:
+    async def wait_before_request(cls, path: str, http_method: str = "GET") -> float:
         """
         Attend un délai aléatoire avant d'exécuter une requête.
 
@@ -145,7 +144,7 @@ class VintedRateLimiter:
         min_delay, max_delay = cls._get_delay_config(path)
 
         # Augmenter le délai pour les opérations d'écriture
-        if http_method in ('POST', 'PUT', 'DELETE'):
+        if http_method in ("POST", "PUT", "DELETE"):
             min_delay *= cls.WRITE_MULTIPLIER
             max_delay *= cls.WRITE_MULTIPLIER
 
@@ -163,10 +162,14 @@ class VintedRateLimiter:
         if cls._request_count % 10 == 0:
             # Pause plus longue périodiquement (simule une pause humaine)
             delay += random.uniform(1.0, 3.0)
-            logger.debug(f"[RateLimiter] Pause périodique ajoutée (requête #{cls._request_count})")
+            logger.debug(
+                f"[RateLimiter] Pause périodique ajoutée (requête #{cls._request_count})"
+            )
 
         if delay > 0:
-            logger.debug(f"[RateLimiter] Attente {delay:.2f}s avant {http_method} {path[:50]}...")
+            logger.debug(
+                f"[RateLimiter] Attente {delay:.2f}s avant {http_method} {path[:50]}..."
+            )
             await asyncio.sleep(delay)
 
         cls._last_request_time = time.time()
@@ -182,6 +185,7 @@ class VintedRateLimiter:
 # =============================================================================
 # PLUGIN TASK HELPER
 # =============================================================================
+
 
 class PluginTaskHelper:
     """
@@ -209,7 +213,7 @@ class PluginTaskHelper:
         platform: str = "vinted",
         product_id: Optional[int] = None,
         job_id: Optional[int] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ) -> PluginTask:
         """
         Crée une tâche HTTP simple pour le plugin.
@@ -243,7 +247,7 @@ class PluginTaskHelper:
             payload=payload or {},
             product_id=product_id,
             job_id=job_id,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
         )
 
         db.add(task)
@@ -265,7 +269,7 @@ class PluginTaskHelper:
         platform: str = "vinted",
         payload: Optional[dict] = None,
         product_id: Optional[int] = None,
-        job_id: Optional[int] = None
+        job_id: Optional[int] = None,
     ) -> PluginTask:
         """
         Crée une tâche spéciale non-HTTP pour le plugin.
@@ -299,23 +303,22 @@ class PluginTaskHelper:
             payload=payload or {},
             product_id=product_id,
             job_id=job_id,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
         )
 
         db.add(task)
         _commit_and_restore_path(db)  # Commit + restaure search_path
         db.refresh(task)
 
-        logger.debug(f"[PluginTaskHelper] Tâche spéciale créée #{task.id} - {task_type}")
+        logger.debug(
+            f"[PluginTaskHelper] Tâche spéciale créée #{task.id} - {task_type}"
+        )
 
         return task
 
     @staticmethod
     async def wait_for_task_completion(
-        db: Session,
-        task_id: int,
-        timeout: int = 60,
-        poll_interval: float = 1.0
+        db: Session, task_id: int, timeout: int = 60, poll_interval: float = 1.0
     ) -> dict[str, Any]:
         """
         Attend qu'une tâche soit complétée (comme requests.post() bloque).
@@ -362,8 +365,8 @@ class PluginTaskHelper:
                 )
 
                 # Retourner juste la data (comme response.json())
-                if task.result and 'data' in task.result:
-                    return task.result['data']
+                if task.result and "data" in task.result:
+                    return task.result["data"]
                 else:
                     return task.result or {}
 
@@ -405,7 +408,7 @@ class PluginTaskHelper:
         except Exception as e:
             logger.error(
                 f"[PluginTaskHelper] Erreur annulation tâche #{task_id}: {e}",
-                exc_info=True
+                exc_info=True,
             )
 
         raise TimeoutError(
@@ -417,6 +420,7 @@ class PluginTaskHelper:
 # HELPER FUNCTIONS
 # =============================================================================
 
+
 async def create_and_wait(
     db: Session,
     http_method: str,
@@ -424,7 +428,7 @@ async def create_and_wait(
     payload: Optional[dict] = None,
     timeout: int = 60,
     rate_limit: bool = True,
-    **kwargs
+    **kwargs,
 ) -> dict[str, Any]:
     """
     Helper all-in-one : crée une tâche et attend son résultat.
@@ -464,7 +468,7 @@ async def create_and_wait_no_limit(
     path: str,
     payload: Optional[dict] = None,
     timeout: int = 60,
-    **kwargs
+    **kwargs,
 ) -> dict[str, Any]:
     """
     Comme create_and_wait mais SANS rate limiting.
@@ -472,15 +476,11 @@ async def create_and_wait_no_limit(
     Utile pour les requêtes internes ou urgentes.
     """
     return await create_and_wait(
-        db, http_method, path, payload, timeout,
-        rate_limit=False, **kwargs
+        db, http_method, path, payload, timeout, rate_limit=False, **kwargs
     )
 
 
-async def verify_vinted_connection(
-    db: Session,
-    timeout: int = 30
-) -> dict[str, Any]:
+async def verify_vinted_connection(db: Session, timeout: int = 30) -> dict[str, Any]:
     """
     Vérifie que le plugin est connecté à Vinted (legacy - DOM parsing only).
 
@@ -514,8 +514,7 @@ async def verify_vinted_connection(
 
 
 async def verify_vinted_connection_with_profile(
-    db: Session,
-    timeout: int = 30
+    db: Session, timeout: int = 30
 ) -> dict[str, Any]:
     """
     Vérifie la connexion Vinted et récupère le profil complet avec stats vendeur.
@@ -562,4 +561,213 @@ async def verify_vinted_connection_with_profile(
     """
     helper = PluginTaskHelper()
     task = helper.create_special_task(db, "get_vinted_user_profile", platform="vinted")
+    return await helper.wait_for_task_completion(db, task.id, timeout)
+
+
+async def create_and_wait_with_401_handling(
+    db: Session,
+    http_method: str,
+    path: str,
+    payload: Optional[dict] = None,
+    timeout: int = 60,
+    max_refresh_attempts: int = 1,
+    rate_limit: bool = True,
+    job_id: Optional[int] = None,
+    **kwargs,
+) -> dict[str, Any]:
+    """
+    Like create_and_wait but with automatic 401 handling and session refresh.
+
+    If the task fails with 401 (session expired):
+    1. Creates a refresh_vinted_session task
+    2. If refresh succeeds, retries the original task
+    3. If refresh fails, raises exception
+
+    This is the BACKEND-DRIVEN approach: the plugin just reports 401,
+    the backend decides when to refresh and retry.
+
+    Args:
+        db: Session SQLAlchemy
+        http_method: GET, POST, PUT, DELETE
+        path: URL complète
+        payload: Body de la requête
+        timeout: Timeout en secondes
+        max_refresh_attempts: Max number of session refresh attempts (default: 1)
+        rate_limit: Si True, applique un délai aléatoire (défaut: True)
+        job_id: ID du job parent (optionnel, pour logs)
+        **kwargs: Arguments supplémentaires pour create_http_task
+
+    Returns:
+        dict: Task result (data)
+
+    Raises:
+        Exception: If task fails after all retry attempts
+        TimeoutError: If timeout exceeded
+
+    Example:
+        # Will automatically retry once if 401 is received:
+        result = await create_and_wait_with_401_handling(
+            db, "GET", "/api/v2/users/current",
+            max_refresh_attempts=1
+        )
+    """
+    refresh_attempts = 0
+    helper = PluginTaskHelper()
+
+    while True:
+        # Apply rate limiting if enabled
+        if rate_limit:
+            await VintedRateLimiter.wait_before_request(path, http_method)
+
+        # Create the HTTP task
+        task = helper.create_http_task(
+            db, http_method, path, payload, job_id=job_id, **kwargs
+        )
+
+        logger.debug(
+            f"[401Handler] Created task #{task.id} - {http_method} {path[:50]}..."
+            f" (refresh_attempts={refresh_attempts})"
+        )
+
+        # Wait for completion (polling manually to get task object)
+        start_time = time.time()
+        poll_interval = 1.0
+
+        while time.time() - start_time < timeout:
+            db.expire_all()
+            task = db.query(PluginTask).filter(PluginTask.id == task.id).first()
+
+            if not task:
+                raise ValueError(f"Task #{task.id} not found")
+
+            if task.status == TaskStatus.SUCCESS:
+                # Success - return data
+                logger.debug(f"[401Handler] Task #{task.id} succeeded")
+                if task.result and "data" in task.result:
+                    return task.result["data"]
+                return task.result or {}
+
+            elif task.status == TaskStatus.FAILED:
+                # Check if this is a 401 requiring refresh
+                requires_refresh = task.result and task.result.get(
+                    "requires_refresh", False
+                )
+
+                if requires_refresh and refresh_attempts < max_refresh_attempts:
+                    refresh_attempts += 1
+                    logger.warning(
+                        f"[401Handler] Task #{task.id} failed with 401 - "
+                        f"Attempting session refresh ({refresh_attempts}/{max_refresh_attempts})"
+                    )
+
+                    try:
+                        # Call refresh_vinted_session
+                        refresh_result = await refresh_vinted_session(
+                            db, job_id=job_id, timeout=30
+                        )
+
+                        if refresh_result.get("success"):
+                            logger.info(
+                                f"[401Handler] Session refreshed, retrying task"
+                            )
+                            break  # Break inner while to retry outer while
+                        else:
+                            raise Exception(
+                                "Vinted session refresh failed: "
+                                f"{refresh_result.get('error', 'Unknown error')}"
+                            )
+
+                    except Exception as refresh_error:
+                        logger.error(
+                            f"[401Handler] Session refresh failed: {refresh_error}"
+                        )
+                        raise Exception(
+                            f"Vinted session expired and refresh failed: {refresh_error}"
+                        )
+
+                elif requires_refresh:
+                    # Max refresh attempts reached
+                    raise Exception(
+                        f"Task #{task.id} failed with 401: max refresh attempts "
+                        f"({max_refresh_attempts}) reached"
+                    )
+                else:
+                    # Normal failure (not 401)
+                    error_msg = task.error_message or "Unknown error"
+                    raise Exception(f"Task #{task.id} failed: {error_msg}")
+
+            elif task.status == TaskStatus.TIMEOUT:
+                raise TimeoutError(f"Task #{task.id} timeout (marked by plugin)")
+
+            elif task.status == TaskStatus.CANCELLED:
+                raise Exception(f"Task #{task.id} cancelled")
+
+            await asyncio.sleep(poll_interval)
+
+        else:
+            # Timeout reached (while loop completed without break)
+            elapsed = time.time() - start_time
+            try:
+                db.expire_all()
+                task = db.query(PluginTask).filter(PluginTask.id == task.id).first()
+                if task and task.status in (TaskStatus.PENDING, TaskStatus.PROCESSING):
+                    task.status = TaskStatus.CANCELLED
+                    task.error_message = f"Backend timeout after {elapsed:.2f}s"
+                    task.completed_at = datetime.now(timezone.utc)
+                    _commit_and_restore_path(db)
+            except Exception as e:
+                logger.error(f"[401Handler] Error cancelling task #{task.id}: {e}")
+
+            raise TimeoutError(f"Task #{task.id} timeout after {elapsed:.2f}s")
+
+        # If we broke out of inner while (after refresh), continue outer while to retry
+        continue
+
+
+async def refresh_vinted_session(
+    db: Session, job_id: Optional[int] = None, timeout: int = 30
+) -> dict[str, Any]:
+    """
+    Rafraîchit la session Vinted via /web/api/auth/refresh.
+
+    Crée une tâche refresh_vinted_session qui demande au plugin de :
+    1. Appeler /web/api/auth/refresh pour régénérer les cookies de session
+    2. Réinitialiser l'instance Axios de Vinted
+
+    Utilisé par le job processor quand une tâche retourne 401 (session expirée).
+
+    Args:
+        db: Session SQLAlchemy
+        job_id: ID du job parent (optionnel, pour logs)
+        timeout: Timeout en secondes (défaut: 30s)
+
+    Returns:
+        dict: {
+            "success": bool,
+            "refreshed": bool,
+            "timestamp": str
+        }
+
+    Raises:
+        TimeoutError: Si le plugin ne répond pas
+        Exception: Si le refresh échoue (401 = session vraiment expirée)
+
+    Example:
+        result = await refresh_vinted_session(db, job_id=job.id)
+        if result['success']:
+            # Session refreshed, retry la tâche originale
+            pass
+        else:
+            # Session vraiment expirée, demander reconnexion
+            raise Exception("Vinted session expired, please reconnect")
+    """
+    logger.info(
+        f"[PluginTaskHelper] Refreshing Vinted session"
+        f"{f' (job_id={job_id})' if job_id else ''}"
+    )
+
+    helper = PluginTaskHelper()
+    task = helper.create_special_task(
+        db, "refresh_vinted_session", platform="vinted", job_id=job_id
+    )
     return await helper.wait_for_task_completion(db, task.id, timeout)

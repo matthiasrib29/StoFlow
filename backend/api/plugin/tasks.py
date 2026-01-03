@@ -47,17 +47,15 @@ LONG_POLL_CHECK_INTERVAL = 1  # Vérifier la DB toutes les 1 seconde
 # UPDATED 2025-12-22: Increased delays to avoid DataDome 403 errors
 RATE_LIMIT_DELAYS = {
     # Opérations sensibles - délais plus longs
-    'item_upload': (3000, 5000),        # Création de produit: 3-5s
-    'items/.*/delete': (3000, 5000),    # Suppression: 3-5s
-    'photos': (3000, 5000),             # Upload d'images: 3-5s
-
+    "item_upload": (3000, 5000),  # Création de produit: 3-5s
+    "items/.*/delete": (3000, 5000),  # Suppression: 3-5s
+    "photos": (3000, 5000),  # Upload d'images: 3-5s
     # Opérations de lecture - délais 2-4s (increased from 1-2s)
-    'wardrobe': (2000, 4000),           # Liste produits: 2-4s
-    'my_orders': (2000, 4000),          # Commandes: 2-4s
-    'items/': (2500, 4500),             # Détail produit (HTML): 2.5-4.5s (most sensitive)
-
+    "wardrobe": (2000, 4000),  # Liste produits: 2-4s
+    "my_orders": (2000, 4000),  # Commandes: 2-4s
+    "items/": (2500, 4500),  # Détail produit (HTML): 2.5-4.5s (most sensitive)
     # Par défaut: 2-3s (increased from 1-2s)
-    'default': (2000, 3000),
+    "default": (2000, 3000),
 }
 
 # Multiplicateur pour les opérations d'écriture (POST/PUT/DELETE)
@@ -85,9 +83,9 @@ def _calculate_execute_delay(path: str | None, http_method: str | None) -> int:
         return MIN_ABSOLUTE_DELAY_MS
 
     # Trouver le pattern correspondant
-    min_delay, max_delay = RATE_LIMIT_DELAYS['default']
+    min_delay, max_delay = RATE_LIMIT_DELAYS["default"]
     for pattern, delays in RATE_LIMIT_DELAYS.items():
-        if pattern == 'default':
+        if pattern == "default":
             continue
         if re.search(pattern, path, re.IGNORECASE):
             min_delay, max_delay = delays
@@ -97,7 +95,7 @@ def _calculate_execute_delay(path: str | None, http_method: str | None) -> int:
     delay = random.randint(min_delay, max_delay)
 
     # Augmenter pour les opérations d'écriture
-    if http_method and http_method.upper() in ('POST', 'PUT', 'DELETE'):
+    if http_method and http_method.upper() in ("POST", "PUT", "DELETE"):
         delay = int(delay * WRITE_MULTIPLIER)
 
     return max(delay, MIN_ABSOLUTE_DELAY_MS)
@@ -113,7 +111,9 @@ def _fetch_pending_tasks(db: Session, limit: int) -> list:
 
     tasks = (
         db.query(PluginTask)
-        .filter(PluginTask.status == TaskStatus.PENDING, PluginTask.platform.isnot(None))
+        .filter(
+            PluginTask.status == TaskStatus.PENDING, PluginTask.platform.isnot(None)
+        )
         .order_by(PluginTask.created_at)
         .limit(limit)
         .all()
@@ -161,7 +161,9 @@ def _build_task_response(task: PluginTask) -> PluginTaskResponse:
     )
 
 
-@router.get("/tasks", response_model=PendingTasksResponse, status_code=status.HTTP_200_OK)
+@router.get(
+    "/tasks", response_model=PendingTasksResponse, status_code=status.HTTP_200_OK
+)
 async def get_tasks_with_long_polling(
     user_db: tuple = Depends(get_user_db),
     timeout: int = 30,
@@ -222,7 +224,9 @@ async def get_tasks_with_long_polling(
     has_tasks = len(task_responses) > 0
 
     if not has_tasks:
-        logger.debug(f"[Long Polling] User {current_user.id}: timeout après {timeout}s, aucune tâche")
+        logger.debug(
+            f"[Long Polling] User {current_user.id}: timeout après {timeout}s, aucune tâche"
+        )
 
     return PendingTasksResponse(
         tasks=task_responses,
@@ -250,7 +254,9 @@ async def get_pending_tasks(
 
     tasks = (
         db.query(PluginTask)
-        .filter(PluginTask.status == TaskStatus.PENDING, PluginTask.platform.isnot(None))
+        .filter(
+            PluginTask.status == TaskStatus.PENDING, PluginTask.platform.isnot(None)
+        )
         .order_by(PluginTask.created_at)
         .limit(limit)
         .all()
@@ -306,7 +312,9 @@ async def submit_task_result(
     logger.debug(f"[submit_task_result] Task {task_id} - success={result.success}")
     if result.result:
         # Ne logger que les clés, pas les valeurs (risque tokens/secrets)
-        safe_keys = list(result.result.keys()) if isinstance(result.result, dict) else None
+        safe_keys = (
+            list(result.result.keys()) if isinstance(result.result, dict) else None
+        )
         logger.debug(f"[submit_task_result] Result keys: {safe_keys}")
 
     # Récupérer la task
@@ -387,6 +395,30 @@ async def submit_task_result(
                 logger.info(
                     f"[No Vinted Tab] Cancelled {cancelled_count} pending task(s)"
                 )
+
+        # ===== GESTION 401 "Session Expired" (2025-01-03) =====
+        # Si le plugin reçoit un 401, c'est que la session Vinted a expiré
+        # On marque la task avec requires_refresh pour que le job processor
+        # puisse créer une tâche refresh_vinted_session et retry
+        is_session_expired = http_status == 401
+
+        if is_session_expired:
+            logger.warning(
+                f"[Session Expired] Task #{task_id_val} failed with 401 - "
+                "Vinted session needs refresh"
+            )
+
+            # Ajouter le flag requires_refresh pour le job processor
+            task.result = {
+                **(task.result or {}),
+                "requires_refresh": True,
+                "original_task": {
+                    "http_method": task.http_method,
+                    "path": task.path,
+                    "params": task.params,
+                    "payload": task.payload,
+                },
+            }
 
         db.commit()
 

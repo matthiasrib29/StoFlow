@@ -537,6 +537,63 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     return true; // Async response
   }
+
+  /**
+   * REFRESH_VINTED_SESSION - Refresh Vinted session cookies
+   * Called by backend when a task returns 401
+   * Uses /web/api/auth/refresh endpoint to regenerate session
+   */
+  if (action === 'REFRESH_VINTED_SESSION') {
+    VintedLogger.debug('');
+    VintedLogger.debug('🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄');
+    VintedLogger.debug('🔄 [VINTED] REFRESH_VINTED_SESSION received');
+    VintedLogger.debug('🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄');
+
+    const requestId = `refresh_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    let responseSent = false;
+
+    const responseListener = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      if (responseSent) return;
+
+      const msg = event.data;
+
+      if (msg.type === 'STOFLOW_REFRESH_SESSION_RESPONSE' && msg.requestId === requestId) {
+        responseSent = true;
+        window.removeEventListener('message', responseListener);
+        clearTimeout(timeoutId);
+
+        VintedLogger.debug('🔄 [VINTED] Refresh session response:', msg);
+
+        sendResponse({
+          success: msg.success,
+          error: msg.error || null
+        });
+      }
+    };
+
+    window.addEventListener('message', responseListener);
+
+    const timeoutId = setTimeout(() => {
+      if (responseSent) return;
+      responseSent = true;
+      window.removeEventListener('message', responseListener);
+      VintedLogger.warn('🔄 [VINTED] Refresh session timeout');
+      sendResponse({
+        success: false,
+        error: 'Refresh session timeout (10s)'
+      });
+    }, 10000);
+
+    window.postMessage({
+      type: 'STOFLOW_REFRESH_SESSION',
+      requestId
+    }, '*');
+
+    VintedLogger.debug('🔄 [VINTED] Message STOFLOW_REFRESH_SESSION sent to injected script');
+
+    return true; // Async response
+  }
 });
 
 VintedLogger.debug('[Stoflow] Content script loaded');
