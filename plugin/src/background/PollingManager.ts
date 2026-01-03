@@ -248,6 +248,11 @@ export class PollingManager {
       return await this.executeDataDomePing();
     }
 
+    // Tâche spéciale: refresh session Vinted (appelé par backend après 401)
+    if (task.task_type === 'refresh_vinted_session') {
+      return await this.executeRefreshVintedSession();
+    }
+
     // Tâches HTTP
     if (task.http_method && task.path) {
       BackgroundLogger.debug(`[Long Polling] ${task.http_method} ${task.path}`);
@@ -502,6 +507,53 @@ export class PollingManager {
       ping_count: response.data?.ping_count || 0,
       reloaded: response.data?.reloaded || false,
       datadome_info: response.data?.datadome_info || null,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Execute Vinted session refresh
+   * Called by backend when a task returns 401 (session expired)
+   * Uses /web/api/auth/refresh to regenerate session cookies
+   */
+  private async executeRefreshVintedSession(): Promise<any> {
+    BackgroundLogger.debug('[Long Polling] 🔄 Executing Vinted session refresh...');
+
+    const vintedTabs = await chrome.tabs.query({ url: 'https://www.vinted.fr/*' });
+
+    if (vintedTabs.length === 0) {
+      const error: any = new Error('Aucun onglet Vinted ouvert');
+      error.status = 503;
+      error.statusText = 'No Vinted Tab';
+      throw error;
+    }
+
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(vintedTabs[0].id!, {
+        action: 'REFRESH_VINTED_SESSION'
+      });
+    } catch (sendError: any) {
+      BackgroundLogger.error('[Long Polling] Content script non accessible (Refresh):', sendError.message);
+      const error: any = new Error('Content script Vinted non chargé. Rechargez la page Vinted.');
+      error.status = 503;
+      error.statusText = 'Content Script Unavailable';
+      throw error;
+    }
+
+    if (!response?.success) {
+      BackgroundLogger.warn('[Long Polling] 🔄 Vinted session refresh failed:', response?.error);
+      const error: any = new Error(response?.error || 'Session refresh failed');
+      error.status = 401;
+      error.statusText = 'Refresh Failed';
+      throw error;
+    }
+
+    BackgroundLogger.info('[Long Polling] 🔄 Vinted session refreshed successfully');
+
+    return {
+      success: true,
+      refreshed: true,
       timestamp: new Date().toISOString()
     };
   }
