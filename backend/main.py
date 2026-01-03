@@ -23,10 +23,11 @@ from api.auth import router as auth_router
 from api.attributes import router as attributes_router
 from api.docs import router as docs_router
 from api.public import router as public_router
-# TEMPORARILY DISABLED (2025-12-24) - PlatformMapping model missing
-# from api.ebay import router as ebay_router, products_router as ebay_products_router
-# from api.ebay_oauth import router as ebay_oauth_router
-# from api.ebay_webhook import router as ebay_webhook_router
+# eBay routers (re-enabled 2026-01-03)
+from api.ebay import router as ebay_router, products_router as ebay_products_router
+from api.ebay_oauth import router as ebay_oauth_router
+from api.ebay_webhook import router as ebay_webhook_router
+# TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)
 # from api.etsy import router as etsy_router
 # from api.etsy_oauth import router as etsy_oauth_router
 from api.integrations import router as integrations_router
@@ -332,11 +333,12 @@ app.include_router(plugin_router, prefix="/api")
 app.include_router(stripe_router, prefix="/api")
 app.include_router(subscription_router, prefix="/api")
 app.include_router(vinted_router, prefix="/api")
-# TEMPORARILY DISABLED (2025-12-24) - PlatformMapping model missing
-# app.include_router(ebay_router, prefix="/api")
-# app.include_router(ebay_products_router, prefix="/api")
-# app.include_router(ebay_oauth_router, prefix="/api")
-# app.include_router(ebay_webhook_router, prefix="/api")
+# eBay routers (re-enabled 2026-01-03)
+app.include_router(ebay_router, prefix="/api")
+app.include_router(ebay_products_router, prefix="/api")
+app.include_router(ebay_oauth_router, prefix="/api")
+app.include_router(ebay_webhook_router, prefix="/api")
+# TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)
 # app.include_router(etsy_router, prefix="/api")
 # app.include_router(etsy_oauth_router, prefix="/api")
 

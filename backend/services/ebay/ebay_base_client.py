@@ -29,7 +29,6 @@ import requests
 from sqlalchemy.orm import Session
 
 from models.public.ebay_marketplace_config import MarketplaceConfig
-from models.public.platform_mapping import Platform, PlatformMapping
 from models.user.ebay_credentials import EbayCredentials
 from shared.exceptions import (
     EbayAPIError,
