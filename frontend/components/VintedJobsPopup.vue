@@ -110,7 +110,7 @@
         </div>
 
         <!-- Progress bar -->
-        <div class="mt-3">
+        <div v-if="job.progress" class="mt-3">
           <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
             <span>Progression</span>
             <span>{{ job.progress.completed }}/{{ job.progress.total }} ({{ job.progress.progress_percent }}%)</span>
