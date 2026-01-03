@@ -258,6 +258,7 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from 'primevue/usetoast'
 import VintedPageHeader from '~/components/platforms/VintedPageHeader.vue'
 import LinkProductModal from '~/components/vinted/LinkProductModal.vue'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
@@ -266,7 +267,7 @@ definePageMeta({
   layout: 'dashboard'
 })
 
-const toast = useToast()
+const toast = import.meta.client ? useToast() : null
 
 interface VintedProduct {
   id: number
@@ -440,7 +441,7 @@ async function unlinkProduct(product: VintedProduct) {
       products.value[index].product_id = null
     }
 
-    toast.add({
+    toast?.add({
       severity: 'success',
       summary: 'Produit délié',
       detail: 'Le produit a été délié avec succès',
@@ -448,7 +449,7 @@ async function unlinkProduct(product: VintedProduct) {
     })
   } catch (e: any) {
     console.error('Error unlinking product:', e)
-    toast.add({
+    toast?.add({
       severity: 'error',
       summary: 'Erreur',
       detail: e.message || 'Impossible de délier le produit',
