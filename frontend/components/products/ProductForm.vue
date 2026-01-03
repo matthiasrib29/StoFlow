@@ -1,5 +1,32 @@
 <template>
   <form class="space-y-4" @submit.prevent="handleSubmit">
+    <!-- ===== BOUTON REMPLIR AVEC IA ===== -->
+    <div
+      v-if="productId && hasImages"
+      class="bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-lg p-4 mb-4"
+    >
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="bg-primary-100 rounded-full p-2">
+            <i class="pi pi-sparkles text-primary-600 text-lg" />
+          </div>
+          <div>
+            <h4 class="text-sm font-semibold text-primary-900">Remplissage automatique</h4>
+            <p class="text-xs text-primary-700">Analysez les images pour remplir le formulaire automatiquement</p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          label="Remplir avec l'IA"
+          icon="pi pi-sparkles"
+          class="p-button-primary"
+          :loading="isAnalyzingImages"
+          :disabled="isAnalyzingImages || isGeneratingDescription"
+          @click="analyzeAndFillForm"
+        />
+      </div>
+    </div>
+
     <!-- ===== INFORMATIONS DE BASE ===== -->
     <div class="space-y-4">
       <h3 class="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
@@ -259,12 +286,14 @@ interface Props {
   isSubmitting?: boolean
   submitLabel?: string
   productId?: number
+  hasImages?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isSubmitting: false,
   submitLabel: 'Créer le produit',
-  productId: undefined
+  productId: undefined,
+  hasImages: false
 })
 
 const emit = defineEmits<{
@@ -301,6 +330,9 @@ const { post } = useApi()
 
 // État pour la génération de description IA
 const isGeneratingDescription = ref(false)
+
+// État pour l'analyse d'images IA (Gemini Vision)
+const isAnalyzingImages = ref(false)
 
 // État pour les suggestions de marques (autocomplete)
 const brandSuggestions = ref<AttributeOption[]>([])
@@ -408,6 +440,105 @@ const generateDescription = async () => {
     }
   } finally {
     isGeneratingDescription.value = false
+  }
+}
+
+// Interface pour la réponse de l'analyse d'images
+interface VisionAnalysisResponse {
+  attributes: {
+    title?: string | null
+    description?: string | null
+    price?: number | null
+    category?: string | null
+    brand?: string | null
+    condition?: number | null
+    size?: string | null
+    label_size?: string | null
+    color?: string | null
+    material?: string | null
+    fit?: string | null
+    gender?: string | null
+    season?: string | null
+    sport?: string | null
+    neckline?: string | null
+    length?: string | null
+    pattern?: string | null
+    condition_sup?: string | null
+    unique_feature?: string | null
+    marking?: string | null
+    confidence?: number
+  }
+  model: string
+  images_analyzed: number
+  tokens_used: number
+  cost: number
+  processing_time_ms: number
+}
+
+// Analyser les images et remplir le formulaire avec l'IA
+const analyzeAndFillForm = async () => {
+  if (!props.productId) {
+    showError('Erreur', 'Sauvegardez d\'abord le produit avant d\'analyser les images')
+    return
+  }
+
+  if (!props.hasImages) {
+    showError('Erreur', 'Ajoutez des images au produit avant de lancer l\'analyse')
+    return
+  }
+
+  isAnalyzingImages.value = true
+
+  try {
+    const response = await post<VisionAnalysisResponse>(
+      `/products/${props.productId}/analyze-images`
+    )
+
+    if (response?.attributes) {
+      const attrs = response.attributes
+      let fieldsUpdated = 0
+
+      // Auto-fill tous les champs non-null
+      if (attrs.title) { updateField('title', attrs.title); fieldsUpdated++ }
+      if (attrs.description) { updateField('description', attrs.description); fieldsUpdated++ }
+      if (attrs.price) { updateField('price', attrs.price); fieldsUpdated++ }
+      if (attrs.category) { updateField('category', attrs.category); fieldsUpdated++ }
+      if (attrs.brand) { updateField('brand', attrs.brand); fieldsUpdated++ }
+      if (attrs.condition !== null && attrs.condition !== undefined) {
+        // Convertir la note 0-10 en string pour le select
+        updateField('condition', String(attrs.condition))
+        fieldsUpdated++
+      }
+      if (attrs.color) { updateField('color', attrs.color); fieldsUpdated++ }
+      if (attrs.material) { updateField('material', attrs.material); fieldsUpdated++ }
+      if (attrs.size) { updateField('size', attrs.size); fieldsUpdated++ }
+      if (attrs.label_size) { updateField('label_size', attrs.label_size); fieldsUpdated++ }
+      if (attrs.gender) { updateField('gender', attrs.gender); fieldsUpdated++ }
+      if (attrs.season) { updateField('season', attrs.season); fieldsUpdated++ }
+      if (attrs.fit) { updateField('fit', attrs.fit); fieldsUpdated++ }
+      if (attrs.pattern) { updateField('pattern', attrs.pattern); fieldsUpdated++ }
+      if (attrs.neckline) { updateField('neckline', attrs.neckline); fieldsUpdated++ }
+      if (attrs.unique_feature) { updateField('unique_feature', attrs.unique_feature); fieldsUpdated++ }
+      if (attrs.marking) { updateField('marking', attrs.marking); fieldsUpdated++ }
+
+      const confidence = attrs.confidence ? Math.round(attrs.confidence * 100) : 0
+      showSuccess(
+        'Formulaire rempli',
+        `${response.images_analyzed} image(s) analysée(s), ${fieldsUpdated} champ(s) rempli(s) (confiance: ${confidence}%)`
+      )
+    }
+  } catch (error: any) {
+    const message = error?.data?.detail || error?.message || 'Erreur lors de l\'analyse'
+
+    if (message.includes('Crédits IA insuffisants') || error?.status === 402) {
+      showError('Crédits insuffisants', 'Vous n\'avez plus de crédits IA. Upgradez votre abonnement.')
+    } else if (message.includes('pas d\'images')) {
+      showError('Pas d\'images', 'Ajoutez des images au produit avant de lancer l\'analyse.')
+    } else {
+      showError('Erreur', message)
+    }
+  } finally {
+    isAnalyzingImages.value = false
   }
 }
 </script>
