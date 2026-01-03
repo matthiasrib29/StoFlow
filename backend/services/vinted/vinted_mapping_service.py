@@ -93,13 +93,13 @@ class VintedMappingService:
         return None
 
     @staticmethod
-    def map_condition(db: Session, condition_name: Optional[str]) -> Optional[int]:
+    def map_condition(db: Session, condition_note: Optional[int]) -> Optional[int]:
         """
-        Mappe un état/condition vers son ID Vinted.
+        Mappe un état/condition Stoflow vers son ID Vinted.
 
         Args:
             db: Session SQLAlchemy
-            condition_name: Nom de la condition (ex: "EXCELLENT", "GOOD")
+            condition_note: Note de condition Stoflow (0-10)
 
         Returns:
             ID Vinted de la condition, ou None si non trouvée
@@ -109,14 +109,43 @@ class VintedMappingService:
             >>> print(condition_id)  # Ex: 1 (Vinted ID pour très bon état)
             1
         """
-        if condition_name is None:
+        if condition_note is None:
             return None
 
-        # condition_name is now an integer (note 0-10)
-        condition = db.query(Condition).filter(Condition.note == condition_name).first()
+        # condition_note is an integer (note 0-10)
+        condition = db.query(Condition).filter(Condition.note == condition_note).first()
 
         if condition and condition.vinted_id:
             return int(condition.vinted_id)
+
+        return None
+
+    @staticmethod
+    def reverse_map_condition(db: Session, vinted_condition_id: Optional[int]) -> Optional[int]:
+        """
+        Mappe un ID condition Vinted vers une note Stoflow (reverse lookup).
+
+        Args:
+            db: Session SQLAlchemy
+            vinted_condition_id: ID Vinted de la condition (1-5)
+
+        Returns:
+            Note Stoflow (0-10), ou None si non trouvée
+
+        Examples:
+            >>> note = VintedMappingService.reverse_map_condition(db, 2)
+            >>> print(note)  # Ex: 2 (très bon état)
+            2
+        """
+        if vinted_condition_id is None:
+            return None
+
+        condition = db.query(Condition).filter(
+            Condition.vinted_id == vinted_condition_id
+        ).first()
+
+        if condition:
+            return condition.note
 
         return None
 
