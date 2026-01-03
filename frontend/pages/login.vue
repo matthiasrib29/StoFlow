@@ -1,6 +1,5 @@
 <template>
-  <NuxtLayout name="auth">
-    <Card class="w-full max-w-md border-2 border-secondary-900 shadow-xl">
+  <Card class="w-full max-w-md border-2 border-secondary-900 shadow-xl">
       <template #title>
         <div class="flex items-center gap-2 bg-primary-400 -mx-6 -mt-6 px-6 py-4 mb-4">
           <i class="pi pi-sign-in text-secondary-900 text-2xl"/>
@@ -64,13 +63,12 @@
           </NuxtLink>
         </div>
       </template>
-    </Card>
-  </NuxtLayout>
+  </Card>
 </template>
 
 <script setup lang="ts">
 definePageMeta({
-  layout: false
+  layout: 'auth'
 })
 
 const authStore = useAuthStore()
