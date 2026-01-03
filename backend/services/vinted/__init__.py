@@ -21,12 +21,14 @@ Services disponibles:
 - VintedTitleService: Generation titres SEO (100 caracteres)
 - VintedDescriptionService: Generation descriptions SEO (2000 caracteres + hashtags)
 - VintedBordereauService: Gestion bordereaux d'expedition
+- VintedLinkService: Liaison produits Vinted ↔ Stoflow
 
 Created: 2024-12-10
-Updated: 2025-12-19 - Added VintedJobService and VintedJobProcessor
+Updated: 2025-01-03 - Added VintedLinkService
 """
 
 from .vinted_job_service import VintedJobService
+from .vinted_link_service import VintedLinkService
 from .vinted_job_processor import VintedJobProcessor
 from .vinted_sync_service import VintedSyncService
 from .vinted_api_sync import VintedApiSyncService
@@ -50,6 +52,7 @@ from .vinted_bordereau_service import VintedBordereauService
 __all__ = [
     'VintedJobService',
     'VintedJobProcessor',
+    'VintedLinkService',
     'VintedSyncService',
     'VintedApiSyncService',
     'VintedOrderSyncService',

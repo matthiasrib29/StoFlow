@@ -21,10 +21,30 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from pydantic import BaseModel
+
 from api.dependencies import get_user_db
 from models.user.vinted_product import VintedProduct
 from services.vinted import VintedSyncService, VintedJobService, VintedJobProcessor
+from services.vinted.vinted_link_service import VintedLinkService
 from .shared import get_active_vinted_connection
+
+
+# ===== SCHEMAS =====
+
+class LinkToProductRequest(BaseModel):
+    """Request body for linking VintedProduct to existing Product."""
+    product_id: int
+
+
+class CreateAndLinkRequest(BaseModel):
+    """Request body for creating Product from VintedProduct."""
+    # Optional overrides for the created product
+    title: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    category: Optional[str] = None
+    brand: Optional[str] = None
 
 router = APIRouter()
 
@@ -105,6 +125,7 @@ async def list_products(
             products_data.append({
                 "id": vp.id,
                 "vinted_id": vp.vinted_id,
+                "product_id": vp.product_id,  # Link to Stoflow Product
                 "title": vp.title,
                 "description": vp.description,
                 "price": float(vp.price) if vp.price else None,
@@ -162,6 +183,7 @@ async def get_product(
     return {
         "id": vinted_product.id,
         "vinted_id": vinted_product.vinted_id,
+        "product_id": vinted_product.product_id,  # Link to Stoflow Product
         "title": vinted_product.title,
         "description": vinted_product.description,
         "price": float(vinted_product.price) if vinted_product.price else None,
@@ -366,3 +388,212 @@ async def delete_product(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur suppression: {str(e)}"
         )
+
+
+# ===== LINK ENDPOINTS =====
+
+
+@router.post("/products/{vinted_id}/link")
+async def link_to_product(
+    vinted_id: int,
+    request: LinkToProductRequest,
+    user_db: tuple = Depends(get_user_db),
+) -> dict:
+    """
+    Lie un produit Vinted à un produit Stoflow existant.
+
+    Args:
+        vinted_id: ID Vinted du produit
+        request.product_id: ID du produit Stoflow à lier
+
+    Returns:
+        {"success": bool, "vinted_id": int, "product_id": int}
+    """
+    db, current_user = user_db
+
+    try:
+        link_service = VintedLinkService(db)
+        vinted_product = link_service.link_to_existing_product(
+            vinted_id=vinted_id,
+            product_id=request.product_id
+        )
+        db.commit()
+
+        return {
+            "success": True,
+            "vinted_id": vinted_id,
+            "product_id": vinted_product.product_id
+        }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur liaison: {str(e)}"
+        )
+
+
+@router.post("/products/{vinted_id}/link/create")
+async def create_and_link(
+    vinted_id: int,
+    request: CreateAndLinkRequest = None,
+    user_db: tuple = Depends(get_user_db),
+) -> dict:
+    """
+    Crée un produit Stoflow à partir d'un produit Vinted et les lie.
+
+    Args:
+        vinted_id: ID Vinted du produit source
+        request: Données optionnelles pour surcharger les valeurs importées
+
+    Returns:
+        {"success": bool, "vinted_id": int, "product_id": int, "product": dict}
+    """
+    db, current_user = user_db
+
+    try:
+        link_service = VintedLinkService(db)
+
+        # Build override data from request
+        override_data = {}
+        if request:
+            if request.title:
+                override_data["title"] = request.title
+            if request.description:
+                override_data["description"] = request.description
+            if request.price:
+                override_data["price"] = Decimal(str(request.price))
+            if request.category:
+                override_data["category"] = request.category
+            if request.brand:
+                override_data["brand"] = request.brand
+
+        product, vinted_product = link_service.create_product_from_vinted(
+            vinted_id=vinted_id,
+            override_data=override_data if override_data else None
+        )
+        db.commit()
+
+        return {
+            "success": True,
+            "vinted_id": vinted_id,
+            "product_id": product.id,
+            "product": {
+                "id": product.id,
+                "title": product.title,
+                "description": product.description,
+                "price": float(product.price) if product.price else None,
+                "category": product.category,
+                "brand": product.brand,
+                "condition": product.condition,
+                "status": product.status.value if product.status else None,
+            }
+        }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur création: {str(e)}"
+        )
+
+
+@router.delete("/products/{vinted_id}/link")
+async def unlink_product(
+    vinted_id: int,
+    user_db: tuple = Depends(get_user_db),
+) -> dict:
+    """
+    Délie un produit Vinted de son produit Stoflow.
+
+    Args:
+        vinted_id: ID Vinted du produit
+
+    Returns:
+        {"success": bool, "vinted_id": int}
+    """
+    db, current_user = user_db
+
+    try:
+        link_service = VintedLinkService(db)
+        link_service.unlink(vinted_id=vinted_id)
+        db.commit()
+
+        return {
+            "success": True,
+            "vinted_id": vinted_id
+        }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur déliaison: {str(e)}"
+        )
+
+
+@router.get("/products/{vinted_id}/linkable")
+async def get_linkable_products(
+    vinted_id: int,
+    search: Optional[str] = Query(None, description="Recherche par titre ou marque"),
+    limit: int = Query(20, ge=1, le=100),
+    user_db: tuple = Depends(get_user_db),
+) -> dict:
+    """
+    Récupère les produits Stoflow pouvant être liés à ce produit Vinted.
+
+    Exclut les produits déjà liés à un autre VintedProduct.
+
+    Args:
+        vinted_id: ID Vinted (pour vérification d'existence)
+        search: Recherche textuelle optionnelle
+        limit: Nombre max de résultats
+
+    Returns:
+        {"products": list}
+    """
+    db, current_user = user_db
+
+    # Verify VintedProduct exists
+    vinted_product = db.query(VintedProduct).filter(
+        VintedProduct.vinted_id == vinted_id
+    ).first()
+
+    if not vinted_product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Produit Vinted #{vinted_id} non trouvé"
+        )
+
+    link_service = VintedLinkService(db)
+    products = link_service.get_linkable_products(search=search, limit=limit)
+
+    return {
+        "products": [
+            {
+                "id": p.id,
+                "title": p.title,
+                "brand": p.brand,
+                "price": float(p.price) if p.price else None,
+                "category": p.category,
+                "status": p.status.value if p.status else None,
+                "image_url": p.product_images[0].url if p.product_images else None,
+            }
+            for p in products
+        ]
+    }
