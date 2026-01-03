@@ -121,13 +121,25 @@
             <Column field="title" header="Titre" sortable style="min-width: 200px">
               <template #body="{ data }">
                 <div>
-                  <a
-                    :href="data.url"
-                    target="_blank"
-                    class="font-medium text-primary-600 hover:underline"
-                  >
-                    {{ data.title }}
-                  </a>
+                  <div class="flex items-center gap-2">
+                    <a
+                      :href="data.url"
+                      target="_blank"
+                      class="font-medium text-primary-600 hover:underline"
+                    >
+                      {{ data.title }}
+                    </a>
+                    <i
+                      v-if="data.description"
+                      class="pi pi-file-edit text-green-500"
+                      v-tooltip.top="'Description récupérée'"
+                    />
+                    <i
+                      v-else
+                      class="pi pi-file text-gray-300"
+                      v-tooltip.top="'Pas de description'"
+                    />
+                  </div>
                   <div class="text-xs text-gray-500 mt-1">
                     ID: {{ data.vinted_id }}
                   </div>
