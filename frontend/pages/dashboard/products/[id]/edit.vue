@@ -213,14 +213,14 @@ onMounted(async () => {
         stock_quantity: product.value.stock_quantity || 1
       }
 
-      // Charger les images existantes
-      if (product.value.product_images && product.value.product_images.length > 0) {
-        existingImages.value = product.value.product_images
-          .sort((a: any, b: any) => a.display_order - b.display_order)
-          .map((img: any) => ({
-            id: img.id,
-            url: buildImageUrl(img.image_path),
-            position: img.display_order
+      // Charger les images existantes (JSONB: {url, order, created_at})
+      if (product.value.images && product.value.images.length > 0) {
+        existingImages.value = product.value.images
+          .sort((a: any, b: any) => a.order - b.order)
+          .map((img: any, index: number) => ({
+            id: index,  // Use index as id since JSONB doesn't have id
+            url: img.url,
+            position: img.order
           }))
       }
     }

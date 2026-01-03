@@ -68,14 +68,14 @@ class AIVisionService:
         start_time = time.time()
 
         # 1. Vérifier qu'il y a des images
-        if not product.product_images:
+        if not product.images:
             raise AIGenerationError("Le produit n'a pas d'images à analyser.")
 
         # 2. Vérifier les crédits
         AIVisionService._check_credits(db, user_id, monthly_credits)
 
         # 3. Récupérer les images (max selon config)
-        images_to_analyze = product.product_images[: settings.gemini_max_images]
+        images_to_analyze = product.images[: settings.gemini_max_images]
         images_analyzed = len(images_to_analyze)
 
         logger.info(
@@ -203,13 +203,13 @@ class AIVisionService:
 
     @staticmethod
     async def _download_images(
-        product_images: list,
+        images: list[dict],
     ) -> list[types.Part]:
         """
         Télécharge les images depuis les URLs R2 CDN.
 
         Args:
-            product_images: Liste des ProductImage
+            images: Liste des images JSONB [{url, order, created_at}]
 
         Returns:
             Liste de types.Part contenant les images
@@ -217,9 +217,13 @@ class AIVisionService:
         image_parts = []
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for img in product_images:
+            for img in images:
                 try:
-                    response = await client.get(img.image_path)
+                    image_url = img.get("url", "")
+                    if not image_url:
+                        continue
+
+                    response = await client.get(image_url)
                     response.raise_for_status()
 
                     # Détecter le type MIME
@@ -235,13 +239,13 @@ class AIVisionService:
                     image_parts.append(part)
 
                     logger.debug(
-                        f"[AIVisionService] Downloaded image: {img.image_path}"
+                        f"[AIVisionService] Downloaded image: {image_url}"
                     )
 
                 except httpx.HTTPError as e:
                     logger.warning(
                         f"[AIVisionService] Failed to download image "
-                        f"{img.image_path}: {e}"
+                        f"{img.get('url', 'unknown')}: {e}"
                     )
                     # Continue avec les autres images
                     continue

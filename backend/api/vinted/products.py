@@ -592,7 +592,7 @@ async def get_linkable_products(
                 "price": float(p.price) if p.price else None,
                 "category": p.category,
                 "status": p.status.value if p.status else None,
-                "image_url": p.product_images[0].url if p.product_images else None,
+                "image_url": p.images[0]["url"] if p.images else None,
             }
             for p in products
         ]
