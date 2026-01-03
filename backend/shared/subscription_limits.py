@@ -144,17 +144,8 @@ def check_platform_limit(user: User, db: Session) -> Tuple[int, int]:
     Raises:
         SubscriptionLimitError: Si la limite est atteinte
     """
-    from models.public.platform_mapping import PlatformMapping
-
-    # Compter les plateformes connectées (avec credentials)
-    current_count = (
-        db.query(PlatformMapping)
-        .filter(
-            PlatformMapping.user_id == user.id,
-            PlatformMapping.credentials.isnot(None),
-        )
-        .count()
-    )
+    # Count connected platforms via existing tables
+    current_count = _count_connected_platforms(db)
 
     # Récupérer la limite depuis subscription_quota (nouvelle table)
     # En mode test, subscription_quota peut être None, utiliser limite par défaut
@@ -173,6 +164,39 @@ def check_platform_limit(user: User, db: Session) -> Tuple[int, int]:
         )
 
     return current_count, max_allowed
+
+
+def _count_connected_platforms(db: Session) -> int:
+    """
+    Count connected platforms via existing credential tables.
+
+    Counts:
+    - VintedConnection with valid access_token
+    - EbayCredentials with is_connected=True
+
+    Returns:
+        int: Number of connected platforms
+    """
+    from models.user.vinted_connection import VintedConnection
+    from models.user.ebay_credentials import EbayCredentials
+
+    count = 0
+
+    # Count Vinted connection
+    vinted = db.query(VintedConnection).filter(
+        VintedConnection.access_token.isnot(None)
+    ).first()
+    if vinted:
+        count += 1
+
+    # Count eBay connection
+    ebay = db.query(EbayCredentials).filter(
+        EbayCredentials.is_connected == True
+    ).first()
+    if ebay:
+        count += 1
+
+    return count
 
 
 def check_ai_credits(user: User, db: Session, credits_needed: int = 1) -> Tuple[int, int]:
@@ -353,16 +377,8 @@ def get_platform_quota_status(user: User, db: Session) -> QuotaCheckResult:
     Returns:
         QuotaCheckResult with status and message
     """
-    from models.public.platform_mapping import PlatformMapping
-
-    current_count = (
-        db.query(PlatformMapping)
-        .filter(
-            PlatformMapping.user_id == user.id,
-            PlatformMapping.credentials.isnot(None),
-        )
-        .count()
-    )
+    # Count connected platforms via existing tables
+    current_count = _count_connected_platforms(db)
 
     if user.subscription_quota:
         max_allowed = user.subscription_quota.max_platforms

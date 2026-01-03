@@ -15,7 +15,6 @@ from shared.database import engine, Base
 
 # Import all models pour que SQLAlchemy les connaisse
 from models.public.user import User, SubscriptionTier
-from models.public.platform_mapping import PlatformMapping
 from models.public.brand import Brand
 from models.public.category import Category
 from models.public.color import Color
