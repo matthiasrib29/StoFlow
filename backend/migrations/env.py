@@ -35,7 +35,6 @@ from models.public.ai_credit import AICredit
 # from models.public.season import Season
 # from models.public.size import Size
 from models.user.product import Product
-from models.user.product_image import ProductImage
 from models.user.vinted_product import VintedProduct
 from models.user.publication_history import PublicationHistory
 from models.user.ai_generation_log import AIGenerationLog

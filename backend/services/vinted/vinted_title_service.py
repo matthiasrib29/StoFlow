@@ -60,16 +60,21 @@ class VintedTitleService:
         'decade',     # 8. Décennie/Vintage
     ]
 
-    # Mapping des conditions vers texte français lisible
+    # Mapping des conditions (Integer 0-10) vers texte français lisible
+    # 10 = Neuf avec étiquettes, 9 = Neuf sans étiquettes, 8 = Très bon état
+    # 7 = Bon état, 6 = Satisfaisant, 5 = À réparer
     CONDITION_LABELS = {
+        10: 'Neuf avec étiquettes',
+        9: 'Neuf sans étiquettes',
+        8: 'Très bon état',
+        7: 'Bon état',
+        6: 'État correct',
+        5: 'À rénover',
+        # Legacy string support (fallback)
         'EXCELLENT': 'Très bon état',
         'GOOD': 'Bon état',
         'FAIR': 'État correct',
         'POOR': 'À rénover',
-        'a': 'Très bon état',
-        'b': 'Bon état',
-        'c': 'État correct',
-        'd': 'À rénover',
     }
 
     @staticmethod
@@ -131,8 +136,8 @@ class VintedTitleService:
         fit_value = getattr(product, 'fit', None)
         attributes['fit'] = VintedTitleService._clean_value(fit_value)
 
-        # Taille
-        size_value = product.size or getattr(product, 'label_size', None)
+        # Taille (prefer size_original, fallback to size_normalized)
+        size_value = product.size_original or getattr(product, 'size_normalized', None)
         if size_value:
             attributes['size'] = f"Taille {VintedTitleService._clean_value(size_value)}"
         else:
@@ -143,13 +148,18 @@ class VintedTitleService:
         attributes['model'] = VintedTitleService._clean_value(model_value)
 
         # Condition/État (mapper vers texte lisible)
+        # Supports both Integer (0-10) and legacy string conditions
         condition_value = None
-        if product.condition:
-            condition_key = str(product.condition).upper().strip()
-            condition_value = VintedTitleService.CONDITION_LABELS.get(
-                condition_key,
-                VintedTitleService._clean_value(product.condition)
-            )
+        if product.condition is not None:
+            # Try integer key first (new format)
+            condition_value = VintedTitleService.CONDITION_LABELS.get(product.condition)
+            if condition_value is None and isinstance(product.condition, str):
+                # Fallback to uppercase string key (legacy format)
+                condition_key = product.condition.upper().strip()
+                condition_value = VintedTitleService.CONDITION_LABELS.get(condition_key)
+            if condition_value is None:
+                # Final fallback: use raw value
+                condition_value = VintedTitleService._clean_value(str(product.condition))
         attributes['condition'] = condition_value
 
         # Couleur

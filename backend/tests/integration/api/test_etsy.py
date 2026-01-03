@@ -66,8 +66,8 @@ def test_product_for_etsy(db_session: Session, test_user, seed_attributes):
         price=Decimal("29.99"),
         category="Jeans",
         brand="Levi's",
-        condition="EXCELLENT",
-        label_size="M",
+        condition=8,  # 8 = Excellent
+        size_original="M",
         color="Blue",
         stock_quantity=1,
         status=ProductStatus.DRAFT,

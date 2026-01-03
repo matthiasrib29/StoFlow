@@ -22,7 +22,7 @@ from models.public.user import User, UserRole
 from models.user.product import ProductStatus
 from schemas.product_schemas import (
     ProductCreate,
-    ProductImageResponse,
+    ProductImageItem,
     ProductListResponse,
     ProductResponse,
     ProductUpdate,
@@ -349,28 +349,28 @@ def update_product_status(
 
 @router.post(
     "/{product_id}/images",
-    response_model=ProductImageResponse,
+    response_model=ProductImageItem,
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_product_image(
     product_id: int,
     file: UploadFile = File(...),
-    display_order: int = Query(0, ge=0, description="Ordre d'affichage (0 = première image)"),
+    display_order: int | None = Query(None, ge=0, description="Ordre d'affichage (auto si non fourni)"),
     user_db: tuple = Depends(get_user_db),
-) -> ProductImageResponse:
+) -> ProductImageItem:
     """
     Upload une image pour un produit.
 
-    Business Rules (Updated 2025-12-09):
+    Business Rules (Updated 2026-01-03):
     - Authentification requise
     - USER: peut uniquement uploader des images pour SES produits
     - ADMIN: peut uploader pour tous les produits
     - SUPPORT: lecture seule (ne peut pas uploader)
     - Maximum 20 images par produit (limite Vinted)
     - Formats: jpg, jpeg, png
-    - Taille max: 5MB
-    - Stockage local: uploads/{user_id}/products/{product_id}/filename
-    - Validation du format réel (anti-spoofing)
+    - Taille max: 10MB (avant optimisation)
+    - Stockage: Cloudflare R2
+    - Images stockées en JSONB: {url, order, created_at}
 
     Raises:
         400 BAD REQUEST: Si format/taille invalide ou limite atteinte
@@ -403,38 +403,41 @@ async def upload_product_image(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    # Sauvegarder l'image sur filesystem
+    # Sauvegarder l'image sur R2
     try:
-        image_path = await FileService.save_product_image(user_id, product_id, file)
+        image_url = await FileService.save_product_image(user_id, product_id, file)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    # Créer l'entrée en BDD
+    # Ajouter en JSONB
     try:
-        product_image = ProductService.add_image(db, product_id, image_path, display_order)
-        return product_image
+        image_dict = ProductService.add_image(db, product_id, image_url, display_order)
+        return ProductImageItem(**image_dict)
     except ValueError as e:
-        # Si erreur BDD, supprimer le fichier uploadé (R2 or local)
-        await FileService.delete_product_image(image_path)
+        # Si erreur BDD, supprimer le fichier uploadé sur R2
+        await FileService.delete_product_image(image_url)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.delete("/{product_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{product_id}/images", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product_image(
     product_id: int,
-    image_id: int,
+    image_url: str = Query(..., description="URL de l'image à supprimer"),
     user_db: tuple = Depends(get_user_db),
 ):
     """
-    Supprime une image d'un produit.
+    Supprime une image d'un produit par URL.
 
-    Business Rules (Updated 2025-12-23):
+    Business Rules (Updated 2026-01-03):
     - Authentification requise
     - USER: peut uniquement supprimer des images de SES produits
     - ADMIN: peut supprimer des images de tous les produits
     - SUPPORT: lecture seule (ne peut pas supprimer)
-    - Suppression physique du fichier (R2 ou local) + entrée BDD
-    - Vérifier que l'image appartient au produit
+    - Suppression du fichier R2 + entrée JSONB
+    - Réordonnancement automatique des images restantes
+
+    Query Parameters:
+        - image_url: URL de l'image à supprimer (URL-encoded)
 
     Raises:
         403 FORBIDDEN: Si USER essaie de supprimer l'image d'un autre produit ou si SUPPORT
@@ -442,22 +445,6 @@ async def delete_product_image(
         401 UNAUTHORIZED: Si pas authentifié
     """
     db, current_user = user_db  # search_path already set by get_user_db
-
-    # Récupérer l'image pour vérifier qu'elle appartient au produit
-    from models.user.product_image import ProductImage
-
-    image = db.query(ProductImage).filter(ProductImage.id == image_id).first()
-
-    if not image:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Image with id {image_id} not found"
-        )
-
-    if image.product_id != product_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Image {image_id} does not belong to product {product_id}",
-        )
 
     # SUPPORT ne peut pas supprimer d'images (lecture seule)
     ensure_can_modify(current_user, "produit")
@@ -473,48 +460,58 @@ async def delete_product_image(
     # Vérifier ownership (ADMIN peut, USER doit être propriétaire)
     ensure_user_owns_resource(current_user, product, "produit", allow_support=False)
 
-    # Supprimer le fichier R2
-    await FileService.delete_product_image(image.image_path)
+    # Vérifier que l'image existe dans le produit
+    images = product.images or []
+    if not any(img.get("url") == image_url for img in images):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Image not found in product {product_id}",
+        )
 
-    # Supprimer l'entrée BDD
-    deleted = ProductService.delete_image(db, image_id)
+    # Supprimer le fichier R2
+    await FileService.delete_product_image(image_url)
+
+    # Supprimer l'entrée JSONB
+    deleted = ProductService.delete_image(db, product_id, image_url)
 
     if not deleted:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Image with id {image_id} not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Image not found in product {product_id}",
         )
 
 
 @router.put(
     "/{product_id}/images/reorder",
-    response_model=list[ProductImageResponse],
+    response_model=list[ProductImageItem],
     status_code=status.HTTP_200_OK,
 )
 def reorder_product_images(
     product_id: int,
-    image_orders: dict[int, int],
+    ordered_urls: list[str],
     user_db: tuple = Depends(get_user_db),
-) -> list[ProductImageResponse]:
+) -> list[ProductImageItem]:
     """
     Réordonne les images d'un produit.
 
-    Business Rules (Updated 2025-12-09):
+    Business Rules (Updated 2026-01-03):
     - Authentification requise
     - USER: peut uniquement réordonner les images de SES produits
     - ADMIN: peut réordonner les images de tous les produits
     - SUPPORT: lecture seule (ne peut pas réordonner)
-    - image_orders: {image_id: new_display_order}
-    - Vérifie que toutes les images appartiennent au produit
+    - ordered_urls: liste d'URLs dans le nouvel ordre souhaité
+    - L'ordre dans la liste détermine le display_order (0, 1, 2, ...)
+    - Vérifie que toutes les URLs appartiennent au produit
 
     Request Body Example:
-    {
-        "1": 0,
-        "2": 1,
-        "3": 2
-    }
+    [
+        "https://cdn.stoflow.io/1/products/5/abc.jpg",
+        "https://cdn.stoflow.io/1/products/5/def.jpg",
+        "https://cdn.stoflow.io/1/products/5/ghi.jpg"
+    ]
 
     Raises:
-        400 BAD REQUEST: Si une image n'appartient pas au produit
+        400 BAD REQUEST: Si une URL n'appartient pas au produit
         403 FORBIDDEN: Si USER essaie de réordonner les images d'un autre produit ou si SUPPORT
         404 NOT FOUND: Si produit non trouvé
         401 UNAUTHORIZED: Si pas authentifié
@@ -537,8 +534,8 @@ def reorder_product_images(
 
     # Réordonner les images
     try:
-        images = ProductService.reorder_images(db, product_id, image_orders)
-        return images
+        images = ProductService.reorder_images(db, product_id, ordered_urls)
+        return [ProductImageItem(**img) for img in images]
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

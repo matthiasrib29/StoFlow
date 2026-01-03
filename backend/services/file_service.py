@@ -19,7 +19,7 @@ from fastapi import UploadFile
 from PIL import Image
 from sqlalchemy.orm import Session
 
-from models.user.product_image import ProductImage
+from models.user.product import Product
 from services.r2_service import r2_service
 from shared.logging_setup import get_logger
 
@@ -234,9 +234,11 @@ class FileService:
         Raises:
             ValueError: Si limite atteinte (>= 20 images)
         """
-        image_count = (
-            db.query(ProductImage).filter(ProductImage.product_id == product_id).count()
-        )
+        product = db.query(Product).filter(Product.id == product_id).first()
+        if not product:
+            raise ValueError(f"Product with id {product_id} not found")
+
+        image_count = len(product.images or [])
 
         if image_count >= FileService.MAX_IMAGES_PER_PRODUCT:
             raise ValueError(

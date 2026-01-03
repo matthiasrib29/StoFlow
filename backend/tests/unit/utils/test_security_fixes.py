@@ -167,7 +167,7 @@ def test_xss_product_description_blocked():
             description="Produit génial <script>alert('XSS')</script>",
             price=10.0,
             category="Jeans",
-            condition="GOOD"
+            condition=7
         )
 
     assert "HTML tags are not allowed" in str(exc.value)
@@ -183,7 +183,7 @@ def test_xss_product_title_blocked():
             description="Clean description",
             price=10.0,
             category="Jeans",
-            condition="GOOD"
+            condition=7
         )
 
     assert "HTML tags are not allowed" in str(exc.value)
@@ -211,9 +211,9 @@ def test_xss_clean_text_allowed():
         description="Jean en excellent état, taille W32L34, couleur bleue",
         price=45.99,
         category="Jeans",
-        condition="GOOD",
+        condition=7,
         brand="Levi's",
-        label_size="32",
+        size_original="32",
         color="Blue"
     )
 

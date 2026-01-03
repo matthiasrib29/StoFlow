@@ -33,7 +33,7 @@ class TestEtsyMapperPlatformToStoflow:
         assert result["title"] == "Vintage Handmade Necklace"
         assert result["description"] == "Beautiful vintage necklace..."
         assert result["price"] == 45.99  # 4599 / 100
-        assert result["condition"] == "EXCELLENT"  # who_made = i_did
+        assert result["condition"] == 8  # who_made = i_did → Très bon état
         assert result["category"] == "Handmade"  # Default for Etsy
         assert len(result["images"]) == 2
         assert result["stock_quantity"] == 3
@@ -96,7 +96,7 @@ class TestEtsyMapperStoflowToPlatform:
             "title": "Vintage Necklace",
             "description": "Beautiful vintage piece",
             "price": 45.99,
-            "condition": "EXCELLENT",
+            "condition": 8,  # 8 = Très bon état
             "stock_quantity": 2,
         }
 

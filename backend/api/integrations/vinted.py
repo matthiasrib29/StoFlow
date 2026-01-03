@@ -162,7 +162,7 @@ async def publish_product_to_vinted(
         "brand": product.brand,
         "category": product.category,
         "condition": product.condition,
-        "label_size": product.label_size,
+        "size_original": product.size_original,
         "color": product.color,
         "images": [],  # TODO: Récupérer images depuis product_images
     }

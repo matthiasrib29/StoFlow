@@ -113,8 +113,8 @@ class SectionBuilder:
         if fit:
             lines.append(f"* Coupe: {fit}")
 
-        # Taille
-        size = cls._safe_get(product, 'size')
+        # Taille (prefer size_original, fallback to size_normalized)
+        size = cls._safe_get(product, 'size_original') or cls._safe_get(product, 'size_normalized')
         if size:
             lines.append(f"* Taille: {size}")
 

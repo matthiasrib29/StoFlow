@@ -24,25 +24,34 @@ class EtsyMapper(BaseMarketplaceMapper):
     # ===== MAPPING ETSY → STOFLOW =====
 
     # Etsy n'a pas de condition_id strict, utilise who_made + when_made
+    # Mapping Etsy who_made → Stoflow condition (Integer 0-10)
     CONDITION_MAP = {
-        "i_did": "EXCELLENT",      # I made it myself
-        "collective": "EXCELLENT",  # Collective/studio
-        "someone_else": "GOOD",    # Someone else
+        "i_did": 8,       # I made it myself → Très bon état
+        "collective": 8,  # Collective/studio → Très bon état
+        "someone_else": 7,  # Someone else → Bon état
     }
 
+    # Mapping Etsy when_made → Stoflow condition (Integer 0-10)
     WHEN_MADE_MAP = {
-        "made_to_order": "NEW",
-        "2020_2023": "EXCELLENT",
-        "2010_2019": "GOOD",
-        "before_2010": "FAIR",
+        "made_to_order": 10,  # → Neuf avec étiquettes
+        "2020_2023": 8,       # → Très bon état
+        "2010_2019": 7,       # → Bon état
+        "before_2010": 6,     # → Satisfaisant
     }
 
     # Etsy supporte toutes catégories (orienté handmade/vintage)
     CATEGORY_MAP = {}
     REVERSE_CATEGORY_MAP = {}
 
-    # Reverse condition mapping
+    # Reverse condition mapping (Stoflow Integer 0-10 → Etsy who_made)
     REVERSE_CONDITION_MAP = {
+        10: "made_to_order",  # Neuf avec étiquettes
+        9: "made_to_order",   # Neuf sans étiquettes
+        8: "i_did",           # Très bon état
+        7: "someone_else",    # Bon état
+        6: "someone_else",    # Satisfaisant
+        5: "someone_else",    # À réparer
+        # Legacy string support
         "NEW": "made_to_order",
         "EXCELLENT": "i_did",
         "GOOD": "someone_else",
@@ -111,7 +120,7 @@ class EtsyMapper(BaseMarketplaceMapper):
             "brand": None,  # Etsy n'a pas de champ brand
             "category": "Handmade",  # Catégorie générique pour Etsy
             "condition": condition,
-            "label_size": None,
+            "size_original": None,
             "color": None,
 
             # Images
@@ -142,7 +151,7 @@ class EtsyMapper(BaseMarketplaceMapper):
         price_cents = int(price * 100)
 
         # Map condition to who_made
-        condition = stoflow_product.get("condition", "GOOD")
+        condition = stoflow_product.get("condition", 7)  # 7 = Bon état (default)
         who_made = EtsyMapper.map_condition_to_platform(condition)
 
         return {

@@ -119,7 +119,7 @@ class TestCalculateVintedPrice:
         mock_product = Mock()
         mock_product.brand = "Levi's"
         mock_product.category = "Jeans"
-        mock_product.condition = "EXCELLENT"
+        mock_product.condition = 8
         mock_product.rarity = None
         mock_product.quality = None
 
@@ -138,7 +138,7 @@ class TestCalculateVintedPrice:
         mock_product = Mock()
         mock_product.brand = "Diesel"
         mock_product.category = "Jeans"
-        mock_product.condition = "GOOD"
+        mock_product.condition = 7
         mock_product.rarity = "Vintage"
         mock_product.quality = None
 
@@ -157,7 +157,7 @@ class TestCalculateVintedPrice:
         mock_product = Mock()
         mock_product.brand = "NoName"
         mock_product.category = "T-shirt"
-        mock_product.condition = "POOR"
+        mock_product.condition = 5
         mock_product.rarity = None
         mock_product.quality = None
 
@@ -178,7 +178,7 @@ class TestCalculateVintedPrice:
         mock_product = Mock()
         mock_product.brand = "Budget"
         mock_product.category = "T-shirt"
-        mock_product.condition = "FAIR"
+        mock_product.condition = 6
         mock_product.rarity = None
         mock_product.quality = None
 
@@ -197,7 +197,7 @@ class TestCalculateVintedPrice:
         mock_product = Mock()
         mock_product.brand = "TestBrand"
         mock_product.category = "TestCategory"
-        mock_product.condition = "EXCELLENT"
+        mock_product.condition = 8
         mock_product.rarity = "Rare"
         mock_product.quality = "Premium"
 
@@ -209,7 +209,7 @@ class TestCalculateVintedPrice:
             db=mock_db,
             brand="TestBrand",
             category="TestCategory",
-            condition="EXCELLENT",
+            condition=8,
             rarity="Rare",
             quality="Premium"
         )
@@ -225,7 +225,7 @@ class TestCalculateVintedPriceWithExamples:
         mock_product = Mock()
         mock_product.brand = "Levi's"
         mock_product.category = "Jeans"
-        mock_product.condition = "EXCELLENT"
+        mock_product.condition = 8
         mock_product.rarity = None
         mock_product.quality = None
 
@@ -243,7 +243,7 @@ class TestCalculateVintedPriceWithExamples:
         mock_product = Mock()
         mock_product.brand = "Test"
         mock_product.category = "Test"
-        mock_product.condition = "GOOD"
+        mock_product.condition = 7
         mock_product.rarity = None
         mock_product.quality = None
 

@@ -64,7 +64,7 @@ class AttributeValidator:
         },
         'condition': {
             'model': Condition,
-            'field': 'name',
+            'field': 'name_en',
             'required': True,
             'display_name': 'Condition'
         },
@@ -82,9 +82,9 @@ class AttributeValidator:
             'required': False,
             'display_name': 'Color'
         },
-        'label_size': {
+        'size_original': {
             'model': Size,
-            'field': 'name',
+            'field': 'name_en',
             'required': False,
             'display_name': 'Size'
         },
@@ -196,7 +196,7 @@ class AttributeValidator:
             ...     'condition': 'GOOD',
             ...     'brand': 'Levi\\'s',
             ...     'color': 'Blue',
-            ...     'label_size': 'M'
+            ...     'size_original': 'M'
             ... })
 
             >>> # Validation partielle (update)
