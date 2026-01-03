@@ -52,6 +52,20 @@ def get_user_schemas(connection) -> list[str]:
     return [row[0] for row in result.fetchall()]
 
 
+def table_exists(connection, schema: str, table: str) -> bool:
+    """Check if a table exists in a specific schema."""
+    result = connection.execute(
+        text("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = :schema AND table_name = :table
+            )
+        """),
+        {"schema": schema, "table": table}
+    )
+    return result.scalar()
+
+
 def normalize_values_for_column(connection, schema: str, column: str, target_table: str) -> dict:
     """
     Check and report invalid values for a column before adding FK.
@@ -101,14 +115,20 @@ def upgrade() -> None:
     user_schemas = get_user_schemas(connection)
     all_schemas = ["template_tenant"] + user_schemas
 
-    print(f"\nSchemas to process: {len(all_schemas)}")
+    # Filter schemas that have products table
+    schemas_with_products = [s for s in all_schemas if table_exists(connection, s, "products")]
+    skipped = len(all_schemas) - len(schemas_with_products)
+    if skipped > 0:
+        print(f"\n⚠️  Skipping {skipped} schemas without products table")
+
+    print(f"\nSchemas to process: {len(schemas_with_products)}")
 
     errors = []
 
     for column, target_table, target_column in FK_CONFIGS:
         print(f"\n--- Processing: {column} -> {target_table}.{target_column} ---")
 
-        for schema in all_schemas:
+        for schema in schemas_with_products:
             # Check for invalid values first
             stats = normalize_values_for_column(connection, schema, column, target_table)
 
@@ -197,10 +217,13 @@ def downgrade() -> None:
     user_schemas = get_user_schemas(connection)
     all_schemas = ["template_tenant"] + user_schemas
 
+    # Filter schemas that have products table
+    schemas_with_products = [s for s in all_schemas if table_exists(connection, s, "products")]
+
     for column, _, _ in FK_CONFIGS:
         print(f"\n--- Removing FK for: {column} ---")
 
-        for schema in all_schemas:
+        for schema in schemas_with_products:
             fk_name = f"fk_{schema}_products_{column}"
             try:
                 connection.execute(

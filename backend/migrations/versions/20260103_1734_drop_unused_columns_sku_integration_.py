@@ -37,14 +37,30 @@ def get_user_schemas():
     return [row[0] for row in result]
 
 
+def table_exists(connection, schema: str, table: str) -> bool:
+    """Check if a table exists in a specific schema."""
+    result = connection.execute(sa.text(
+        "SELECT EXISTS ("
+        "  SELECT 1 FROM information_schema.tables "
+        "  WHERE table_schema = :schema AND table_name = :table"
+        ")"
+    ), {"schema": schema, "table": table})
+    return result.scalar()
+
+
 def upgrade() -> None:
     """Drop unused columns from products table in all user schemas."""
     user_schemas = get_user_schemas()
+    connection = op.get_bind()
 
     for schema in user_schemas:
+        # Skip if products table doesn't exist
+        if not table_exists(connection, schema, "products"):
+            print(f"⚠️  Skipping {schema} - products table does not exist")
+            continue
+
         for column in COLUMNS_TO_DROP:
             # Check if column exists before dropping
-            connection = op.get_bind()
             result = connection.execute(sa.text(
                 f"SELECT column_name FROM information_schema.columns "
                 f"WHERE table_schema = '{schema}' AND table_name = 'products' "
@@ -57,8 +73,14 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Recreate dropped columns in all user schemas."""
     user_schemas = get_user_schemas()
+    connection = op.get_bind()
 
     for schema in user_schemas:
+        # Skip if products table doesn't exist
+        if not table_exists(connection, schema, "products"):
+            print(f"⚠️  Skipping {schema} - products table does not exist")
+            continue
+
         # sku - VARCHAR(100)
         op.add_column('products', sa.Column(
             'sku', sa.String(100), nullable=True,
