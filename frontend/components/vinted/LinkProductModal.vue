@@ -165,6 +165,8 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from 'primevue/usetoast'
+
 interface VintedProduct {
   id: number
   vinted_id: number
@@ -214,7 +216,7 @@ const loadingProducts = ref(false)
 const linking = ref(false)
 
 const api = useApi()
-const toast = useToast()
+const toast = import.meta.client ? useToast() : null
 
 // Debounced search
 let searchTimeout: NodeJS.Timeout | null = null
@@ -256,7 +258,7 @@ async function linkToExisting() {
       product_id: selectedProductId.value
     })
 
-    toast.add({
+    toast?.add({
       severity: 'success',
       summary: 'Produit lié',
       detail: 'Le produit Vinted a été lié avec succès',
@@ -267,7 +269,7 @@ async function linkToExisting() {
     close()
   } catch (e: any) {
     console.error('Error linking product:', e)
-    toast.add({
+    toast?.add({
       severity: 'error',
       summary: 'Erreur',
       detail: e.message || 'Impossible de lier le produit',
@@ -288,7 +290,7 @@ async function createAndLink() {
       `/api/vinted/products/${props.vintedProduct.vinted_id}/link/create`
     )
 
-    toast.add({
+    toast?.add({
       severity: 'success',
       summary: 'Produit créé et lié',
       detail: 'Un nouveau produit a été créé à partir des données Vinted',
@@ -299,7 +301,7 @@ async function createAndLink() {
     close()
   } catch (e: any) {
     console.error('Error creating product:', e)
-    toast.add({
+    toast?.add({
       severity: 'error',
       summary: 'Erreur',
       detail: e.message || 'Impossible de créer le produit',
