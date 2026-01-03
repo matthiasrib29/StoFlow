@@ -57,11 +57,11 @@ export interface Product {
   updated_at: string
   deleted_at?: string | null
 
-  // Images (relation)
-  product_images?: Array<{
-    id: number
-    image_path: string
-    display_order: number
+  // Images (JSONB array)
+  images?: Array<{
+    url: string
+    order: number
+    created_at: string
   }>
 
   // Computed/Legacy properties (for backwards compatibility)
@@ -73,32 +73,21 @@ export interface Product {
  * Helper pour obtenir l'URL complète de la première image d'un produit
  */
 export const getProductImageUrl = (product: Product): string => {
-  const config = useRuntimeConfig()
-
-  if (!product.product_images || product.product_images.length === 0) {
+  if (!product.images || product.images.length === 0) {
     // Image placeholder par défaut
     return '/images/placeholder-product.png'
   }
 
-  // Trier par display_order et prendre la première
-  const sortedImages = [...product.product_images].sort((a, b) => a.display_order - b.display_order)
+  // Trier par order et prendre la première
+  const sortedImages = [...product.images].sort((a, b) => a.order - b.order)
   const firstImage = sortedImages[0]
 
-  if (!firstImage) {
+  if (!firstImage || !firstImage.url) {
     return '/images/placeholder-product.png'
   }
 
-  // Si l'URL est déjà absolue (R2/CDN), la retourner telle quelle
-  if (firstImage.image_path.startsWith('http://') || firstImage.image_path.startsWith('https://')) {
-    return firstImage.image_path
-  }
-
-  // Sinon, construire l'URL complète avec l'API (images locales legacy)
-  const imagePath = firstImage.image_path.startsWith('/')
-    ? firstImage.image_path
-    : `/${firstImage.image_path}`
-
-  return `${config.public.apiUrl}${imagePath}`
+  // Les images sont stockées avec URL absolue (R2/CDN)
+  return firstImage.url
 }
 
 export const useProductsStore = defineStore('products', {
