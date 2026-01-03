@@ -28,7 +28,6 @@ from models.public.condition import Condition
 from models.public.ebay_aspect_mapping import AspectMapping
 from models.public.ebay_category_mapping import EbayCategoryMapping
 from models.public.ebay_marketplace_config import MarketplaceConfig
-from models.public.platform_mapping import Platform, PlatformMapping
 from models.user.product import Product
 from services.ebay.ebay_aspect_value_service import (
     EbayAspectValueService,
@@ -73,19 +72,6 @@ class EbayProductConversionService:
         """
         self.db = db
         self.user_id = user_id
-
-        # Charger platform_mapping pour pricing
-        self.platform_mapping = (
-            db.query(PlatformMapping)
-            .filter(
-                PlatformMapping.user_id == user_id,
-                PlatformMapping.platform == Platform.EBAY,
-            )
-            .first()
-        )
-
-        if not self.platform_mapping:
-            raise ValueError(f"User {user_id} n'a pas de configuration eBay")
 
         # Load condition mapping from DB (condition_name → ebay_condition)
         self._condition_map = self._load_condition_mapping()
@@ -538,6 +524,9 @@ class EbayProductConversionService:
 
         Formula: (base_price × coefficient) + fees
 
+        Note: Currently uses default coefficient (1.0) and no fees.
+        TODO: Add user-configurable pricing coefficients per marketplace.
+
         Args:
             product: Product Stoflow
             marketplace_id: Marketplace (ex: "EBAY_FR")
@@ -547,12 +536,10 @@ class EbayProductConversionService:
         """
         base_price = Decimal(str(product.price))
 
-        # Récupérer coefficient + fees selon marketplace
-        coef_attr = f"ebay_price_coefficient_{marketplace_id.split('_')[1].lower()}"
-        fee_attr = f"ebay_price_fee_{marketplace_id.split('_')[1].lower()}"
-
-        coefficient = getattr(self.platform_mapping, coef_attr, Decimal("1.00"))
-        fee = getattr(self.platform_mapping, fee_attr, Decimal("0.00"))
+        # Default pricing: coefficient 1.0, no fees
+        # TODO: Load from user settings when pricing configuration is implemented
+        coefficient = Decimal("1.00")
+        fee = Decimal("0.00")
 
         # Calculer prix
         price = (base_price * coefficient) + fee
