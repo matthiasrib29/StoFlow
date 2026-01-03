@@ -482,7 +482,7 @@ async def verify_vinted_connection(
     timeout: int = 30
 ) -> dict[str, Any]:
     """
-    Vérifie que le plugin est connecté à Vinted.
+    Vérifie que le plugin est connecté à Vinted (legacy - DOM parsing only).
 
     Crée une tâche spéciale get_vinted_user_info qui demande au plugin
     d'extraire userId/login depuis le DOM de Vinted.
@@ -510,4 +510,56 @@ async def verify_vinted_connection(
     """
     helper = PluginTaskHelper()
     task = helper.create_special_task(db, "get_vinted_user_info", platform="vinted")
+    return await helper.wait_for_task_completion(db, task.id, timeout)
+
+
+async def verify_vinted_connection_with_profile(
+    db: Session,
+    timeout: int = 30
+) -> dict[str, Any]:
+    """
+    Vérifie la connexion Vinted et récupère le profil complet avec stats vendeur.
+
+    Crée une tâche get_vinted_user_profile qui demande au plugin de :
+    1. Appeler l'API /api/v2/users/current pour récupérer le profil complet
+    2. Si l'API échoue, fallback sur l'extraction DOM
+
+    Args:
+        db: Session SQLAlchemy
+        timeout: Timeout en secondes (défaut: 30s)
+
+    Returns:
+        dict: {
+            "connected": bool,
+            "userId": int | None,
+            "login": str | None,
+            "source": "api" | "dom",
+            "stats": {
+                "item_count": int,
+                "total_items_count": int,
+                "given_item_count": int,
+                "taken_item_count": int,
+                "followers_count": int,
+                "feedback_count": int,
+                "feedback_reputation": float,
+                "positive_feedback_count": int,
+                "negative_feedback_count": int,
+                "is_business": bool,
+                "is_on_holiday": bool
+            } | None,
+            "timestamp": str
+        }
+
+    Raises:
+        TimeoutError: Si le plugin ne répond pas
+        Exception: Si erreur d'extraction
+
+    Example:
+        result = await verify_vinted_connection_with_profile(db)
+        if result['connected'] and result.get('stats'):
+            # Save stats to database
+            connection.update_seller_stats(result['stats'])
+    """
+    helper = PluginTaskHelper()
+    task = helper.create_special_task(db, "get_vinted_user_profile", platform="vinted")
     return await helper.wait_for_task_completion(db, task.id, timeout)
