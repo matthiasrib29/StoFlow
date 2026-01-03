@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     anthropic_max_tokens: int = 1024
     anthropic_temperature: float = 0.7
 
+    # Google Gemini Vision
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
+    gemini_max_images: int = 5
+
     # Vinted
     vinted_base_url: str = "https://www.vinted.fr"
     vinted_api_url: str = "https://www.vinted.fr/api/v2"
