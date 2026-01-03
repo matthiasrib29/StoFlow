@@ -1,6 +1,5 @@
 <template>
-  <NuxtLayout name="landing">
-    <!-- Hero Section -->
+  <!-- Hero Section -->
     <section class="relative overflow-hidden bg-gradient-to-br from-white via-gray-50 to-white py-20 lg:py-32">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid lg:grid-cols-2 gap-12 items-center">
@@ -594,9 +593,8 @@
     <!-- Sticky CTA Mobile -->
     <LandingStickyCTA />
 
-    <!-- Exit Intent Popup -->
-    <LandingExitIntentPopup />
-  </NuxtLayout>
+  <!-- Exit Intent Popup -->
+  <LandingExitIntentPopup />
 </template>
 
 <script setup lang="ts">
@@ -604,8 +602,7 @@ import type { PricingPlan } from '~/composables/usePricing'
 
 // Disable default layout and page transitions for instant navigation
 definePageMeta({
-  layout: false,
-  pageTransition: false
+  layout: 'landing'
 })
 
 // Pricing - Dynamic from API
