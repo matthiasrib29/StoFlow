@@ -309,7 +309,7 @@ def test_quotas_updated_immediately_after_upgrade(
             price=10.0,
             status=ProductStatus.PUBLISHED,
             category="test",  # Required field
-            condition="good"  # Required field
+            condition=7  # Required field
         )
         db_session.add(product)
     db_session.commit()
@@ -351,7 +351,7 @@ def test_cannot_bypass_quotas_with_direct_api_call(
             price=10.0,
             status=ProductStatus.PUBLISHED,
             category="test",  # Required field
-            condition="good"  # Required field
+            condition=7  # Required field
         )
         db_session.add(product)
     db_session.commit()
@@ -366,8 +366,8 @@ def test_cannot_bypass_quotas_with_direct_api_call(
             "price": 10.0,
             "category": "Tops",
             "brand": "Nike",
-            "condition": "Good",
-            "label_size": "M",
+            "condition": 7,
+            "size_original": "M",
             "color": "Black",
         },
     )

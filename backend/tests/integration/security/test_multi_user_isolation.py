@@ -272,7 +272,7 @@ class TestMultiUserIsolation:
                 "category": "TestCategory",
                 "brand": "TestBrand",
                 "condition": "GOOD",
-                "label_size": "M",
+                "size_original": "M",
                 "color": "Blue",
                 "stock_quantity": 1
             }
@@ -335,7 +335,7 @@ class TestMultiUserIsolation:
                 "category": "TestCategory",
                 "brand": "TestBrand",
                 "condition": "GOOD",
-                "label_size": "M",
+                "size_original": "M",
                 "color": "Blue",
                 "stock_quantity": 1
             }
@@ -399,7 +399,7 @@ class TestMultiUserIsolation:
                 "category": "TestCategory",
                 "brand": "TestBrand",
                 "condition": "GOOD",
-                "label_size": "M",
+                "size_original": "M",
                 "color": "Blue",
                 "stock_quantity": 1
             }
@@ -457,7 +457,7 @@ class TestMultiUserIsolation:
                     "category": "TestCategory",
                     "brand": "TestBrand",
                     "condition": "GOOD",
-                    "label_size": "M",
+                    "size_original": "M",
                     "color": "Blue",
                     "stock_quantity": 1
                 }
@@ -476,7 +476,7 @@ class TestMultiUserIsolation:
                     "category": "TestCategory",
                     "brand": "TestBrand",
                     "condition": "GOOD",
-                    "label_size": "M",
+                    "size_original": "M",
                     "color": "Blue",
                     "stock_quantity": 1
                 }
@@ -543,7 +543,7 @@ class TestMultiUserIsolation:
                     "category": "TestCategory",
                     "brand": "TestBrand",
                     "condition": "GOOD",
-                    "label_size": "M",
+                    "size_original": "M",
                     "color": "Blue",
                     "stock_quantity": 1
                 }
@@ -561,7 +561,7 @@ class TestMultiUserIsolation:
                     "category": "TestCategory",
                     "brand": "TestBrand",
                     "condition": "GOOD",
-                    "label_size": "M",
+                    "size_original": "M",
                     "color": "Blue",
                     "stock_quantity": 1
                 }
@@ -620,7 +620,7 @@ class TestCrossUserImageAccess:
                 "category": "TestCategory",
                 "brand": "TestBrand",
                 "condition": "GOOD",
-                "label_size": "M",
+                "size_original": "M",
                 "color": "Blue",
                 "stock_quantity": 1
             }

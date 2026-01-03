@@ -31,7 +31,6 @@ from models.public.season import Season
 from models.public.size import Size
 from models.user.product import Product, ProductStatus
 from services.validators import AttributeValidator
-from models.user.product_image import ProductImage
 from schemas.product_schemas import ProductCreate, ProductUpdate
 from services.product_utils import ProductUtils
 from services.pricing_service import PricingService
@@ -88,17 +87,17 @@ class ProductService:
         schema_name = f"user_{user_id}"
 
         # ===== 1. AJUSTER TAILLE SI DIMENSIONS FOURNIES (Business Rule 2025-12-09) =====
-        label_size = ProductUtils.adjust_size(
-            product_data.label_size,
+        size_original = ProductUtils.adjust_size(
+            product_data.size_original,
             product_data.dim1,
             product_data.dim6
         )
 
         # ===== 2. AUTO-CRÉER SIZE SI MANQUANTE (Business Rule 2025-12-09) =====
-        if label_size:
-            size_exists = db.query(Size).filter(Size.name == label_size).first()
+        if size_original:
+            size_exists = db.query(Size).filter(Size.name == size_original).first()
             if not size_exists:
-                new_size = Size(name=label_size, name_fr=None)
+                new_size = Size(name=size_original, name_fr=None)
                 db.add(new_size)
                 db.commit()
 
@@ -118,7 +117,7 @@ class ProductService:
         # ===== 4. VALIDATION DES ATTRIBUTS (Refactored 2025-12-09) =====
         # Valider tous les attributs FK
         validation_data = product_data.model_dump()
-        validation_data['label_size'] = label_size  # Utiliser taille ajustée
+        validation_data['size_original'] = size_original  # Utiliser taille ajustée
         AttributeValidator.validate_product_attributes(db, validation_data)
 
         # ===== 5. CRÉER LE PRODUIT =====
@@ -129,7 +128,7 @@ class ProductService:
             category=product_data.category,
             brand=product_data.brand,
             condition=product_data.condition,
-            label_size=label_size,  # Taille ajustée
+            size_original=size_original,  # Taille originale (ajustée si dimensions fournies)
             color=product_data.color,
             material=product_data.material,
             fit=product_data.fit,
@@ -329,136 +328,155 @@ class ProductService:
 
     @staticmethod
     def add_image(
-        db: Session, product_id: int, image_path: str, display_order: int = 0
-    ) -> ProductImage:
+        db: Session, product_id: int, image_url: str, display_order: int | None = None
+    ) -> dict:
         """
-        Ajoute une image à un produit.
+        Ajoute une image à un produit (JSONB).
 
-        Business Rules (2025-12-04):
+        Business Rules (Updated 2026-01-03):
         - Maximum 20 images par produit (limite Vinted)
         - Vérifier que le produit existe et n'est pas supprimé
-        - display_order détermine l'ordre d'affichage
+        - display_order auto-calculé si non fourni (append à la fin)
+        - Images stockées en JSONB: [{url, order, created_at}, ...]
 
         Args:
             db: Session SQLAlchemy
             product_id: ID du produit
-            image_path: Chemin relatif de l'image
-            display_order: Ordre d'affichage (0 = première image)
+            image_url: URL de l'image (CDN)
+            display_order: Ordre d'affichage (auto si None)
 
         Returns:
-            ProductImage: L'image créée
+            dict: L'image créée {url, order, created_at}
 
         Raises:
             ValueError: Si produit non trouvé ou limite atteinte
         """
-        # Vérifier que le produit existe
         product = ProductService.get_product_by_id(db, product_id)
         if not product:
             raise ValueError(f"Product with id {product_id} not found")
 
-        # ===== BUSINESS RULE (2025-12-05): Cannot add images to SOLD products =====
+        # ===== BUSINESS RULE: Cannot add images to SOLD products =====
         if product.status == ProductStatus.SOLD:
             raise ValueError(
                 "Cannot add images to SOLD product. Product is locked after sale."
             )
 
+        # Get current images (ensure list)
+        images = product.images or []
+
         # Vérifier la limite de 20 images
-        # Note: FOR UPDATE removed - incompatible with Product's nullable relationships
-        # (vinted_product, ebay_product) which create implicit outer joins.
-        # Race condition risk is minimal (worst case: 21 images instead of 20)
-        image_count = db.query(ProductImage).filter(ProductImage.product_id == product_id).count()
-        if image_count >= 20:
-            raise ValueError(f"Product already has {image_count} images (max 20)")
+        if len(images) >= 20:
+            raise ValueError(f"Product already has {len(images)} images (max 20)")
 
-        # Créer l'image
-        product_image = ProductImage(
-            product_id=product_id, image_path=image_path, display_order=display_order
-        )
+        # Auto-calculate display_order if not provided
+        if display_order is None:
+            display_order = len(images)
 
-        db.add(product_image)
-        db.flush()  # Use flush instead of commit to stay in the transaction
-        # No refresh needed after flush - the object is already populated
-        # Commit will be done by the caller or at request end
+        # Create new image entry
+        new_image = {
+            "url": image_url,
+            "order": display_order,
+            "created_at": utc_now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
 
-        return product_image
+        # Append and save
+        images.append(new_image)
+        product.images = images
+        db.flush()
+
+        return new_image
 
     @staticmethod
-    def delete_image(db: Session, image_id: int) -> bool:
+    def delete_image(db: Session, product_id: int, image_url: str) -> bool:
         """
-        Supprime une image.
+        Supprime une image par URL.
 
-        Business Rules:
-        - Suppression physique (pas soft delete pour les images)
-        - Le fichier filesystem doit être supprimé par FileService
+        Business Rules (Updated 2026-01-03):
+        - Suppression de l'entrée JSONB
+        - Le fichier CDN doit être supprimé par FileService (R2)
+        - Réordonne automatiquement les images restantes
 
         Args:
             db: Session SQLAlchemy
-            image_id: ID de l'image
+            product_id: ID du produit
+            image_url: URL de l'image à supprimer
 
         Returns:
             bool: True si supprimée, False si non trouvée
         """
-        image = db.query(ProductImage).filter(ProductImage.id == image_id).first()
-        if not image:
+        product = ProductService.get_product_by_id(db, product_id)
+        if not product:
             return False
 
-        db.delete(image)
+        images = product.images or []
+
+        # Filter out the image to delete
+        new_images = [img for img in images if img.get("url") != image_url]
+
+        if len(new_images) == len(images):
+            return False  # Image not found
+
+        # Reorder remaining images (0, 1, 2, ...)
+        for i, img in enumerate(new_images):
+            img["order"] = i
+
+        product.images = new_images
         db.commit()
 
         return True
 
     @staticmethod
     def reorder_images(
-        db: Session, product_id: int, image_orders: dict[int, int]
-    ) -> list[ProductImage]:
+        db: Session, product_id: int, ordered_urls: list[str]
+    ) -> list[dict]:
         """
         Réordonne les images d'un produit.
 
-        Business Rules:
-        - image_orders: {image_id: new_display_order}
-        - Vérifie que toutes les images appartiennent au produit
+        Business Rules (Updated 2026-01-03):
+        - ordered_urls: liste d'URLs dans le nouvel ordre
+        - L'ordre dans la liste détermine le display_order (0, 1, 2, ...)
+        - Vérifie que toutes les URLs appartiennent au produit
 
         Args:
             db: Session SQLAlchemy
             product_id: ID du produit
-            image_orders: Dictionnaire {image_id: new_display_order}
+            ordered_urls: Liste d'URLs dans l'ordre souhaité
 
         Returns:
-            list[ProductImage]: Images réordonnées
+            list[dict]: Images réordonnées
 
         Raises:
-            ValueError: Si une image n'appartient pas au produit
+            ValueError: Si une URL n'appartient pas au produit
         """
-        # Récupérer toutes les images du produit
-        images = (
-            db.query(ProductImage)
-            .filter(ProductImage.product_id == product_id)
-            .all()
-        )
+        product = ProductService.get_product_by_id(db, product_id)
+        if not product:
+            raise ValueError(f"Product with id {product_id} not found")
 
-        image_ids = {img.id for img in images}
+        images = product.images or []
+        current_urls = {img.get("url") for img in images}
 
-        # Vérifier que toutes les images existent et appartiennent au produit
-        for image_id in image_orders.keys():
-            if image_id not in image_ids:
+        # Vérifier que toutes les URLs existent
+        for url in ordered_urls:
+            if url not in current_urls:
                 raise ValueError(
-                    f"Image {image_id} does not belong to product {product_id}"
+                    f"Image URL not found in product {product_id}: {url}"
                 )
 
-        # Appliquer le réordonnancement
-        for image_id, new_order in image_orders.items():
-            image = next(img for img in images if img.id == image_id)
-            image.display_order = new_order
+        # Build URL -> image mapping
+        url_to_image = {img.get("url"): img for img in images}
 
+        # Reorder based on ordered_urls
+        reordered = []
+        for i, url in enumerate(ordered_urls):
+            img = url_to_image[url].copy()
+            img["order"] = i
+            reordered.append(img)
+
+        product.images = reordered
         db.commit()
+        db.refresh(product)
 
-        # Retourner les images réordonnées
-        return (
-            db.query(ProductImage)
-            .filter(ProductImage.product_id == product_id)
-            .order_by(ProductImage.display_order)
-            .all()
-        )
+        return product.images
 
     @staticmethod
     def update_product_status(
@@ -519,7 +537,7 @@ class ProductService:
                     f"Current stock: {product.stock_quantity}. Please add inventory first."
                 )
             # Cannot publish without images (min 1 required)
-            image_count = db.query(ProductImage).filter(ProductImage.product_id == product_id).count()
+            image_count = len(product.images or [])
             if image_count == 0:
                 raise ValueError(
                     "Cannot publish product without images. "
@@ -528,10 +546,6 @@ class ProductService:
 
         # Mettre à jour le status
         product.status = new_status
-
-        # Mettre à jour published_at si publication
-        if new_status == ProductStatus.PUBLISHED and not product.published_at:
-            product.published_at = utc_now()
 
         # Mettre à jour sold_at si vendu + reset stock (Business Rule 2025-12-05)
         if new_status == ProductStatus.SOLD:

@@ -452,7 +452,7 @@ class VintedImporter:
             brand=product_data["brand"],
             category=product_data["category"],
             condition=product_data["condition"],
-            label_size=product_data["label_size"],
+            size_original=product_data["size_original"],
             color=product_data["color"],
             stock_quantity=product_data["stock_quantity"],
             # Stocker metadata Vinted dans integration_metadata JSONB
@@ -511,14 +511,16 @@ class VintedImporter:
             vinted_id: ID Vinted
 
         Returns:
-            Product | None
+            Product | None (via VintedProduct.product relation)
         """
-        from models.user.product import Product
+        from models.user.vinted_product import VintedProduct
 
-        # Chercher produit avec vinted_id dans integration_metadata
-        return db.query(Product).filter(
-            Product.integration_metadata["vinted_id"].astext == str(vinted_id)
+        # Chercher via la table vinted_products qui contient le vinted_id
+        vinted_product = db.query(VintedProduct).filter(
+            VintedProduct.vinted_id == vinted_id
         ).first()
+
+        return vinted_product.product if vinted_product else None
 
     def close(self):
         """Ferme le client HTTP."""

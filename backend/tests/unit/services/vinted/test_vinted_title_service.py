@@ -201,9 +201,9 @@ class TestExtractAttributes:
         product = Mock()
         product.brand = "Levi's"
         product.category = "Jeans"
-        product.size = "36"
+        product.size_original = "36"
         product.color = "Blue"
-        product.condition = "EXCELLENT"
+        product.condition = 8
         product.fit = None
         product.model = None
         product.decade = None
@@ -216,13 +216,13 @@ class TestExtractAttributes:
         product = Mock()
         product.brand = "unbranded"
         product.category = "Jeans"
-        product.size = None
+        product.size_normalized = None
         product.color = None
         product.condition = None
         product.fit = None
         product.model = None
         product.decade = None
-        product.label_size = None
+        product.size_original = None
 
         attrs = VintedTitleService._extract_attributes(product)
         assert attrs['brand'] is None
@@ -232,13 +232,13 @@ class TestExtractAttributes:
         product = Mock()
         product.brand = "TestBrand"
         product.category = "T-shirt"
-        product.size = "M"
+        product.size_original = "M"
+        product.size_normalized = None
         product.color = None
         product.condition = None
         product.fit = None
         product.model = None
         product.decade = None
-        product.label_size = None
 
         attrs = VintedTitleService._extract_attributes(product)
         assert attrs['size'] == "Taille M"
@@ -248,13 +248,13 @@ class TestExtractAttributes:
         product = Mock()
         product.brand = "TestBrand"
         product.category = "T-shirt"
-        product.size = None
+        product.size_normalized = None
         product.color = None
-        product.condition = "EXCELLENT"
+        product.condition = 8
         product.fit = None
         product.model = None
         product.decade = None
-        product.label_size = None
+        product.size_original = None
 
         attrs = VintedTitleService._extract_attributes(product)
         assert attrs['condition'] == "Très bon état"
@@ -264,13 +264,13 @@ class TestExtractAttributes:
         product = Mock()
         product.brand = "TestBrand"
         product.category = "Jeans"
-        product.size = None
+        product.size_normalized = None
         product.color = None
         product.condition = None
         product.fit = None
         product.model = None
         product.decade = "1990s"
-        product.label_size = None
+        product.size_original = None
 
         attrs = VintedTitleService._extract_attributes(product)
         assert attrs['decade'] == "Vintage 90s"
@@ -345,14 +345,14 @@ class TestGenerateTitle:
         product.id = 2726
         product.brand = "Levi's"
         product.category = "Jeans"
-        product.size = "36"
+        product.size_original = "36"
         product.color = "Blue"
-        product.condition = "EXCELLENT"
+        product.condition = 8
         product.location = "A3"
         product.fit = None
         product.model = None
         product.decade = None
-        product.label_size = None
+        product.size_original = None
 
         title = VintedTitleService.generate_title(product)
 
@@ -366,14 +366,14 @@ class TestGenerateTitle:
         product.id = 999999
         product.brand = "SuperLongBrandName" * 3
         product.category = "SuperLongCategory" * 3
-        product.size = "XXXL"
+        product.size_original = "XXXL"
         product.color = "Rainbow Multicolor"
-        product.condition = "EXCELLENT"
+        product.condition = 8
         product.location = "WAREHOUSE123"
         product.fit = "Extra Slim Fit"
         product.model = "SuperModelName"
         product.decade = "1990s"
-        product.label_size = None
+        product.size_original = None
 
         title = VintedTitleService.generate_title(product)
         assert len(title) <= MAX_TITLE_LENGTH
@@ -384,9 +384,9 @@ class TestGenerateTitle:
         product.id = 1000
         product.brand = "Nike"
         product.category = "Sneakers"
-        product.size = "42"
+        product.size_original = "42"
         product.color = "White"
-        product.condition = "GOOD"
+        product.condition = 7
 
         title = VintedTitleService.generate_title(product)
 
@@ -399,14 +399,14 @@ class TestGenerateTitle:
         product.id = 123
         product.brand = "TEXAS"
         product.category = "STRETCH JEANS"
-        product.size = None
+        product.size_normalized = None
         product.color = None
         product.condition = None
         product.location = None
         product.fit = None
         product.model = None
         product.decade = None
-        product.label_size = None
+        product.size_original = None
 
         title = VintedTitleService.generate_title(product)
 

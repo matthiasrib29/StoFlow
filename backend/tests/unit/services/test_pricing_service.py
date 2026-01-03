@@ -186,7 +186,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="TestBrand",
             category="Jeans",
-            condition="EXCELLENT"
+            condition=8
         )
 
         # 30 * 1.0 * 1.0 * 1.0 = 30 → arrondi 30.00
@@ -204,7 +204,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="TestBrand",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             rarity="Rare"
         )
 
@@ -223,7 +223,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="TestBrand",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             rarity="Vintage"
         )
 
@@ -242,7 +242,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="TestBrand",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             quality="Premium"
         )
 
@@ -261,7 +261,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="TestBrand",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             quality="Average"
         )
 
@@ -280,7 +280,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="Diesel",
             category="Jeans",
-            condition="GOOD",
+            condition=7,
             rarity="Vintage",
             quality="Premium"
         )
@@ -300,7 +300,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="CheapBrand",
             category="T-shirt",
-            condition="POOR",
+            condition=5,
             quality="Average"
         )
 
@@ -319,7 +319,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="TestBrand",
             category="Jeans",
-            condition="EXCELLENT"
+            condition=8
         )
 
         # 27 * 1.0 * 1.0 * 1.0 = 27 → arrondi 27.00
@@ -337,7 +337,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="TestBrand",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             rarity="UnknownRarity"
         )
 
@@ -356,7 +356,7 @@ class TestCalculatePrice:
             db=mock_db,
             brand="TestBrand",
             category="Jeans",
-            condition="EXCELLENT",
+            condition=8,
             quality="UnknownQuality"
         )
 

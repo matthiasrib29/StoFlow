@@ -17,18 +17,18 @@ class ProductUtils:
     """Utilitaires pour manipulation de données produit."""
 
     @staticmethod
-    def adjust_size(label_size: str | None, dim1: int | None, dim6: int | None) -> str | None:
+    def adjust_size(size_original: str | None, dim1: int | None, dim6: int | None) -> str | None:
         """
         Ajuste automatiquement la taille selon les dimensions mesurées.
 
         Business Rules (2025-12-08):
         - Si dim1 (waist) ET dim6 (inseam) → Format: "W{dim1}/L{dim6}" (MAJUSCULES)
         - Si seulement dim1 (waist) → Format: "W{dim1}" (pour shorts, jupes)
-        - Sinon → Garder label_size originale (taille étiquette)
+        - Sinon → Garder size_original (taille étiquette originale)
         - Format toujours en MAJUSCULES (ex: "W32/L34", pas "w32/l34")
 
         Args:
-            label_size: Taille étiquette originale (ex: "32/34", "L", "M")
+            size_original: Taille étiquette originale (ex: "32/34", "L", "M")
             dim1: Tour de taille (waist) en cm
             dim6: Entrejambe (inseam) en cm
 
@@ -57,7 +57,7 @@ class ProductUtils:
             return f"W{dim1}"
 
         # Sinon → Garder taille étiquette
-        return label_size
+        return size_original
 
     @staticmethod
     def normalize_model_case(model: str | None) -> str | None:

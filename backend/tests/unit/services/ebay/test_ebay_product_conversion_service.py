@@ -24,11 +24,11 @@ class TestEbayProductConversionServiceCategoryResolution:
         product.title = "Test Product"
         product.description = "Test description"
         product.price = Decimal("50.00")
-        product.condition = "Excellent"
+        product.condition = 8  # 8 = Excellent
         product.stock_quantity = 1
         product.brand = "TestBrand"
         product.color = "Blue"
-        product.label_size = "M"
+        product.size_original = "M"
         product.material = "Cotton"
         product.gender = "men"
         product.fit = None

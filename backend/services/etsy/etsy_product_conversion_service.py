@@ -44,22 +44,26 @@ class EtsyProductConversionService:
         >>> client.create_draft_listing(listing_data)
     """
 
-    # Mapping Stoflow conditions → Etsy who_made
+    # Mapping condition (Integer 0-10) → Etsy who_made
+    # 10 = Neuf avec étiquettes, 9 = Neuf sans étiquettes, 8 = Très bon état
+    # 7 = Bon état, 6 = Satisfaisant, 5 = À réparer
     CONDITION_TO_WHO_MADE = {
-        "NEW": "i_did",  # Neuf = fait par moi
-        "EXCELLENT": "i_did",
-        "GOOD": "someone_else",  # Occasion = fait par quelqu'un d'autre
-        "FAIR": "someone_else",
-        "POOR": "someone_else",
+        10: "i_did",  # Neuf avec étiquettes = fait par moi
+        9: "i_did",   # Neuf sans étiquettes = fait par moi
+        8: "i_did",   # Très bon état = fait par moi
+        7: "someone_else",  # Bon état = fait par quelqu'un d'autre
+        6: "someone_else",  # Satisfaisant
+        5: "someone_else",  # À réparer
     }
 
-    # Mapping Stoflow conditions → Etsy when_made
+    # Mapping condition (Integer 0-10) → Etsy when_made
     CONDITION_TO_WHEN_MADE = {
-        "NEW": "made_to_order",
-        "EXCELLENT": "2020_2023",
-        "GOOD": "2010_2019",
-        "FAIR": "before_2010",
-        "POOR": "before_2010",
+        10: "made_to_order",  # Neuf avec étiquettes
+        9: "made_to_order",   # Neuf sans étiquettes
+        8: "2020_2023",       # Très bon état
+        7: "2010_2019",       # Bon état
+        6: "before_2010",     # Satisfaisant
+        5: "before_2010",     # À réparer
     }
 
     def __init__(self):
@@ -240,8 +244,8 @@ class EtsyProductConversionService:
         if product.color:
             description_parts.append(f"\n**Color:** {product.color}")
 
-        if product.label_size:
-            description_parts.append(f"\n**Size:** {product.label_size}")
+        if product.size_original:
+            description_parts.append(f"\n**Size:** {product.size_original}")
 
         if product.condition:
             description_parts.append(f"\n**Condition:** {product.condition}")
@@ -264,7 +268,7 @@ class EtsyProductConversionService:
         Returns:
             who_made value (i_did, someone_else, collective)
         """
-        condition = product.condition or "GOOD"
+        condition = product.condition if product.condition is not None else 7  # 7 = Bon état (default)
         return self.CONDITION_TO_WHO_MADE.get(condition, "someone_else")
 
     def _get_when_made(self, product: Product) -> str:
@@ -277,7 +281,7 @@ class EtsyProductConversionService:
         Returns:
             when_made value (made_to_order, 2020_2023, etc.)
         """
-        condition = product.condition or "GOOD"
+        condition = product.condition if product.condition is not None else 7  # 7 = Bon état (default)
         return self.CONDITION_TO_WHEN_MADE.get(condition, "2010_2019")
 
     def _build_tags(self, product: Product) -> List[str]:
