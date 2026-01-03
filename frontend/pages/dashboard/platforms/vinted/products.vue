@@ -279,20 +279,18 @@ const filteredProducts = computed(() => {
 })
 
 // Methods
-const { $api } = useNuxtApp()
+const api = useApi()
 
 async function fetchProducts() {
   loading.value = true
   error.value = null
 
   try {
-    const response = await $api('/vinted/products', {
-      params: { limit: 500 }
-    })
-    products.value = response.products || []
+    const response = await api.get<{ products: VintedProduct[] }>('/api/vinted/products?limit=500')
+    products.value = response?.products || []
   } catch (e: any) {
     console.error('Error fetching products:', e)
-    error.value = e.data?.detail || 'Erreur lors du chargement des annonces'
+    error.value = e.message || 'Erreur lors du chargement des annonces'
   } finally {
     loading.value = false
   }
@@ -302,11 +300,11 @@ async function syncProducts() {
   syncing.value = true
 
   try {
-    await $api('/vinted/products/sync', { method: 'POST' })
+    await api.post('/api/vinted/products/sync')
     await fetchProducts()
   } catch (e: any) {
     console.error('Error syncing products:', e)
-    error.value = e.data?.detail || 'Erreur lors de la synchronisation'
+    error.value = e.message || 'Erreur lors de la synchronisation'
   } finally {
     syncing.value = false
   }
