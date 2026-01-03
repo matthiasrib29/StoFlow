@@ -158,29 +158,60 @@ async def sync_orders_by_month(
     user_db: tuple = Depends(get_user_db),
     year: int = Query(..., ge=2020, le=2100, description="Année"),
     month: int = Query(..., ge=1, le=12, description="Mois (1-12)"),
+    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
 ) -> dict:
     """
     Synchronise les commandes d'un mois spécifique depuis Vinted.
 
-    Utilise l'endpoint wallet/invoices pour récupérer uniquement
-    les transactions d'un mois donné au lieu de tout l'historique.
+    Crée un VintedJob pour tracer l'opération dans l'UI.
 
     Args:
         year: Année (ex: 2025)
         month: Mois (1-12)
+        process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
 
     Returns:
-        {"synced": int, "duplicates": int, "errors": int, "month": str}
+        {
+            "job_id": int,
+            "status": str,
+            "result": dict | None (si process_now=True)
+        }
     """
     db, current_user = user_db
 
     connection = get_active_vinted_connection(db, current_user.id)
 
     try:
-        service = VintedSyncService(shop_id=connection.vinted_user_id)
-        result = await service.sync_orders_by_month(db, year, month)
-        return result
+        job_service = VintedJobService(db)
 
+        # Create orders sync job with month parameters
+        job = job_service.create_job(
+            action_code="orders",
+            product_id=None,
+            result_data={"year": year, "month": month, "mode": "monthly"}
+        )
+        db.commit()
+
+        response = {
+            "job_id": job.id,
+            "status": job.status.value,
+            "month": f"{year}-{month:02d}",
+        }
+
+        # Execute immediately if requested
+        if process_now:
+            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            result = await processor._execute_job(job)
+            response["result"] = result.get("result", result)
+            response["status"] = "completed" if result.get("success") else "failed"
+
+        return response
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:
