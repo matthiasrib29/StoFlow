@@ -44,17 +44,17 @@ def table_exists(connection, schema: str, table: str) -> bool:
 def upgrade() -> None:
     connection = op.get_bind()
 
-    # Drop from template_tenant
-    if table_exists(connection, 'template_tenant', 'vinted_credentials'):
-        op.drop_table('vinted_credentials', schema='template_tenant')
-        print("  - Dropped vinted_credentials from template_tenant")
-
-    # Drop from all user schemas
+    # IMPORTANT: Drop from user schemas FIRST (they depend on template_tenant's sequence)
     user_schemas = get_user_schemas(connection)
     for schema in user_schemas:
         if table_exists(connection, schema, 'vinted_credentials'):
             op.drop_table('vinted_credentials', schema=schema)
             print(f"  - Dropped vinted_credentials from {schema}")
+
+    # Drop from template_tenant LAST (after dependents are removed)
+    if table_exists(connection, 'template_tenant', 'vinted_credentials'):
+        op.drop_table('vinted_credentials', schema='template_tenant')
+        print("  - Dropped vinted_credentials from template_tenant")
 
 
 def downgrade() -> None:
