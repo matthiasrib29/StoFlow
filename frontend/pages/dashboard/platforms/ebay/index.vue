@@ -15,13 +15,14 @@
           :loading="syncing"
           @click="handleSync"
         />
-        <Button
-          v-if="ebayStore.isConnected"
-          label="Paramètres"
-          icon="pi pi-cog"
-          class="btn-secondary"
-          @click="$router.push('/dashboard/platforms/ebay/settings')"
-        />
+        <NuxtLink to="/dashboard/platforms/ebay/settings">
+          <Button
+            v-if="ebayStore.isConnected"
+            label="Paramètres"
+            icon="pi pi-cog"
+            class="btn-secondary"
+          />
+        </NuxtLink>
       </div>
     </div>
 
@@ -116,59 +117,56 @@
 
       <!-- Quick Links -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card
-          class="shadow-sm modern-rounded border border-gray-100 cursor-pointer hover:shadow-lg transition-all"
-          @click="$router.push('/dashboard/platforms/ebay/products')"
-        >
-          <template #content>
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                <i class="pi pi-box text-blue-600 text-xl"/>
+        <NuxtLink to="/dashboard/platforms/ebay/products" class="block">
+          <Card class="shadow-sm modern-rounded border border-gray-100 cursor-pointer hover:shadow-lg transition-all">
+            <template #content>
+              <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                  <i class="pi pi-box text-blue-600 text-xl"/>
+                </div>
+                <div>
+                  <h3 class="font-bold text-secondary-900">Produits</h3>
+                  <p class="text-sm text-gray-500">Voir tous vos produits eBay</p>
+                </div>
+                <i class="pi pi-chevron-right ml-auto text-gray-400"/>
               </div>
-              <div>
-                <h3 class="font-bold text-secondary-900">Produits</h3>
-                <p class="text-sm text-gray-500">Voir tous vos produits eBay</p>
-              </div>
-              <i class="pi pi-chevron-right ml-auto text-gray-400"/>
-            </div>
-          </template>
-        </Card>
+            </template>
+          </Card>
+        </NuxtLink>
 
-        <Card
-          class="shadow-sm modern-rounded border border-gray-100 cursor-pointer hover:shadow-lg transition-all"
-          @click="$router.push('/dashboard/platforms/ebay/settings')"
-        >
-          <template #content>
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
-                <i class="pi pi-cog text-gray-600 text-xl"/>
+        <NuxtLink to="/dashboard/platforms/ebay/settings" class="block">
+          <Card class="shadow-sm modern-rounded border border-gray-100 cursor-pointer hover:shadow-lg transition-all">
+            <template #content>
+              <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+                  <i class="pi pi-cog text-gray-600 text-xl"/>
+                </div>
+                <div>
+                  <h3 class="font-bold text-secondary-900">Paramètres</h3>
+                  <p class="text-sm text-gray-500">Configurer votre compte eBay</p>
+                </div>
+                <i class="pi pi-chevron-right ml-auto text-gray-400"/>
               </div>
-              <div>
-                <h3 class="font-bold text-secondary-900">Paramètres</h3>
-                <p class="text-sm text-gray-500">Configurer votre compte eBay</p>
-              </div>
-              <i class="pi pi-chevron-right ml-auto text-gray-400"/>
-            </div>
-          </template>
-        </Card>
+            </template>
+          </Card>
+        </NuxtLink>
 
-        <Card
-          class="shadow-sm modern-rounded border border-gray-100 cursor-pointer hover:shadow-lg transition-all"
-          @click="openEbayStore"
-        >
-          <template #content>
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center">
-                <i class="pi pi-external-link text-yellow-600 text-xl"/>
+        <a href="https://www.ebay.fr/sh/ovw" target="_blank" rel="noopener noreferrer" class="block">
+          <Card class="shadow-sm modern-rounded border border-gray-100 cursor-pointer hover:shadow-lg transition-all">
+            <template #content>
+              <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center">
+                  <i class="pi pi-external-link text-yellow-600 text-xl"/>
+                </div>
+                <div>
+                  <h3 class="font-bold text-secondary-900">Ma Boutique eBay</h3>
+                  <p class="text-sm text-gray-500">Ouvrir sur eBay.fr</p>
+                </div>
+                <i class="pi pi-chevron-right ml-auto text-gray-400"/>
               </div>
-              <div>
-                <h3 class="font-bold text-secondary-900">Ma Boutique eBay</h3>
-                <p class="text-sm text-gray-500">Ouvrir sur eBay.fr</p>
-              </div>
-              <i class="pi pi-chevron-right ml-auto text-gray-400"/>
-            </div>
-          </template>
-        </Card>
+            </template>
+          </Card>
+        </a>
       </div>
 
       <!-- Account Info -->
@@ -230,10 +228,6 @@ const handleSync = async () => {
   } finally {
     syncing.value = false
   }
-}
-
-const openEbayStore = () => {
-  window.open('https://www.ebay.fr/sh/ovw', '_blank')
 }
 
 const getSellerLevelSeverity = () => {
