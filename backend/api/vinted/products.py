@@ -20,6 +20,7 @@ Updated 2026-01-05:
 - create_and_link now copies images from Vinted to R2
 """
 
+import asyncio
 import json
 from decimal import Decimal
 from typing import Optional
@@ -466,48 +467,93 @@ async def link_product(
         if vinted_product.photos_data:
             try:
                 photos = json.loads(vinted_product.photos_data)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                logger.error(f"[create_and_link] Failed to parse photos_data: {e}")
                 photos = []
+
+            # Diagnostic logging
+            logger.info(
+                f"[create_and_link] photos_data: count={len(photos)}, "
+                f"raw_length={len(vinted_product.photos_data)}"
+            )
+
+            # Log all available photos for debugging
+            for idx, p in enumerate(photos):
+                if isinstance(p, dict):
+                    photo_url = p.get("full_size_url") or p.get("url")
+                    logger.info(
+                        f"[create_and_link] Photo {idx}: "
+                        f"url={photo_url[:80] if photo_url else 'None'}..."
+                    )
+                else:
+                    logger.warning(f"[create_and_link] Photo {idx} is not a dict: {type(p)}")
 
             if photos:
                 logger.info(
-                    f"[create_and_link] Copying {len(photos)} images from Vinted "
-                    f"to R2 for product {product.id}"
+                    f"[create_and_link] Starting download of {len(photos)} images "
+                    f"from Vinted to R2 for product {product.id}"
                 )
 
                 for i, photo in enumerate(photos):
+                    # Add delay between downloads to avoid rate limiting (except first)
+                    if i > 0:
+                        await asyncio.sleep(0.5)
+
                     # Use full_size_url for original quality (not f800 resized)
                     photo_url = photo.get("full_size_url") or photo.get("url")
                     if not photo_url:
                         logger.warning(
-                            f"[create_and_link] Photo {i} has no URL, skipping"
+                            f"[create_and_link] Photo {i} has no URL, "
+                            f"keys present: {list(photo.keys()) if isinstance(photo, dict) else 'N/A'}"
                         )
                         continue
 
-                    try:
-                        # Download from Vinted and upload to R2
-                        r2_url = await FileService.download_and_upload_from_url(
-                            user_id=current_user.id,
-                            product_id=product.id,
-                            image_url=photo_url
-                        )
+                    logger.info(
+                        f"[create_and_link] Downloading image {i+1}/{len(photos)}: "
+                        f"{photo_url[:100]}..."
+                    )
 
+                    # Retry logic with exponential backoff
+                    max_retries = 3
+                    r2_url = None
+
+                    for attempt in range(max_retries):
+                        try:
+                            r2_url = await FileService.download_and_upload_from_url(
+                                user_id=current_user.id,
+                                product_id=product.id,
+                                image_url=photo_url,
+                                timeout=45.0  # Increased timeout
+                            )
+                            break  # Success, exit retry loop
+                        except Exception as retry_error:
+                            if attempt < max_retries - 1:
+                                delay = 1.0 * (2 ** attempt)  # 1s, 2s, 4s
+                                logger.warning(
+                                    f"[create_and_link] Image {i+1} attempt {attempt+1} failed: "
+                                    f"{type(retry_error).__name__}: {retry_error}. "
+                                    f"Retrying in {delay}s..."
+                                )
+                                await asyncio.sleep(delay)
+                            else:
+                                logger.error(
+                                    f"[create_and_link] Image {i+1} FAILED after {max_retries} attempts: "
+                                    f"{type(retry_error).__name__}: {retry_error}"
+                                )
+                                images_failed += 1
+
+                    if r2_url:
                         # Add image to product (JSONB)
                         ProductService.add_image(
                             db=db,
                             product_id=product.id,
                             image_url=r2_url,
-                            display_order=images_copied  # Use actual copied count
+                            display_order=images_copied
                         )
                         images_copied += 1
-                    except Exception as img_error:
-                        images_failed += 1
-                        logger.warning(
-                            f"[create_and_link] Failed to copy image {i} from "
-                            f"{photo_url[:50]}...: {img_error}"
+                        logger.info(
+                            f"[create_and_link] Image {i+1} uploaded successfully: {r2_url}"
                         )
-                        # Continue with next image instead of failing entire operation
-                        continue
 
                 if images_failed > 0:
                     logger.warning(
@@ -516,8 +562,8 @@ async def link_product(
                     )
 
                 logger.info(
-                    f"[create_and_link] Successfully copied {images_copied} images "
-                    f"for product {product.id}"
+                    f"[create_and_link] Completed: {images_copied} images copied, "
+                    f"{images_failed} failed for product {product.id}"
                 )
 
         db.commit()

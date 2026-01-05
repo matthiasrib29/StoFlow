@@ -330,7 +330,7 @@ class FileService:
                 response.raise_for_status()
                 content = response.content
         except httpx.TimeoutException:
-            raise RuntimeError(f"Timeout downloading image from {image_url}")
+            raise RuntimeError(f"Timeout ({timeout}s) downloading image from {image_url[:100]}")
         except httpx.HTTPStatusError as e:
             raise RuntimeError(
                 f"HTTP error {e.response.status_code} downloading image from {image_url}"
