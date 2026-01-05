@@ -34,3 +34,9 @@ Cree un nouveau worktree pour un hotfix urgent :
    - Tous les Bash() → cd ~/StoFlow-[nom] && ...
 
 7. Demande : "Quel bug dois-je corriger ?"
+
+8. APRES avoir recu les consignes de l'utilisateur :
+   - Utilise EnterPlanMode pour entrer en mode planification
+   - Analyse le codebase dans ~/StoFlow-[nom]/
+   - Identifie la cause du bug et propose un plan de correction
+   - Attends la validation avant de coder
