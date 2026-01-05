@@ -95,9 +95,9 @@ class ProductService:
 
         # ===== 2. AUTO-CRÉER SIZE SI MANQUANTE (Business Rule 2025-12-09) =====
         if size_original:
-            size_exists = db.query(Size).filter(Size.name == size_original).first()
+            size_exists = db.query(Size).filter(Size.name_en == size_original).first()
             if not size_exists:
-                new_size = Size(name=size_original, name_fr=None)
+                new_size = Size(name_en=size_original, name_fr=None)
                 db.add(new_size)
                 db.commit()
 
