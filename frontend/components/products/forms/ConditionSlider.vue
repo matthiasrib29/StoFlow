@@ -1,43 +1,36 @@
 <template>
-  <div class="condition-slider">
-    <div class="flex items-center justify-between mb-2">
+  <div class="condition-selector">
+    <div class="flex items-center justify-between mb-3">
       <label class="block text-xs font-semibold text-secondary-900">
         État du produit *
       </label>
-      <span v-if="modelValue !== null" class="text-sm font-bold" :class="conditionColorClass">
-        {{ modelValue }}/10 - {{ currentLabel.label }}
-      </span>
     </div>
 
-    <!-- Slider -->
-    <div class="slider-container">
-      <Slider
-        :model-value="modelValue ?? 5"
-        :min="0"
-        :max="10"
-        :step="1"
-        class="w-full"
-        :class="{ 'p-invalid': hasError }"
-        @update:model-value="$emit('update:modelValue', $event)"
-      />
-
-      <!-- Labels sous le slider -->
-      <div class="flex justify-between mt-1 text-[10px] text-gray-400">
-        <span>Défectueux</span>
-        <span>Usé</span>
-        <span>Bon</span>
-        <span>Très bon</span>
-        <span>Neuf</span>
-      </div>
+    <!-- Condition buttons -->
+    <div class="condition-buttons">
+      <button
+        v-for="condition in conditions"
+        :key="condition.value"
+        type="button"
+        class="condition-btn"
+        :class="{
+          'selected': modelValue === condition.value,
+          [condition.colorClass]: true
+        }"
+        @click="$emit('update:modelValue', condition.value)"
+      >
+        <span class="condition-label">{{ condition.label }}</span>
+        <span class="condition-score">{{ condition.value }}/10</span>
+      </button>
     </div>
 
-    <!-- Description de l'état actuel -->
-    <p v-if="modelValue !== null" class="text-xs text-gray-500 mt-2 italic">
+    <!-- Description -->
+    <p v-if="modelValue !== null && currentLabel.description" class="text-xs text-gray-500 mt-3 text-center italic">
       {{ currentLabel.description }}
     </p>
 
-    <!-- Message d'erreur -->
-    <small v-if="hasError && errorMessage" class="p-error">
+    <!-- Error message -->
+    <small v-if="hasError && errorMessage" class="text-red-500 text-xs mt-2 block">
       {{ errorMessage }}
     </small>
   </div>
@@ -62,47 +55,112 @@ defineEmits<{
   'update:modelValue': [value: number]
 }>()
 
-// Label actuel basé sur la valeur
+// Condition options
+const conditions = [
+  { value: 1, label: 'Défectueux', colorClass: 'color-red' },
+  { value: 3, label: 'Usé', colorClass: 'color-orange' },
+  { value: 5, label: 'Bon', colorClass: 'color-yellow' },
+  { value: 7, label: 'Très bon', colorClass: 'color-lime' },
+  { value: 10, label: 'Neuf', colorClass: 'color-green' }
+]
+
+// Current label based on value
 const currentLabel = computed(() => {
   const value = props.modelValue ?? 5
   return conditionLabels[value] || conditionLabels[5]
 })
-
-// Couleur selon la condition
-const conditionColorClass = computed(() => {
-  const value = props.modelValue ?? 5
-
-  if (value >= 9) return 'text-green-600'
-  if (value >= 7) return 'text-green-500'
-  if (value >= 5) return 'text-yellow-600'
-  if (value >= 3) return 'text-orange-500'
-  return 'text-red-500'
-})
 </script>
 
 <style scoped>
-.condition-slider :deep(.p-slider) {
-  background: linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #16a34a);
-  height: 8px;
-  border-radius: 4px;
+.condition-selector {
+  padding: 4px 0;
 }
 
-.condition-slider :deep(.p-slider-handle) {
-  width: 20px;
-  height: 20px;
-  background: white;
-  border: 3px solid #3b82f6;
-  border-radius: 50%;
-  margin-top: -6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+.condition-buttons {
+  display: flex;
+  gap: 8px;
 }
 
-.condition-slider :deep(.p-slider-handle:hover) {
-  border-color: #2563eb;
-  transform: scale(1.1);
+.condition-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: #f3f4f6;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.condition-slider :deep(.p-slider-range) {
-  background: transparent;
+.condition-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.condition-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  transition: color 0.2s ease;
+}
+
+.condition-score {
+  font-size: 10px;
+  color: #9ca3af;
+  margin-top: 2px;
+  transition: color 0.2s ease;
+}
+
+/* Color variants */
+.condition-btn.color-red:hover,
+.condition-btn.color-red.selected {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+.condition-btn.color-red.selected .condition-label { color: #dc2626; }
+.condition-btn.color-red.selected .condition-score { color: #ef4444; }
+
+.condition-btn.color-orange:hover,
+.condition-btn.color-orange.selected {
+  background: #fff7ed;
+  border-color: #f97316;
+}
+.condition-btn.color-orange.selected .condition-label { color: #ea580c; }
+.condition-btn.color-orange.selected .condition-score { color: #f97316; }
+
+.condition-btn.color-yellow:hover,
+.condition-btn.color-yellow.selected {
+  background: #fefce8;
+  border-color: #eab308;
+}
+.condition-btn.color-yellow.selected .condition-label { color: #ca8a04; }
+.condition-btn.color-yellow.selected .condition-score { color: #eab308; }
+
+.condition-btn.color-lime:hover,
+.condition-btn.color-lime.selected {
+  background: #f0fdf4;
+  border-color: #22c55e;
+}
+.condition-btn.color-lime.selected .condition-label { color: #16a34a; }
+.condition-btn.color-lime.selected .condition-score { color: #22c55e; }
+
+.condition-btn.color-green:hover,
+.condition-btn.color-green.selected {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+.condition-btn.color-green.selected .condition-label { color: #059669; }
+.condition-btn.color-green.selected .condition-score { color: #10b981; }
+
+/* Selected state enhancements */
+.condition-btn.selected {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.condition-btn.selected .condition-label {
+  font-weight: 700;
 }
 </style>
