@@ -1,6 +1,5 @@
 /**
- * Logger Professionnel - Système de loggimport { Logger } from '../utils/logger';
-ing centralisé
+ * Logger Professionnel - Système de logging centralisé
  *
  * Remplace les 433 console.log par un système structuré avec:
  * - Niveaux de log (DEBUG, INFO, WARN, ERROR)
