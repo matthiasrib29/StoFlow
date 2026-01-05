@@ -98,7 +98,7 @@
           </div>
 
           <div v-if="platform.last_sync" class="text-xs text-gray-400 mb-3">
-            Dernière synchro : {{ formatDate(platform.last_sync) }}
+            Dernière synchro : {{ formatDateTime(platform.last_sync) }}
           </div>
 
           <div class="flex gap-2">
@@ -127,6 +127,7 @@
 
 <script setup lang="ts">
 import { useToast } from 'primevue/usetoast'
+import { formatDateTime } from '~/utils/formatters'
 
 definePageMeta({
   layout: 'dashboard'
@@ -184,15 +185,6 @@ const enrichedPlatforms = computed(() => {
   })
 })
 
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
 
 const connectPlatform = async (platformId: string) => {
   try {

@@ -164,16 +164,18 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: ProductFormData]
-  'submit': []
-  'cancel': []
+  submit: []
+  cancel: []
 }>()
 
 // Validation du formulaire
 const validation = useProductFormValidation()
-const { showSuccess, showError, showWarn } = useAppToast()
-
-// API pour la génération IA
+const { showWarn, showError, showSuccess } = useAppToast()
 const { post } = useApi()
+
+// AI composable
+const productIdRef = computed(() => props.productId)
+const hasImagesRef = computed(() => props.hasImages)
 
 // États
 const isGeneratingDescription = ref(false)
