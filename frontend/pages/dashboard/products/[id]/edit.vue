@@ -82,6 +82,7 @@
 
 <script setup lang="ts">
 import { useProductsStore } from '~/stores/products'
+import { type ProductFormData, defaultProductFormData } from '~/types/product'
 
 definePageMeta({
   layout: 'dashboard'
@@ -95,51 +96,13 @@ const productsStore = useProductsStore()
 
 const id = parseInt(route.params.id as string)
 
-// Helper to build full image URL
-const buildImageUrl = (imagePath: string): string => {
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath
-  }
-  const path = imagePath.startsWith('/') ? imagePath : `/${imagePath}`
-  return `${config.public.apiUrl}${path}`
-}
-
 // State
 const loading = ref(true)
 const product = ref<any>(null)
 const isSubmitting = ref(false)
 
-// Form data (same structure as create.vue)
-const form = ref({
-  // Informations de base
-  title: '',
-  description: '',
-  price: null as number | null,
-
-  // Attributs obligatoires
-  brand: '',
-  category: '',
-  condition: '',
-  label_size: '',
-  color: '',
-
-  // Attributs optionnels
-  material: null as string | null,
-  fit: null as string | null,
-  gender: null as string | null,
-  season: null as string | null,
-
-  // Dimensions
-  dim1: null as number | null,
-  dim2: null as number | null,
-  dim3: null as number | null,
-  dim4: null as number | null,
-  dim5: null as number | null,
-  dim6: null as number | null,
-
-  // Stock
-  stock_quantity: 1
-})
+// Form data with complete ProductFormData interface
+const form = ref<ProductFormData>({ ...defaultProductFormData })
 
 // Photos management
 interface Photo {
@@ -192,25 +155,59 @@ onMounted(async () => {
     if (product.value) {
       // Pré-remplir le formulaire avec les données existantes
       form.value = {
+        // Section 1: Infos de base
         title: product.value.title || '',
         description: product.value.description || '',
         price: product.value.price !== null ? parseFloat(product.value.price) : null,
-        brand: product.value.brand || '',
+        stock_quantity: product.value.stock_quantity || 1,
+
+        // Section 2: Caractéristiques obligatoires
         category: product.value.category || '',
-        condition: product.value.condition || '',
-        label_size: product.value.label_size || '',
+        brand: product.value.brand || '',
+        condition: product.value.condition ?? null,
+        size_original: product.value.size_original || '',
+        size_normalized: product.value.size_normalized || null,
         color: product.value.color || '',
-        material: product.value.material || null,
+        gender: product.value.gender || '',
+        material: product.value.material || '',
+
+        // Section 2: Caractéristiques optionnelles - Vêtements
         fit: product.value.fit || null,
-        gender: product.value.gender || null,
         season: product.value.season || null,
+        sport: product.value.sport || null,
+        neckline: product.value.neckline || null,
+        length: product.value.length || null,
+        pattern: product.value.pattern || null,
+        rise: product.value.rise || null,
+        closure: product.value.closure || null,
+        sleeve_length: product.value.sleeve_length || null,
+
+        // Section 2: Vintage & Tendance
+        origin: product.value.origin || null,
+        decade: product.value.decade || null,
+        trend: product.value.trend || null,
+
+        // Section 2: Détails
+        condition_sup: product.value.condition_sup || null,
+        location: product.value.location || null,
+        model: product.value.model || null,
+        unique_feature: product.value.unique_feature || null,
+        marking: product.value.marking || null,
+
+        // Section 3: Dimensions
         dim1: product.value.dim1 || null,
         dim2: product.value.dim2 || null,
         dim3: product.value.dim3 || null,
         dim4: product.value.dim4 || null,
         dim5: product.value.dim5 || null,
         dim6: product.value.dim6 || null,
-        stock_quantity: product.value.stock_quantity || 1
+
+        // Section 3: Pricing
+        pricing_rarity: product.value.pricing_rarity || null,
+        pricing_quality: product.value.pricing_quality || null,
+        pricing_style: product.value.pricing_style || null,
+        pricing_details: product.value.pricing_details || null,
+        pricing_edit: product.value.pricing_edit || null
       }
 
       // Charger les images existantes (JSONB: {url, order, created_at})
@@ -218,7 +215,7 @@ onMounted(async () => {
         existingImages.value = product.value.images
           .sort((a: any, b: any) => a.order - b.order)
           .map((img: any, index: number) => ({
-            id: index,  // Use index as id since JSONB doesn't have id
+            id: index,
             url: img.url,
             position: img.order
           }))
@@ -233,26 +230,6 @@ onMounted(async () => {
 })
 
 const handleSubmit = async () => {
-  // Validation: Vérifier les champs obligatoires
-  if (!form.value.title || !form.value.description) {
-    showWarn(
-      'Champs manquants',
-      'Veuillez remplir tous les champs obligatoires (titre, description)',
-      3000
-    )
-    return
-  }
-
-  if (!form.value.brand || !form.value.category || !form.value.condition ||
-      !form.value.label_size || !form.value.color) {
-    showWarn(
-      'Attributs manquants',
-      'Veuillez remplir tous les attributs obligatoires (marque, catégorie, état, taille, couleur)',
-      3000
-    )
-    return
-  }
-
   // Validation: Vérifier qu'au moins 1 image existe
   if (existingImages.value.length === 0 && newPhotos.value.length === 0) {
     showWarn(
@@ -266,28 +243,52 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
-    // Mettre à jour le produit via API
-    await productsStore.updateProduct(product.value.id, {
+    // Préparer les données pour l'API
+    const productData = {
       title: form.value.title,
       description: form.value.description,
       price: form.value.price,
-      brand: form.value.brand,
       category: form.value.category,
       condition: form.value.condition,
-      label_size: form.value.label_size,
-      color: form.value.color,
+      brand: form.value.brand || null,
+      size_original: form.value.size_original || null,
+      size_normalized: form.value.size_normalized || null,
+      color: form.value.color || null,
       material: form.value.material || null,
       fit: form.value.fit || null,
       gender: form.value.gender || null,
       season: form.value.season || null,
+      sport: form.value.sport || null,
+      neckline: form.value.neckline || null,
+      length: form.value.length || null,
+      pattern: form.value.pattern || null,
+      rise: form.value.rise || null,
+      closure: form.value.closure || null,
+      sleeve_length: form.value.sleeve_length || null,
+      origin: form.value.origin || null,
+      decade: form.value.decade || null,
+      trend: form.value.trend || null,
+      condition_sup: form.value.condition_sup || null,
+      location: form.value.location || null,
+      model: form.value.model || null,
+      unique_feature: form.value.unique_feature || null,
+      marking: form.value.marking || null,
       dim1: form.value.dim1 || null,
       dim2: form.value.dim2 || null,
       dim3: form.value.dim3 || null,
       dim4: form.value.dim4 || null,
       dim5: form.value.dim5 || null,
       dim6: form.value.dim6 || null,
+      pricing_rarity: form.value.pricing_rarity || null,
+      pricing_quality: form.value.pricing_quality || null,
+      pricing_style: form.value.pricing_style || null,
+      pricing_details: form.value.pricing_details || null,
+      pricing_edit: form.value.pricing_edit || null,
       stock_quantity: form.value.stock_quantity
-    })
+    }
+
+    // Mettre à jour le produit via API
+    await productsStore.updateProduct(product.value.id, productData)
 
     // Supprimer les images marquées pour suppression
     for (const imageId of imagesToDelete.value) {
@@ -301,7 +302,6 @@ const handleSubmit = async () => {
     // Réorganiser les images existantes si l'ordre a changé
     if (imagesReordered.value && existingImages.value.length > 0) {
       try {
-        // Create mapping: imageId -> newPosition
         const imageOrder: Record<number, number> = {}
         existingImages.value.forEach((img, index) => {
           imageOrder[img.id] = index
@@ -314,7 +314,6 @@ const handleSubmit = async () => {
 
     // Upload nouvelles photos
     if (newPhotos.value.length > 0) {
-      // After reordering, positions are sequential (0 to n-1), so start at n
       const startPosition = existingImages.value.length
       for (let i = 0; i < newPhotos.value.length; i++) {
         const photo = newPhotos.value[i]
@@ -330,7 +329,6 @@ const handleSubmit = async () => {
       3000
     )
 
-    // Redirect to product list
     router.push('/dashboard/products')
   } catch (error: any) {
     console.error('Error updating product:', error)
