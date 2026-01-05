@@ -190,6 +190,7 @@
 
 <script setup lang="ts">
 import { marked } from 'marked'
+import { formatDate } from '~/utils/formatters'
 
 definePageMeta({
   layout: 'docs' // Use docs layout for consistent rendering
@@ -233,15 +234,6 @@ const renderedContent = computed(() => {
   return marked(article.value.content)
 })
 
-// Format date
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  })
-}
 
 // SEO
 useSeoMeta({

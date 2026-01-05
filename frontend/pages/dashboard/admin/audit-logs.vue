@@ -107,7 +107,7 @@
           <!-- Date Column -->
           <Column field="created_at" header="Date" sortable style="min-width: 150px">
             <template #body="{ data }">
-              <span class="text-sm">{{ formatDate(data.created_at) }}</span>
+              <span class="text-sm">{{ formatDateTime(data.created_at) }}</span>
             </template>
           </Column>
 
@@ -197,6 +197,7 @@ import Select from 'primevue/select'
 import DatePicker from 'primevue/datepicker'
 import Tag from 'primevue/tag'
 import { useAdminAuditLogs } from '~/composables/useAdminAuditLogs'
+import { formatDateTime } from '~/utils/formatters'
 
 definePageMeta({
   layout: 'dashboard',
@@ -274,17 +275,6 @@ onMounted(() => {
   loadLogs()
 })
 
-// Helper functions
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr)
-  return date.toLocaleString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 const actionLabel = (action: string): string => {
   const labels: Record<string, string> = {
