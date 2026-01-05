@@ -131,6 +131,5 @@ docker-compose.override.yml
 *.backup
 
 # Claude Code
-.claude/
 .playwright-mcp/
 backend/migrations/archive_*/
