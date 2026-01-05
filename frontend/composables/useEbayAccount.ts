@@ -21,7 +21,7 @@ export const useEbayAccount = () => {
    * Fetch account info from API
    */
   const fetchAccountInfo = async (currentAccount: EbayAccount | null): Promise<EbayAccount> => {
-    const response = await api.get<AccountInfoResponse>('/api/integrations/ebay/account-info')
+    const response = await api.get<AccountInfoResponse>('/api/ebay/account-info')
 
     console.log('eBay account-info response:', response)
 
@@ -124,7 +124,7 @@ export const useEbayAccount = () => {
    * Fetch stats from API
    */
   const fetchStats = async (): Promise<EbayStats> => {
-    return await api.get<EbayStats>('/api/integrations/ebay/stats')
+    return await api.get<EbayStats>('/api/ebay/stats')
   }
 
   /**

@@ -51,6 +51,7 @@ export interface AdminUserUpdate {
   full_name?: string
   role?: string
   is_active?: boolean
+  unlock?: boolean
   subscription_tier?: string
   business_name?: string
   password?: string
@@ -189,49 +190,17 @@ export const useAdminUsers = () => {
   }
 
   /**
-   * Toggle user active status
+   * Toggle user active status (uses PATCH endpoint)
    */
-  const toggleUserActive = async (userId: number): Promise<AdminUser> => {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const response = await api.post<AdminUser>(`/api/admin/users/${userId}/toggle-active`)
-      // Update in local list
-      const index = users.value.findIndex(u => u.id === userId)
-      if (index !== -1) {
-        users.value[index] = response
-      }
-      return response
-    } catch (e: any) {
-      error.value = e.message || 'Failed to toggle user status'
-      throw e
-    } finally {
-      isLoading.value = false
-    }
+  const toggleUserActive = async (userId: number, currentIsActive: boolean): Promise<AdminUser> => {
+    return updateUser(userId, { is_active: !currentIsActive })
   }
 
   /**
-   * Unlock a locked user account
+   * Unlock a locked user account (uses PATCH endpoint)
    */
   const unlockUser = async (userId: number): Promise<AdminUser> => {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const response = await api.post<AdminUser>(`/api/admin/users/${userId}/unlock`)
-      // Update in local list
-      const index = users.value.findIndex(u => u.id === userId)
-      if (index !== -1) {
-        users.value[index] = response
-      }
-      return response
-    } catch (e: any) {
-      error.value = e.message || 'Failed to unlock user'
-      throw e
-    } finally {
-      isLoading.value = false
-    }
+    return updateUser(userId, { unlock: true })
   }
 
   return {

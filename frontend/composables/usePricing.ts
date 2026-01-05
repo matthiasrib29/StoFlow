@@ -21,11 +21,14 @@ export interface PricingPlan {
   annual_discount_percent: number
   is_popular: boolean
   cta_text: string | null
-  display_order: number
   max_products: number
   max_platforms: number
   ai_credits_monthly: number
   features: PricingFeature[]
+}
+
+interface SubscriptionTiersResponse {
+  tiers: PricingPlan[]
 }
 
 export const usePricing = () => {
@@ -43,11 +46,11 @@ export const usePricing = () => {
     error.value = null
 
     try {
-      const data = await $fetch<PricingPlan[]>(
-        `${config.public.apiBaseUrl}/public/pricing`
+      const response = await $fetch<SubscriptionTiersResponse>(
+        `${config.public.apiBaseUrl}/subscription/tiers`
       )
-      plans.value = data
-      return data
+      plans.value = response.tiers
+      return response.tiers
     } catch (err) {
       console.error('Failed to fetch pricing plans:', err)
       error.value = 'Failed to load pricing plans'

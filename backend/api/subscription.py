@@ -224,34 +224,48 @@ def upgrade_subscription(
     status_code=status.HTTP_200_OK
 )
 def get_available_tiers(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Retourne la liste des tiers d'abonnement disponibles.
 
     Business Rules (2025-12-10):
-    - Accessible à tous les utilisateurs authentifiés
-    - Retourne les quotas et prix de chaque tier
+    - Endpoint PUBLIC (pas d'authentification requise)
+    - Utilisé pour la page pricing et le choix d'abonnement
+    - Retourne les quotas, prix et features de chaque tier
 
     Args:
-        current_user: Utilisateur authentifié
         db: Session DB
 
     Returns:
-        dict: Liste des tiers avec leurs quotas et prix
+        dict: Liste des tiers avec leurs quotas, prix et features
     """
-    quotas = db.query(SubscriptionQuota).all()
+    from sqlalchemy.orm import joinedload
+
+    quotas = (
+        db.query(SubscriptionQuota)
+        .options(joinedload(SubscriptionQuota.features))
+        .order_by(SubscriptionQuota.display_order)
+        .all()
+    )
 
     return {
         "tiers": [
             {
                 "tier": quota.tier.value,
-                "price": float(quota.price),
+                "display_name": quota.display_name,
+                "description": quota.description,
+                "price": float(quota.price) if quota.price else 0,
+                "annual_discount_percent": quota.annual_discount_percent,
+                "is_popular": quota.is_popular,
+                "cta_text": quota.cta_text,
                 "max_products": quota.max_products,
                 "max_platforms": quota.max_platforms,
                 "ai_credits_monthly": quota.ai_credits_monthly,
-                "is_current": quota.tier == current_user.subscription_tier,
+                "features": [
+                    {"feature_text": f.feature_text, "display_order": f.display_order}
+                    for f in sorted(quota.features, key=lambda x: x.display_order)
+                ]
             }
             for quota in quotas
         ]
