@@ -13,7 +13,6 @@ Author: Claude
 Date: 2025-12-06
 """
 
-import asyncio
 from typing import Optional
 from sqlalchemy.orm import Session
 
