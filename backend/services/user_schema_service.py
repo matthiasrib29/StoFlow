@@ -38,7 +38,6 @@ class UserSchemaService:
         "publication_history",
         "plugin_tasks",
         "vinted_connection",
-        "vinted_credentials",
         "vinted_jobs",
         "vinted_job_stats",
         "vinted_conversations",
