@@ -41,6 +41,13 @@ def upgrade():
     """))
     schemas = [row[0] for row in result]
 
+    # IMPORTANT: Process template_tenant LAST
+    # User schemas reference template_tenant's sequence via DEFAULT values
+    # We need to drop DEFAULT on user schemas first before dropping the column in template_tenant
+    if 'template_tenant' in schemas:
+        schemas.remove('template_tenant')
+        schemas.append('template_tenant')
+
     if not schemas:
         print("No schemas found, skipping migration")
         return
@@ -153,7 +160,16 @@ def upgrade():
         """))
         print(f"    Created new PK on vinted_id")
 
-        # Step 5: Drop the old id column
+        # Step 5: Drop DEFAULT on id column (breaks sequence dependency)
+        # This is critical for multi-tenant: user schemas inherit DEFAULT from template_tenant
+        # which references template_tenant.vinted_products_id_seq
+        conn.execute(text(f"""
+            ALTER TABLE {schema}.vinted_products
+            ALTER COLUMN id DROP DEFAULT
+        """))
+        print(f"    Dropped DEFAULT on id column")
+
+        # Step 6: Drop the old id column
         conn.execute(text(f"""
             ALTER TABLE {schema}.vinted_products
             DROP COLUMN id
