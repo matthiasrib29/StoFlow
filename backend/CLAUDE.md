@@ -242,6 +242,62 @@ def table_exists(conn, schema, table):
 schemas_with_table = [s for s in user_schemas if table_exists(conn, s, 'products')]
 ```
 
+### Seed Data (Données de Référence) - RÈGLE STRICTE
+
+**IMPORTANT** : Toutes les données partagées (non-utilisateur) DOIVENT être gérées via migrations Alembic.
+
+#### Tables concernées (schema `product_attributes`)
+| Table | Données | Colonnes marketplace |
+|-------|---------|---------------------|
+| `brands` | Marques (Nike, Levi's...) | `vinted_id`, `ebay_id` |
+| `colors` | Couleurs | `vinted_id` |
+| `conditions` | États produit | `vinted_id`, `ebay_condition` |
+| `materials` | Matières | `vinted_id` |
+| `sizes` | Tailles | `vinted_women_id`, `vinted_men_id` |
+| `categories` | Catégories | via `vinted.mapping` |
+
+#### Pourquoi des migrations ?
+1. **Synchronisation dev/prod** : Évite les différences entre environnements
+2. **Traçabilité** : Historique des changements dans Git
+3. **Reproductibilité** : Même état partout après `alembic upgrade head`
+4. **Rollback possible** : `alembic downgrade` si erreur
+
+#### Format des migrations seed
+```python
+"""seed: populate brands vinted_id
+
+Revision ID: xxxx
+"""
+from alembic import op
+from sqlalchemy import text
+
+def upgrade():
+    # Utiliser ON CONFLICT pour idempotence
+    op.execute(text("""
+        UPDATE product_attributes.brands
+        SET vinted_id = data.vinted_id
+        FROM (VALUES
+            ('Nike', '53'),
+            ('Adidas', '14'),
+            ('Levi''s', '10')
+        ) AS data(name, vinted_id)
+        WHERE brands.name = data.name
+    """))
+
+def downgrade():
+    op.execute(text("""
+        UPDATE product_attributes.brands
+        SET vinted_id = NULL
+        WHERE vinted_id IS NOT NULL
+    """))
+```
+
+#### Règles
+- **Nommer clairement** : `seed_xxx` ou `populate_xxx`
+- **Idempotent** : `ON CONFLICT DO NOTHING` ou `WHERE NOT EXISTS`
+- **Downgrade** : Toujours prévoir le rollback
+- **Données sources** : Documenter l'origine (API Vinted, etc.)
+
 ## Testing Standards
 
 - Tests use PostgreSQL via Docker (`docker-compose.test.yml`)
