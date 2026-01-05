@@ -124,7 +124,7 @@ export const useVintedJobs = () => {
    */
   const cancelJob = async (jobId: number): Promise<boolean> => {
     try {
-      const response = await post<VintedJobActionResponse>(`/api/vinted/jobs/${jobId}/cancel`)
+      const response = await post<VintedJobActionResponse>(`/api/vinted/jobs/cancel?job_id=${jobId}`)
       if (response.success) {
         // Update local state
         const jobIndex = activeJobs.value.findIndex(j => j.id === jobId)
