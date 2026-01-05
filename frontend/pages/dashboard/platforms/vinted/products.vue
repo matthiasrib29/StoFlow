@@ -259,7 +259,6 @@
 
 <script setup lang="ts">
 import { useToast } from 'primevue/usetoast'
-import VintedPageHeader from '~/components/platforms/VintedPageHeader.vue'
 import LinkProductModal from '~/components/vinted/LinkProductModal.vue'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
 import { formatDate, getStatusLabel, getStatusSeverity } from '~/utils/formatters'

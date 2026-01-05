@@ -45,6 +45,8 @@ import Tree from 'primevue/tree'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import Tooltip from 'primevue/tooltip'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
 
 // Preset personnalisé Stoflow : Jaune (#facc15) & Noir (#1a1a1a)
 const StoflowPreset = definePreset(Lara, {
@@ -135,6 +137,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('Tree', Tree)
   nuxtApp.vueApp.component('Message', Message)
   nuxtApp.vueApp.component('Tag', Tag)
+  nuxtApp.vueApp.component('IconField', IconField)
+  nuxtApp.vueApp.component('InputIcon', InputIcon)
 
   // Directives
   nuxtApp.vueApp.directive('tooltip', Tooltip)

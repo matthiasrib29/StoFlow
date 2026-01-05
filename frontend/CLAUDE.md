@@ -52,6 +52,27 @@ En cas de doute sur une règle business, un calcul, un comportement → **STOP �
 
 ## 🏗️ Architecture Projet Stoflow
 
+### Convention de Nommage des Composants (Nuxt Auto-Import)
+
+Le projet utilise l'auto-import Nuxt avec `pathPrefix: true` (par défaut).
+Les composants sont nommés automatiquement en combinant le chemin du dossier + nom du fichier.
+
+**Règle : `components/<folder>/<File>.vue` → `<FolderFile>`**
+
+#### Exemples :
+| Fichier | Composant auto-importé |
+|---------|------------------------|
+| `components/sidebar/MenuItem.vue` | `<SidebarMenuItem>` |
+| `components/vinted/StatsCards.vue` | `<VintedStatsCards>` |
+| `components/layout/DashboardSidebar.vue` | `<LayoutDashboardSidebar>` |
+| `components/ui/InfoBox.vue` | `<UiInfoBox>` |
+| `components/platform/HeaderActions.vue` | `<PlatformHeaderActions>` |
+
+#### Règles importantes :
+- **Ne pas répéter** le préfixe dans le nom du fichier (éviter `vinted/VintedStatsCards.vue`)
+- **Ne pas utiliser d'imports explicites** pour les composants locaux - laisser Nuxt auto-importer
+- **Organiser par domaine** : `vinted/`, `ebay/`, `etsy/`, `sidebar/`, `ui/`, etc.
+
 ### Multi-Tenant
 - Isolation des données par client (tenant)
 - Jamais mélanger les données de différents tenants
@@ -167,6 +188,6 @@ Pourrais-tu préciser ?
 
 ---
 
-**Version :** 1.0
-**Dernière mise à jour :** 2024-12-04
+**Version :** 1.1
+**Dernière mise à jour :** 2026-01-05
 **Applicable à :** Backend (Python/FastAPI) et Frontend (Vue/Nuxt)
