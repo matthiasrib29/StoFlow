@@ -39,3 +39,9 @@ Cree un nouveau worktree pour une feature :
    - Tous les Bash() → cd ~/StoFlow-[nom] && ...
 
 7. Demande : "Que veux-tu implementer sur cette feature ?"
+
+8. APRES avoir recu les consignes de l'utilisateur :
+   - Utilise EnterPlanMode pour entrer en mode planification
+   - Analyse le codebase dans ~/StoFlow-[nom]/
+   - Propose un plan d'implementation detaille
+   - Attends la validation avant de coder
