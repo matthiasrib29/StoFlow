@@ -105,7 +105,7 @@
                 <p class="text-sm text-gray-500">{{ login.email }}</p>
               </div>
               <p class="text-xs text-gray-400">
-                {{ formatDate(login.last_login) }}
+                {{ formatDateTime(login.last_login) }}
               </p>
             </div>
           </div>
@@ -156,6 +156,7 @@ import {
   Legend,
   ArcElement,
 } from 'chart.js'
+import { formatDateTime } from '~/utils/formatters'
 import Card from 'primevue/card'
 import Tag from 'primevue/tag'
 import Select from 'primevue/select'
@@ -281,17 +282,6 @@ const doughnutOptions = {
   },
 }
 
-// Helper functions
-const formatDate = (dateStr: string | null): string => {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 const formatChartDate = (dateStr: string): string => {
   const date = new Date(dateStr)
