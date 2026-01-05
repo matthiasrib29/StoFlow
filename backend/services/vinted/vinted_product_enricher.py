@@ -241,8 +241,8 @@ class VintedProductEnricher:
             product.condition = extracted['condition']
 
         # Colors (NEW from item_upload API)
-        if extracted.get('color'):
-            product.color = extracted['color']
+        if extracted.get('color1'):
+            product.color1 = extracted['color1']
         if extracted.get('color1_id'):
             product.color1_id = extracted['color1_id']
         if extracted.get('color2'):
