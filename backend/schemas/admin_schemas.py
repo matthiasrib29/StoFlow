@@ -70,6 +70,7 @@ class AdminUserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, min_length=1, max_length=255, description="New full name")
     role: Optional[str] = Field(None, description="New role: 'admin', 'user', or 'support'")
     is_active: Optional[bool] = Field(None, description="New active status")
+    unlock: Optional[bool] = Field(None, description="Set to true to unlock a locked account (resets failed login attempts)")
     subscription_tier: Optional[str] = Field(None, description="New subscription tier")
     business_name: Optional[str] = Field(None, max_length=255, description="New business name")
     password: Optional[str] = Field(None, min_length=8, description="New password (min 8 characters)")
