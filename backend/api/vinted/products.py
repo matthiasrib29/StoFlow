@@ -485,7 +485,8 @@ async def link_product(
                 )
 
                 for i, photo in enumerate(photos):
-                    photo_url = photo.get("url")
+                    # Use full_size_url for original quality (not f800 resized)
+                    photo_url = photo.get("full_size_url") or photo.get("url")
                     if not photo_url:
                         continue
 
