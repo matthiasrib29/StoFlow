@@ -463,6 +463,7 @@ async def link_product(
 
         # ===== COPY IMAGES FROM VINTED TO R2 (2026-01-05) =====
         images_copied = 0
+        images_failed = 0
 
         if vinted_product.photos_data:
             try:
@@ -480,23 +481,41 @@ async def link_product(
                     # Use full_size_url for original quality (not f800 resized)
                     photo_url = photo.get("full_size_url") or photo.get("url")
                     if not photo_url:
+                        logger.warning(
+                            f"[create_and_link] Photo {i} has no URL, skipping"
+                        )
                         continue
 
-                    # Download from Vinted and upload to R2
-                    r2_url = await FileService.download_and_upload_from_url(
-                        user_id=current_user.id,
-                        product_id=product.id,
-                        image_url=photo_url
-                    )
+                    try:
+                        # Download from Vinted and upload to R2
+                        r2_url = await FileService.download_and_upload_from_url(
+                            user_id=current_user.id,
+                            product_id=product.id,
+                            image_url=photo_url
+                        )
 
-                    # Add image to product (JSONB)
-                    ProductService.add_image(
-                        db=db,
-                        product_id=product.id,
-                        image_url=r2_url,
-                        display_order=i
+                        # Add image to product (JSONB)
+                        ProductService.add_image(
+                            db=db,
+                            product_id=product.id,
+                            image_url=r2_url,
+                            display_order=images_copied  # Use actual copied count
+                        )
+                        images_copied += 1
+                    except Exception as img_error:
+                        images_failed += 1
+                        logger.warning(
+                            f"[create_and_link] Failed to copy image {i} from "
+                            f"{photo_url[:50]}...: {img_error}"
+                        )
+                        # Continue with next image instead of failing entire operation
+                        continue
+
+                if images_failed > 0:
+                    logger.warning(
+                        f"[create_and_link] {images_failed}/{len(photos)} images "
+                        f"failed to copy for product {product.id}"
                     )
-                    images_copied += 1
 
                 logger.info(
                     f"[create_and_link] Successfully copied {images_copied} images "
@@ -511,6 +530,7 @@ async def link_product(
             "product_id": product.id,
             "created": True,
             "images_copied": images_copied,
+            "images_failed": images_failed,
             "product": {
                 "id": product.id,
                 "title": product.title,
@@ -529,14 +549,6 @@ async def link_product(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
-    except RuntimeError as e:
-        # Image download/upload errors
-        db.rollback()
-        logger.error(f"[create_and_link] Image copy failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to copy images from Vinted: {str(e)}"
         )
     except Exception as e:
         db.rollback()
