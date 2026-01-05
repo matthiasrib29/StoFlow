@@ -224,6 +224,8 @@
 </template>
 
 <script setup lang="ts">
+import { formatCurrency, getStatusLabel, getStatusSeverity } from '~/utils/formatters'
+
 definePageMeta({
   layout: 'dashboard'
 })
@@ -338,13 +340,6 @@ const openOnEbay = (url: string) => {
   window.open(url, '_blank')
 }
 
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR'
-  }).format(value || 0)
-}
-
 const getConditionLabel = (condition: string): string => {
   const labels: Record<string, string> = {
     NEW: 'Neuf',
@@ -359,29 +354,6 @@ const getConditionLabel = (condition: string): string => {
   return labels[condition] || condition || 'Non specifie'
 }
 
-const getStatusLabel = (status: string): string => {
-  const labels: Record<string, string> = {
-    active: 'Actif',
-    inactive: 'Inactif',
-    draft: 'Brouillon',
-    ended: 'Termine',
-    sold: 'Vendu',
-    out_of_stock: 'Hors stock'
-  }
-  return labels[status] || status || 'Inconnu'
-}
-
-const getStatusSeverity = (status: string): string => {
-  const severities: Record<string, string> = {
-    active: 'success',
-    inactive: 'warning',
-    draft: 'secondary',
-    ended: 'info',
-    sold: 'info',
-    out_of_stock: 'danger'
-  }
-  return severities[status] || 'secondary'
-}
 
 // Init
 onMounted(async () => {

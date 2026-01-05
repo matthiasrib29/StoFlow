@@ -94,6 +94,7 @@
 <script setup lang="ts">
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
+import { formatCurrency, formatDate, getStatusLabel, getStatusSeverity } from '~/utils/formatters'
 
 definePageMeta({
   layout: 'dashboard'
@@ -329,41 +330,6 @@ const saveSettings = () => {
   })
 }
 
-const getStatusLabel = (status: string): string => {
-  const labels: Record<string, string> = {
-    active: 'Actif',
-    sold: 'Vendu',
-    paused: 'En pause',
-    expired: 'Expiré'
-  }
-  return labels[status] || status
-}
-
-const getStatusSeverity = (status: string): string => {
-  const severities: Record<string, string> = {
-    active: 'success',
-    sold: 'info',
-    paused: 'warning',
-    expired: 'danger'
-  }
-  return severities[status] || 'secondary'
-}
-
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR'
-  }).format(value)
-}
-
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  })
-}
 
 // Load data on mount
 onMounted(async () => {
