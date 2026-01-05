@@ -369,13 +369,12 @@ function init() {
     syncTokenFromLocalStorage();
   }, 500);
 
-  // 5. Re-synchroniser périodiquement (backup)
-  setInterval(() => {
-    const token = getTokenFromLocalStorage();
-    if (token) {
-      syncTokenFromLocalStorage();
-    }
-  }, 30000);
+  // NOTE: Removed periodic resync (setInterval 30s) - it was overwriting
+  // fresh tokens from refresh with stale tokens from localStorage.
+  // Token sync now happens only:
+  // - On page load (above)
+  // - On localStorage change (setupLocalStorageObserver)
+  // - On postMessage from frontend (setupMessageListener)
 
   log.info('Initialisation terminée');
 }
