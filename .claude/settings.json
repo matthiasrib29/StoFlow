@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "filepath=\"$CLAUDE_FILE_PATH\"; if [ -n \"$filepath\" ] && [ -f \"$filepath\" ]; then case \"$filepath\" in *.py) ~/.local/bin/black \"$filepath\" 2>/dev/null && ~/.local/bin/isort \"$filepath\" 2>/dev/null ;; *.js|*.ts|*.vue) cd \"$(dirname \"$filepath\")\" && npx prettier --write \"$filepath\" 2>/dev/null ;; esac; fi; true"
+          }
+        ]
+      }
+    ]
+  }
+}
