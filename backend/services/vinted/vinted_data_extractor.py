@@ -5,12 +5,13 @@ Module principal pour l'extraction et normalisation des donnees
 retournees par l'API Vinted.
 
 Modules associes:
-- vinted_html_parser.py: Extraction depuis HTML Next.js Flight data
 - vinted_attribute_extractor.py: Extraction des attributs produit
+- vinted_item_upload_parser.py: Parse JSON de /api/v2/item_upload/items/{id}
 
 Author: Claude
 Date: 2025-12-17
 Updated: 2025-12-22 - Refactored into multiple modules
+Updated: 2026-01-05 - Removed HTML parsing, use VintedItemUploadParser instead
 """
 
 from datetime import datetime
@@ -18,17 +19,12 @@ from decimal import Decimal
 from typing import Any
 
 from shared.logging_setup import get_logger
-
-# Re-export classes from submodules for backward compatibility
-from services.vinted.vinted_html_parser import VintedHtmlParser
 from services.vinted.vinted_attribute_extractor import VintedAttributeExtractor
 
 logger = get_logger(__name__)
 
-# Expose submodule classes at module level
 __all__ = [
     'VintedDataExtractor',
-    'VintedHtmlParser',
     'VintedAttributeExtractor',
 ]
 
@@ -39,8 +35,8 @@ class VintedDataExtractor:
 
     Normalise les differents formats de reponse API en types Python standards.
 
-    Pour l'extraction HTML, utilisez VintedHtmlParser.
-    Pour l'extraction d'attributs, utilisez VintedAttributeExtractor.
+    Pour l'enrichissement produit, utiliser VintedItemUploadParser.
+    Pour l'extraction d'attributs texte, utiliser VintedAttributeExtractor.
     """
 
     # =========================================================================
@@ -325,28 +321,6 @@ class VintedDataExtractor:
         return products
 
     # =========================================================================
-    # HTML EXTRACTION (delegated to VintedHtmlParser)
-    # =========================================================================
-
-    @staticmethod
-    def extract_nextjs_flight_data(html: str) -> list[dict]:
-        """
-        Extract all Next.js Flight data chunks from HTML page.
-
-        Delegated to VintedHtmlParser for backward compatibility.
-        """
-        return VintedHtmlParser.extract_nextjs_flight_data(html)
-
-    @staticmethod
-    def extract_product_from_html(html: str) -> dict | None:
-        """
-        Extract complete product data from a Vinted product HTML page.
-
-        Delegated to VintedHtmlParser for backward compatibility.
-        """
-        return VintedHtmlParser.extract_product_from_html(html)
-
-    # =========================================================================
     # ATTRIBUTE EXTRACTION (delegated to VintedAttributeExtractor)
     # =========================================================================
 
@@ -355,49 +329,8 @@ class VintedDataExtractor:
         """
         Extract product attributes from structured description text.
 
-        Delegated to VintedAttributeExtractor for backward compatibility.
+        Delegated to VintedAttributeExtractor.
         """
         return VintedAttributeExtractor.extract_attributes_from_description(
             description
         )
-
-    # =========================================================================
-    # PRIVATE METHODS (kept for backward compatibility)
-    # =========================================================================
-
-    @staticmethod
-    def _normalize_html_content(html: str) -> str:
-        """Delegated to VintedAttributeExtractor."""
-        return VintedAttributeExtractor.normalize_html_content(html)
-
-    @staticmethod
-    def _extract_from_meta_tags(html: str) -> dict | None:
-        """Delegated to VintedHtmlParser."""
-        return VintedHtmlParser._extract_from_meta_tags(html)
-
-    @staticmethod
-    def _extract_photos_from_html(html: str) -> list[dict]:
-        """Delegated to VintedHtmlParser."""
-        return VintedHtmlParser.extract_photos_from_html(html)
-
-    @staticmethod
-    def _extract_published_at_from_photos(photos: list[dict]) -> datetime | None:
-        """Delegated to VintedHtmlParser."""
-        return VintedHtmlParser._extract_published_at_from_photos(photos)
-
-    @staticmethod
-    def _extract_attributes_from_html(html: str) -> dict:
-        """Delegated to VintedAttributeExtractor."""
-        return VintedAttributeExtractor.extract_attributes_from_html(html)
-
-    @staticmethod
-    def _parse_measurements(measurement_str: str) -> dict | None:
-        """Delegated to VintedAttributeExtractor."""
-        return VintedAttributeExtractor.parse_measurements(measurement_str)
-
-    @staticmethod
-    def _extract_description_from_html(
-        html: str, title: str | None = None
-    ) -> str | None:
-        """Delegated to VintedAttributeExtractor."""
-        return VintedAttributeExtractor.extract_description_from_html(html, title)
