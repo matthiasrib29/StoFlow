@@ -150,3 +150,9 @@ export function formatRelativeTime(dateStr: string): string {
   const days = Math.floor(hours / 24)
   return `Il y a ${days}j`
 }
+
+/**
+ * Alias for formatCurrency - formats a price value.
+ * Kept for backward compatibility with existing components.
+ */
+export const formatPrice = formatCurrency

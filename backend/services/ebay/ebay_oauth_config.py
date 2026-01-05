@@ -16,8 +16,8 @@ from fastapi import HTTPException, status
 
 # ========== OAUTH URLS ==========
 
-# Production
-EBAY_OAUTH_BASE_URL = "https://auth.ebay.com/oauth2/authorize"
+# Production - eBay France
+EBAY_OAUTH_BASE_URL = "https://auth.ebay.fr/oauth2/authorize"
 EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
 
 # Sandbox (pour tests)
