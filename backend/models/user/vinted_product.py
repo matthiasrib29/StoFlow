@@ -35,8 +35,7 @@ class VintedProduct(Base):
     Modèle VintedProduct - Stockage des produits Vinted (standalone).
 
     Attributes:
-        id: Identifiant unique interne (PK)
-        vinted_id: ID externe Vinted (unique, not null)
+        vinted_id: ID Vinted (PK - clé primaire)
 
         # Infos produit
         title: Titre du listing
@@ -79,8 +78,8 @@ class VintedProduct(Base):
 
         # Images
         url: URL du listing
-        photo_url: URL de la photo principale
         photos_data: JSON des photos [{id, url, ...}]
+        primary_photo_url: Property calculée depuis photos_data
 
         # Dates
         published_at: Date de publication sur Vinted (from image timestamp)
@@ -91,23 +90,17 @@ class VintedProduct(Base):
     __tablename__ = "vinted_products"
     __table_args__ = (
         Index('idx_vinted_products_status', 'status'),
-        Index('idx_vinted_products_vinted_id', 'vinted_id'),
         Index('idx_vinted_products_published_at', 'published_at'),
         Index('idx_vinted_products_brand', 'brand'),
         Index('idx_vinted_products_catalog_id', 'catalog_id'),
         Index('idx_vinted_products_seller_id', 'seller_id'),
     )
 
-    # Primary Key
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-
-    # Vinted ID (unique identifier from Vinted)
+    # Primary Key (Vinted ID)
     vinted_id: Mapped[int] = mapped_column(
         BigInteger,
-        unique=True,
-        nullable=False,
-        index=True,
-        comment="ID unique Vinted"
+        primary_key=True,
+        comment="ID Vinted (PK)"
     )
 
     # Link to Stoflow Product (1:1 relationship, optional)
@@ -234,16 +227,6 @@ class VintedProduct(Base):
         nullable=True,
         comment="Étiquetage du fabricant"
     )
-    manufacturer: Mapped[Optional[str]] = mapped_column(
-        String(200),
-        nullable=True,
-        comment="Fabricant"
-    )
-    model: Mapped[Optional[str]] = mapped_column(
-        String(200),
-        nullable=True,
-        comment="Modèle du produit"
-    )
     item_attributes: Mapped[Optional[List[Any]]] = mapped_column(
         JSONB,
         nullable=True,
@@ -319,11 +302,6 @@ class VintedProduct(Base):
         nullable=True,
         comment="URL du listing Vinted"
     )
-    photo_url: Mapped[Optional[str]] = mapped_column(
-        Text,
-        nullable=True,
-        comment="URL de la photo principale"
-    )
     photos_data: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
@@ -360,7 +338,7 @@ class VintedProduct(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<VintedProduct(id={self.id}, vinted_id={self.vinted_id}, "
+            f"<VintedProduct(vinted_id={self.vinted_id}, "
             f"status='{self.status}', title='{self.title[:30] if self.title else None}')>"
         )
 
@@ -373,3 +351,25 @@ class VintedProduct(Base):
     def is_sold(self) -> bool:
         """Vérifie si le produit a été vendu"""
         return self.status == 'sold'
+
+    @property
+    def primary_photo_url(self) -> Optional[str]:
+        """
+        Extract primary photo URL from photos_data JSON.
+
+        Returns the first photo URL from photos_data, preferring full_size_url
+        over url for better image quality.
+
+        Returns:
+            The primary photo URL, or None if no photos available.
+        """
+        if not self.photos_data:
+            return None
+        try:
+            import json
+            photos = json.loads(self.photos_data)
+            if photos and len(photos) > 0:
+                return photos[0].get('full_size_url') or photos[0].get('url')
+        except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+            pass
+        return None
