@@ -3,9 +3,9 @@ Authentication Service (Simplified - No Tenant)
 
 Ce service gère l'authentification des utilisateurs avec JWT.
 
-Business Rules (Updated: 2025-12-18):
-- Access token: valide 1 heure
-- Refresh token: valide 7 jours
+Business Rules (Updated: 2026-01-05):
+- Access token: durée configurable via JWT_ACCESS_TOKEN_EXPIRE_MINUTES (défaut: 1440 = 24h)
+- Refresh token: durée configurable via JWT_REFRESH_TOKEN_EXPIRE_DAYS (défaut: 7 jours)
 - Les mots de passe doivent être hashés avec bcrypt
 - Email globalement unique (un email = un seul user)
 - Un utilisateur inactif (is_active=False) ne peut pas se connecter
@@ -68,7 +68,10 @@ class AuthService:
     @staticmethod
     def create_access_token(user_id: int, role: str) -> str:
         """
-        Crée un access token JWT (valide 1 heure).
+        Crée un access token JWT.
+
+        La durée de validité est configurée via JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        (défaut: 1440 minutes = 24 heures).
 
         Args:
             user_id: ID de l'utilisateur
@@ -77,7 +80,7 @@ class AuthService:
         Returns:
             Access token JWT
         """
-        expire = utc_now() + timedelta(hours=1)
+        expire = utc_now() + timedelta(minutes=settings.jwt_access_token_expire_minutes)
         payload = {
             "user_id": user_id,
             "role": role,
@@ -90,7 +93,10 @@ class AuthService:
     @staticmethod
     def create_refresh_token(user_id: int) -> str:
         """
-        Crée un refresh token JWT (valide 7 jours).
+        Crée un refresh token JWT.
+
+        La durée de validité est configurée via JWT_REFRESH_TOKEN_EXPIRE_DAYS
+        (défaut: 7 jours).
 
         Args:
             user_id: ID de l'utilisateur
@@ -98,7 +104,7 @@ class AuthService:
         Returns:
             Refresh token JWT
         """
-        expire = utc_now() + timedelta(days=7)
+        expire = utc_now() + timedelta(days=settings.jwt_refresh_token_expire_days)
         payload = {
             "user_id": user_id,
             "type": "refresh",
