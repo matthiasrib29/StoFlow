@@ -189,12 +189,12 @@ class VintedMappingRepository:
     # VINTED → STOFLOW (Import)
     # =========================================================================
 
-    def get_stoflow_category(
+    def reverse_map_category(
         self,
         vinted_id: int
     ) -> Tuple[Optional[str], Optional[str]]:
         """
-        Get Stoflow category from Vinted category ID (reverse lookup).
+        Mappe un ID catégorie Vinted vers la catégorie Stoflow (reverse lookup).
 
         Performs lookup in vinted_mapping table.
         Returns the first match with is_default=true priority.
@@ -207,7 +207,7 @@ class VintedMappingRepository:
 
         Example:
             >>> repo = VintedMappingRepository(db)
-            >>> category, gender = repo.get_stoflow_category(1193)
+            >>> category, gender = repo.reverse_map_category(1193)
             >>> print(category, gender)  # "jeans", "men"
         """
         try:
@@ -235,12 +235,12 @@ class VintedMappingRepository:
             logger.error(f"Error getting Stoflow category from Vinted ID {vinted_id}: {e}")
             return None, None
 
-    def get_stoflow_category_with_details(
+    def reverse_map_category_with_details(
         self,
         vinted_id: int
     ) -> Dict[str, Any]:
         """
-        Get Stoflow category with full mapping details.
+        Mappe un ID catégorie Vinted vers la catégorie Stoflow avec détails.
 
         Args:
             vinted_id: Vinted category ID

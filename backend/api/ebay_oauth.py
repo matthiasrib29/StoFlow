@@ -34,7 +34,7 @@ from services.ebay.ebay_oauth_service import (
     process_oauth_callback,
 )
 
-router = APIRouter(prefix="/integrations/ebay", tags=["eBay OAuth"])
+router = APIRouter(prefix="/ebay", tags=["eBay OAuth"])
 
 
 # ========== PYDANTIC SCHEMAS ==========

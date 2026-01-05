@@ -151,6 +151,145 @@ class VintedMappingService:
         return None
 
     @staticmethod
+    def reverse_map_brand(db: Session, vinted_brand_id: Optional[int]) -> Optional[str]:
+        """
+        Mappe un ID marque Vinted vers le nom Stoflow (reverse lookup).
+
+        Args:
+            db: Session SQLAlchemy
+            vinted_brand_id: ID Vinted de la marque
+
+        Returns:
+            Nom de la marque Stoflow, ou None si non trouvée
+
+        Examples:
+            >>> brand = VintedMappingService.reverse_map_brand(db, 53)
+            >>> print(brand)  # "Levi's"
+            "Levi's"
+        """
+        if vinted_brand_id is None:
+            return None
+
+        brand = db.query(Brand).filter(
+            Brand.vinted_id == str(vinted_brand_id)
+        ).first()
+
+        if brand:
+            return brand.name
+
+        return None
+
+    @staticmethod
+    def reverse_map_color(db: Session, vinted_color_id: Optional[int]) -> Optional[str]:
+        """
+        Mappe un ID couleur Vinted vers le nom Stoflow (reverse lookup).
+
+        Args:
+            db: Session SQLAlchemy
+            vinted_color_id: ID Vinted de la couleur
+
+        Returns:
+            Nom de la couleur (EN), ou None si non trouvée
+
+        Examples:
+            >>> color = VintedMappingService.reverse_map_color(db, 1)
+            >>> print(color)  # "black"
+            "black"
+        """
+        if vinted_color_id is None:
+            return None
+
+        color = db.query(Color).filter(
+            Color.vinted_id == str(vinted_color_id)
+        ).first()
+
+        if color:
+            return color.name_en
+
+        return None
+
+    @staticmethod
+    def reverse_map_material(db: Session, material_name: Optional[str]) -> Optional[str]:
+        """
+        Valide qu'une matière existe dans la BDD Stoflow.
+
+        Note: VintedProduct n'a pas de material_id, donc on valide par nom.
+
+        Args:
+            db: Session SQLAlchemy
+            material_name: Nom de la matière (texte Vinted)
+
+        Returns:
+            Nom de la matière (EN) si trouvée, None sinon
+
+        Examples:
+            >>> material = VintedMappingService.reverse_map_material(db, "Cotton")
+            >>> print(material)  # "Cotton"
+            "Cotton"
+        """
+        if not material_name:
+            return None
+
+        # Try exact match first
+        material = db.query(Material).filter(
+            Material.name_en == material_name
+        ).first()
+
+        if material:
+            return material.name_en
+
+        # Try case-insensitive match
+        material = db.query(Material).filter(
+            Material.name_en.ilike(material_name)
+        ).first()
+
+        if material:
+            return material.name_en
+
+        return None
+
+    @staticmethod
+    def reverse_map_size(db: Session, vinted_size_id: Optional[int]) -> Optional[str]:
+        """
+        Mappe un ID taille Vinted vers le nom Stoflow (reverse lookup).
+
+        Vinted utilise des IDs différents pour femmes et hommes.
+        Cette fonction cherche dans les deux colonnes.
+
+        Args:
+            db: Session SQLAlchemy
+            vinted_size_id: ID Vinted de la taille
+
+        Returns:
+            Nom de la taille (name_en), ou None si non trouvée
+
+        Examples:
+            >>> size = VintedMappingService.reverse_map_size(db, 208)
+            >>> print(size)  # "M" (men's M)
+            "M"
+        """
+        if vinted_size_id is None:
+            return None
+
+        # Try women's size first
+        size = db.query(Size).filter(
+            Size.vinted_women_id == vinted_size_id
+        ).first()
+
+        if size:
+            return size.name_en
+
+        # Try men's size
+        size = db.query(Size).filter(
+            Size.vinted_men_id == vinted_size_id
+        ).first()
+
+        if size:
+            return size.name_en
+
+        return None
+
+    @staticmethod
     def map_material(db: Session, material_name: Optional[str]) -> Optional[int]:
         """
         Mappe une matière vers son ID Vinted.

@@ -253,25 +253,25 @@ class EbayPublicationService:
         if not pm.ebay_payment_policy_id:
             raise EbayPublicationError(
                 "Payment Policy non configurée. "
-                "Veuillez configurer les business policies via /api/integrations/ebay/policies"
+                "Veuillez configurer les business policies via /api/ebay/policies"
             )
 
         if not pm.ebay_fulfillment_policy_id:
             raise EbayPublicationError(
                 "Fulfillment Policy non configurée. "
-                "Veuillez configurer les business policies via /api/integrations/ebay/policies"
+                "Veuillez configurer les business policies via /api/ebay/policies"
             )
 
         if not pm.ebay_return_policy_id:
             raise EbayPublicationError(
                 "Return Policy non configurée. "
-                "Veuillez configurer les business policies via /api/integrations/ebay/policies"
+                "Veuillez configurer les business policies via /api/ebay/policies"
             )
 
         if not pm.ebay_inventory_location:
             raise EbayPublicationError(
                 "Inventory Location non configurée. "
-                "Veuillez configurer via /api/integrations/ebay/location"
+                "Veuillez configurer via /api/ebay/location"
             )
 
         return {

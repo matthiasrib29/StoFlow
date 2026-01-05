@@ -351,7 +351,7 @@ class VintedMapper(BaseMarketplaceMapper):
             category = self.CATEGORY_MAP_FALLBACK.get(vinted_id)
             return (category, None) if category else (None, None)
 
-        return self._repo.get_stoflow_category(vinted_id)
+        return self._repo.reverse_map_category(vinted_id)
 
     def vinted_to_stoflow_with_db(self, vinted_item: dict) -> dict:
         """
@@ -372,7 +372,7 @@ class VintedMapper(BaseMarketplaceMapper):
         # Override category with DB lookup if available
         catalog_id = vinted_item.get("catalog_id")
         if catalog_id and self._repo:
-            category, gender = self._repo.get_stoflow_category(catalog_id)
+            category, gender = self._repo.reverse_map_category(catalog_id)
             if category:
                 stoflow_data["category"] = category
             if gender:
