@@ -212,7 +212,6 @@ class VintedApiSyncService:
         # URLs & Images
         url = api_product.get('url', '')
         photos = api_product.get('photos', [])
-        photo_url = photos[0].get('url') if photos else None
         photos_data = json.dumps(photos) if photos else None
 
         # Publication date
@@ -228,14 +227,14 @@ class VintedApiSyncService:
                 vinted_product, title, price, currency, total_price, service_fee,
                 brand, size, condition, status, is_draft, is_closed, is_reserved,
                 is_hidden, seller_id, seller_login, view_count, favourite_count,
-                url, photo_url, photos_data, published_at
+                url, photos_data, published_at
             )
         else:
             return self._create_new_product(
                 db, vinted_id, title, price, currency, total_price, service_fee,
                 brand, size, condition, status, is_draft, is_closed, is_reserved,
                 is_hidden, seller_id, seller_login, view_count, favourite_count,
-                url, photo_url, photos_data, published_at
+                url, photos_data, published_at
             )
 
     def _extract_published_at(
@@ -282,7 +281,6 @@ class VintedApiSyncService:
         view_count: int,
         favourite_count: int,
         url: str,
-        photo_url: str | None,
         photos_data: str | None,
         published_at: datetime | None
     ) -> str:
@@ -305,7 +303,6 @@ class VintedApiSyncService:
         vinted_product.view_count = view_count
         vinted_product.favourite_count = favourite_count
         vinted_product.url = url
-        vinted_product.photo_url = photo_url
         vinted_product.photos_data = photos_data
 
         if published_at:
@@ -335,7 +332,6 @@ class VintedApiSyncService:
         view_count: int,
         favourite_count: int,
         url: str,
-        photo_url: str | None,
         photos_data: str | None,
         published_at: datetime | None
     ) -> str:
@@ -360,7 +356,6 @@ class VintedApiSyncService:
             view_count=view_count,
             favourite_count=favourite_count,
             url=url,
-            photo_url=photo_url,
             photos_data=photos_data,
             published_at=published_at,
         )

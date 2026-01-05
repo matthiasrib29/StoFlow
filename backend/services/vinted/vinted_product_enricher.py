@@ -261,12 +261,8 @@ class VintedProductEnricher:
         # NEW fields from item_upload API
         if 'is_unisex' in extracted:
             product.is_unisex = extracted['is_unisex']
-        if extracted.get('manufacturer'):
-            product.manufacturer = extracted['manufacturer']
         if extracted.get('manufacturer_labelling'):
             product.manufacturer_labelling = extracted['manufacturer_labelling']
-        if extracted.get('model'):
-            product.model = extracted['model']
         if extracted.get('item_attributes') is not None:
             product.item_attributes = extracted['item_attributes']
 
@@ -278,12 +274,7 @@ class VintedProductEnricher:
         if extracted.get('photos_data'):
             photos_list = extracted['photos_data']
             if photos_list:
-                if not product.photo_url and photos_list[0].get('url'):
-                    product.photo_url = photos_list[0]['url']
                 product.photos_data = json.dumps(photos_list)
-
-        if extracted.get('photo_url') and not product.photo_url:
-            product.photo_url = extracted['photo_url']
 
         # URL
         if extracted.get('url') and not product.url:
