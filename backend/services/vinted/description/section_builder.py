@@ -56,9 +56,6 @@ class SectionBuilder:
         if brand and brand.lower() != 'unbranded':
             parts.append(brand)
 
-        if hasattr(product, 'model') and product.model:
-            parts.append(product.model)
-
         if category:
             category_fr = TranslationHelper.translate_category(category)
             parts.append(category_fr)

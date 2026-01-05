@@ -82,7 +82,7 @@ async def get_vinted_stats(
     db, current_user = user_db
 
     try:
-        active_count = db.query(func.count(VintedProduct.id)).filter(
+        active_count = db.query(func.count(VintedProduct.vinted_id)).filter(
             VintedProduct.status == 'published'
         ).scalar() or 0
 
@@ -93,7 +93,7 @@ async def get_vinted_stats(
             VintedProduct.status == 'published'
         ).scalar() or Decimal('0')
 
-        total_products = db.query(func.count(VintedProduct.id)).scalar() or 0
+        total_products = db.query(func.count(VintedProduct.vinted_id)).scalar() or 0
 
         return {
             "activePublications": active_count,
@@ -137,7 +137,6 @@ async def list_products(
         products_data = []
         for vp in products:
             products_data.append({
-                "id": vp.id,
                 "vinted_id": vp.vinted_id,
                 "product_id": vp.product_id,  # Link to Stoflow Product
                 "title": vp.title,
@@ -155,7 +154,7 @@ async def list_products(
                 "size_id": vp.size_id,
                 "color1": vp.color1,
                 "catalog_id": vp.catalog_id,
-                "image_url": vp.photo_url,
+                "image_url": vp.primary_photo_url,
                 "is_draft": vp.is_draft,
                 "is_closed": vp.is_closed,
                 "is_reserved": vp.is_reserved,
@@ -192,7 +191,6 @@ async def get_product(
         )
 
     return {
-        "id": vinted_product.id,
         "vinted_id": vinted_product.vinted_id,
         "product_id": vinted_product.product_id,  # Link to Stoflow Product
         "title": vinted_product.title,
@@ -215,7 +213,7 @@ async def get_product(
         "measurement_width": vinted_product.measurement_width,
         "measurement_length": vinted_product.measurement_length,
         "manufacturer_labelling": vinted_product.manufacturer_labelling,
-        "image_url": vinted_product.photo_url,
+        "image_url": vinted_product.primary_photo_url,
         "is_draft": vinted_product.is_draft,
         "is_closed": vinted_product.is_closed,
         "is_reserved": vinted_product.is_reserved,

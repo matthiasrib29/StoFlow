@@ -88,7 +88,7 @@ class VintedLinkService:
         # Check if Product is already linked to a different VintedProduct
         existing_vinted = self.db.query(VintedProduct).filter(
             VintedProduct.product_id == product_id,
-            VintedProduct.id != vinted_product.id
+            VintedProduct.vinted_id != vinted_product.vinted_id
         ).first()
 
         if existing_vinted:

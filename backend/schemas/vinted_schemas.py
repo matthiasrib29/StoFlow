@@ -33,9 +33,8 @@ class VintedConnectionStatusResponse(BaseModel):
 class VintedProductResponse(BaseModel):
     """Response schema pour un VintedProduct."""
 
-    id: int = Field(..., description="ID du VintedProduct")
+    vinted_id: int = Field(..., description="ID Vinted (PK)")
     product_id: int = Field(..., description="ID du produit Stoflow")
-    vinted_id: Optional[int] = Field(None, description="ID du listing sur Vinted")
     status: str = Field(..., description="Statut: pending, published, error, deleted")
     date: Optional[date_type] = Field(None, description="Date de publication")
     title: Optional[str] = Field(None, description="Titre utilisé sur Vinted")

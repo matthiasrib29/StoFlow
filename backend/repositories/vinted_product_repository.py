@@ -56,9 +56,8 @@ class VintedProductRepository:
         db.refresh(vinted_product)
 
         logger.info(
-            f"[VintedProductRepository] VintedProduct created: id={vinted_product.id}, "
-            f"product_id={vinted_product.product_id}, vinted_id={vinted_product.vinted_id}, "
-            f"status={vinted_product.status}"
+            f"[VintedProductRepository] VintedProduct created: vinted_id={vinted_product.vinted_id}, "
+            f"product_id={vinted_product.product_id}, status={vinted_product.status}"
         )
 
         return vinted_product
@@ -75,7 +74,7 @@ class VintedProductRepository:
         Returns:
             VintedProduct si trouvé, None sinon
         """
-        return db.query(VintedProduct).filter(VintedProduct.id == vinted_product_id).first()
+        return db.query(VintedProduct).filter(VintedProduct.vinted_id == vinted_product_id).first()
 
     @staticmethod
     def get_by_product_id(db: Session, product_id: int) -> Optional[VintedProduct]:
@@ -248,7 +247,7 @@ class VintedProductRepository:
         db.commit()
         db.refresh(vinted_product)
 
-        logger.info(f"[VintedProductRepository] VintedProduct updated: id={vinted_product.id}")
+        logger.info(f"[VintedProductRepository] VintedProduct updated: vinted_id={vinted_product.vinted_id}")
 
         return vinted_product
 
@@ -392,7 +391,7 @@ class VintedProductRepository:
             >>> print(count)
             127
         """
-        return db.query(func.count(VintedProduct.id)).filter(VintedProduct.status == status).scalar()
+        return db.query(func.count(VintedProduct.vinted_id)).filter(VintedProduct.status == status).scalar()
 
     @staticmethod
     def get_analytics_summary(db: Session) -> dict:
@@ -422,7 +421,7 @@ class VintedProductRepository:
                 func.sum(VintedProduct.favourite_count).label('total_favourites'),
                 func.sum(VintedProduct.conversations).label('total_conversations'),
                 func.avg(VintedProduct.view_count).label('avg_views'),
-                func.count(VintedProduct.id).label('published_count')
+                func.count(VintedProduct.vinted_id).label('published_count')
             )
             .filter(VintedProduct.status == 'published')
             .first()
