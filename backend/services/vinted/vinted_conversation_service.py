@@ -17,7 +17,6 @@ from datetime import datetime
 from typing import Any, List, Optional
 
 from dateutil.parser import parse as parse_datetime
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.user.vinted_conversation import VintedConversation, VintedMessage
@@ -25,7 +24,8 @@ from repositories.vinted_conversation_repository import (
     VintedConversationRepository,
     VintedMessageRepository,
 )
-from services.plugin_task_helper import create_and_wait, _commit_and_restore_path
+from services.plugin_task_helper import create_and_wait
+from shared.schema_utils import SchemaManager, commit_and_restore_path
 from shared.vinted_constants import VintedConversationAPI, VintedReferers
 from shared.logging_setup import get_logger
 
@@ -45,34 +45,7 @@ class VintedConversationService:
 
     def __init__(self):
         """Initialize VintedConversationService."""
-        self._current_schema: Optional[str] = None
-
-    def _capture_schema(self, db: Session) -> None:
-        """Capture current schema name for later restoration."""
-        try:
-            result = db.execute(text("SHOW search_path"))
-            current_path = result.scalar()
-            if current_path:
-                for schema in current_path.split(","):
-                    schema = schema.strip().strip('"')
-                    if schema.startswith("user_"):
-                        self._current_schema = schema
-                        break
-        except Exception:
-            pass
-
-    def _restore_search_path(self, db: Session) -> None:
-        """Restore PostgreSQL search_path after rollback."""
-        try:
-            try:
-                db.rollback()
-            except Exception:
-                pass
-
-            if self._current_schema:
-                db.execute(text(f"SET LOCAL search_path TO {self._current_schema}, public"))
-        except Exception as e:
-            logger.warning(f"Could not restore search_path: {e}")
+        self._schema_manager = SchemaManager()
 
     # =========================================================================
     # SYNC INBOX (list of conversations)
@@ -104,7 +77,7 @@ class VintedConversationService:
             - total: Total conversations in inbox
             - unread: Number of unread conversations
         """
-        self._capture_schema(db)
+        self._schema_manager.capture(db)
 
         result = {
             "synced": 0,
@@ -186,7 +159,7 @@ class VintedConversationService:
 
         except Exception as e:
             logger.error(f"[VintedConversationService] sync_inbox error: {e}")
-            self._restore_search_path(db)
+            self._schema_manager.restore_after_rollback(db)
             raise
 
     def _parse_conversation(self, data: dict) -> dict:
@@ -274,7 +247,7 @@ class VintedConversationService:
             - messages_new: Number of new messages
             - transaction_id: Linked transaction ID (if any)
         """
-        self._capture_schema(db)
+        self._schema_manager.capture(db)
 
         result = {
             "conversation_id": conversation_id,
@@ -321,7 +294,7 @@ class VintedConversationService:
                         conversation.item_photo_url = item_photo.get("url")
 
                     conversation.last_synced_at = datetime.utcnow()
-                    _commit_and_restore_path(db)
+                    commit_and_restore_path(db)
 
             # Process messages
             messages_data = conv_data.get("messages", [])
@@ -362,7 +335,7 @@ class VintedConversationService:
 
         except Exception as e:
             logger.error(f"[VintedConversationService] sync_conversation error: {e}")
-            self._restore_search_path(db)
+            self._schema_manager.restore_after_rollback(db)
             raise
 
     def _get_current_user_id(self, conv_data: dict) -> Optional[int]:

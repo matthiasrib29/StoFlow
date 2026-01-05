@@ -18,12 +18,12 @@ import json
 import random
 from typing import Any
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.user.vinted_product import VintedProduct
-from services.plugin_task_helper import create_and_wait, _commit_and_restore_path
+from services.plugin_task_helper import create_and_wait
 from services.vinted.vinted_item_upload_parser import VintedItemUploadParser
+from shared.schema_utils import restore_search_path_after_rollback, commit_and_restore_path
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -118,7 +118,7 @@ class VintedProductEnricher:
                     exc_info=True
                 )
                 db.rollback()
-                self._restore_search_path(db)
+                restore_search_path_after_rollback(db)
 
         logger.info(f"Enrichissement termine: {enriched} enrichis, {errors} erreurs")
 
@@ -178,7 +178,7 @@ class VintedProductEnricher:
                 return False
 
             self._update_product_from_extracted(product, extracted)
-            _commit_and_restore_path(db)
+            commit_and_restore_path(db)
 
             return True
 
@@ -295,28 +295,3 @@ class VintedProductEnricher:
         if extracted.get('currency'):
             product.currency = extracted['currency']
 
-    def _restore_search_path(self, db: Session) -> None:
-        """
-        Restaure le search_path PostgreSQL apres rollback.
-
-        CRITICAL: Gere le cas InFailedSqlTransaction
-        - Apres rollback, la session peut etre dans un etat invalide
-        - On doit terminer toute transaction via un rollback
-        - Puis reconfigurer le search_path
-        """
-        try:
-            try:
-                db.rollback()
-            except Exception:
-                pass
-
-            path_result = db.execute(text("SHOW search_path"))
-            current_path = path_result.scalar()
-            if current_path:
-                for s in current_path.split(","):
-                    s = s.strip().strip('"')
-                    if s.startswith("user_"):
-                        db.execute(text(f"SET LOCAL search_path TO {s}, public"))
-                        break
-        except Exception as e:
-            logger.warning(f"Impossible de restaurer search_path: {e}")
