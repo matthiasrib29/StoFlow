@@ -3,12 +3,13 @@ Color Model
 
 Table pour les couleurs de produits (schema product_attributes, multilingue).
 
-Business Rules (Updated: 2025-12-22):
+Business Rules (Updated: 2026-01-05):
 - 7 langues supportées: EN, FR, DE, IT, ES, NL, PL
 - hex_code pour représentation visuelle
+- vinted_id pour mapping Vinted
 """
 
-from sqlalchemy import String
+from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -54,6 +55,11 @@ class Color(Base):
     # ===== VISUAL =====
     hex_code: Mapped[str | None] = mapped_column(
         String(7), nullable=True, comment="Code couleur hexadécimal (#RRGGBB)"
+    )
+
+    # ===== MARKETPLACE MAPPINGS =====
+    vinted_id: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="ID Vinted"
     )
 
     @property
