@@ -236,13 +236,6 @@ class VintedLinkService:
 
             # Stock (Vinted = always 1 unique item)
             "stock_quantity": 1,
-
-            # Integration metadata
-            "integration_metadata": {
-                "vinted_id": vinted_product.vinted_id,
-                "vinted_url": vinted_product.url,
-                "imported_from": "vinted",
-            }
         }
 
         # Remove None values to use defaults
