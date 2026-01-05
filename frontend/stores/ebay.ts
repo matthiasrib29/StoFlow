@@ -101,10 +101,14 @@ export const useEbayStore = defineStore('ebay', {
     },
 
     sellerLevelLabel(): string {
-      const { getSellerLevelLabel } = useEbayAccount()
-      return this.account
-        ? getSellerLevelLabel(this.account.sellerLevel)
-        : 'Non connecté'
+      if (!this.account?.sellerLevel) return 'Non connecté'
+      const labels: Record<string, string> = {
+        top_rated: 'Vendeur Top Fiabilité',
+        above_standard: 'Au-dessus des standards',
+        standard: 'Standard',
+        below_standard: 'En dessous des standards'
+      }
+      return labels[this.account.sellerLevel] || this.account.sellerLevel
     }
   },
 
