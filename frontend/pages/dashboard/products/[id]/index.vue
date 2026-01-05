@@ -122,6 +122,8 @@
 </template>
 
 <script setup lang="ts">
+import { formatDate } from '~/utils/formatters'
+
 definePageMeta({
   layout: 'dashboard'
 })
@@ -145,14 +147,6 @@ onMounted(async () => {
   }
 })
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('fr-FR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-}
 
 const publishToVinted = () => {
   showInfo('Fonctionnalité à venir', 'La publication sur Vinted sera disponible dans la prochaine version', 3000)
