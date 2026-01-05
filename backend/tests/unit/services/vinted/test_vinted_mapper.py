@@ -209,7 +209,7 @@ class TestVintedMapperWithDB:
         """Test appel au repository pour le reverse mapping."""
         mock_db = Mock()
         mock_repo = Mock()
-        mock_repo.get_stoflow_category.return_value = ("jeans", "men")
+        mock_repo.reverse_map_category.return_value = ("jeans", "men")
         MockRepo.return_value = mock_repo
 
         mapper = VintedMapper(db=mock_db)
@@ -217,7 +217,7 @@ class TestVintedMapperWithDB:
 
         assert category == "jeans"
         assert gender == "men"
-        mock_repo.get_stoflow_category.assert_called_once_with(1193)
+        mock_repo.reverse_map_category.assert_called_once_with(1193)
 
 
 class TestVintedMapperDimensions:

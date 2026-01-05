@@ -110,10 +110,10 @@ class TestGetVintedCategoryId:
         assert result is None
 
 
-class TestGetStoflowCategory:
-    """Tests pour get_stoflow_category (reverse lookup)."""
+class TestReverseMapCategory:
+    """Tests pour reverse_map_category (reverse lookup)."""
 
-    def test_get_stoflow_category_found(self):
+    def test_reverse_map_category_found(self):
         """Test reverse lookup trouvé."""
         mock_db = Mock()
         mock_result = Mock()
@@ -123,29 +123,29 @@ class TestGetStoflowCategory:
         mock_db.execute.return_value.fetchone.return_value = mock_result
 
         repo = VintedMappingRepository(mock_db)
-        category, gender = repo.get_stoflow_category(1193)
+        category, gender = repo.reverse_map_category(1193)
 
         assert category == "jeans"
         assert gender == "men"
 
-    def test_get_stoflow_category_not_found(self):
+    def test_reverse_map_category_not_found(self):
         """Test reverse lookup non trouvé."""
         mock_db = Mock()
         mock_db.execute.return_value.fetchone.return_value = None
 
         repo = VintedMappingRepository(mock_db)
-        category, gender = repo.get_stoflow_category(99999)
+        category, gender = repo.reverse_map_category(99999)
 
         assert category is None
         assert gender is None
 
-    def test_get_stoflow_category_exception_handling(self):
+    def test_reverse_map_category_exception_handling(self):
         """Test gestion des exceptions."""
         mock_db = Mock()
         mock_db.execute.side_effect = Exception("DB Error")
 
         repo = VintedMappingRepository(mock_db)
-        category, gender = repo.get_stoflow_category(1193)
+        category, gender = repo.reverse_map_category(1193)
 
         assert category is None
         assert gender is None
@@ -193,10 +193,10 @@ class TestGetVintedCategoryWithDetails:
         assert result['title'] is None
 
 
-class TestGetStoflowCategoryWithDetails:
-    """Tests pour get_stoflow_category_with_details."""
+class TestReverseMapCategoryWithDetails:
+    """Tests pour reverse_map_category_with_details."""
 
-    def test_get_stoflow_category_with_details_found(self):
+    def test_reverse_map_category_with_details_found(self):
         """Test récupération détails complets."""
         mock_db = Mock()
         mock_result = Mock()
@@ -214,7 +214,7 @@ class TestGetStoflowCategoryWithDetails:
         mock_db.execute.return_value.fetchone.return_value = mock_result
 
         repo = VintedMappingRepository(mock_db)
-        result = repo.get_stoflow_category_with_details(1193)
+        result = repo.reverse_map_category_with_details(1193)
 
         assert result['category'] == "jeans"
         assert result['gender'] == "men"
@@ -222,13 +222,13 @@ class TestGetStoflowCategoryWithDetails:
         assert result['material'] == "denim"
         assert result['is_default'] is True
 
-    def test_get_stoflow_category_with_details_not_found(self):
+    def test_reverse_map_category_with_details_not_found(self):
         """Test quand aucun mapping trouvé."""
         mock_db = Mock()
         mock_db.execute.return_value.fetchone.return_value = None
 
         repo = VintedMappingRepository(mock_db)
-        result = repo.get_stoflow_category_with_details(99999)
+        result = repo.reverse_map_category_with_details(99999)
 
         assert result['category'] is None
         assert result['gender'] is None
