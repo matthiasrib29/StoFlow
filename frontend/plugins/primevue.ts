@@ -28,6 +28,8 @@ import Textarea from 'primevue/textarea'
 import InputNumber from 'primevue/inputnumber'
 import AutoComplete from 'primevue/autocomplete'
 import SelectButton from 'primevue/selectbutton'
+import Slider from 'primevue/slider'
+import InputChips from 'primevue/inputchips'
 
 // Tabs - PrimeVue v4 (new structure)
 import Tabs from 'primevue/tabs'
@@ -121,6 +123,9 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('InputNumber', InputNumber)
   nuxtApp.vueApp.component('AutoComplete', AutoComplete)
   nuxtApp.vueApp.component('SelectButton', SelectButton)
+  nuxtApp.vueApp.component('Slider', Slider)
+  nuxtApp.vueApp.component('InputChips', InputChips)
+  nuxtApp.vueApp.component('Chips', InputChips) // Alias for backward compatibility (v3 name)
 
   // Tabs - PrimeVue v4
   nuxtApp.vueApp.component('Tabs', Tabs)
