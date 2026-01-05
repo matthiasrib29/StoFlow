@@ -23,13 +23,12 @@ from .ebay import router as ebay_router
 # TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)
 # from .etsy import router as etsy_router
 from .status import router as status_router
-from .vinted import router as vinted_router
+# Vinted router removed (2026-01-05) - Use /api/vinted/* endpoints instead
 
 router = APIRouter(prefix="/integrations", tags=["Integrations"])
 
 # Include sub-routers
 router.include_router(status_router)
-router.include_router(vinted_router)
 router.include_router(ebay_router)
 # TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)
 # router.include_router(etsy_router)
