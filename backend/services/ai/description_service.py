@@ -193,8 +193,8 @@ class AIDescriptionService:
             attributes.append(f"Couleur: {product.color}")
         if product.material:
             attributes.append(f"Matière: {product.material}")
-        if product.label_size:
-            attributes.append(f"Taille: {product.label_size}")
+        if product.size_original:
+            attributes.append(f"Taille: {product.size_original}")
         if product.fit:
             attributes.append(f"Coupe: {product.fit}")
         if product.gender:

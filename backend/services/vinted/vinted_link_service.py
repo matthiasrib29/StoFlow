@@ -226,7 +226,7 @@ class VintedLinkService:
 
             # Direct copy (text values)
             "brand": vinted_product.brand,
-            "label_size": vinted_product.size,
+            "size_original": vinted_product.size,
             "color": vinted_product.color,
             "material": vinted_product.material,
 
