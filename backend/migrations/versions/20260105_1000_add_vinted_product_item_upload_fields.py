@@ -1,7 +1,7 @@
 """Add item_upload API fields to vinted_products
 
 Revision ID: 20260105_1000
-Revises: 151b3e941a9c
+Revises: 9b4d6e2f3a5c
 Create Date: 2026-01-05 10:00:00.000000
 
 Adds new columns from Vinted item_upload API response:
@@ -21,7 +21,7 @@ from sqlalchemy import text
 
 # revision identifiers, used by Alembic.
 revision = '20260105_1000'
-down_revision = '151b3e941a9c'
+down_revision = '9b4d6e2f3a5c'
 branch_labels = None
 depends_on = None
 
