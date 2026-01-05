@@ -9,12 +9,16 @@ Business Rules (2025-12-23):
 - Taille max: 10MB par image (avant optimisation)
 - Maximum 20 images par produit (limite Vinted)
 - Optimisation: redimensionnement max 2000px, compression 90%
+
+Updated 2026-01-05:
+- Added download_and_upload_from_url() for importing images from external URLs (Vinted)
 """
 
 import imghdr
 from io import BytesIO
 from typing import Tuple
 
+import httpx
 from fastapi import UploadFile
 from PIL import Image
 from sqlalchemy.orm import Session
@@ -245,3 +249,99 @@ class FileService:
                 f"Product already has {image_count} images "
                 f"(max {FileService.MAX_IMAGES_PER_PRODUCT})"
             )
+
+    @staticmethod
+    async def download_and_upload_from_url(
+        user_id: int,
+        product_id: int,
+        image_url: str,
+        timeout: float = 30.0
+    ) -> str:
+        """
+        Download image from external URL and upload to R2.
+
+        Used for importing images from Vinted when creating a Product from VintedProduct.
+
+        Args:
+            user_id: User ID for path isolation
+            product_id: Product ID
+            image_url: External URL of the image to download (e.g., Vinted CDN)
+            timeout: HTTP timeout in seconds (default 30s)
+
+        Returns:
+            str: R2 public URL of the uploaded image
+
+        Raises:
+            ValueError: If image validation fails (format, size)
+            RuntimeError: If R2 is not configured or download fails
+        """
+        if not r2_service.is_available:
+            raise RuntimeError(
+                "R2 storage not configured. Set R2_ACCESS_KEY_ID, "
+                "R2_SECRET_ACCESS_KEY, and R2_ENDPOINT in environment."
+            )
+
+        logger.info(
+            f"[FileService] Downloading image from URL: user_id={user_id}, "
+            f"product_id={product_id}, url={image_url[:100]}..."
+        )
+
+        # Download image from external URL
+        try:
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                response = await client.get(image_url)
+                response.raise_for_status()
+                content = response.content
+        except httpx.TimeoutException:
+            raise RuntimeError(f"Timeout downloading image from {image_url}")
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(
+                f"HTTP error {e.response.status_code} downloading image from {image_url}"
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to download image from {image_url}: {e}")
+
+        # Validate downloaded content
+        if len(content) == 0:
+            raise ValueError(f"Downloaded image is empty: {image_url}")
+
+        if len(content) > FileService.MAX_FILE_SIZE:
+            size_mb = len(content) / (1024 * 1024)
+            max_mb = FileService.MAX_FILE_SIZE / (1024 * 1024)
+            raise ValueError(
+                f"Downloaded image too large: {size_mb:.2f}MB (max {max_mb}MB)"
+            )
+
+        # Detect image format
+        image_type = imghdr.what(None, content)
+        if image_type not in ["jpeg", "png"]:
+            raise ValueError(
+                f"Invalid image format from URL: {image_type}. "
+                f"Only JPEG and PNG are supported."
+            )
+
+        logger.info(
+            f"[FileService] Downloaded {len(content)/1024:.1f}KB, format={image_type}"
+        )
+
+        # Optimize image (resize + compress)
+        optimized_content, output_format = FileService._optimize_image(
+            content, image_type
+        )
+
+        # Upload to R2
+        r2_url = await r2_service.upload_image(
+            user_id=user_id,
+            product_id=product_id,
+            content=optimized_content,
+            extension=output_format,
+            content_type="image/jpeg",
+        )
+
+        logger.info(
+            f"[FileService] Image uploaded from URL: user_id={user_id}, "
+            f"product_id={product_id}, source={image_url[:50]}..., "
+            f"dest={r2_url}, size={len(optimized_content)/1024:.1f}KB"
+        )
+
+        return r2_url
