@@ -208,10 +208,10 @@ class VintedLinkService:
             vinted_product.catalog_id
         ) if vinted_product.catalog_id else (None, None)
 
-        # Reverse lookup condition via BDD (using condition_id)
+        # Reverse lookup condition via BDD (using status_id)
         condition = VintedMappingService.reverse_map_condition(
             self.db,
-            vinted_product.condition_id
+            vinted_product.status_id
         )
 
         # Reverse lookup brand via BDD (using brand_id)
@@ -226,11 +226,8 @@ class VintedLinkService:
             vinted_product.color1_id
         )
 
-        # Validate material exists in BDD (no vinted_id, so validate by name)
-        material = VintedMappingService.reverse_map_material(
-            self.db,
-            vinted_product.material
-        )
+        # Material is not stored in VintedProduct (removed field)
+        material = None
 
         # Reverse lookup size via BDD (using size_id)
         size_normalized = VintedMappingService.reverse_map_size(
