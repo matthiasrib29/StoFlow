@@ -194,7 +194,8 @@ class VintedLinkService:
         """
         Mappe les données VintedProduct vers le format Product Stoflow.
 
-        Utilise les tables de mapping en BDD pour les attributs.
+        Utilise les tables de mapping en BDD pour TOUS les attributs FK.
+        Garantit que seules les valeurs existantes en BDD sont utilisées.
 
         Args:
             vinted_product: VintedProduct source
@@ -202,15 +203,39 @@ class VintedLinkService:
         Returns:
             dict: Données pour créer un Product
         """
-        # Reverse lookup category via BDD
-        category, gender = self._mapping_repo.get_stoflow_category(
+        # Reverse lookup category via BDD (using catalog_id)
+        category, gender = self._mapping_repo.reverse_map_category(
             vinted_product.catalog_id
         ) if vinted_product.catalog_id else (None, None)
 
-        # Reverse lookup condition via BDD
+        # Reverse lookup condition via BDD (using condition_id)
         condition = VintedMappingService.reverse_map_condition(
             self.db,
             vinted_product.condition_id
+        )
+
+        # Reverse lookup brand via BDD (using brand_id)
+        brand = VintedMappingService.reverse_map_brand(
+            self.db,
+            vinted_product.brand_id
+        )
+
+        # Reverse lookup color via BDD (using color1_id)
+        color = VintedMappingService.reverse_map_color(
+            self.db,
+            vinted_product.color1_id
+        )
+
+        # Validate material exists in BDD (no vinted_id, so validate by name)
+        material = VintedMappingService.reverse_map_material(
+            self.db,
+            vinted_product.material
+        )
+
+        # Reverse lookup size via BDD (using size_id)
+        size_normalized = VintedMappingService.reverse_map_size(
+            self.db,
+            vinted_product.size_id
         )
 
         # Build product data
@@ -219,16 +244,17 @@ class VintedLinkService:
             "description": vinted_product.description or "",
             "price": Decimal(str(vinted_product.price)) if vinted_product.price else Decimal("0"),
 
-            # Mapped attributes
+            # All attributes mapped via BDD (FK-safe)
             "category": category or "other",
             "gender": gender,
             "condition": condition,
+            "brand": brand,
+            "color": color,
+            "material": material,
+            "size_normalized": size_normalized,
 
-            # Direct copy (text values)
-            "brand": vinted_product.brand,
+            # Direct copy (no FK constraint) - keep original text
             "size_original": vinted_product.size,
-            "color": vinted_product.color,
-            "material": vinted_product.material,
 
             # Dimensions
             "dim1": vinted_product.measurement_width,
