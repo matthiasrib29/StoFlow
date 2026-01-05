@@ -1,38 +1,8 @@
 import { ref, computed, readonly, type Ref } from 'vue'
+import type { ProductFormData } from '~/types/product'
 
-/**
- * Interface pour les données du formulaire produit
- */
-export interface ProductFormData {
-  // Informations de base
-  title: string
-  description: string
-  price: number | null
-
-  // Attributs obligatoires
-  brand: string
-  category: string
-  condition: string
-  label_size: string
-  color: string
-
-  // Attributs optionnels
-  material?: string | null
-  fit?: string | null
-  gender?: string | null
-  season?: string | null
-
-  // Dimensions
-  dim1?: number | null
-  dim2?: number | null
-  dim3?: number | null
-  dim4?: number | null
-  dim5?: number | null
-  dim6?: number | null
-
-  // Stock
-  stock_quantity: number
-}
+// Re-export ProductFormData for backwards compatibility
+export type { ProductFormData } from '~/types/product'
 
 /**
  * Composable pour la validation du formulaire produit
@@ -76,16 +46,18 @@ export function useProductFormValidation() {
    * Valider un champ individuel
    * @returns Message d'erreur ou null si valide
    */
-  const validateField = (field: keyof ProductFormData, value: any): string | null => {
-    // Champs obligatoires
+  const validateField = (field: keyof ProductFormData | string, value: any): string | null => {
+    // Champs obligatoires (mis à jour pour le nouveau formulaire)
     const requiredFields = [
       'title',
       'description',
-      'brand',
       'category',
+      'brand',
       'condition',
-      'label_size',
-      'color'
+      'size_original',
+      'color',
+      'gender',
+      'material'
     ]
 
     if (requiredFields.includes(field)) {
@@ -95,9 +67,25 @@ export function useProductFormValidation() {
       if (typeof value === 'string' && value.trim() === '') {
         return 'Ce champ est requis'
       }
+      // Condition peut être 0 (valide)
+      if (field === 'condition' && typeof value === 'number' && value < 0) {
+        return 'Ce champ est requis'
+      }
     }
 
     // Validation spécifique par type de champ
+
+    // Condition : nombre 0-10
+    if (field === 'condition') {
+      if (value !== null && value !== undefined) {
+        if (typeof value !== 'number') {
+          return 'L\'état doit être un nombre'
+        }
+        if (value < 0 || value > 10) {
+          return 'L\'état doit être entre 0 et 10'
+        }
+      }
+    }
 
     // Prix : nombre positif ou null
     if (field === 'price') {
@@ -155,8 +143,8 @@ export function useProductFormValidation() {
         if (trimmed.length < 3) {
           return 'Le titre doit contenir au moins 3 caractères'
         }
-        if (trimmed.length > 255) {
-          return 'Le titre est trop long (max: 255 caractères)'
+        if (trimmed.length > 500) {
+          return 'Le titre est trop long (max: 500 caractères)'
         }
       }
     }
@@ -171,6 +159,13 @@ export function useProductFormValidation() {
         if (trimmed.length > 5000) {
           return 'La description est trop longue (max: 5000 caractères)'
         }
+      }
+    }
+
+    // Taille : longueur max
+    if (field === 'size_original') {
+      if (typeof value === 'string' && value.length > 100) {
+        return 'La taille est trop longue (max: 100 caractères)'
       }
     }
 
@@ -201,7 +196,7 @@ export function useProductFormValidation() {
   /**
    * Valider un champ et mettre à jour les erreurs
    */
-  const validateAndSetError = (field: keyof ProductFormData, value: any): void => {
+  const validateAndSetError = (field: keyof ProductFormData | string, value: any): void => {
     const error = validateField(field, value)
 
     if (error) {

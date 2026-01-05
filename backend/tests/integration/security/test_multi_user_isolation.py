@@ -233,7 +233,7 @@ def seed_attributes(db_session: Session):
     db_session.add_all(colors)
 
     # Sizes
-    sizes = [Size(name="M")]
+    sizes = [Size(name_en="M")]
     db_session.add_all(sizes)
 
     db_session.commit()
