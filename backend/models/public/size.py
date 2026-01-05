@@ -3,9 +3,10 @@ Size Model
 
 Table pour les tailles de produits (schema product_attributes).
 
-Business Rules (Updated: 2025-12-22):
+Business Rules (Updated: 2026-01-05):
 - 7 langues supportées: EN, FR, DE, IT, ES, NL, PL
-- Mappings marketplace simples: vinted_id, ebay_size, etsy_size
+- Mappings marketplace: vinted_women_id, vinted_men_id, ebay_size, etsy_size
+- Vinted a des IDs différents pour femmes vs hommes
 """
 
 from sqlalchemy import BigInteger, String
@@ -20,7 +21,8 @@ class Size(Base):
 
     Attributes:
     - 7 traductions (EN, FR, DE, IT, ES, NL, PL)
-    - vinted_id, ebay_size, etsy_size: IDs marketplace
+    - vinted_women_id, vinted_men_id: IDs Vinted par genre
+    - ebay_size, etsy_size: IDs autres marketplaces
     """
 
     __tablename__ = "sizes"
@@ -52,8 +54,11 @@ class Size(Base):
     )
 
     # ===== MARKETPLACE MAPPINGS =====
-    vinted_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True, comment="ID Vinted"
+    vinted_women_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="ID Vinted pour femmes"
+    )
+    vinted_men_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, comment="ID Vinted pour hommes"
     )
     ebay_size: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Taille eBay"
