@@ -20,8 +20,9 @@ Architecture:
 from datetime import datetime, date as date_type
 
 from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func, Index
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, List, Any, TYPE_CHECKING
 
 from shared.database import Base
 
@@ -176,6 +177,21 @@ class VintedProduct(Base):
         nullable=True,
         comment="Couleur principale"
     )
+    color1_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="ID Vinted de la couleur principale"
+    )
+    color2: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Couleur secondaire"
+    )
+    color2_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="ID Vinted de la couleur secondaire"
+    )
     material: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,
@@ -208,6 +224,11 @@ class VintedProduct(Base):
         nullable=True,
         comment="Longueur en cm"
     )
+    measurement_unit: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Unité de mesure (cm, inches)"
+    )
 
     # Status
     status: Mapped[str] = mapped_column(
@@ -226,10 +247,30 @@ class VintedProduct(Base):
         nullable=True,
         comment="ID Vinted de l'état"
     )
+    status_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="ID Vinted du status/condition (from item_upload API)"
+    )
     manufacturer_labelling: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
         comment="Étiquetage du fabricant"
+    )
+    manufacturer: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Fabricant"
+    )
+    model: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Modèle du produit"
+    )
+    item_attributes: Mapped[Optional[List[Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Attributs supplémentaires (JSON from item_upload API)"
     )
     is_draft: Mapped[bool] = mapped_column(
         Boolean,
@@ -254,6 +295,12 @@ class VintedProduct(Base):
         nullable=False,
         default=False,
         comment="Est masqué"
+    )
+    is_unisex: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="Produit unisexe"
     )
 
     # Seller info

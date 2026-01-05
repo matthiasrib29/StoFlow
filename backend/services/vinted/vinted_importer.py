@@ -11,6 +11,7 @@ Business Rules (2025-12-06):
 
 Author: Claude
 Date: 2025-12-06
+Updated: 2026-01-05 - Removed HTML parsing methods (use VintedProductEnricher instead)
 """
 
 import httpx
@@ -18,7 +19,6 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from services.vinted.vinted_mapper import VintedMapper
-from services.vinted.vinted_data_extractor import VintedDataExtractor
 from services.product_service import ProductService
 from services.file_service import FileService
 from shared.datetime_utils import utc_now
@@ -169,184 +169,6 @@ class VintedImporter:
         response = self.client.get(image_url)
         response.raise_for_status()
         return response.content
-
-    async def fetch_product_html(self, item_id: int) -> str | None:
-        """
-        Fetch product page HTML from Vinted.
-
-        Args:
-            item_id: Vinted item ID
-
-        Returns:
-            str: HTML content or None if failed
-        """
-        try:
-            response = httpx.get(
-                f"https://www.vinted.fr/items/{item_id}",
-                cookies=self.cookies,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-                },
-                follow_redirects=True,
-                timeout=30.0
-            )
-            response.raise_for_status()
-            return response.text
-        except Exception as e:
-            logger.error(f"Failed to fetch product HTML for {item_id}: {e}")
-            return None
-
-    async def fetch_product_details(self, item_id: int) -> dict | None:
-        """
-        Fetch detailed product data from Vinted HTML page.
-
-        Uses Next.js Flight data extraction to get rich product information
-        including description, seller info, fees, and attributes.
-
-        Args:
-            item_id: Vinted item ID
-
-        Returns:
-            dict: Complete product data or None if extraction fails
-                {
-                    'vinted_id': int,
-                    'title': str,
-                    'description': str,
-                    'price': float,
-                    'currency': str,
-                    'brand_id': int,
-                    'brand_name': str,
-                    'size_id': int,
-                    'size_title': str,
-                    'condition_id': int,
-                    'condition_title': str,
-                    'color': str,
-                    'catalog_id': int,
-                    'photos': list[dict],
-                    'seller_id': int,
-                    'seller_login': str,
-                    'seller_feedback_count': int,
-                    'seller_feedback_reputation': float,
-                    'service_fee': float,
-                    'buyer_protection_fee': float,
-                    'shipping_price': float,
-                    'is_draft': bool,
-                    'is_closed': bool,
-                    'is_reserved': bool,
-                }
-        """
-        html = await self.fetch_product_html(item_id)
-        if not html:
-            return None
-
-        product_data = VintedDataExtractor.extract_product_from_html(html)
-
-        if product_data:
-            logger.info(
-                f"Extracted product {item_id}: {product_data.get('title', 'N/A')}, "
-                f"price={product_data.get('price')}, "
-                f"brand={product_data.get('brand_name')}, "
-                f"size={product_data.get('size_title')}"
-            )
-
-        return product_data
-
-    async def enrich_item_with_html_data(self, vinted_item: dict) -> dict:
-        """
-        Enrich a Vinted item dict with data from HTML page.
-
-        Merges API item data with extracted HTML data to get complete information.
-
-        Args:
-            vinted_item: Item dict from Vinted API
-
-        Returns:
-            dict: Enriched item with HTML data merged
-        """
-        item_id = vinted_item.get('id')
-        if not item_id:
-            return vinted_item
-
-        html_data = await self.fetch_product_details(item_id)
-        if not html_data:
-            return vinted_item
-
-        # Create enriched copy
-        enriched = dict(vinted_item)
-
-        # Add/override with HTML data (more complete)
-        if html_data.get('description'):
-            enriched['description'] = html_data['description']
-
-        if html_data.get('brand_id'):
-            enriched['brand_id'] = html_data['brand_id']
-            enriched['brand_name'] = html_data.get('brand_name')
-
-        if html_data.get('size_id'):
-            enriched['size_id'] = html_data['size_id']
-            enriched['size_title'] = html_data.get('size_title')
-
-        if html_data.get('condition_id'):
-            enriched['condition_id'] = html_data['condition_id']
-            enriched['condition_title'] = html_data.get('condition_title')
-
-        if html_data.get('color'):
-            enriched['color_name'] = html_data['color']
-
-        if html_data.get('material'):
-            enriched['material'] = html_data['material']
-
-        if html_data.get('measurements'):
-            enriched['measurements'] = html_data['measurements']
-            enriched['measurement_width'] = html_data.get('measurement_width')
-            enriched['measurement_length'] = html_data.get('measurement_length')
-
-        if html_data.get('manufacturer_labelling'):
-            enriched['manufacturer_labelling'] = html_data['manufacturer_labelling']
-
-        if html_data.get('catalog_id'):
-            enriched['catalog_id'] = html_data['catalog_id']
-
-        # Total price (price + fees)
-        if html_data.get('total_item_price'):
-            enriched['total_item_price'] = html_data['total_item_price']
-
-        # Seller info
-        if html_data.get('seller_id'):
-            enriched['seller_id'] = html_data['seller_id']
-            enriched['seller_login'] = html_data.get('seller_login')
-            enriched['seller_feedback_count'] = html_data.get('seller_feedback_count')
-            enriched['seller_feedback_reputation'] = html_data.get('seller_feedback_reputation')
-
-        # Fees (useful for pricing)
-        if html_data.get('service_fee'):
-            enriched['service_fee'] = html_data['service_fee']
-        if html_data.get('buyer_protection_fee'):
-            enriched['buyer_protection_fee'] = html_data['buyer_protection_fee']
-        if html_data.get('shipping_price'):
-            enriched['shipping_price'] = html_data['shipping_price']
-
-        # Status flags
-        enriched['is_draft'] = html_data.get('is_draft', False)
-        enriched['is_closed'] = html_data.get('is_closed', False)
-        enriched['is_reserved'] = html_data.get('is_reserved', False)
-        enriched['is_hidden'] = html_data.get('is_hidden', False)
-        enriched['can_edit'] = html_data.get('can_edit', False)
-        enriched['can_delete'] = html_data.get('can_delete', False)
-
-        # Photos from HTML (more complete with full URLs)
-        if html_data.get('photos'):
-            enriched['photos_enriched'] = html_data['photos']
-
-        # Published date from image timestamp (accurate datetime)
-        if html_data.get('published_at'):
-            enriched['published_at'] = html_data['published_at']
-
-        # Upload date text (relative, less accurate - kept for reference)
-        if html_data.get('upload_date_text'):
-            enriched['upload_date_text'] = html_data['upload_date_text']
-
-        return enriched
 
     async def import_items_to_stoflow(
         self,

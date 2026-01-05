@@ -1,11 +1,16 @@
 """
-Vinted Product Enricher - Enrichissement des produits via HTML
+Vinted Product Enricher - Enrichissement des produits via API item_upload
 
-Service dedie a l'enrichissement des produits Vinted via parsing
-des pages HTML pour recuperer les donnees non disponibles dans l'API.
+Service dedie a l'enrichissement des produits Vinted via l'API
+/api/v2/item_upload/items/{id} pour recuperer les donnees completes.
+
+UPDATED 2026-01-05:
+- Remplace le parsing HTML par l'API item_upload (plus fiable)
+- L'API retourne du JSON structure avec toutes les donnees
 
 Author: Claude
 Date: 2025-12-22 (refactored from vinted_api_sync.py)
+Updated: 2026-01-05 (replaced HTML parsing with item_upload API)
 """
 
 import asyncio
@@ -18,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from models.user.vinted_product import VintedProduct
 from services.plugin_task_helper import create_and_wait, _commit_and_restore_path
-from services.vinted.vinted_data_extractor import VintedDataExtractor
+from services.vinted.vinted_item_upload_parser import VintedItemUploadParser
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -26,15 +31,22 @@ logger = get_logger(__name__)
 
 class VintedProductEnricher:
     """
-    Service d'enrichissement des produits Vinted via HTML parsing.
+    Service d'enrichissement des produits Vinted via API item_upload.
 
     Complete les donnees manquantes de l'API listing avec les informations
-    extraites des pages HTML des produits (description, IDs, attributs).
+    de l'API /api/v2/item_upload/items/{id} (description, IDs, attributs).
+
+    UPDATED 2026-01-05:
+    Utilise maintenant l'API item_upload au lieu du parsing HTML.
+    Plus fiable car retourne du JSON structure.
     """
+
+    # API endpoint pattern for item_upload
+    ITEM_UPLOAD_API = "/api/v2/item_upload/items/{vinted_id}"
 
     def __init__(self):
         """Initialize VintedProductEnricher."""
-        pass
+        self.parser = VintedItemUploadParser()
 
     async def enrich_products_without_description(
         self,
@@ -118,7 +130,11 @@ class VintedProductEnricher:
         product: VintedProduct
     ) -> bool:
         """
-        Enrichit un seul produit via HTML parsing.
+        Enrichit un seul produit via l'API item_upload.
+
+        UPDATED 2026-01-05:
+        Utilise /api/v2/item_upload/items/{id} au lieu du parsing HTML.
+        Retourne du JSON structure, beaucoup plus fiable.
 
         Args:
             db: Session SQLAlchemy
@@ -127,37 +143,38 @@ class VintedProductEnricher:
         Returns:
             bool: True si enrichi avec succes
         """
-        if not product.url:
+        if not product.vinted_id:
             return False
 
         try:
+            # Build API path
+            api_path = self.ITEM_UPLOAD_API.format(vinted_id=product.vinted_id)
+
             result = await create_and_wait(
                 db,
                 http_method="GET",
-                path=product.url,
+                path=api_path,
                 timeout=30,
-                rate_limit=False,
-                description=f"Fetch HTML for {product.vinted_id}"
+                rate_limit=True,
+                description=f"Get item_upload for {product.vinted_id}"
             )
-
-            html = result.get("data", "") if isinstance(result, dict) else str(result)
 
             logger.debug(
-                f"HTML recu pour {product.vinted_id}: {len(html)} chars, "
-                f"starts with: {html[:200] if html else 'EMPTY'}"
+                f"API response for {product.vinted_id}: "
+                f"keys={list(result.keys()) if isinstance(result, dict) else 'not dict'}"
             )
 
-            if not html or len(html) < 1000:
+            if not result or not isinstance(result, dict):
                 logger.warning(
-                    f"HTML trop court pour {product.vinted_id}: "
-                    f"{len(html) if html else 0} chars"
+                    f"Invalid API response for {product.vinted_id}: {type(result)}"
                 )
                 return False
 
-            extracted = VintedDataExtractor.extract_product_from_html(html)
+            # Parse the API response
+            extracted = VintedItemUploadParser.parse_item_response(result)
 
             if not extracted:
-                logger.warning(f"Extraction echouee pour {product.vinted_id}")
+                logger.warning(f"Parsing failed for {product.vinted_id}")
                 return False
 
             self._update_product_from_extracted(product, extracted)
@@ -181,98 +198,102 @@ class VintedProductEnricher:
         extracted: dict
     ) -> None:
         """
-        Met a jour un VintedProduct avec les donnees extraites du HTML.
+        Met a jour un VintedProduct avec les donnees de l'API item_upload.
 
-        Cette methode complete les donnees manquantes de l'API listing
-        avec les donnees extraites de la page HTML du produit.
+        UPDATED 2026-01-05:
+        Adapte pour le format JSON de l'API item_upload.
 
         Args:
             product: VintedProduct a mettre a jour
-            extracted: Donnees extraites par VintedDataExtractor
+            extracted: Donnees parsees par VintedItemUploadParser
         """
         logger.debug(
             f"Product {product.vinted_id} extracted data: "
             f"description={'Yes' if extracted.get('description') else 'No'}, "
             f"color={extracted.get('color', 'No')}, "
-            f"material={extracted.get('material', 'No')}, "
-            f"size={extracted.get('size_title', 'No')}, "
-            f"condition={extracted.get('condition_title', 'No')}, "
-            f"brand={extracted.get('brand_name', 'No')}"
+            f"color1_id={extracted.get('color1_id', 'No')}, "
+            f"brand={extracted.get('brand', 'No')}, "
+            f"brand_id={extracted.get('brand_id', 'No')}"
         )
 
         # Description (prioritaire)
         if extracted.get('description'):
             product.description = extracted['description']
 
-        # IDs Vinted
+        # IDs Vinted - Brand
         if extracted.get('brand_id'):
             product.brand_id = extracted['brand_id']
-        if extracted.get('brand_name') and not product.brand:
-            product.brand = extracted['brand_name']
+        if extracted.get('brand') and not product.brand:
+            product.brand = extracted['brand']
 
+        # IDs Vinted - Size
         if extracted.get('size_id'):
             product.size_id = extracted['size_id']
-        if extracted.get('size_title') and not product.size:
-            product.size = extracted['size_title']
 
+        # IDs Vinted - Catalog/Category
         if extracted.get('catalog_id'):
             product.catalog_id = extracted['catalog_id']
 
-        if extracted.get('condition_id'):
-            product.condition_id = extracted['condition_id']
-        if extracted.get('condition_title') and not product.condition:
-            product.condition = extracted['condition_title']
+        # IDs Vinted - Condition/Status
+        if extracted.get('status_id'):
+            product.status_id = extracted['status_id']
+        if extracted.get('condition') and not product.condition:
+            product.condition = extracted['condition']
 
-        # Attributs supplementaires
-        if extracted.get('color') and not product.color:
+        # Colors (NEW from item_upload API)
+        if extracted.get('color'):
             product.color = extracted['color']
+        if extracted.get('color1_id'):
+            product.color1_id = extracted['color1_id']
+        if extracted.get('color2'):
+            product.color2 = extracted['color2']
+        if extracted.get('color2_id'):
+            product.color2_id = extracted['color2_id']
 
-        if extracted.get('material'):
-            product.material = extracted['material']
-
-        if extracted.get('measurements'):
-            product.measurements = extracted['measurements']
+        # Dimensions
         if extracted.get('measurement_width'):
             product.measurement_width = extracted['measurement_width']
         if extracted.get('measurement_length'):
             product.measurement_length = extracted['measurement_length']
+        if extracted.get('measurement_unit'):
+            product.measurement_unit = extracted['measurement_unit']
 
+        # NEW fields from item_upload API
+        if 'is_unisex' in extracted:
+            product.is_unisex = extracted['is_unisex']
+        if extracted.get('manufacturer'):
+            product.manufacturer = extracted['manufacturer']
         if extracted.get('manufacturer_labelling'):
             product.manufacturer_labelling = extracted['manufacturer_labelling']
-
-        # Frais
-        if extracted.get('service_fee'):
-            product.service_fee = extracted['service_fee']
-        if extracted.get('buyer_protection_fee'):
-            product.buyer_protection_fee = extracted['buyer_protection_fee']
-        if extracted.get('shipping_price'):
-            product.shipping_price = extracted['shipping_price']
-        if extracted.get('total_item_price'):
-            product.total_price = extracted['total_item_price']
-
-        # Seller info
-        if extracted.get('seller_id'):
-            product.seller_id = extracted['seller_id']
-        if extracted.get('seller_login'):
-            product.seller_login = extracted['seller_login']
+        if extracted.get('model'):
+            product.model = extracted['model']
+        if extracted.get('item_attributes') is not None:
+            product.item_attributes = extracted['item_attributes']
 
         # Status flags
-        if 'is_reserved' in extracted:
-            product.is_reserved = extracted['is_reserved']
-        if 'is_hidden' in extracted:
-            product.is_hidden = extracted['is_hidden']
+        if 'is_draft' in extracted:
+            product.is_draft = extracted['is_draft']
 
         # Photos
-        if extracted.get('photos'):
-            photos_list = extracted['photos']
+        if extracted.get('photos_data'):
+            photos_list = extracted['photos_data']
             if photos_list:
                 if not product.photo_url and photos_list[0].get('url'):
                     product.photo_url = photos_list[0]['url']
                 product.photos_data = json.dumps(photos_list)
 
-        # Date de publication
-        if extracted.get('published_at') and not product.published_at:
-            product.published_at = extracted['published_at']
+        if extracted.get('photo_url') and not product.photo_url:
+            product.photo_url = extracted['photo_url']
+
+        # URL
+        if extracted.get('url') and not product.url:
+            product.url = extracted['url']
+
+        # Price (update if provided)
+        if extracted.get('price'):
+            product.price = extracted['price']
+        if extracted.get('currency'):
+            product.currency = extracted['currency']
 
     def _restore_search_path(self, db: Session) -> None:
         """

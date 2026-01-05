@@ -12,7 +12,9 @@ Services disponibles:
 - VintedSyncService: Operations Vinted (publish, update, delete)
 - VintedApiSyncService: Synchronisation produits depuis API Vinted
 - VintedOrderSyncService: Synchronisation commandes Vinted
-- VintedDataExtractor: Extraction/normalisation donnees API + HTML parsing
+- VintedItemUploadParser: Parse JSON de /api/v2/item_upload/items/{id} (NEW)
+- VintedProductEnricher: Enrichit produits via API item_upload (UPDATED)
+- VintedDataExtractor: Extraction/normalisation donnees API (DEPRECATED for HTML)
 - VintedImporter: Import produits avec extraction HTML
 - VintedPricingService: Calcul prix +10% arrondi x.90
 - VintedMappingService: Mapping attributs -> IDs Vinted
@@ -25,6 +27,7 @@ Services disponibles:
 
 Created: 2024-12-10
 Updated: 2025-01-03 - Added VintedLinkService
+Updated: 2026-01-05 - Added VintedItemUploadParser, updated VintedProductEnricher
 """
 
 from .vinted_job_service import VintedJobService
@@ -33,6 +36,8 @@ from .vinted_job_processor import VintedJobProcessor
 from .vinted_sync_service import VintedSyncService
 from .vinted_api_sync import VintedApiSyncService
 from .vinted_order_sync import VintedOrderSyncService
+from .vinted_item_upload_parser import VintedItemUploadParser
+from .vinted_product_enricher import VintedProductEnricher
 from .vinted_data_extractor import VintedDataExtractor
 from .vinted_importer import VintedImporter
 from .vinted_product_helpers import (
@@ -56,6 +61,8 @@ __all__ = [
     'VintedSyncService',
     'VintedApiSyncService',
     'VintedOrderSyncService',
+    'VintedItemUploadParser',
+    'VintedProductEnricher',
     'VintedDataExtractor',
     'VintedImporter',
     'VintedPricingService',
