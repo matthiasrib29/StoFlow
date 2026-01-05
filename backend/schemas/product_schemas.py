@@ -87,6 +87,14 @@ class ProductCreate(BaseModel):
 
     # Features descriptifs (JSONB arrays)
     unique_feature: list[str] | None = Field(None, description="Features uniques (JSONB array ex: ['Vintage', 'Logo brodé'])")
+    marking: str | None = Field(None, max_length=500, description="Marquages/écritures visibles (dates, codes, textes)")
+
+    # Pricing attributes
+    pricing_edit: str | None = Field(None, max_length=100, description="Prix édité manuellement (indicateur)")
+    pricing_rarity: str | None = Field(None, max_length=100, description="Rareté pour calcul prix")
+    pricing_quality: str | None = Field(None, max_length=100, description="Qualité pour calcul prix")
+    pricing_details: str | None = Field(None, max_length=100, description="Détails spécifiques pour calcul prix")
+    pricing_style: str | None = Field(None, max_length=100, description="Style pour tarification")
 
     # Dimensions (measurements en cm)
     dim1: int | None = Field(None, ge=0, description="Tour de poitrine/Épaules (cm)")
@@ -207,6 +215,14 @@ class ProductUpdate(BaseModel):
     model: str | None = Field(None, max_length=100)
 
     unique_feature: list[str] | None = Field(None)
+    marking: str | None = Field(None, max_length=500)
+
+    # Pricing attributes
+    pricing_edit: str | None = Field(None, max_length=100)
+    pricing_rarity: str | None = Field(None, max_length=100)
+    pricing_quality: str | None = Field(None, max_length=100)
+    pricing_details: str | None = Field(None, max_length=100)
+    pricing_style: str | None = Field(None, max_length=100)
 
     dim1: int | None = Field(None, ge=0)
     dim2: int | None = Field(None, ge=0)
@@ -281,6 +297,14 @@ class ProductResponse(BaseModel):
     model: str | None
 
     unique_feature: list[str] | None
+    marking: str | None
+
+    # Pricing attributes
+    pricing_edit: str | None
+    pricing_rarity: str | None
+    pricing_quality: str | None
+    pricing_details: str | None
+    pricing_style: str | None
 
     # Dimensions
     dim1: int | None

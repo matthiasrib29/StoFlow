@@ -13,7 +13,7 @@
       />
     </div>
 
-    <!-- Photo Section Title (scrolls away) -->
+    <!-- Photo Section Title -->
     <div class="flex items-center justify-between mb-2">
       <h3 class="text-base font-bold text-secondary-900 flex items-center gap-2">
         <i class="pi pi-images"/>
@@ -21,7 +21,6 @@
         <span class="text-sm font-normal text-gray-400">{{ photos.length }}/20</span>
       </h3>
 
-      <!-- Add Photos Button (scrolls away) -->
       <Button
         v-if="photos.length > 0"
         label="Ajouter"
@@ -38,7 +37,7 @@
       <ProductsPhotoUploader ref="photoUploader" v-model:photos="photos" />
     </div>
 
-    <!-- Form Section (Scrollable) -->
+    <!-- Form Section -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
       <ProductsProductForm
         v-model="form"
@@ -52,6 +51,7 @@
 
 <script setup lang="ts">
 import { useProductsStore } from '~/stores/products'
+import { type ProductFormData, defaultProductFormData } from '~/types/product'
 
 definePageMeta({
   layout: 'dashboard'
@@ -61,37 +61,8 @@ const router = useRouter()
 const productsStore = useProductsStore()
 const { showSuccess, showError, showWarn } = useAppToast()
 
-// Form data (Updated 2025-12-08: All required fields from API)
-const form = ref({
-  // Informations de base
-  title: '',
-  description: '',
-  price: null as number | null,
-
-  // Attributs obligatoires
-  brand: '',
-  category: '',
-  condition: '',
-  label_size: '',
-  color: '',
-
-  // Attributs optionnels
-  material: null as string | null,
-  fit: null as string | null,
-  gender: null as string | null,
-  season: null as string | null,
-
-  // Dimensions
-  dim1: null as number | null,
-  dim2: null as number | null,
-  dim3: null as number | null,
-  dim4: null as number | null,
-  dim5: null as number | null,
-  dim6: null as number | null,
-
-  // Stock
-  stock_quantity: 1
-})
+// Form data with complete ProductFormData interface
+const form = ref<ProductFormData>({ ...defaultProductFormData })
 
 // Photos management
 interface Photo {
@@ -113,27 +84,7 @@ const openPhotoSelector = () => {
 }
 
 const handleSubmit = async () => {
-  // Validation: Vérifier les champs obligatoires
-  if (!form.value.title || !form.value.description) {
-    showWarn(
-      'Champs manquants',
-      'Veuillez remplir tous les champs obligatoires (titre, description)',
-      3000
-    )
-    return
-  }
-
-  if (!form.value.brand || !form.value.category || !form.value.condition ||
-      !form.value.label_size || !form.value.color) {
-    showWarn(
-      'Attributs manquants',
-      'Veuillez remplir tous les attributs obligatoires (marque, catégorie, état, taille, couleur)',
-      3000
-    )
-    return
-  }
-
-  // Validation: Vérifier qu'au moins 1 photo est ajoutée (Business Rule 2025-12-09)
+  // Validation: Vérifier qu'au moins 1 photo est ajoutée
   if (photos.value.length === 0) {
     showWarn(
       'Photo manquante',
@@ -146,29 +97,52 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
-    // Créer le produit via API
-    // Note: status, created_at, updated_at sont gérés automatiquement par le backend
-    const newProduct = await productsStore.createProduct({
+    // Préparer les données pour l'API (mapper size_original vers le format attendu par le backend)
+    const productData = {
       title: form.value.title,
       description: form.value.description,
       price: form.value.price,
-      brand: form.value.brand,
       category: form.value.category,
       condition: form.value.condition,
-      label_size: form.value.label_size,
-      color: form.value.color,
+      brand: form.value.brand || null,
+      size_original: form.value.size_original || null,
+      size_normalized: form.value.size_normalized || null,
+      color: form.value.color || null,
       material: form.value.material || null,
       fit: form.value.fit || null,
       gender: form.value.gender || null,
       season: form.value.season || null,
+      sport: form.value.sport || null,
+      neckline: form.value.neckline || null,
+      length: form.value.length || null,
+      pattern: form.value.pattern || null,
+      rise: form.value.rise || null,
+      closure: form.value.closure || null,
+      sleeve_length: form.value.sleeve_length || null,
+      origin: form.value.origin || null,
+      decade: form.value.decade || null,
+      trend: form.value.trend || null,
+      condition_sup: form.value.condition_sup || null,
+      location: form.value.location || null,
+      model: form.value.model || null,
+      unique_feature: form.value.unique_feature || null,
+      marking: form.value.marking || null,
       dim1: form.value.dim1 || null,
       dim2: form.value.dim2 || null,
       dim3: form.value.dim3 || null,
       dim4: form.value.dim4 || null,
       dim5: form.value.dim5 || null,
       dim6: form.value.dim6 || null,
+      pricing_rarity: form.value.pricing_rarity || null,
+      pricing_quality: form.value.pricing_quality || null,
+      pricing_style: form.value.pricing_style || null,
+      pricing_details: form.value.pricing_details || null,
+      pricing_edit: form.value.pricing_edit || null,
       stock_quantity: form.value.stock_quantity
-    })
+    }
+
+    // Créer le produit via API
+    const newProduct = await productsStore.createProduct(productData)
 
     // Upload images si le produit est créé avec succès
     if (newProduct && photos.value.length > 0 && newProduct.id) {
@@ -186,7 +160,6 @@ const handleSubmit = async () => {
           3000
         )
       } catch (imageError: any) {
-        // Produit créé mais erreur sur les images
         showWarn(
           'Produit créé',
           `${form.value.title} créé, mais erreur upload images: ${imageError.message}`,
@@ -196,7 +169,7 @@ const handleSubmit = async () => {
     } else if (newProduct) {
       showSuccess(
         'Produit créé',
-        `${form.value.title} a été créé avec succès (ID: ${newProduct.id})`,
+        `${form.value.title} a été créé avec succès`,
         3000
       )
     }
@@ -221,5 +194,4 @@ onUnmounted(() => {
     URL.revokeObjectURL(photo.preview)
   })
 })
-
 </script>
