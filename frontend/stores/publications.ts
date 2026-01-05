@@ -75,7 +75,7 @@ export const usePublicationsStore = defineStore('publications', {
 
   actions: {
     /**
-     * Charger le statut des intégrations depuis l'API
+     * Charger le statut des intégrations depuis les APIs individuelles
      */
     async fetchIntegrationsStatus() {
       this.isLoading = true
@@ -83,22 +83,44 @@ export const usePublicationsStore = defineStore('publications', {
 
       try {
         const api = useApi()
-        const status = await api.get<{ integrations: Integration[] }>('/api/integrations/status')
 
-        // Mettre à jour le statut de chaque intégration
-        if (status?.integrations) {
-          status.integrations.forEach((apiIntegration) => {
-            const integration = this.integrations.find(i => i.platform === apiIntegration.platform)
-            if (integration) {
-              integration.is_connected = apiIntegration.is_connected
-              integration.last_sync = apiIntegration.last_sync
-              integration.total_publications = apiIntegration.total_publications || 0
-              integration.active_publications = apiIntegration.active_publications || 0
-            }
-          })
+        // Fetch Vinted status
+        try {
+          const vintedStatus = await api.get<{
+            is_connected: boolean
+            last_sync?: string
+          }>('/api/vinted/status')
+
+          const vintedIntegration = this.integrations.find(i => i.platform === 'vinted')
+          if (vintedIntegration) {
+            vintedIntegration.is_connected = vintedStatus.is_connected
+            vintedIntegration.last_sync = vintedStatus.last_sync
+          }
+        } catch (e) {
+          console.warn('Vinted status fetch failed:', e)
         }
 
-        return status
+        // Fetch eBay status
+        try {
+          const ebayStatus = await api.get<{
+            connected: boolean
+          }>('/api/ebay/status')
+
+          const ebayIntegration = this.integrations.find(i => i.platform === 'ebay')
+          if (ebayIntegration) {
+            ebayIntegration.is_connected = ebayStatus.connected
+          }
+        } catch (e) {
+          console.warn('eBay status fetch failed:', e)
+        }
+
+        // Etsy is disabled for now
+        const etsyIntegration = this.integrations.find(i => i.platform === 'etsy')
+        if (etsyIntegration) {
+          etsyIntegration.is_connected = false
+        }
+
+        return { integrations: this.integrations }
       } catch (error: any) {
         console.error('Erreur chargement statut intégrations:', error)
         this.error = error.message

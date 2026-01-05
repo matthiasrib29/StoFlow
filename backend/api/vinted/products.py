@@ -6,9 +6,12 @@ Endpoints pour la gestion des produits Vinted:
 - GET /products: Liste des produits
 - GET /products/{vinted_id}: Détail d'un produit
 - POST /products/sync: Synchroniser depuis Vinted
-- POST /products/{product_id}/publish: Publier un produit
 - PUT /products/{product_id}: Mettre à jour un produit
-- DELETE /products/{vinted_id}: Supprimer un produit
+- DELETE /products/{vinted_id}: Supprimer un produit (local)
+- POST /products/{vinted_id}/link: Lier/créer Product Stoflow
+- DELETE /products/{vinted_id}/link: Délier Product Stoflow
+
+Updated: 2026-01-05 - Suppression linkable, fusion link/create
 
 Author: Claude
 Date: 2025-12-17
@@ -41,14 +44,16 @@ logger = get_logger(__name__)
 
 # ===== SCHEMAS =====
 
-class LinkToProductRequest(BaseModel):
-    """Request body for linking VintedProduct to existing Product."""
-    product_id: int
+class LinkProductRequest(BaseModel):
+    """
+    Request body for linking VintedProduct to Product.
 
+    - If product_id is provided: link to existing Product
+    - If product_id is None: create new Product from VintedProduct data
+    """
+    product_id: Optional[int] = None  # None = create new Product
 
-class CreateAndLinkRequest(BaseModel):
-    """Request body for creating Product from VintedProduct."""
-    # Optional overrides for the created product
+    # Optional overrides when creating new Product (ignored if product_id is set)
     title: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
@@ -360,13 +365,12 @@ async def update_product(
 @router.delete("/products/{vinted_id}")
 async def delete_product(
     vinted_id: int,
-    force: bool = Query(False, description="Supprimer sans vérifier les conditions"),
     user_db: tuple = Depends(get_user_db),
 ) -> dict:
     """
-    Supprime un produit Vinted de la BDD.
+    Supprime un produit Vinted de la BDD locale.
 
-    Note: La suppression sur Vinted doit passer par le plugin browser.
+    Note: Ne supprime PAS le listing sur Vinted (nécessite plugin browser).
 
     Returns:
         {"success": bool, "vinted_id": int}
@@ -403,75 +407,50 @@ async def delete_product(
 
 
 @router.post("/products/{vinted_id}/link")
-async def link_to_product(
+async def link_product(
     vinted_id: int,
-    request: LinkToProductRequest,
+    request: LinkProductRequest = None,
     user_db: tuple = Depends(get_user_db),
 ) -> dict:
     """
-    Lie un produit Vinted à un produit Stoflow existant.
+    Lie un produit Vinted à un produit Stoflow.
+
+    - Si product_id fourni : lie au Product existant
+    - Si product_id absent/null : crée un nouveau Product depuis VintedProduct
 
     Args:
         vinted_id: ID Vinted du produit
-        request.product_id: ID du produit Stoflow à lier
+        request.product_id: ID Product existant (optionnel)
+        request.title/description/...: Overrides pour création (optionnel)
 
     Returns:
-        {"success": bool, "vinted_id": int, "product_id": int}
-    """
-    db, current_user = user_db
+        - Link existing: {"success": bool, "vinted_id": int, "product_id": int, "created": false}
+        - Create new: {"success": bool, "vinted_id": int, "product_id": int, "created": true, "images_copied": int, "product": dict}
 
-    try:
-        link_service = VintedLinkService(db)
-        vinted_product = link_service.link_to_existing_product(
-            vinted_id=vinted_id,
-            product_id=request.product_id
-        )
-        db.commit()
-
-        return {
-            "success": True,
-            "vinted_id": vinted_id,
-            "product_id": vinted_product.product_id
-        }
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur liaison: {str(e)}"
-        )
-
-
-@router.post("/products/{vinted_id}/link/create")
-async def create_and_link(
-    vinted_id: int,
-    request: CreateAndLinkRequest = None,
-    user_db: tuple = Depends(get_user_db),
-) -> dict:
-    """
-    Crée un produit Stoflow à partir d'un produit Vinted et les lie.
-
-    Also downloads Vinted images and uploads them to R2 storage.
-    If any image fails to download/upload, the entire operation is rolled back.
-
-    Args:
-        vinted_id: ID Vinted du produit source
-        request: Données optionnelles pour surcharger les valeurs importées
-
-    Returns:
-        {"success": bool, "vinted_id": int, "product_id": int, "product": dict, "images_copied": int}
+    Note: When creating new Product, images are downloaded from Vinted and uploaded to R2.
+          If any image fails, the entire operation is rolled back.
     """
     db, current_user = user_db
 
     try:
         link_service = VintedLinkService(db)
 
-        # Build override data from request
+        # Case 1: Link to existing Product
+        if request and request.product_id:
+            vinted_product = link_service.link_to_existing_product(
+                vinted_id=vinted_id,
+                product_id=request.product_id
+            )
+            db.commit()
+
+            return {
+                "success": True,
+                "vinted_id": vinted_id,
+                "product_id": vinted_product.product_id,
+                "created": False
+            }
+
+        # Case 2: Create new Product from VintedProduct
         override_data = {}
         if request:
             if request.title:
@@ -537,6 +516,7 @@ async def create_and_link(
             "success": True,
             "vinted_id": vinted_id,
             "product_id": product.id,
+            "created": True,
             "images_copied": images_copied,
             "product": {
                 "id": product.id,
@@ -570,7 +550,7 @@ async def create_and_link(
         logger.error(f"[create_and_link] Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur création: {str(e)}"
+            detail=f"Erreur liaison: {str(e)}"
         )
 
 
@@ -613,53 +593,3 @@ async def unlink_product(
         )
 
 
-@router.get("/products/{vinted_id}/linkable")
-async def get_linkable_products(
-    vinted_id: int,
-    search: Optional[str] = Query(None, description="Recherche par titre ou marque"),
-    limit: int = Query(20, ge=1, le=100),
-    user_db: tuple = Depends(get_user_db),
-) -> dict:
-    """
-    Récupère les produits Stoflow pouvant être liés à ce produit Vinted.
-
-    Exclut les produits déjà liés à un autre VintedProduct.
-
-    Args:
-        vinted_id: ID Vinted (pour vérification d'existence)
-        search: Recherche textuelle optionnelle
-        limit: Nombre max de résultats
-
-    Returns:
-        {"products": list}
-    """
-    db, current_user = user_db
-
-    # Verify VintedProduct exists
-    vinted_product = db.query(VintedProduct).filter(
-        VintedProduct.vinted_id == vinted_id
-    ).first()
-
-    if not vinted_product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Produit Vinted #{vinted_id} non trouvé"
-        )
-
-    link_service = VintedLinkService(db)
-    products = link_service.get_linkable_products(search=search, limit=limit)
-
-    return {
-        "products": [
-            {
-                "id": p.id,
-                "title": p.title,
-                "brand": p.brand,
-                "price": float(p.price) if p.price else None,
-                "category": p.category,
-                "status": p.status.value if p.status else None,
-                "image_url": p.images[0]["url"] if p.images else None,
-            }
-            for p in products
-        ]
-    }

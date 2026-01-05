@@ -135,7 +135,7 @@ class EtsyBaseClient:
         if now >= self.refresh_token_expires_at:
             raise RuntimeError(
                 f"Etsy refresh token expired for user {self.user_id}. "
-                "Please reconnect your Etsy account via /api/integrations/etsy/connect"
+                "Please reconnect your Etsy account via /api/etsy/connect"
             )
 
     def _refresh_access_token(self) -> str:
