@@ -200,6 +200,8 @@
 </template>
 
 <script setup lang="ts">
+import { formatCurrency } from '~/utils/formatters'
+
 definePageMeta({
   layout: 'dashboard'
 })
@@ -246,12 +248,6 @@ const formatNumber = (value: number): string => {
   return new Intl.NumberFormat('fr-FR').format(value || 0)
 }
 
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR'
-  }).format(value || 0)
-}
 
 onMounted(async () => {
   try {

@@ -262,6 +262,7 @@ import { useToast } from 'primevue/usetoast'
 import VintedPageHeader from '~/components/platforms/VintedPageHeader.vue'
 import LinkProductModal from '~/components/vinted/LinkProductModal.vue'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
+import { formatDate, getStatusLabel, getStatusSeverity } from '~/utils/formatters'
 
 definePageMeta({
   layout: 'dashboard'
@@ -368,40 +369,6 @@ async function syncProducts() {
   }
 }
 
-function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    published: 'Publié',
-    sold: 'Vendu',
-    pending: 'En attente',
-    draft: 'Brouillon',
-    closed: 'Fermé',
-  }
-  return labels[status] || status
-}
-
-function getStatusSeverity(status: string): string {
-  const severities: Record<string, string> = {
-    published: 'success',
-    sold: 'info',
-    pending: 'warn',
-    draft: 'secondary',
-    closed: 'danger',
-  }
-  return severities[status] || 'secondary'
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '-'
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
-  } catch {
-    return '-'
-  }
-}
 
 function openVinted(url: string | null) {
   if (url) {
