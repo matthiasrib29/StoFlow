@@ -293,9 +293,11 @@ class VintedDataExtractor:
                     if isinstance(price_obj, dict) and 'amount' in price_obj:
                         price = float(price_obj['amount'])
 
-                # Photos
+                # Photos - use full_size_url for original quality
                 photos = item.get('photos', [])
-                photo_url = photos[0].get('url') if photos else None
+                photo_url = (
+                    photos[0].get('full_size_url') or photos[0].get('url')
+                ) if photos else None
 
                 # Size and Brand
                 size_obj = item.get('size', {})
