@@ -196,6 +196,52 @@ DRAFT → PUBLISHED → SOLD → ARCHIVED
 - Timestamps (`created_at`, `updated_at`) sur toutes les tables
 - Soft delete via `deleted_at` column
 
+## Alembic Migrations Best Practices
+
+### Règle de Squash Automatique
+**IMPORTANT**: Quand le nombre de migrations dépasse **30 fichiers**, proposer un squash à l'utilisateur.
+
+```bash
+# Vérifier le nombre de migrations
+ls migrations/versions/*.py | wc -l
+```
+
+| Nombre de migrations | Action |
+|---------------------|--------|
+| < 30 | Pas d'action |
+| 30-50 | **Proposer** un squash |
+| > 50 | **Recommander fortement** un squash |
+
+### Procédure de Squash
+1. Créer un backup : `mv migrations/versions/* migrations/archive_$(date +%Y%m%d)/`
+2. Créer une migration squashée complète
+3. Tester sur BDD vierge ET existante
+4. Mettre à jour `alembic_version` en production
+
+### Bonnes Pratiques
+- **1 migration = 1 changement** : Une migration par feature/fix
+- **Toujours écrire `downgrade()`** : Permet le rollback
+- **Migrations idempotentes** : Utiliser `IF NOT EXISTS`, `table_exists()`
+- **Ne jamais modifier** une migration déjà déployée
+- **Tester avant déploiement** : Sur BDD vierge et copie de prod
+- **Seed data** : Utiliser `ON CONFLICT DO NOTHING`
+
+### Multi-Tenant Considerations
+Pour les migrations sur schemas utilisateurs (`user_X`), toujours vérifier l'existence des tables :
+```python
+def table_exists(conn, schema, table):
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = :schema AND table_name = :table
+        )
+    """), {"schema": schema, "table": table})
+    return result.scalar()
+
+# Filtrer les schemas qui ont la table
+schemas_with_table = [s for s in user_schemas if table_exists(conn, s, 'products')]
+```
+
 ## Testing Standards
 
 - Tests use PostgreSQL via Docker (`docker-compose.test.yml`)
