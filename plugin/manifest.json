@@ -56,16 +56,6 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://www.ebay.fr/*"],
-      "js": ["src/content/ebay.ts"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://www.etsy.com/*"],
-      "js": ["src/content/etsy.ts"],
-      "run_at": "document_idle"
-    },
-    {
       "matches": [
         "https://stoflow.io/*",
         "https://www.stoflow.io/*"

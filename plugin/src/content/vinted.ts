@@ -6,6 +6,7 @@
 
 import { VintedLogger } from '../utils/logger';
 import { ENV } from '../config/environment';
+import { sendPostMessageRequest } from './message-utils';
 
 // Import the API injector - this injects stoflow-vinted-api.js into MAIN world
 import './inject-api';
@@ -43,12 +44,7 @@ async function isAuthenticatedToStoflow(): Promise<boolean> {
 
 // ===== INITIALIZATION =====
 
-VintedLogger.debug('');
-VintedLogger.debug('🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️');
-VintedLogger.debug('🛍️ [STOFLOW VINTED] Content script chargé !');
-VintedLogger.debug('🛍️ URL:', window.location.href);
-VintedLogger.debug('🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️🛍️');
-VintedLogger.debug('');
+VintedLogger.debug('🛍️ [STOFLOW VINTED] Content script loaded - URL:', window.location.href);
 
 // ===== VINTED API BRIDGE ACCESS =====
 
@@ -72,39 +68,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
    * Used by check_vinted_connection task (legacy)
    */
   if (action === 'GET_VINTED_USER_INFO') {
-    VintedLogger.debug('');
-    VintedLogger.debug('📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨');
-    VintedLogger.debug('📨 [VINTED] Message reçu: GET_VINTED_USER_INFO');
-    VintedLogger.debug('📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨');
+    VintedLogger.debug('📨 [VINTED] GET_VINTED_USER_INFO received');
 
     try {
-      VintedLogger.debug('📨 Appel de getVintedUserInfo()...');
       const userInfo = getVintedUserInfo();
-
-      VintedLogger.debug('📨 Infos extraites:', {
-        userId: userInfo.userId,
-        login: userInfo.login
-      });
-
-      const response = {
+      VintedLogger.debug('📨 ✅ User info extracted:', userInfo.login);
+      sendResponse({
         success: true,
         data: {
           userId: userInfo.userId,
           login: userInfo.login
         }
-      };
-
-      VintedLogger.debug('📨 ✅ Envoi de la réponse au popup:', response);
-      VintedLogger.debug('📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨');
-      VintedLogger.debug('');
-
-      sendResponse(response);
+      });
     } catch (error: any) {
-      VintedLogger.error('📨 ❌ ERREUR lors de l\'extraction:', error);
-      VintedLogger.error('📨 Stack:', error.stack);
-      VintedLogger.debug('📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨📨');
-      VintedLogger.debug('');
-
+      VintedLogger.error('📨 ❌ Extraction error:', error.message);
       sendResponse({ success: false, error: error.message });
     }
     return true;
@@ -116,71 +93,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
    * Returns user info + seller stats (item_count, feedback_count, etc.)
    */
   if (action === 'GET_VINTED_USER_PROFILE') {
-    VintedLogger.debug('');
-    VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
-    VintedLogger.debug('👤 [VINTED] Message reçu: GET_VINTED_USER_PROFILE');
-    VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
+    VintedLogger.debug('👤 [VINTED] GET_VINTED_USER_PROFILE received');
 
     (async () => {
-      try {
-        // Try API call first
-        VintedLogger.debug('👤 Tentative appel API /api/v2/users/current...');
+      // Try API call first
+      const apiResponse = await sendPostMessageRequest({
+        messageType: 'STOFLOW_API_CALL',
+        responseType: 'STOFLOW_API_RESPONSE',
+        payload: {
+          method: 'GET',
+          endpoint: '/users/current',
+          params: {},
+          data: null,
+          config: {}
+        },
+        timeout: 10000,
+        logContext: '👤 [PROFILE]'
+      });
 
-        const requestId = `profile_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        let responseSent = false;
-
-        // Promise wrapper for API call
-        const apiResult = await new Promise<any>((resolve, reject) => {
-          const responseListener = (event: MessageEvent) => {
-            if (event.source !== window) return;
-            if (responseSent) return;
-
-            const msg = event.data;
-            if (msg.type === 'STOFLOW_API_RESPONSE' && msg.requestId === requestId) {
-              responseSent = true;
-              window.removeEventListener('message', responseListener);
-              clearTimeout(timeoutId);
-
-              if (msg.success && msg.data?.user) {
-                resolve(msg.data);
-              } else {
-                reject(new Error(msg.error || 'API call failed'));
-              }
-            }
-          };
-
-          window.addEventListener('message', responseListener);
-
-          const timeoutId = setTimeout(() => {
-            if (responseSent) return;
-            responseSent = true;
-            window.removeEventListener('message', responseListener);
-            reject(new Error('API timeout'));
-          }, 10000); // 10s timeout for API call
-
-          // Send message to injected script
-          window.postMessage({
-            type: 'STOFLOW_API_CALL',
-            requestId,
-            method: 'GET',
-            endpoint: '/users/current',
-            params: {},
-            data: null,
-            config: {}
-          }, '*');
-        });
-
-        // API call succeeded - extract full profile
-        const user = apiResult.user;
+      if (apiResponse.success && apiResponse.data?.user) {
+        const user = apiResponse.data.user;
         VintedLogger.debug('👤 ✅ API success! User:', user.login);
 
-        const response = {
+        sendResponse({
           success: true,
           source: 'api',
           data: {
             userId: user.id,
             login: user.login,
-            // Seller stats
             stats: {
               item_count: user.item_count,
               total_items_count: user.total_items_count,
@@ -195,41 +135,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               is_on_holiday: user.is_on_holiday
             }
           }
-        };
+        });
+        return;
+      }
 
-        VintedLogger.debug('👤 ✅ Réponse avec stats:', response);
-        VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
-        sendResponse(response);
+      // API failed - fallback to DOM parsing
+      VintedLogger.warn('👤 ⚠️ API failed, fallback to DOM parsing:', apiResponse.error);
 
-      } catch (apiError: any) {
-        // API failed - fallback to DOM parsing
-        VintedLogger.warn('👤 ⚠️ API failed, fallback to DOM parsing:', apiError.message);
-
-        try {
-          const userInfo = getVintedUserInfo();
-
-          const response = {
-            success: true,
-            source: 'dom',
-            data: {
-              userId: userInfo.userId,
-              login: userInfo.login,
-              stats: null // No stats from DOM parsing
-            }
-          };
-
-          VintedLogger.debug('👤 ✅ Fallback DOM success:', response);
-          VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
-          sendResponse(response);
-
-        } catch (domError: any) {
-          VintedLogger.error('👤 ❌ Both API and DOM failed:', domError.message);
-          VintedLogger.debug('👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤👤');
-          sendResponse({
-            success: false,
-            error: `API: ${apiError.message}, DOM: ${domError.message}`
-          });
-        }
+      try {
+        const userInfo = getVintedUserInfo();
+        sendResponse({
+          success: true,
+          source: 'dom',
+          data: {
+            userId: userInfo.userId,
+            login: userInfo.login,
+            stats: null
+          }
+        });
+      } catch (domError: any) {
+        VintedLogger.error('👤 ❌ Both API and DOM failed:', domError.message);
+        sendResponse({
+          success: false,
+          error: `API: ${apiResponse.error}, DOM: ${domError.message}`
+        });
       }
     })();
 
@@ -249,70 +178,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    VintedLogger.debug('');
-    VintedLogger.debug('📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄');
     VintedLogger.debug(`📄 [VINTED] FETCH_HTML_PAGE: ${url}`);
-    VintedLogger.debug('📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄📄');
 
-    // Generate unique request ID
-    const requestId = `html_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    (async () => {
+      const response = await sendPostMessageRequest({
+        messageType: 'STOFLOW_FETCH_HTML',
+        responseType: 'STOFLOW_FETCH_HTML_RESPONSE',
+        payload: { url },
+        logContext: '📄 [HTML]'
+      });
 
-    // Flag to prevent double sendResponse
-    let responseSent = false;
-
-    // Create listener for the response from injected script
-    const responseListener = (event: MessageEvent) => {
-      if (event.source !== window) return;
-      if (responseSent) return; // Already responded
-
-      const messageData = event.data;
-
-      if (messageData.type === 'STOFLOW_FETCH_HTML_RESPONSE' && messageData.requestId === requestId) {
-        responseSent = true;
-        window.removeEventListener('message', responseListener);
-        clearTimeout(timeoutId);
-
-        VintedLogger.debug('📄 [VINTED] Réponse HTML reçue du script injecté');
-        VintedLogger.debug('📄 Success:', messageData.success);
-        VintedLogger.debug('📄 Data length:', messageData.data?.length || 0);
-
-        if (messageData.success) {
-          sendResponse({
-            success: true,
-            status: messageData.status || 200,
-            data: messageData.data
-          });
-        } else {
-          VintedLogger.error('📄 [VINTED] Erreur:', messageData.error, 'Status:', messageData.status);
-          sendResponse({
-            success: false,
-            status: messageData.status || 500,
-            statusText: messageData.statusText || 'Error',
-            error: messageData.error || 'Erreur fetch HTML'
-          });
-        }
+      if (response.success) {
+        sendResponse({
+          success: true,
+          status: response.status || 200,
+          data: response.data
+        });
+      } else {
+        sendResponse({
+          success: false,
+          status: response.status || 500,
+          statusText: response.statusText || 'Error',
+          error: response.error || 'Erreur fetch HTML'
+        });
       }
-    };
-
-    // Add listener
-    window.addEventListener('message', responseListener);
-
-    // Timeout (configurable via ENV.VINTED_REQUEST_TIMEOUT)
-    const timeoutId = setTimeout(() => {
-      if (responseSent) return; // Already responded
-      responseSent = true;
-      window.removeEventListener('message', responseListener);
-      sendResponse({ success: false, status: 408, error: `Request timeout (${ENV.VINTED_REQUEST_TIMEOUT / 1000}s)` });
-    }, ENV.VINTED_REQUEST_TIMEOUT);
-
-    // Send message to injected script
-    window.postMessage({
-      type: 'STOFLOW_FETCH_HTML',
-      requestId,
-      url
-    }, '*');
-
-    VintedLogger.debug('📄 [VINTED] Message STOFLOW_FETCH_HTML envoyé au script injecté');
+    })();
 
     return true; // Async response
   }
@@ -376,59 +266,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
    * Used by DataDome scheduler to keep the Vinted session alive
    */
   if (action === 'DATADOME_PING') {
-    VintedLogger.debug('');
-    VintedLogger.debug('🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️');
     VintedLogger.debug('🛡️ [VINTED] DATADOME_PING received');
-    VintedLogger.debug('🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️');
 
-    // Generate unique request ID
-    const requestId = `datadome_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    let responseSent = false;
-
-    // Create listener for response from injected script
-    const responseListener = (event: MessageEvent) => {
-      if (event.source !== window) return;
-      const msg = event.data;
-
-      if (msg.type === 'STOFLOW_DATADOME_PING_RESPONSE' && msg.requestId === requestId) {
-        if (responseSent) return;
-        responseSent = true;
-
-        window.removeEventListener('message', responseListener);
-        clearTimeout(timeout);
-
-        VintedLogger.debug('🛡️ [VINTED] DataDome ping response:', msg);
-
-        sendResponse({
-          success: msg.success,
-          data: msg.data,
-          error: msg.error
-        });
-      }
-    };
-
-    window.addEventListener('message', responseListener);
-
-    // Timeout (10 seconds for DataDome ping)
-    const timeout = setTimeout(() => {
-      if (responseSent) return;
-      responseSent = true;
-      window.removeEventListener('message', responseListener);
-      VintedLogger.warn('🛡️ [VINTED] DataDome ping timeout');
-      sendResponse({
-        success: false,
-        error: 'DataDome ping timeout (10s)',
-        data: { success: false, ping_count: 0 }
+    (async () => {
+      const response = await sendPostMessageRequest({
+        messageType: 'STOFLOW_DATADOME_PING',
+        responseType: 'STOFLOW_DATADOME_PING_RESPONSE',
+        timeout: 10000,
+        logContext: '🛡️ [DATADOME]'
       });
-    }, 10000);
 
-    // Send message to injected script
-    window.postMessage({
-      type: 'STOFLOW_DATADOME_PING',
-      requestId
-    }, '*');
-
-    VintedLogger.debug('🛡️ [VINTED] Message STOFLOW_DATADOME_PING sent to injected script');
+      sendResponse({
+        success: response.success,
+        data: response.data || { success: false, ping_count: 0 },
+        error: response.error
+      });
+    })();
 
     return true; // Async response
   }
@@ -446,94 +299,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    VintedLogger.debug('');
-    VintedLogger.debug('🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐');
     VintedLogger.debug(`🌐 [VINTED] EXECUTE_VINTED_API: ${method} ${url}`);
-    VintedLogger.debug('🌐 Params:', params);
-    VintedLogger.debug('🌐 Body:', body);
-    VintedLogger.debug('🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐🌐');
 
-    // Extraire l'endpoint depuis l'URL (complète ou relative)
-    // Le baseURL de l'API Vinted est déjà "/api/v2", donc on doit retirer ce préfixe
+    // Extract endpoint from URL (complete or relative)
     let endpoint: string;
     try {
-      // URL complète (https://www.vinted.fr/api/v2/items?page=1)
       const urlObj = new URL(url);
-      endpoint = urlObj.pathname + urlObj.search; // Inclure les query params!
+      endpoint = urlObj.pathname + urlObj.search;
     } catch {
-      // URL relative (/api/v2/items ou /items) - utiliser directement
       endpoint = url;
     }
 
-    // Retirer le préfixe /api/v2 si présent (évite la duplication)
+    // Remove /api/v2 prefix if present (avoid duplication)
     if (endpoint.startsWith('/api/v2')) {
       endpoint = endpoint.replace('/api/v2', '');
     }
 
-    // Générer un ID unique pour cette requête
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    (async () => {
+      const response = await sendPostMessageRequest({
+        messageType: 'STOFLOW_API_CALL',
+        responseType: 'STOFLOW_API_RESPONSE',
+        payload: {
+          method: method.toUpperCase(),
+          endpoint,
+          params,
+          data: body,
+          config: {}
+        },
+        logContext: '🌐 [API]'
+      });
 
-    // Flag to prevent double sendResponse
-    let responseSent = false;
-
-    // Créer un listener pour la réponse
-    const responseListener = (event: MessageEvent) => {
-      // Vérifier que le message vient de la même fenêtre
-      if (event.source !== window) return;
-      if (responseSent) return; // Already responded
-
-      const messageData = event.data;
-
-      // Vérifier que c'est une réponse à notre requête
-      if (messageData.type === 'STOFLOW_API_RESPONSE' && messageData.requestId === requestId) {
-        responseSent = true;
-        window.removeEventListener('message', responseListener);
-        clearTimeout(timeoutId);
-
-        VintedLogger.debug('🌐 [VINTED] Réponse reçue du script injecté');
-        VintedLogger.debug('🌐 Success:', messageData.success);
-        VintedLogger.debug('🌐 Data:', messageData.data);
-
-        if (messageData.success) {
-          sendResponse({
-            success: true,
-            status: messageData.status || 200,
-            data: messageData.data
-          });
-        } else {
-          VintedLogger.error('🌐 [VINTED] Erreur:', messageData.error);
-          sendResponse({
-            success: false,
-            status: messageData.status || 500,
-            error: messageData.error || 'Unknown error'
-          });
-        }
+      if (response.success) {
+        sendResponse({
+          success: true,
+          status: response.status || 200,
+          data: response.data
+        });
+      } else {
+        sendResponse({
+          success: false,
+          status: response.status || 500,
+          error: response.error || 'Unknown error'
+        });
       }
-    };
-
-    // Ajouter le listener
-    window.addEventListener('message', responseListener);
-
-    // Timeout (configurable via ENV.VINTED_REQUEST_TIMEOUT)
-    const timeoutId = setTimeout(() => {
-      if (responseSent) return; // Already responded
-      responseSent = true;
-      window.removeEventListener('message', responseListener);
-      sendResponse({ success: false, error: `Request timeout (${ENV.VINTED_REQUEST_TIMEOUT / 1000}s)` });
-    }, ENV.VINTED_REQUEST_TIMEOUT);
-
-    // Envoyer le message au script injecté
-    window.postMessage({
-      type: 'STOFLOW_API_CALL',
-      requestId,
-      method: method.toUpperCase(),
-      endpoint,
-      params,
-      data: body,
-      config: {}
-    }, '*');
-
-    VintedLogger.debug('🌐 [VINTED] Message postMessage envoyé au script injecté');
+    })();
 
     return true; // Async response
   }
@@ -544,53 +353,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
    * Uses /web/api/auth/refresh endpoint to regenerate session
    */
   if (action === 'REFRESH_VINTED_SESSION') {
-    VintedLogger.debug('');
-    VintedLogger.debug('🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄');
     VintedLogger.debug('🔄 [VINTED] REFRESH_VINTED_SESSION received');
-    VintedLogger.debug('🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄🔄');
 
-    const requestId = `refresh_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    let responseSent = false;
-
-    const responseListener = (event: MessageEvent) => {
-      if (event.source !== window) return;
-      if (responseSent) return;
-
-      const msg = event.data;
-
-      if (msg.type === 'STOFLOW_REFRESH_SESSION_RESPONSE' && msg.requestId === requestId) {
-        responseSent = true;
-        window.removeEventListener('message', responseListener);
-        clearTimeout(timeoutId);
-
-        VintedLogger.debug('🔄 [VINTED] Refresh session response:', msg);
-
-        sendResponse({
-          success: msg.success,
-          error: msg.error || null
-        });
-      }
-    };
-
-    window.addEventListener('message', responseListener);
-
-    const timeoutId = setTimeout(() => {
-      if (responseSent) return;
-      responseSent = true;
-      window.removeEventListener('message', responseListener);
-      VintedLogger.warn('🔄 [VINTED] Refresh session timeout');
-      sendResponse({
-        success: false,
-        error: 'Refresh session timeout (10s)'
+    (async () => {
+      const response = await sendPostMessageRequest({
+        messageType: 'STOFLOW_REFRESH_SESSION',
+        responseType: 'STOFLOW_REFRESH_SESSION_RESPONSE',
+        timeout: 10000,
+        logContext: '🔄 [REFRESH]'
       });
-    }, 10000);
 
-    window.postMessage({
-      type: 'STOFLOW_REFRESH_SESSION',
-      requestId
-    }, '*');
-
-    VintedLogger.debug('🔄 [VINTED] Message STOFLOW_REFRESH_SESSION sent to injected script');
+      sendResponse({
+        success: response.success,
+        error: response.error || null
+      });
+    })();
 
     return true; // Async response
   }
