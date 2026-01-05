@@ -7,7 +7,6 @@ Les headers sont générés dynamiquement selon l'action/endpoint.
 Business Rules (2025-12-11):
 - Headers de base envoyés pour TOUTES les requêtes
 - Headers conditionnels ajoutés selon l'action (upload, transaction, etc.)
-- csrf_token et anon_id sont injectés depuis vinted_credentials (unique par user)
 - Pas de User-Agent, Cookie, Sec-Fetch-* (gérés automatiquement par Firefox)
 
 Author: Claude
