@@ -5,18 +5,19 @@ Service pour la gestion des uploads de fichiers (images produits).
 
 Business Rules (2025-12-23):
 - Stockage: Cloudflare R2 (S3-compatible) - REQUIS
-- Formats autorisés: jpg, jpeg, png
+- Formats autorisés: jpg, jpeg, png (+ webp pour import depuis URL)
 - Taille max: 10MB par image (avant optimisation)
 - Maximum 20 images par produit (limite Vinted)
 - Optimisation: redimensionnement max 2000px, compression 90%
 
 Updated 2026-01-05:
 - Added download_and_upload_from_url() for importing images from external URLs (Vinted)
+- Added WebP support for URL imports (Vinted uses WebP images)
 """
 
 import imghdr
 from io import BytesIO
-from typing import Tuple
+from typing import Optional, Tuple
 
 import httpx
 from fastapi import UploadFile
@@ -40,6 +41,40 @@ class FileService:
     # Image optimization settings
     MAX_DIMENSION = 2000  # Max width or height in pixels
     JPEG_QUALITY = 90  # Compression quality (1-100)
+
+    # Supported formats for URL import (includes WebP from Vinted)
+    URL_IMPORT_FORMATS = {"jpeg", "png", "webp"}
+
+    @staticmethod
+    def _detect_image_format(content: bytes) -> Optional[str]:
+        """
+        Detect image format from content bytes using magic bytes.
+
+        Supports JPEG, PNG, and WebP (imghdr doesn't detect WebP natively).
+
+        Args:
+            content: Image bytes (at least first 12 bytes needed)
+
+        Returns:
+            Format string ('jpeg', 'png', 'webp') or None if unknown
+        """
+        if len(content) < 12:
+            return None
+
+        # JPEG: starts with FF D8 FF
+        if content[:3] == b'\xff\xd8\xff':
+            return "jpeg"
+
+        # PNG: starts with 89 50 4E 47 0D 0A 1A 0A
+        if content[:8] == b'\x89PNG\r\n\x1a\n':
+            return "png"
+
+        # WebP: starts with RIFF....WEBP
+        if content[:4] == b'RIFF' and content[8:12] == b'WEBP':
+            return "webp"
+
+        # Fallback to imghdr for other formats
+        return imghdr.what(None, content)
 
     @staticmethod
     def _optimize_image(content: bytes, original_format: str) -> Tuple[bytes, str]:
@@ -261,6 +296,8 @@ class FileService:
         Download image from external URL and upload to R2.
 
         Used for importing images from Vinted when creating a Product from VintedProduct.
+        Supports JPEG, PNG, and WebP formats (Vinted uses WebP).
+        WebP images are automatically converted to JPEG during optimization.
 
         Args:
             user_id: User ID for path isolation
@@ -312,12 +349,12 @@ class FileService:
                 f"Downloaded image too large: {size_mb:.2f}MB (max {max_mb}MB)"
             )
 
-        # Detect image format
-        image_type = imghdr.what(None, content)
-        if image_type not in ["jpeg", "png"]:
+        # Detect image format (supports JPEG, PNG, WebP)
+        image_type = FileService._detect_image_format(content)
+        if image_type not in FileService.URL_IMPORT_FORMATS:
             raise ValueError(
                 f"Invalid image format from URL: {image_type}. "
-                f"Only JPEG and PNG are supported."
+                f"Supported formats: {', '.join(FileService.URL_IMPORT_FORMATS)}."
             )
 
         logger.info(
