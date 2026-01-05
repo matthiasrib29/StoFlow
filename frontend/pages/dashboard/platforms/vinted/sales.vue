@@ -53,7 +53,6 @@ definePageMeta({
 </template>
 
 <script setup lang="ts">
-import VintedPageHeader from '~/components/platforms/VintedPageHeader.vue'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
 
 definePageMeta({
