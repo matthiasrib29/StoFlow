@@ -227,17 +227,18 @@ function debouncedSearch() {
   }, 300)
 }
 
-// Fetch linkable products
+// Fetch linkable products (uses main products API)
 async function fetchLinkableProducts() {
   if (!props.vintedProduct) return
 
   loadingProducts.value = true
   try {
     const params = new URLSearchParams()
+    params.set('limit', '20')
     if (searchQuery.value) params.set('search', searchQuery.value)
 
     const response = await api.get<{ products: LinkableProduct[] }>(
-      `/api/vinted/products/${props.vintedProduct.vinted_id}/linkable?${params}`
+      `/api/products?${params}`
     )
     linkableProducts.value = response?.products || []
   } catch (e) {

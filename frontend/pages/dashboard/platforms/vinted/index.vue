@@ -1187,7 +1187,7 @@ const handleSyncOrdersByMonth = async () => {
       errors: number
       month: string
       last_error?: string
-    }>(`/api/vinted/orders/sync/month?year=${selectedYear.value}&month=${selectedMonth.value}`)
+    }>(`/api/vinted/orders/sync?year=${selectedYear.value}&month=${selectedMonth.value}`)
 
     monthSyncResult.value = response
 

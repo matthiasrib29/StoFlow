@@ -70,15 +70,10 @@ export const useVintedMessagesStore = defineStore('vintedMessages', {
     currentConversation: null as VintedConversation | null,
     currentMessages: [] as VintedMessage[],
 
-    // Search results
-    searchResults: [] as VintedMessage[],
-    searchQuery: '',
-
     // Loading states
     isLoadingConversations: false,
     isLoadingMessages: false,
     isSyncing: false,
-    isSearching: false,
 
     // Error state
     error: null as string | null,
@@ -300,50 +295,6 @@ export const useVintedMessagesStore = defineStore('vintedMessages', {
       }
     },
 
-    /**
-     * Search messages
-     */
-    async searchMessages(query: string, limit?: number) {
-      if (!query || query.length < 2) {
-        this.searchResults = []
-        this.searchQuery = ''
-        return
-      }
-
-      this.isSearching = true
-      this.error = null
-      this.searchQuery = query
-
-      try {
-        const api = useApi()
-        const params = new URLSearchParams({ q: query })
-        if (limit) params.append('limit', limit.toString())
-
-        const response = await api.get<{
-          query: string
-          results: VintedMessage[]
-          count: number
-        }>(`/api/vinted/messages/search?${params.toString()}`)
-
-        this.searchResults = response.results || []
-
-        return response
-      } catch (error: any) {
-        this.error = error.message || 'Error searching messages'
-        console.error('Error searching messages:', error)
-        throw error
-      } finally {
-        this.isSearching = false
-      }
-    },
-
-    /**
-     * Clear search results
-     */
-    clearSearch() {
-      this.searchResults = []
-      this.searchQuery = ''
-    },
 
     /**
      * Select a conversation

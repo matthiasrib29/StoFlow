@@ -24,16 +24,6 @@
         />
       </div>
       <div class="flex items-center gap-2">
-        <!-- Search (hidden on mobile when viewing messages) -->
-        <IconField :class="{ 'hidden': selectedConversationId && isMobileView }" class="flex-1 sm:flex-none">
-          <InputIcon class="pi pi-search" />
-          <InputText
-            v-model="searchQuery"
-            placeholder="Rechercher..."
-            class="w-full sm:w-48"
-            @keyup.enter="handleSearch"
-          />
-        </IconField>
         <Button
           label="Sync"
           icon="pi pi-sync"
@@ -113,7 +103,6 @@ const toast = import.meta.client ? useToast() : null
 // Refs
 const selectedConversationId = ref<number | null>(null)
 const showUnreadOnly = ref(false)
-const searchQuery = ref('')
 const messagesViewRef = ref<InstanceType<typeof MessagesView> | null>(null)
 
 // Mobile view detection
@@ -278,29 +267,6 @@ async function syncCurrentConversation() {
   }
 }
 
-/**
- * Handle search
- */
-async function handleSearch() {
-  if (!searchQuery.value || searchQuery.value.length < 2) return
-
-  try {
-    await messagesStore.searchMessages(searchQuery.value)
-    toast?.add({
-      severity: 'info',
-      summary: 'Recherche',
-      detail: `${messagesStore.searchResults.length} résultat(s) trouvé(s)`,
-      life: 3000
-    })
-  } catch (error: any) {
-    toast?.add({
-      severity: 'error',
-      summary: 'Erreur',
-      detail: 'Échec de la recherche',
-      life: 5000
-    })
-  }
-}
 
 /**
  * Open transaction on Vinted

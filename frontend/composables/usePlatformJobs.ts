@@ -154,7 +154,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
    */
   const cancelJob = async (jobId: number): Promise<boolean> => {
     try {
-      const response = await post<JobActionResponse>(`${config.apiPrefix}/jobs/${jobId}/cancel`)
+      const response = await post<JobActionResponse>(`${config.apiPrefix}/jobs/cancel?job_id=${jobId}`)
       if (response.success) {
         // Update local state
         const jobIndex = activeJobs.value.findIndex(j => j.id === jobId)
