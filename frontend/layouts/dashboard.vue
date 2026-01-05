@@ -876,16 +876,12 @@ const isAdminRoute = computed(() => route.path.startsWith('/dashboard/admin'))
 // Vérifier si l'utilisateur est admin
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 
-// Platform watchers: Fetch status and start polling when on platform route
+// Platform watchers: Fetch status when on platform route
 // Only run client-side to avoid SSR auth issues
 watch(isVintedRoute, (isActive) => {
   if (!import.meta.client) return
   if (isActive) {
     vintedConnection.fetchStatus()
-    vintedJobs.fetchActiveJobs()
-    vintedJobs.startPolling(10000)
-  } else {
-    vintedJobs.stopPolling()
   }
 }, { immediate: true })
 
@@ -893,10 +889,6 @@ watch(isEbayRoute, (isActive) => {
   if (!import.meta.client) return
   if (isActive) {
     ebayConnection.fetchStatus()
-    ebayJobs.fetchActiveJobs()
-    ebayJobs.startPolling(10000)
-  } else {
-    ebayJobs.stopPolling()
   }
 }, { immediate: true })
 
@@ -904,19 +896,9 @@ watch(isEtsyRoute, (isActive) => {
   if (!import.meta.client) return
   if (isActive) {
     etsyConnection.fetchStatus()
-    etsyJobs.fetchActiveJobs()
-    etsyJobs.startPolling(10000)
-  } else {
-    etsyJobs.stopPolling()
   }
 }, { immediate: true })
 
-// Cleanup jobs polling on unmount
-onUnmounted(() => {
-  vintedJobs.stopPolling()
-  ebayJobs.stopPolling()
-  etsyJobs.stopPolling()
-})
 
 // Ouvrir automatiquement les menus si on est sur leurs routes
 // Et fermer le menu mobile à chaque navigation
