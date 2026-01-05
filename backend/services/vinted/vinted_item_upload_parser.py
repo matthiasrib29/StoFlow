@@ -76,10 +76,6 @@ class VintedItemUploadParser:
             # Parse photos
             photos = item.get("photos", [])
             photos_data = VintedItemUploadParser._parse_photos(photos)
-            # Use full_size_url for original quality (not f800 resized)
-            photo_url = (
-                photos[0].get("full_size_url") or photos[0].get("url")
-            ) if photos else None
 
             # Build parsed data dict matching VintedProduct model fields
             parsed = {
@@ -116,13 +112,10 @@ class VintedItemUploadParser:
                 # Additional fields from item_upload API
                 "is_unisex": bool(item.get("is_unisex", 0)),
                 "is_draft": item.get("is_draft", False),
-                "manufacturer": item.get("manufacturer"),
                 "manufacturer_labelling": item.get("manufacturer_labelling"),
-                "model": item.get("model"),
                 "item_attributes": item.get("item_attributes", []),
 
                 # Photos
-                "photo_url": photo_url,
                 "photos_data": photos_data,
 
                 # URL (constructed)
