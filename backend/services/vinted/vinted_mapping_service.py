@@ -20,7 +20,7 @@ Updated: 2025-12-24 - CategoryMappingRepository désactivé
 Author: Claude
 """
 
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
 from models.public.brand import Brand
@@ -244,32 +244,6 @@ class VintedMappingService:
         return None
 
     @staticmethod
-    def map_category(
-        db: Session,
-        category: str,
-        gender: str,
-        fit: Optional[str] = None
-    ) -> Tuple[Optional[int], Optional[str], Optional[str]]:
-        """
-        DEPRECATED: CategoryMappingRepository désactivé - modèle CategoryPlatformMapping manquant.
-
-        Cette fonction retourne toujours (None, None, None) jusqu'à ce que le modèle
-        CategoryPlatformMapping soit implémenté.
-
-        Args:
-            db: Session SQLAlchemy
-            category: Nom de la catégorie (EN), ex: "Jeans"
-            gender: Genre du produit, ex: "Men", "Women"
-            fit: Coupe du produit (optionnel), ex: "Slim", "Regular"
-
-        Returns:
-            Tuple (None, None, None) - DEPRECATED
-        """
-        # DEPRECATED: CategoryMappingRepository désactivé
-        # Le modèle CategoryPlatformMapping n'existe pas encore
-        return None, None, None
-
-    @staticmethod
     def _normalize_gender(gender: str) -> str:
         """
         Normalize gender string to match DB values.
@@ -361,16 +335,10 @@ class VintedMappingService:
         gender = product.gender or 'unisex'
         parent_category = product.category.parent_category if hasattr(product, 'category') and hasattr(product.category, 'parent_category') else product.category
 
-        # Mapping catégorie (DEPRECATED - retourne toujours None)
-        category_name = product.category if isinstance(product.category, str) else (product.category.name_en if hasattr(product.category, 'name_en') else str(product.category))
-        fit = getattr(product, 'fit', None)
-
-        category_id, vinted_category_name, category_path = VintedMappingService.map_category(
-            db,
-            category_name,
-            gender,
-            fit
-        )
+        # Category mapping not implemented yet (CategoryPlatformMapping model missing)
+        category_id = None
+        vinted_category_name = None
+        category_path = None
 
         # Mapping taille
         size_id = VintedMappingService.map_size(

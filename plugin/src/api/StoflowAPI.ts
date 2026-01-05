@@ -185,33 +185,6 @@ export class StoflowAPI {
   }
 
   /**
-   * Récupère les tâches en attente depuis le backend
-   */
-  /**
-   * [DEPRECATED] Utiliser getTasksWithAdaptivePolling à la place
-   */
-  static async getPendingTasks(): Promise<any[]> {
-    try {
-      const baseUrl = this.getBaseUrl();
-      const response = await this.fetchWithAuth(`${baseUrl}/api/plugin/tasks/pending`, {
-        method: 'GET'
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur backend: ${response.status} ${response.statusText}`);
-      }
-
-      const tasks = await response.json();
-      APILogger.debug(`[StoflowAPI] ${tasks.length || 0} tâche(s) en attente`);
-
-      return tasks;
-    } catch (error) {
-      APILogger.error('[StoflowAPI] Erreur récupération tâches:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Récupère les tâches avec LONG POLLING
    *
    * La requête reste ouverte jusqu'au timeout côté backend:
@@ -269,21 +242,6 @@ export class StoflowAPI {
       APILogger.error('[StoflowAPI] Erreur long polling:', error);
       throw error; // Propager l'erreur pour que le PollingManager gère le retry
     }
-  }
-
-  /**
-   * @deprecated Utiliser getTasksWithLongPolling à la place
-   */
-  static async getTasksWithAdaptivePolling(currentInterval: number = 5000): Promise<{
-    tasks: any[];
-    next_poll_interval_ms: number;
-    has_pending_tasks: boolean;
-  }> {
-    const result = await this.getTasksWithLongPolling();
-    return {
-      ...result,
-      next_poll_interval_ms: 0 // Long polling: relancer immédiatement
-    };
   }
 
   /**

@@ -406,10 +406,9 @@ class TestMapAllAttributes:
     @patch.object(VintedMappingService, 'map_color')
     @patch.object(VintedMappingService, 'map_condition')
     @patch.object(VintedMappingService, 'map_size')
-    @patch.object(VintedMappingService, 'map_category')
     @patch.object(VintedMappingService, 'map_material')
     def test_map_all_attributes_complete(
-        self, mock_material, mock_category, mock_size,
+        self, mock_material, mock_size,
         mock_condition, mock_color, mock_brand
     ):
         """Test mapping complet de tous les attributs."""
@@ -420,7 +419,6 @@ class TestMapAllAttributes:
         mock_color.return_value = 12
         mock_condition.return_value = 2
         mock_size.return_value = 207
-        mock_category.return_value = (1193, "Jean slim", "Hommes > Jeans > Slim")
         mock_material.return_value = 303
 
         # Create mock product
@@ -440,9 +438,10 @@ class TestMapAllAttributes:
         assert result['color_id'] == 12
         assert result['condition_id'] == 2
         assert result['size_id'] == 207
-        assert result['category_id'] == 1193
-        assert result['category_name'] == "Jean slim"
-        assert result['category_path'] == "Hommes > Jeans > Slim"
+        # Category mapping not implemented yet
+        assert result['category_id'] is None
+        assert result['category_name'] is None
+        assert result['category_path'] is None
         assert result['gender'] == "male"
         assert result['is_bottom'] is True
         assert result['material_ids'] == [303]
@@ -451,10 +450,9 @@ class TestMapAllAttributes:
     @patch.object(VintedMappingService, 'map_color')
     @patch.object(VintedMappingService, 'map_condition')
     @patch.object(VintedMappingService, 'map_size')
-    @patch.object(VintedMappingService, 'map_category')
     @patch.object(VintedMappingService, 'map_material')
     def test_map_all_attributes_no_material(
-        self, mock_material, mock_category, mock_size,
+        self, mock_material, mock_size,
         mock_condition, mock_color, mock_brand
     ):
         """Test mapping sans matériau."""
@@ -464,7 +462,6 @@ class TestMapAllAttributes:
         mock_color.return_value = 12
         mock_condition.return_value = 2
         mock_size.return_value = 207
-        mock_category.return_value = (1193, "Jean", "Hommes > Jeans")
         mock_material.return_value = None
 
         mock_product = Mock()
@@ -485,10 +482,9 @@ class TestMapAllAttributes:
     @patch.object(VintedMappingService, 'map_color')
     @patch.object(VintedMappingService, 'map_condition')
     @patch.object(VintedMappingService, 'map_size')
-    @patch.object(VintedMappingService, 'map_category')
     @patch.object(VintedMappingService, 'map_materials')
     def test_map_all_attributes_material_list(
-        self, mock_materials, mock_category, mock_size,
+        self, mock_materials, mock_size,
         mock_condition, mock_color, mock_brand
     ):
         """Test mapping avec liste de matériaux."""
@@ -498,7 +494,6 @@ class TestMapAllAttributes:
         mock_color.return_value = 12
         mock_condition.return_value = 2
         mock_size.return_value = 210
-        mock_category.return_value = (1203, "T-shirt", "Hommes > T-shirts")
         mock_materials.return_value = [44, 45]  # Cotton + Polyester
 
         mock_product = Mock()
