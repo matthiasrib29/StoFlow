@@ -1,8 +1,8 @@
 """Remove photo_url, manufacturer, model from vinted_products
 
-Revision ID: 20260105_1400
-Revises: 20260105_1300
-Create Date: 2026-01-05 14:00:00.000000
+Revision ID: 20260105_1450
+Revises: 20260105_1400
+Create Date: 2026-01-05 14:30:00.000000
 
 Removes deprecated columns:
 - photo_url: Replaced by primary_photo_url property (reads from photos_data)
@@ -14,8 +14,8 @@ from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
-revision = '20260105_1400'
-down_revision = '20260105_1300'
+revision = '20260105_1450'
+down_revision = '20260105_1400'
 branch_labels = None
 depends_on = None
 

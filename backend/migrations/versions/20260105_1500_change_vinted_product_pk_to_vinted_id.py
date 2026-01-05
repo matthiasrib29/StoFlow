@@ -1,7 +1,7 @@
 """Change VintedProduct primary key from id to vinted_id
 
 Revision ID: 20260105_1500
-Revises: 20260105_1400
+Revises: 20260105_1450
 Create Date: 2026-01-05 15:00:00.000000
 
 CRITICAL MIGRATION - Changes primary key structure
@@ -22,7 +22,7 @@ from sqlalchemy import text
 
 # revision identifiers, used by Alembic.
 revision = '20260105_1500'
-down_revision = '20260105_1400'
+down_revision = '20260105_1450'
 branch_labels = None
 depends_on = None
 
