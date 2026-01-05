@@ -12,8 +12,12 @@ Endpoints pour la gestion des produits Vinted:
 
 Author: Claude
 Date: 2025-12-17
+
+Updated 2026-01-05:
+- create_and_link now copies images from Vinted to R2
 """
 
+import json
 from decimal import Decimal
 from typing import Optional
 
@@ -25,9 +29,14 @@ from pydantic import BaseModel
 
 from api.dependencies import get_user_db
 from models.user.vinted_product import VintedProduct
+from services.file_service import FileService
+from services.product_service import ProductService
 from services.vinted import VintedSyncService, VintedJobService, VintedJobProcessor
 from services.vinted.vinted_link_service import VintedLinkService
+from shared.logging_setup import get_logger
 from .shared import get_active_vinted_connection
+
+logger = get_logger(__name__)
 
 
 # ===== SCHEMAS =====
@@ -447,12 +456,15 @@ async def create_and_link(
     """
     Crée un produit Stoflow à partir d'un produit Vinted et les lie.
 
+    Also downloads Vinted images and uploads them to R2 storage.
+    If any image fails to download/upload, the entire operation is rolled back.
+
     Args:
         vinted_id: ID Vinted du produit source
         request: Données optionnelles pour surcharger les valeurs importées
 
     Returns:
-        {"success": bool, "vinted_id": int, "product_id": int, "product": dict}
+        {"success": bool, "vinted_id": int, "product_id": int, "product": dict, "images_copied": int}
     """
     db, current_user = user_db
 
@@ -477,12 +489,55 @@ async def create_and_link(
             vinted_id=vinted_id,
             override_data=override_data if override_data else None
         )
+
+        # ===== COPY IMAGES FROM VINTED TO R2 (2026-01-05) =====
+        images_copied = 0
+
+        if vinted_product.photos_data:
+            try:
+                photos = json.loads(vinted_product.photos_data)
+            except json.JSONDecodeError:
+                photos = []
+
+            if photos:
+                logger.info(
+                    f"[create_and_link] Copying {len(photos)} images from Vinted "
+                    f"to R2 for product {product.id}"
+                )
+
+                for i, photo in enumerate(photos):
+                    photo_url = photo.get("url")
+                    if not photo_url:
+                        continue
+
+                    # Download from Vinted and upload to R2
+                    r2_url = await FileService.download_and_upload_from_url(
+                        user_id=current_user.id,
+                        product_id=product.id,
+                        image_url=photo_url
+                    )
+
+                    # Add image to product (JSONB)
+                    ProductService.add_image(
+                        db=db,
+                        product_id=product.id,
+                        image_url=r2_url,
+                        display_order=i
+                    )
+                    images_copied += 1
+
+                logger.info(
+                    f"[create_and_link] Successfully copied {images_copied} images "
+                    f"for product {product.id}"
+                )
+
         db.commit()
 
         return {
             "success": True,
             "vinted_id": vinted_id,
             "product_id": product.id,
+            "images_copied": images_copied,
             "product": {
                 "id": product.id,
                 "title": product.title,
@@ -492,16 +547,27 @@ async def create_and_link(
                 "brand": product.brand,
                 "condition": product.condition,
                 "status": product.status.value if product.status else None,
+                "images": product.images or [],
             }
         }
 
     except ValueError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except RuntimeError as e:
+        # Image download/upload errors
+        db.rollback()
+        logger.error(f"[create_and_link] Image copy failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to copy images from Vinted: {str(e)}"
+        )
     except Exception as e:
         db.rollback()
+        logger.error(f"[create_and_link] Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur création: {str(e)}"
