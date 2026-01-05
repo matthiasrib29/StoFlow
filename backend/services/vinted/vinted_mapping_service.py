@@ -21,7 +21,7 @@ Updated: 2026-01-05 - Category mapping restored via VintedMappingRepository
 Author: Claude
 """
 
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
 
 from models.public.brand import Brand
@@ -34,7 +34,7 @@ from models.public.size import Size
 class VintedMappingService:
     """
     Service de mapping attributs → IDs Vinted.
-    
+
     Mappe les attributs internes du produit vers les IDs requis par l'API Vinted.
     """
 
