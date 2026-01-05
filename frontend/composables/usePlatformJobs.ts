@@ -124,31 +124,28 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
   }
 
   /**
-   * Fetch only active jobs (pending, running, paused)
+   * Fetch all jobs (single request)
    */
-  const fetchActiveJobs = async (): Promise<void> => {
+  const fetchActiveJobs = async (limit = 50): Promise<void> => {
     try {
       error.value = null
+      isLoading.value = true
 
-      // Fetch pending and running jobs
-      const [pendingRes, runningRes, pausedRes] = await Promise.all([
-        get<JobsListResponse>(`${config.apiPrefix}/jobs?status_filter=pending&limit=50`),
-        get<JobsListResponse>(`${config.apiPrefix}/jobs?status_filter=running&limit=50`),
-        get<JobsListResponse>(`${config.apiPrefix}/jobs?status_filter=paused&limit=50`),
-      ])
+      const response = await get<JobsListResponse>(`${config.apiPrefix}/jobs?limit=${limit}`)
 
-      // Combine and sort by created_at desc
-      const allActive = [
-        ...pendingRes.jobs,
-        ...runningRes.jobs,
-        ...pausedRes.jobs,
-      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      // Filter active jobs (pending, running, paused) and sort by created_at desc
+      const allActive = response.jobs
+        .filter(job => ['pending', 'running', 'paused'].includes(job.status))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
       activeJobs.value = allActive
       activeJobsCount.value = allActive.length
+      jobs.value = response.jobs
     } catch (err: any) {
-      error.value = err.message || `Failed to fetch active ${config.name} jobs`
+      error.value = err.message || `Failed to fetch ${config.name} jobs`
       console.error(`[usePlatformJobs:${platformCode}] fetchActiveJobs error:`, err)
+    } finally {
+      isLoading.value = false
     }
   }
 

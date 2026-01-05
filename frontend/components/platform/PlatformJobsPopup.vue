@@ -165,10 +165,15 @@
         />
         <span v-else />
 
-        <div class="flex items-center gap-2 text-xs text-gray-500">
-          <i :class="['pi', isPolling ? 'pi-spin pi-sync' : 'pi-sync']" />
-          <span>Mise à jour auto</span>
-        </div>
+        <Button
+          icon="pi pi-refresh"
+          severity="secondary"
+          text
+          size="small"
+          @click="fetchActiveJobs"
+          :loading="isLoading"
+          v-tooltip.top="'Actualiser'"
+        />
       </div>
     </template>
   </Dialog>
@@ -199,14 +204,11 @@ const {
   activeJobs,
   activeJobsCount,
   isLoading,
-  isPolling,
   fetchActiveJobs,
   cancelJob,
   pauseJob,
   resumeJob,
   cancelAllJobs,
-  startPolling,
-  stopPolling,
   getStatusLabel,
   getStatusColor,
   getActionLabel,
@@ -224,12 +226,10 @@ const hasRunningJobs = computed(() =>
   activeJobs.value.some(j => j.status === 'running')
 )
 
-// Start/stop polling based on dialog visibility
+// Fetch jobs when dialog opens
 watch(visible, (isVisible) => {
   if (isVisible) {
-    startPolling(3000)
-  } else {
-    stopPolling()
+    fetchActiveJobs()
   }
 })
 
