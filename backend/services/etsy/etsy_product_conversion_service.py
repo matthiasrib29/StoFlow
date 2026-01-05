@@ -375,7 +375,7 @@ class EtsyProductConversionService:
 
         try:
             return json.loads(product.images)
-        except:
+        except (json.JSONDecodeError, TypeError):
             return []
 
     def build_inventory_update(

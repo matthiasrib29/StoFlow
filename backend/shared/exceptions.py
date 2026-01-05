@@ -345,7 +345,7 @@ class FileError(StoflowError):
     pass
 
 
-class FileNotFoundError(FileError):
+class StoflowFileNotFoundError(FileError):
     """Fichier non trouvé."""
     pass
 
@@ -462,7 +462,7 @@ __all__ = [
 
     # File
     "FileError",
-    "FileNotFoundError",
+    "StoflowFileNotFoundError",
     "FileUploadError",
     "ImageProcessingError",
 
