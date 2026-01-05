@@ -567,7 +567,7 @@ const saveUser = async () => {
 
 const handleToggleActive = async (user: AdminUser) => {
   try {
-    await adminUsers.toggleUserActive(user.id)
+    await adminUsers.toggleUserActive(user.id, user.is_active)
 
     const action = user.is_active ? 'désactivé' : 'activé'
     toast?.add({
