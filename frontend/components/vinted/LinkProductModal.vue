@@ -20,7 +20,7 @@
       <div>
         <h4 class="font-semibold text-gray-900">{{ vintedProduct?.title }}</h4>
         <p class="text-sm text-gray-500">
-          {{ vintedProduct?.brand || 'Sans marque' }} - {{ vintedProduct?.price?.toFixed(2) }} €
+          {{ vintedProduct?.brand || 'Sans marque' }} - {{ Number(vintedProduct?.price)?.toFixed(2) }} €
         </p>
       </div>
     </div>
@@ -77,7 +77,7 @@
                 <div class="flex-1 min-w-0">
                   <p class="font-medium text-gray-900 truncate">{{ product.title }}</p>
                   <p class="text-sm text-gray-500">
-                    {{ product.brand || 'Sans marque' }} - {{ product.price?.toFixed(2) }} €
+                    {{ product.brand || 'Sans marque' }} - {{ Number(product.price)?.toFixed(2) }} €
                   </p>
                 </div>
                 <i
@@ -112,7 +112,7 @@
               </div>
               <div class="flex items-center gap-2">
                 <label class="w-24 text-sm text-gray-500">Prix:</label>
-                <span class="font-medium">{{ vintedProduct?.price?.toFixed(2) }} €</span>
+                <span class="font-medium">{{ Number(vintedProduct?.price)?.toFixed(2) }} €</span>
               </div>
               <div class="flex items-center gap-2">
                 <label class="w-24 text-sm text-gray-500">Marque:</label>
