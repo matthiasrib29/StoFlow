@@ -4,23 +4,24 @@ Vinted Mapping Service
 Service de mapping des attributs Product → IDs Vinted.
 Responsabilité: Traduction attributs internes vers IDs marketplace Vinted.
 
-Business Rules (Updated 2025-12-24):
+Business Rules (Updated 2026-01-05):
 - Brand: mapping via brand.vinted_id
-- Color: mapping non disponible (modèle simplifié)
+- Color: mapping via color.vinted_id
 - Condition: mapping via condition.vinted_id (PK = note integer)
-- Size: mapping via size.vinted_id (mapping unique simplifié)
-- Category: DEPRECATED - CategoryMappingRepository désactivé (modèle manquant)
+- Size: mapping via size.vinted_women_id / size.vinted_men_id (gender-specific)
+- Category: mapping via vinted.mapping table + get_vinted_category() function
 - Material: mapping via material.vinted_id
 
 Architecture:
 - Accès direct aux tables product_attributes (shared entre tenants)
+- Category mapping via VintedMappingRepository (calls PostgreSQL function)
 
 Created: 2024-12-10
-Updated: 2025-12-24 - CategoryMappingRepository désactivé
+Updated: 2026-01-05 - Category mapping restored via VintedMappingRepository
 Author: Claude
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
 
 from models.public.brand import Brand
@@ -28,14 +29,12 @@ from models.public.color import Color
 from models.public.condition import Condition
 from models.public.material import Material
 from models.public.size import Size
-# DEPRECATED: CategoryMappingRepository désactivé - modèle CategoryPlatformMapping manquant
-# from repositories.category_mapping_repository import CategoryMappingRepository
 
 
 class VintedMappingService:
     """
     Service de mapping attributs → IDs Vinted.
-    
+
     Mappe les attributs internes du produit vers les IDs requis par l'API Vinted.
     """
 
@@ -69,27 +68,29 @@ class VintedMappingService:
     @staticmethod
     def map_color(db: Session, color_name: Optional[str]) -> Optional[int]:
         """
-        Mappe une couleur vers son ID Vinted.
-
-        Note: Le modèle Color actuel n'a pas de vinted_id.
-        Cette fonction vérifie simplement si la couleur existe.
-        Le mapping Vinted devra être ajouté ultérieurement.
+        Map a color to its Vinted ID.
 
         Args:
             db: Session SQLAlchemy
-            color_name: Nom de la couleur en anglais (ex: "Blue")
+            color_name: Color name in English (e.g., "blue", "black")
 
         Returns:
-            None (mapping non disponible actuellement)
+            Vinted color ID, or None if not found
+
+        Examples:
+            >>> VintedMappingService.map_color(db, "black")
+            1
+            >>> VintedMappingService.map_color(db, "blue")
+            9
         """
         if not color_name:
             return None
 
-        # Vérifier que la couleur existe dans la base
         color = db.query(Color).filter(Color.name_en == color_name).first()
 
-        # Note: Color model doesn't have vinted_id currently
-        # Return None until mapping is added
+        if color and color.vinted_id:
+            return int(color.vinted_id)
+
         return None
 
     @staticmethod
@@ -214,20 +215,25 @@ class VintedMappingService:
         parent_category: str
     ) -> Optional[int]:
         """
-        Mappe une taille vers son ID Vinted.
+        Map a size to its Vinted ID based on gender.
 
-        Note: Le modèle Size actuel a un seul vinted_id.
-        Les mappings gender-specific (vinted_woman_id, vinted_man_top_id,
-        vinted_man_bottom_id) ont été simplifiés.
+        Vinted uses different size IDs for women vs men. This method
+        returns the appropriate ID based on the product's gender.
 
         Args:
             db: Session SQLAlchemy
-            size_name: Nom de la taille (ex: "M", "32", "L")
-            gender: Genre du produit (ex: "male", "female") - non utilisé actuellement
-            parent_category: Catégorie parente (ex: "Jeans", "Jacket") - non utilisé actuellement
+            size_name: Size name (e.g., "M", "W32/L30", "L")
+            gender: Product gender (e.g., "men", "women", "male", "female")
+            parent_category: Parent category (not used currently)
 
         Returns:
-            ID Vinted de la taille, ou None si non trouvée
+            Vinted size ID, or None if not found
+
+        Examples:
+            >>> VintedMappingService.map_size(db, "M", "women", "t-shirt")
+            4  # Women's M
+            >>> VintedMappingService.map_size(db, "M", "men", "t-shirt")
+            208  # Men's M
         """
         if not size_name:
             return None
@@ -237,11 +243,86 @@ class VintedMappingService:
         if not size:
             return None
 
-        # Utiliser le vinted_id simple
-        if size.vinted_id:
-            return int(size.vinted_id)
+        # Determine which vinted_id to use based on gender
+        gender_lower = gender.lower() if gender else ''
+        is_women = gender_lower in ['women', 'woman', 'female', 'femme', 'girl', 'girls']
+
+        if is_women:
+            if size.vinted_women_id:
+                return int(size.vinted_women_id)
+        else:
+            # Default to men for male, unisex, or unknown gender
+            if size.vinted_men_id:
+                return int(size.vinted_men_id)
+
+        # Fallback: try the other gender's ID if the preferred one is missing
+        if size.vinted_women_id:
+            return int(size.vinted_women_id)
+        if size.vinted_men_id:
+            return int(size.vinted_men_id)
 
         return None
+
+    @staticmethod
+    def map_category(
+        db: Session,
+        category: str,
+        gender: str,
+        fit: Optional[str] = None,
+        length: Optional[str] = None,
+        rise: Optional[str] = None,
+        material: Optional[str] = None,
+        pattern: Optional[str] = None,
+        neckline: Optional[str] = None,
+        sleeve_length: Optional[str] = None
+    ) -> Tuple[Optional[int], Optional[str], Optional[str]]:
+        """
+        Map Stoflow category to Vinted category using vinted.mapping table.
+
+        Uses VintedMappingRepository which calls the PostgreSQL function
+        get_vinted_category() for intelligent matching with attribute scoring.
+
+        Args:
+            db: Session SQLAlchemy
+            category: Category name (EN), e.g. "jeans", "t-shirt"
+            gender: Product gender, e.g. "men", "women"
+            fit: Optional fit, e.g. "slim", "regular"
+            length: Optional length, e.g. "short", "long"
+            rise: Optional rise (for pants), e.g. "high", "mid", "low"
+            material: Optional material, e.g. "cotton", "denim"
+            pattern: Optional pattern, e.g. "solid", "striped"
+            neckline: Optional neckline, e.g. "crew", "v-neck"
+            sleeve_length: Optional sleeve length, e.g. "short", "long"
+
+        Returns:
+            Tuple (vinted_id, vinted_title, vinted_path) or (None, None, None)
+
+        Examples:
+            >>> vinted_id, title, path = VintedMappingService.map_category(
+            ...     db, "jeans", "women", fit="skinny"
+            ... )
+            >>> print(vinted_id, title)  # Ex: 1844, "Jeans skinny"
+        """
+        from repositories.vinted_mapping_repository import VintedMappingRepository
+
+        repo = VintedMappingRepository(db)
+        details = repo.get_vinted_category_with_details(
+            category=category,
+            gender=gender,
+            fit=fit,
+            length=length,
+            rise=rise,
+            material=material,
+            pattern=pattern,
+            neckline=neckline,
+            sleeve_length=sleeve_length
+        )
+
+        return (
+            details.get("vinted_id"),
+            details.get("title"),
+            details.get("path")
+        )
 
     @staticmethod
     def _normalize_gender(gender: str) -> str:
@@ -335,10 +416,39 @@ class VintedMappingService:
         gender = product.gender or 'unisex'
         parent_category = product.category.parent_category if hasattr(product, 'category') and hasattr(product.category, 'parent_category') else product.category
 
-        # Category mapping not implemented yet (CategoryPlatformMapping model missing)
-        category_id = None
-        vinted_category_name = None
-        category_path = None
+        # Extract category name
+        category_name = product.category if isinstance(product.category, str) else (product.category.name_en if hasattr(product.category, 'name_en') else str(product.category))
+
+        # Extract all optional attributes for intelligent matching
+        fit = getattr(product, 'fit', None)
+        length = getattr(product, 'length', None)
+        rise = getattr(product, 'rise', None)
+        pattern = getattr(product, 'pattern', None)
+        neckline = getattr(product, 'neckline', None)
+        sleeve_length = getattr(product, 'sleeve_length', None)
+
+        # Get material name for category matching
+        material = getattr(product, 'material', None)
+        material_name_for_category = None
+        if material:
+            if isinstance(material, list) and len(material) > 0:
+                material_name_for_category = material[0]
+            elif isinstance(material, str):
+                material_name_for_category = material
+
+        # Map category using all available attributes for best match
+        category_id, vinted_category_name, category_path = VintedMappingService.map_category(
+            db,
+            category_name,
+            gender,
+            fit=fit,
+            length=length,
+            rise=rise,
+            material=material_name_for_category,
+            pattern=pattern,
+            neckline=neckline,
+            sleeve_length=sleeve_length
+        )
 
         # Mapping taille
         size_id = VintedMappingService.map_size(
