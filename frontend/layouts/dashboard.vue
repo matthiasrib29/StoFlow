@@ -17,7 +17,7 @@
     </Transition>
 
     <!-- Sidebar -->
-    <DashboardSidebar
+    <LayoutDashboardSidebar
       :mobile-menu-open="nav.mobileMenuOpen.value"
       :nav="nav"
       @logout="handleLogout"
