@@ -287,8 +287,9 @@ async function createAndLink() {
 
   linking.value = true
   try {
+    // POST /link without product_id creates a new Product from VintedProduct
     const response = await api.post<{ product_id: number }>(
-      `/api/vinted/products/${props.vintedProduct.vinted_id}/link/create`
+      `/api/vinted/products/${props.vintedProduct.vinted_id}/link`
     )
 
     toast?.add({
