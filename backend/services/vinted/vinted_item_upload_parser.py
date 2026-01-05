@@ -99,7 +99,7 @@ class VintedItemUploadParser:
                 "catalog_id": item.get("catalog_id"),
 
                 # Colors (new fields from item_upload API)
-                "color": item.get("color1"),
+                "color1": item.get("color1"),
                 "color1_id": item.get("color1_id"),
                 "color2": item.get("color2"),
                 "color2_id": item.get("color2_id"),

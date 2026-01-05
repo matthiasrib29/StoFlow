@@ -50,22 +50,21 @@ class VintedProduct(Base):
         brand_id: ID Vinted de la marque
         size: Taille (texte)
         size_id: ID Vinted de la taille
-        color: Couleur principale
-        material: Matière
-        category: Catégorie Vinted (texte)
+        color1, color1_id: Couleur principale avec ID
+        color2, color2_id: Couleur secondaire avec ID
         catalog_id: ID Vinted de la catégorie
 
         # Dimensions
-        measurements: Dimensions texte ("l 47 cm / L 70 cm")
         measurement_width: Largeur en cm
         measurement_length: Longueur en cm
+        measurement_unit: Unité de mesure
 
         # État et statut
         status: published, sold, deleted, draft
         condition: État du produit (texte)
-        condition_id: ID Vinted de l'état
+        status_id: ID Vinted de l'état/condition
         manufacturer_labelling: Étiquetage du fabricant
-        is_draft, is_closed, is_reserved, is_hidden
+        is_draft, is_closed, is_reserved, is_hidden, is_unisex
 
         # Vendeur
         seller_id: ID vendeur Vinted
@@ -73,8 +72,6 @@ class VintedProduct(Base):
 
         # Frais
         service_fee: Frais de service
-        buyer_protection_fee: Frais protection acheteur
-        shipping_price: Frais de port
 
         # Analytics
         view_count: Nombre de vues
@@ -172,7 +169,7 @@ class VintedProduct(Base):
         nullable=True,
         comment="ID Vinted de la taille"
     )
-    color: Mapped[Optional[str]] = mapped_column(
+    color1: Mapped[Optional[str]] = mapped_column(
         String(50),
         nullable=True,
         comment="Couleur principale"
@@ -192,16 +189,6 @@ class VintedProduct(Base):
         nullable=True,
         comment="ID Vinted de la couleur secondaire"
     )
-    material: Mapped[Optional[str]] = mapped_column(
-        String(100),
-        nullable=True,
-        comment="Matière"
-    )
-    category: Mapped[Optional[str]] = mapped_column(
-        String(200),
-        nullable=True,
-        comment="Catégorie Vinted"
-    )
     catalog_id: Mapped[Optional[int]] = mapped_column(
         Integer,
         nullable=True,
@@ -209,11 +196,6 @@ class VintedProduct(Base):
     )
 
     # Dimensions
-    measurements: Mapped[Optional[str]] = mapped_column(
-        String(100),
-        nullable=True,
-        comment="Dimensions texte (l X cm / L Y cm)"
-    )
     measurement_width: Mapped[Optional[int]] = mapped_column(
         Integer,
         nullable=True,
@@ -241,11 +223,6 @@ class VintedProduct(Base):
         String(50),
         nullable=True,
         comment="État du produit"
-    )
-    condition_id: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        nullable=True,
-        comment="ID Vinted de l'état"
     )
     status_id: Mapped[Optional[int]] = mapped_column(
         Integer,
@@ -320,16 +297,6 @@ class VintedProduct(Base):
         Numeric(10, 2),
         nullable=True,
         comment="Frais de service"
-    )
-    buyer_protection_fee: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 2),
-        nullable=True,
-        comment="Frais protection acheteur"
-    )
-    shipping_price: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 2),
-        nullable=True,
-        comment="Frais de port"
     )
 
     # Analytics
