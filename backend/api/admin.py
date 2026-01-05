@@ -242,6 +242,7 @@ def update_user(
             full_name=user_data.full_name,
             role=UserRole(user_data.role) if user_data.role else None,
             is_active=user_data.is_active,
+            unlock=user_data.unlock,
             subscription_tier=SubscriptionTier(user_data.subscription_tier) if user_data.subscription_tier else None,
             business_name=user_data.business_name,
             password=user_data.password,
@@ -263,6 +264,8 @@ def update_user(
             changed["role"] = user_data.role
         if user_data.is_active is not None and user_data.is_active != user_before.is_active:
             changed["is_active"] = user_data.is_active
+        if user_data.unlock is True:
+            changed["unlocked"] = True
         if user_data.subscription_tier and user_data.subscription_tier != user_before.subscription_tier.value:
             changed["subscription_tier"] = user_data.subscription_tier
         if user_data.password:
@@ -356,101 +359,3 @@ def delete_user(
     )
 
 
-@router.post("/users/{user_id}/toggle-active", response_model=AdminUserResponse)
-def toggle_user_active(
-    user_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
-) -> AdminUserResponse:
-    """
-    Toggle a user's active status.
-
-    Requires ADMIN role.
-
-    Args:
-        user_id: ID of the user
-
-    Returns:
-        Updated user
-
-    Raises:
-        HTTPException: 404 if user not found, 400 if trying to deactivate self
-    """
-    # Prevent self-deactivation
-    if user_id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot deactivate your own account"
-        )
-
-    user = AdminUserService.toggle_active(db, user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User with id {user_id} not found"
-        )
-
-    action_str = "activated" if user.is_active else "deactivated"
-
-    # Log audit
-    AdminAuditService.log_action(
-        db=db,
-        admin=current_user,
-        action=AdminAuditService.ACTION_TOGGLE_ACTIVE,
-        resource_type=AdminAuditService.RESOURCE_USER,
-        resource_id=str(user_id),
-        resource_name=user.email,
-        details={"is_active": user.is_active},
-        request=request,
-    )
-
-    logger.info(f"Admin {current_user.email} {action_str} user {user_id}")
-    return _user_to_response(user)
-
-
-@router.post("/users/{user_id}/unlock", response_model=AdminUserResponse)
-def unlock_user(
-    user_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
-) -> AdminUserResponse:
-    """
-    Unlock a locked user account.
-
-    Requires ADMIN role.
-    Resets failed login attempts and removes lock.
-
-    Args:
-        user_id: ID of the user to unlock
-
-    Returns:
-        Updated user
-
-    Raises:
-        HTTPException: 404 if user not found
-    """
-    user = AdminUserService.unlock_user(db, user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User with id {user_id} not found"
-        )
-
-    # Log audit
-    AdminAuditService.log_action(
-        db=db,
-        admin=current_user,
-        action=AdminAuditService.ACTION_UNLOCK,
-        resource_type=AdminAuditService.RESOURCE_USER,
-        resource_id=str(user_id),
-        resource_name=user.email,
-        details={"unlocked": True},
-        request=request,
-    )
-
-    logger.info(f"Admin {current_user.email} unlocked user {user_id}")
-    return _user_to_response(user)

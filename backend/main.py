@@ -22,7 +22,6 @@ from api.admin_stats import router as admin_stats_router
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
 from api.docs import router as docs_router
-from api.public import router as public_router
 # eBay routers (re-enabled 2026-01-03)
 from api.ebay import router as ebay_router, products_router as ebay_products_router
 from api.ebay_oauth import router as ebay_oauth_router
@@ -30,7 +29,6 @@ from api.ebay_webhook import router as ebay_webhook_router
 # TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)
 # from api.etsy import router as etsy_router
 # from api.etsy_oauth import router as etsy_oauth_router
-from api.integrations import router as integrations_router
 from api.plugin import router as plugin_router
 from api.products import router as products_router
 from api.stripe_routes import router as stripe_router
@@ -323,12 +321,10 @@ app.include_router(admin_attributes_router, prefix="/api")
 app.include_router(admin_audit_router, prefix="/api")
 app.include_router(admin_stats_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
-app.include_router(public_router, prefix="/api")  # Public endpoints (no auth required)
 app.include_router(docs_router, prefix="/api")  # Public documentation (no auth required)
 app.include_router(admin_docs_router, prefix="/api")  # Admin documentation CRUD (admin only)
 app.include_router(attributes_router, prefix="/api")
 app.include_router(products_router, prefix="/api")
-app.include_router(integrations_router, prefix="/api")
 app.include_router(plugin_router, prefix="/api")
 app.include_router(stripe_router, prefix="/api")
 app.include_router(subscription_router, prefix="/api")

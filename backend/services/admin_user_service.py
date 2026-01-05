@@ -178,6 +178,7 @@ class AdminUserService:
         full_name: Optional[str] = None,
         role: Optional[UserRole] = None,
         is_active: Optional[bool] = None,
+        unlock: Optional[bool] = None,
         subscription_tier: Optional[SubscriptionTier] = None,
         business_name: Optional[str] = None,
         password: Optional[str] = None,
@@ -192,6 +193,7 @@ class AdminUserService:
             full_name: New full name (optional)
             role: New role (optional)
             is_active: New active status (optional)
+            unlock: Set to True to unlock account (reset failed attempts)
             subscription_tier: New subscription tier (optional)
             business_name: New business name (optional)
             password: New password (optional, will be hashed)
@@ -225,6 +227,11 @@ class AdminUserService:
             if is_active:
                 user.failed_login_attempts = 0
                 user.locked_until = None
+
+        # Unlock account (reset failed login attempts without changing is_active)
+        if unlock is True:
+            user.failed_login_attempts = 0
+            user.locked_until = None
 
         if subscription_tier is not None:
             # Update quota reference
@@ -284,56 +291,3 @@ class AdminUserService:
         logger.info(f"Admin delete_user: user_id={user_id} deleted (hard delete)")
         return True
 
-    @staticmethod
-    def toggle_active(db: Session, user_id: int) -> Optional[User]:
-        """
-        Toggle user active status.
-
-        Args:
-            db: SQLAlchemy session
-            user_id: User ID
-
-        Returns:
-            Updated User or None if not found
-        """
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            return None
-
-        user.is_active = not user.is_active
-
-        # Reset failed login if reactivating
-        if user.is_active:
-            user.failed_login_attempts = 0
-            user.locked_until = None
-
-        db.commit()
-        db.refresh(user)
-
-        logger.info(f"Admin toggle_active: user_id={user_id}, is_active={user.is_active}")
-        return user
-
-    @staticmethod
-    def unlock_user(db: Session, user_id: int) -> Optional[User]:
-        """
-        Unlock a locked user account.
-
-        Args:
-            db: SQLAlchemy session
-            user_id: User ID
-
-        Returns:
-            Updated User or None if not found
-        """
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            return None
-
-        user.failed_login_attempts = 0
-        user.locked_until = None
-
-        db.commit()
-        db.refresh(user)
-
-        logger.info(f"Admin unlock_user: user_id={user_id} unlocked")
-        return user

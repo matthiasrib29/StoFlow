@@ -134,7 +134,7 @@ class EbayBaseClient:
         if not ebay_creds:
             raise ValueError(
                 f"User {self.user_id} n'a pas de compte eBay configuré. "
-                "Merci de configurer les credentials via /api/integrations/ebay"
+                "Merci de configurer les credentials via /api/ebay/connect"
             )
 
         # Récupérer client_id et client_secret depuis .env
@@ -176,7 +176,7 @@ class EbayBaseClient:
         if now >= self.refresh_token_expires_at:
             raise RuntimeError(
                 f"eBay refresh token expired for user {self.user_id}. "
-                "Please reconnect your eBay account via /api/integrations/ebay/connect"
+                "Please reconnect your eBay account via /api/ebay/connect"
             )
 
     def _refresh_access_token(self, scopes: str) -> str:

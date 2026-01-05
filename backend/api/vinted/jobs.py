@@ -2,11 +2,13 @@
 Vinted Jobs API Routes
 
 Endpoints for managing Vinted jobs:
-- List jobs (with filters)
-- Get job details and progress
-- Batch operations
-- Pause/Resume/Cancel jobs
-- Job statistics
+- GET /jobs: List jobs (with filters)
+- GET /jobs/batch/{batch_id}: Get batch summary
+- GET /jobs/{job_id}: Get job details
+- POST /jobs/batch: Create batch jobs
+- POST /jobs/cancel: Cancel job or batch (via job_id or batch_id param)
+
+Updated: 2026-01-05 - Removed pause/resume/stats/process, merged cancel endpoints
 
 Author: Claude
 Date: 2025-12-19
@@ -23,8 +25,6 @@ from api.dependencies import get_user_db
 from models.user.vinted_job import JobStatus, VintedJob
 from models.user.product import Product
 from services.vinted.vinted_job_service import VintedJobService
-from services.vinted.vinted_job_processor import VintedJobProcessor
-from .shared import get_active_vinted_connection
 
 router = APIRouter(prefix="/jobs", tags=["Vinted Jobs"])
 
@@ -99,28 +99,8 @@ class BatchSummaryResponse(BaseModel):
     progress_percent: float
 
 
-class JobActionResponse(BaseModel):
-    """Response schema for job actions (pause, resume, cancel)."""
-
-    success: bool
-    job_id: int
-    new_status: str
-    message: str
 
 
-class StatsResponse(BaseModel):
-    """Response schema for job statistics."""
-
-    stats: list[dict]
-    period_days: int
-
-
-class InterruptedJobsResponse(BaseModel):
-    """Response schema for interrupted jobs check."""
-
-    has_interrupted: bool
-    count: int
-    jobs: list[JobResponse]
 
 
 # =============================================================================
@@ -232,28 +212,6 @@ async def list_jobs(
     )
 
 
-@router.get("/interrupted", response_model=InterruptedJobsResponse)
-async def get_interrupted_jobs(user_db: tuple = Depends(get_user_db)):
-    """
-    Check for interrupted jobs that need user attention.
-
-    Returns jobs that were running when the plugin was closed
-    and need confirmation to resume.
-    """
-    db, current_user = user_db
-    service = VintedJobService(db)
-
-    interrupted = service.get_interrupted_jobs()
-
-    job_responses = [build_job_response(job, service, db, include_progress=False) for job in interrupted]
-
-    return InterruptedJobsResponse(
-        has_interrupted=len(interrupted) > 0,
-        count=len(interrupted),
-        jobs=job_responses,
-    )
-
-
 @router.get("/batch/{batch_id}", response_model=BatchSummaryResponse)
 async def get_batch_summary(
     batch_id: str,
@@ -277,22 +235,6 @@ async def get_batch_summary(
     return BatchSummaryResponse(**summary)
 
 
-@router.get("/stats", response_model=StatsResponse)
-async def get_job_stats(
-    user_db: tuple = Depends(get_user_db),
-    days: int = Query(7, ge=1, le=30, description="Number of days to look back"),
-):
-    """
-    Get job statistics for the last N days.
-
-    Returns daily stats grouped by action type.
-    """
-    db, current_user = user_db
-    service = VintedJobService(db)
-
-    stats = service.get_stats(days=days)
-
-    return StatsResponse(stats=stats, period_days=days)
 
 
 @router.get("/{job_id}", response_model=JobResponse)
@@ -359,103 +301,57 @@ async def create_batch_jobs(
     )
 
 
-@router.post("/{job_id}/pause", response_model=JobActionResponse)
-async def pause_job(
-    job_id: int,
+@router.post("/cancel")
+async def cancel_jobs(
     user_db: tuple = Depends(get_user_db),
-):
+    job_id: Optional[int] = Query(None, description="ID job à annuler"),
+    batch_id: Optional[str] = Query(None, description="ID batch à annuler (tous les jobs)"),
+) -> dict:
     """
-    Pause a running or pending job.
+    Annule un job ou tous les jobs d'un batch.
 
-    The job can be resumed later with POST /{job_id}/resume.
+    - Avec job_id : annule un job spécifique
+    - Avec batch_id : annule tous les jobs du batch
+
+    Exactement un des deux paramètres doit être fourni.
+
+    Returns:
+        {
+            "success": bool,
+            "job_id": int | None,
+            "batch_id": str | None,
+            "cancelled_count": int,
+            "total_jobs": int (batch only),
+            "message": str
+        }
     """
     db, current_user = user_db
-    service = VintedJobService(db)
 
-    job = service.pause_job(job_id)
-    if not job:
+    # Validation: exactly one parameter required
+    if (job_id is None) == (batch_id is None):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot pause job {job_id} (not found or not pausable)",
+            detail="Exactly one of job_id or batch_id must be provided",
         )
 
-    return JobActionResponse(
-        success=True,
-        job_id=job_id,
-        new_status=job.status.value,
-        message=f"Job {job_id} paused",
-    )
-
-
-@router.post("/{job_id}/resume", response_model=JobActionResponse)
-async def resume_job(
-    job_id: int,
-    user_db: tuple = Depends(get_user_db),
-):
-    """
-    Resume a paused job.
-
-    The job will be added back to the processing queue.
-    """
-    db, current_user = user_db
     service = VintedJobService(db)
 
-    job = service.resume_job(job_id)
-    if not job:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot resume job {job_id} (not found or not paused)",
-        )
+    # Cancel single job
+    if job_id:
+        job = service.cancel_job(job_id)
+        if not job:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot cancel job {job_id} (not found or already terminal)",
+            )
+        return {
+            "success": True,
+            "job_id": job_id,
+            "cancelled_count": 1,
+            "message": f"Job {job_id} cancelled",
+        }
 
-    return JobActionResponse(
-        success=True,
-        job_id=job_id,
-        new_status=job.status.value,
-        message=f"Job {job_id} resumed",
-    )
-
-
-@router.post("/{job_id}/cancel", response_model=JobActionResponse)
-async def cancel_job(
-    job_id: int,
-    user_db: tuple = Depends(get_user_db),
-):
-    """
-    Cancel a job.
-
-    This will also cancel all pending tasks associated with the job.
-    """
-    db, current_user = user_db
-    service = VintedJobService(db)
-
-    job = service.cancel_job(job_id)
-    if not job:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot cancel job {job_id} (not found or already terminal)",
-        )
-
-    return JobActionResponse(
-        success=True,
-        job_id=job_id,
-        new_status=job.status.value,
-        message=f"Job {job_id} cancelled",
-    )
-
-
-@router.post("/batch/{batch_id}/cancel", response_model=dict)
-async def cancel_batch(
-    batch_id: str,
-    user_db: tuple = Depends(get_user_db),
-):
-    """
-    Cancel all jobs in a batch.
-
-    Returns the number of jobs cancelled.
-    """
-    db, current_user = user_db
-    service = VintedJobService(db)
-
+    # Cancel batch
     jobs = service.get_batch_jobs(batch_id)
     if not jobs:
         raise HTTPException(
@@ -475,180 +371,3 @@ async def cancel_batch(
         "total_jobs": len(jobs),
         "message": f"Cancelled {cancelled_count}/{len(jobs)} jobs in batch",
     }
-
-
-@router.post("/batch/{batch_id}/resume", response_model=dict)
-async def resume_batch(
-    batch_id: str,
-    user_db: tuple = Depends(get_user_db),
-):
-    """
-    Resume all paused jobs in a batch.
-
-    Returns the number of jobs resumed.
-    """
-    db, current_user = user_db
-    service = VintedJobService(db)
-
-    jobs = service.get_batch_jobs(batch_id)
-    if not jobs:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Batch not found: {batch_id}",
-        )
-
-    resumed_count = 0
-    for job in jobs:
-        if service.resume_job(job.id):
-            resumed_count += 1
-
-    return {
-        "success": True,
-        "batch_id": batch_id,
-        "resumed_count": resumed_count,
-        "total_jobs": len(jobs),
-        "message": f"Resumed {resumed_count}/{len(jobs)} jobs in batch",
-    }
-
-
-# =============================================================================
-# PROCESSING ENDPOINTS
-# =============================================================================
-
-
-@router.post("/process/next", response_model=dict)
-async def process_next_job(
-    user_db: tuple = Depends(get_user_db),
-):
-    """
-    Process the next pending job in the queue.
-
-    Gets the highest priority pending job and executes it.
-    Returns None if no pending jobs.
-    """
-    db, current_user = user_db
-
-    try:
-        connection = get_active_vinted_connection(db, current_user.id)
-        processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
-        result = await processor.process_next_job()
-
-        if result is None:
-            return {"success": True, "message": "No pending jobs", "result": None}
-
-        return {"success": True, "result": result}
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing job: {str(e)}",
-        )
-
-
-@router.post("/process/all", response_model=dict)
-async def process_all_pending_jobs(
-    user_db: tuple = Depends(get_user_db),
-    max_jobs: int = Query(10, ge=1, le=100, description="Maximum jobs to process"),
-    stop_on_error: bool = Query(False, description="Stop on first error"),
-):
-    """
-    Process all pending jobs in priority order.
-
-    Args:
-        max_jobs: Maximum number of jobs to process (default: 10, max: 100)
-        stop_on_error: If True, stop processing on first error
-
-    Returns:
-        List of job results with summary.
-    """
-    db, current_user = user_db
-
-    try:
-        connection = get_active_vinted_connection(db, current_user.id)
-        processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
-        results = await processor.process_all_pending_jobs(
-            max_jobs=max_jobs,
-            stop_on_error=stop_on_error
-        )
-
-        success_count = sum(1 for r in results if r.get("success"))
-        failed_count = len(results) - success_count
-
-        return {
-            "success": True,
-            "processed_count": len(results),
-            "success_count": success_count,
-            "failed_count": failed_count,
-            "results": results,
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing jobs: {str(e)}",
-        )
-
-
-@router.post("/process/{job_id}", response_model=dict)
-async def process_single_job(
-    job_id: int,
-    user_db: tuple = Depends(get_user_db),
-):
-    """
-    Process a specific job by ID.
-
-    The job must be in PENDING status to be processed.
-    """
-    db, current_user = user_db
-    service = VintedJobService(db)
-
-    job = service.get_job(job_id)
-    if not job:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job not found: {job_id}",
-        )
-
-    if job.status != JobStatus.PENDING:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Job {job_id} is not pending (status: {job.status.value})",
-        )
-
-    try:
-        connection = get_active_vinted_connection(db, current_user.id)
-        processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
-        result = await processor._execute_job(job)
-
-        return {"success": True, "result": result}
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing job: {str(e)}",
-        )
-
-
-@router.get("/queue/status", response_model=dict)
-async def get_queue_status(
-    user_db: tuple = Depends(get_user_db),
-):
-    """
-    Get current job queue status.
-
-    Returns pending job counts by action type and next job info.
-    """
-    db, current_user = user_db
-
-    try:
-        connection = get_active_vinted_connection(db, current_user.id)
-        processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
-        queue_status = processor.get_queue_status()
-
-        return {"success": True, **queue_status}
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting queue status: {str(e)}",
-        )

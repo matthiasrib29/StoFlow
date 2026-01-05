@@ -2,16 +2,19 @@
 Vinted Messages Routes
 
 Endpoints pour la gestion des messages Vinted (inbox):
+- GET /conversations/stats: Statistiques conversations
 - GET /conversations: Liste des conversations
-- POST /conversations/sync: Synchroniser inbox depuis Vinted (via job)
+- POST /conversations/sync: Sync inbox ou conversation (optionnel: conversation_id)
 - GET /conversations/{id}: Conversation avec ses messages
-- POST /conversations/{id}/sync: Synchroniser une conversation (via job)
 - PUT /conversations/{id}/read: Marquer comme lue
-- GET /messages/search: Rechercher dans les messages
+
+Updated: 2026-01-05 - Fusion sync endpoints, suppression search et list_messages
 
 Author: Claude
 Date: 2025-12-19
 """
+
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -101,53 +104,45 @@ async def list_conversations(
 
 
 @router.post("/conversations/sync")
-async def sync_inbox(
+async def sync_conversations(
     user_db: tuple = Depends(get_user_db),
-    page: int = Query(1, ge=1, description="Page to sync"),
-    per_page: int = Query(20, ge=1, le=20, description="Items per page (max 20)"),
-    sync_all: bool = Query(False, description="Sync all pages"),
+    conversation_id: Optional[int] = Query(None, description="ID conversation spécifique (optionnel)"),
+    page: int = Query(1, ge=1, description="Page to sync (inbox mode)"),
+    per_page: int = Query(20, ge=1, le=20, description="Items per page (inbox mode)"),
+    sync_all: bool = Query(False, description="Sync all pages (inbox mode)"),
 ) -> dict:
     """
-    Synchronise l'inbox Vinted (liste des conversations) via le système de jobs.
+    Synchronise les conversations Vinted.
 
-    Crée un job 'message' et l'exécute immédiatement.
+    - Sans conversation_id : sync inbox (liste des conversations)
+    - Avec conversation_id : sync une conversation spécifique (messages)
 
     Args:
-        page: Page à synchroniser (1-indexed)
-        per_page: Items par page (max 20)
-        sync_all: Si True, synchronise toutes les pages
+        conversation_id: ID conversation (optionnel)
+        page/per_page/sync_all: Options pour sync inbox
 
     Returns:
-        {
-            "job_id": int,
-            "success": bool,
-            "synced": int,
-            "created": int,
-            "updated": int,
-            "unread": int,
-            "errors": list
-        }
+        {"job_id": int, "status": str, ...}
     """
     db, current_user = user_db
 
-    # Check Vinted connection
     vinted_connection = get_active_vinted_connection(db, current_user.id)
 
     try:
         job_service = VintedJobService(db)
 
-        # Create job with parameters
+        # Build job data based on mode
+        if conversation_id:
+            result_data = {"conversation_id": conversation_id}
+        else:
+            result_data = {"page": page, "per_page": per_page, "sync_all": sync_all}
+
         job = job_service.create_job(
             action_code="message",
-            result_data={
-                "page": page,
-                "per_page": per_page,
-                "sync_all": sync_all
-            }
+            result_data=result_data
         )
         db.commit()
 
-        # Execute job immediately
         processor = VintedJobProcessor(db, shop_id=vinted_connection.vinted_user_id)
         result = await processor._execute_job(job)
 
@@ -162,7 +157,7 @@ async def sync_inbox(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur sync inbox: {str(e)}"
+            detail=f"Erreur sync conversations: {str(e)}"
         )
 
 
@@ -175,10 +170,7 @@ async def get_conversation(
     Récupère une conversation avec ses messages.
 
     Returns:
-        {
-            "conversation": {...},
-            "messages": [...]
-        }
+        {"conversation": {...}, "messages": [...]}
     """
     db, current_user = user_db
 
@@ -200,61 +192,6 @@ async def get_conversation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur récupération conversation: {str(e)}"
-        )
-
-
-@router.post("/conversations/{conversation_id}/sync")
-async def sync_conversation(
-    conversation_id: int,
-    user_db: tuple = Depends(get_user_db),
-) -> dict:
-    """
-    Synchronise une conversation spécifique (ses messages) via le système de jobs.
-
-    Crée un job 'message' avec conversation_id et l'exécute immédiatement.
-
-    Returns:
-        {
-            "job_id": int,
-            "success": bool,
-            "conversation_id": int,
-            "messages_synced": int,
-            "messages_new": int,
-            "transaction_id": int | null,
-            "errors": list
-        }
-    """
-    db, current_user = user_db
-
-    # Check Vinted connection
-    vinted_connection = get_active_vinted_connection(db, current_user.id)
-
-    try:
-        job_service = VintedJobService(db)
-
-        # Create job with conversation_id parameter
-        job = job_service.create_job(
-            action_code="message",
-            result_data={"conversation_id": conversation_id}
-        )
-        db.commit()
-
-        # Execute job immediately
-        processor = VintedJobProcessor(db, shop_id=vinted_connection.vinted_user_id)
-        result = await processor._execute_job(job)
-
-        return {
-            "job_id": job.id,
-            "status": "completed" if result.get("success") else "failed",
-            **result
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur sync conversation: {str(e)}"
         )
 
 
@@ -296,91 +233,7 @@ async def mark_as_read(
         )
 
 
-@router.get("/conversations/{conversation_id}/messages")
-async def list_messages(
-    conversation_id: int,
-    user_db: tuple = Depends(get_user_db),
-    page: int = Query(1, ge=1),
-    per_page: int = Query(50, ge=1, le=100),
-) -> dict:
-    """
-    Liste les messages d'une conversation avec pagination.
-
-    Returns:
-        {
-            "messages": list,
-            "pagination": {page, per_page, total_entries, total_pages}
-        }
-    """
-    db, current_user = user_db
-
-    try:
-        # Check if conversation exists
-        conversation = VintedConversationRepository.get_by_id(db, conversation_id)
-        if not conversation:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Conversation {conversation_id} non trouvée"
-            )
-
-        service = VintedConversationService()
-        result = service.get_messages(
-            db=db,
-            conversation_id=conversation_id,
-            page=page,
-            per_page=per_page
-        )
-        return result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur liste messages: {str(e)}"
-        )
 
 
-# =============================================================================
-# MESSAGES SEARCH ENDPOINT
-# =============================================================================
-
-@router.get("/messages/search")
-async def search_messages(
-    user_db: tuple = Depends(get_user_db),
-    q: str = Query(..., min_length=2, description="Search query"),
-    limit: int = Query(50, ge=1, le=100),
-) -> dict:
-    """
-    Recherche dans les messages (body uniquement).
-
-    Args:
-        q: Terme de recherche (minimum 2 caractères)
-        limit: Nombre max de résultats
-
-    Returns:
-        {
-            "query": str,
-            "results": list,
-            "count": int
-        }
-    """
-    db, current_user = user_db
-
-    try:
-        service = VintedConversationService()
-        results = service.search_messages(db, query=q, limit=limit)
-
-        return {
-            "query": q,
-            "results": results,
-            "count": len(results),
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur recherche messages: {str(e)}"
-        )
 
 
