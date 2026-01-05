@@ -41,7 +41,8 @@ class Settings(BaseSettings):
         description="Ancien secret JWT pour période de grâce lors de rotation"
     )
     jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 1440
+    jwt_access_token_expire_minutes: int = 1440  # 24 heures
+    jwt_refresh_token_expire_days: int = 7
     password_hash_rounds: int = 12
 
     # Encryption (for sensitive data at rest)
