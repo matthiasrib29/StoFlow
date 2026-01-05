@@ -6,9 +6,6 @@
  * - Si tâche disponible → retour immédiat, exécution, puis nouvelle requête
  * - Si timeout (30s) → nouvelle requête immédiate
  * - Quasi temps réel avec moins de requêtes qu'un polling classique
- *
- * TODO (désactivé pour l'instant):
- * - AUTO-PAUSE quand l'utilisateur navigue sur Vinted
  */
 
 import { BackgroundLogger } from '../utils/logger';
@@ -29,11 +26,6 @@ export class PollingManager {
   // Connection status tracking
   private wasConnected: boolean = true;
   private lastConnectionCheck: number = 0;
-
-  // Pause when Vinted tab is active (disabled for now)
-  private isPaused: boolean = false;
-  private resumeTimeoutId: number | null = null;
-  private readonly RESUME_DELAY_MS: number = 3000;
 
   /**
    * Démarre le long polling
@@ -558,70 +550,4 @@ export class PollingManager {
     };
   }
 
-  // ===== PAUSE FUNCTIONALITY (disabled for now) =====
-
-  /**
-   * Configure le listener pour détecter quand un onglet Vinted devient actif
-   */
-  private setupTabListener(): void {
-    chrome.tabs.onActivated.addListener(async (activeInfo) => {
-      try {
-        const tab = await chrome.tabs.get(activeInfo.tabId);
-        const isVintedTab = tab.url?.includes('vinted.fr') || false;
-
-        if (isVintedTab) {
-          this.pauseForVintedTab();
-        } else if (this.isPaused) {
-          this.resumeWithDelay();
-        }
-      } catch (error) {
-        BackgroundLogger.debug('[Long Polling] Error checking tab:', error);
-      }
-    });
-
-    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-      if (changeInfo.url) {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs[0]?.id === tabId) {
-            const isVintedTab = changeInfo.url?.includes('vinted.fr') || false;
-            if (isVintedTab) {
-              this.pauseForVintedTab();
-            } else if (this.isPaused) {
-              this.resumeWithDelay();
-            }
-          }
-        });
-      }
-    });
-
-    BackgroundLogger.debug('[Long Polling] Tab listener configured');
-  }
-
-  private pauseForVintedTab(): void {
-    if (this.resumeTimeoutId) {
-      clearTimeout(this.resumeTimeoutId);
-      this.resumeTimeoutId = null;
-    }
-
-    if (!this.isPaused) {
-      this.isPaused = true;
-      BackgroundLogger.debug('[Long Polling] ⏸️ Pause - Onglet Vinted actif');
-    }
-  }
-
-  private resumeWithDelay(): void {
-    if (this.resumeTimeoutId) {
-      clearTimeout(this.resumeTimeoutId);
-    }
-
-    BackgroundLogger.debug(`[Long Polling] ⏳ Reprise dans ${this.RESUME_DELAY_MS}ms...`);
-
-    this.resumeTimeoutId = setTimeout(() => {
-      this.resumeTimeoutId = null;
-      if (this.isPolling) {
-        this.isPaused = false;
-        BackgroundLogger.debug('[Long Polling] ▶️ Reprise');
-      }
-    }, this.RESUME_DELAY_MS) as unknown as number;
-  }
 }
