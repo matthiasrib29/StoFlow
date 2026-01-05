@@ -386,17 +386,25 @@ def upgrade() -> None:
             )
             print(f"  + {table_name}")
 
-    # Add FK for categories parent
+    # Add FK for categories parent (only if not exists)
     if table_exists(connection, 'product_attributes', 'categories'):
-        try:
+        # Check if constraint already exists
+        constraint_exists = connection.execute(text("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.table_constraints
+                WHERE constraint_schema = 'product_attributes'
+                AND table_name = 'categories'
+                AND constraint_name = 'fk_categories_parent'
+            )
+        """)).scalar()
+
+        if not constraint_exists:
             connection.execute(text("""
                 ALTER TABLE product_attributes.categories
                 ADD CONSTRAINT fk_categories_parent
                 FOREIGN KEY (parent_category) REFERENCES product_attributes.categories(name_en)
                 ON UPDATE CASCADE ON DELETE SET NULL
             """))
-        except Exception:
-            pass  # FK might already exist
 
     # Sizes table with marketplace IDs
     if not table_exists(connection, 'product_attributes', 'sizes'):
@@ -475,6 +483,47 @@ def upgrade() -> None:
         )
         print("  + unique_features")
 
+    # Dimension tables (dim1-dim6) for product measurements
+    dimension_configs = {
+        'dim1': {'min': 30, 'max': 80, 'desc': 'Chest / Shoulders (cm)'},
+        'dim2': {'min': 40, 'max': 120, 'desc': 'Total length (cm)'},
+        'dim3': {'min': 20, 'max': 80, 'desc': 'Sleeve length (cm)'},
+        'dim4': {'min': 25, 'max': 60, 'desc': 'Waist (cm)'},
+        'dim5': {'min': 30, 'max': 80, 'desc': 'Hips (cm)'},
+        'dim6': {'min': 20, 'max': 100, 'desc': 'Inseam (cm)'},
+    }
+
+    for dim_name, config in dimension_configs.items():
+        if not table_exists(connection, 'product_attributes', dim_name):
+            connection.execute(text(f"""
+                CREATE TABLE IF NOT EXISTS product_attributes.{dim_name} (
+                    value INTEGER PRIMARY KEY,
+                    CONSTRAINT {dim_name}_value_positive CHECK (value > 0)
+                )
+            """))
+            # Insert values only if table was just created
+            row_count = connection.execute(text(f"SELECT COUNT(*) FROM product_attributes.{dim_name}")).scalar()
+            if row_count == 0:
+                values = list(range(config['min'], config['max'] + 1))
+                values_str = ', '.join([f"({v})" for v in values])
+                connection.execute(text(f"""
+                    INSERT INTO product_attributes.{dim_name} (value) VALUES {values_str}
+                """))
+            print(f"  + {dim_name} ({config['min']}-{config['max']} cm)")
+
+    # Create dimension info view (drop first to avoid column conflict)
+    connection.execute(text("DROP VIEW IF EXISTS product_attributes.vw_dimension_info"))
+    connection.execute(text("""
+        CREATE VIEW product_attributes.vw_dimension_info AS
+        SELECT 'dim1' as dimension, 'Chest / Shoulders' as name_en, 'Tour de poitrine / Épaules' as name_fr, 'cm' as unit, 30 as min_value, 80 as max_value
+        UNION ALL SELECT 'dim2', 'Total length', 'Longueur totale', 'cm', 40, 120
+        UNION ALL SELECT 'dim3', 'Sleeve length', 'Longueur manche', 'cm', 20, 80
+        UNION ALL SELECT 'dim4', 'Waist', 'Tour de taille', 'cm', 25, 60
+        UNION ALL SELECT 'dim5', 'Hips', 'Tour de hanches', 'cm', 30, 80
+        UNION ALL SELECT 'dim6', 'Inseam', 'Entrejambe', 'cm', 20, 100
+    """))
+    print("  + vw_dimension_info view")
+
     print("  Done.")
 
     # =========================================================================
@@ -545,6 +594,31 @@ def upgrade() -> None:
         )
         op.create_index('idx_ebay_category_lookup', 'category_mapping', ['my_category', 'my_gender'], schema='ebay')
         print("  + category_mapping")
+
+    # Create all 16 aspect value tables for eBay multilingual support
+    aspect_tables = [
+        'aspect_colour', 'aspect_size', 'aspect_material', 'aspect_fit',
+        'aspect_closure', 'aspect_rise', 'aspect_waist_size', 'aspect_inside_leg',
+        'aspect_department', 'aspect_type', 'aspect_style', 'aspect_pattern',
+        'aspect_neckline', 'aspect_sleeve_length', 'aspect_occasion', 'aspect_features'
+    ]
+
+    for aspect_table in aspect_tables:
+        if not table_exists(connection, 'ebay', aspect_table):
+            op.create_table(
+                aspect_table,
+                sa.Column('ebay_gb', sa.String(100), nullable=False),  # PK - English value
+                sa.Column('ebay_fr', sa.String(100), nullable=True),
+                sa.Column('ebay_de', sa.String(100), nullable=True),
+                sa.Column('ebay_es', sa.String(100), nullable=True),
+                sa.Column('ebay_it', sa.String(100), nullable=True),
+                sa.Column('ebay_nl', sa.String(100), nullable=True),
+                sa.Column('ebay_be', sa.String(100), nullable=True),
+                sa.Column('ebay_pl', sa.String(100), nullable=True),
+                sa.PrimaryKeyConstraint('ebay_gb'),
+                schema='ebay'
+            )
+            print(f"  + {aspect_table}")
 
     print("  Done.")
 
@@ -1156,6 +1230,82 @@ def upgrade() -> None:
             schema='template_tenant'
         )
         print("  + ebay_orders_products")
+
+    # vinted_credentials - Vinted account credentials and profile info
+    if not table_exists(connection, 'template_tenant', 'vinted_credentials'):
+        op.create_table(
+            'vinted_credentials',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('vinted_user_id', sa.BigInteger(), nullable=True),
+            sa.Column('login', sa.String(255), nullable=True),
+            sa.Column('csrf_token', sa.String(100), nullable=True),
+            sa.Column('anon_id', sa.String(100), nullable=True),
+            sa.Column('email', sa.String(255), nullable=True),
+            sa.Column('real_name', sa.String(255), nullable=True),
+            sa.Column('birthday', sa.String(10), nullable=True),
+            sa.Column('gender', sa.String(20), nullable=True),
+            sa.Column('city', sa.String(255), nullable=True),
+            sa.Column('country_code', sa.String(10), nullable=True),
+            sa.Column('currency', sa.String(10), nullable=False, server_default='EUR'),
+            sa.Column('locale', sa.String(10), nullable=False, server_default='fr'),
+            sa.Column('profile_url', sa.Text(), nullable=True),
+            sa.Column('photo_url', sa.Text(), nullable=True),
+            sa.Column('feedback_count', sa.Integer(), nullable=False, server_default='0'),
+            sa.Column('feedback_reputation', sa.Numeric(3, 2), nullable=False, server_default='0.00'),
+            sa.Column('item_count', sa.Integer(), nullable=False, server_default='0'),
+            sa.Column('total_items_count', sa.Integer(), nullable=False, server_default='0'),
+            sa.Column('followers_count', sa.Integer(), nullable=False, server_default='0'),
+            sa.Column('following_count', sa.Integer(), nullable=False, server_default='0'),
+            sa.Column('is_business', sa.Boolean(), nullable=False, server_default='false'),
+            sa.Column('business_legal_name', sa.String(255), nullable=True),
+            sa.Column('business_legal_code', sa.String(50), nullable=True),
+            sa.Column('business_vat', sa.String(50), nullable=True),
+            sa.Column('is_connected', sa.Boolean(), nullable=False, server_default='false'),
+            sa.Column('last_sync', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.PrimaryKeyConstraint('id'),
+            schema='template_tenant'
+        )
+        op.create_index('ix_template_tenant_vinted_credentials_vinted_user_id', 'vinted_credentials', ['vinted_user_id'], unique=True, schema='template_tenant')
+        print("  + vinted_credentials")
+
+    # vinted_error_logs - Track errors during Vinted operations
+    if not table_exists(connection, 'template_tenant', 'vinted_error_logs'):
+        op.create_table(
+            'vinted_error_logs',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('product_id', sa.Integer(), nullable=False),
+            sa.Column('operation', sa.String(20), nullable=False),
+            sa.Column('error_type', sa.String(50), nullable=False),
+            sa.Column('error_message', sa.Text(), nullable=False),
+            sa.Column('error_details', sa.Text(), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.ForeignKeyConstraint(['product_id'], ['template_tenant.products.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id'),
+            schema='template_tenant'
+        )
+        op.create_index('idx_vinted_error_logs_product_id', 'vinted_error_logs', ['product_id'], schema='template_tenant')
+        op.create_index('idx_vinted_error_logs_error_type', 'vinted_error_logs', ['error_type'], schema='template_tenant')
+        op.create_index('idx_vinted_error_logs_created_at', 'vinted_error_logs', ['created_at'], schema='template_tenant')
+        print("  + vinted_error_logs")
+
+    # product_images - Legacy table for product images (now migrated to JSONB)
+    if not table_exists(connection, 'template_tenant', 'product_images'):
+        op.create_table(
+            'product_images',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('product_id', sa.Integer(), nullable=False),
+            sa.Column('image_path', sa.String(1000), nullable=False),
+            sa.Column('display_order', sa.Integer(), nullable=False, server_default='0'),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.ForeignKeyConstraint(['product_id'], ['template_tenant.products.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id'),
+            schema='template_tenant'
+        )
+        op.create_index('ix_template_tenant_product_images_product_id', 'product_images', ['product_id'], schema='template_tenant')
+        op.create_index('idx_product_image_product_id_order', 'product_images', ['product_id', 'display_order'], schema='template_tenant')
+        print("  + product_images")
 
     print("  Done.")
 
