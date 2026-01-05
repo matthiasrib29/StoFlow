@@ -42,13 +42,13 @@ import json
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.user.vinted_product import VintedProduct
-from services.plugin_task_helper import create_and_wait, _commit_and_restore_path
+from services.plugin_task_helper import create_and_wait
 from services.vinted.vinted_data_extractor import VintedDataExtractor
 from services.vinted.vinted_product_enricher import VintedProductEnricher
+from shared.schema_utils import restore_search_path_after_rollback, commit_and_restore_path
 from shared.vinted_constants import VintedProductAPI
 from shared.logging_setup import get_logger
 
@@ -123,7 +123,7 @@ class VintedApiSyncService:
             for item in items:
                 try:
                     processed = await self._process_api_product(db, item)
-                    _commit_and_restore_path(db)
+                    commit_and_restore_path(db)
 
                     if processed == 'created':
                         created += 1
@@ -132,7 +132,7 @@ class VintedApiSyncService:
                 except Exception as e:
                     logger.error(f"Erreur sync produit {item.get('id')}: {e}")
                     errors += 1
-                    self._restore_search_path(db)
+                    restore_search_path_after_rollback(db)
 
             pagination = result.get('pagination', {})
             if page >= pagination.get('total_pages', 1):
@@ -388,21 +388,3 @@ class VintedApiSyncService:
         except Exception as e:
             logger.error(f"Erreur suppression orphelin {vinted_id}: {e}")
 
-    def _restore_search_path(self, db: Session) -> None:
-        """Restaure le search_path PostgreSQL apres rollback."""
-        try:
-            try:
-                db.rollback()
-            except Exception:
-                pass
-
-            path_result = db.execute(text("SHOW search_path"))
-            current_path = path_result.scalar()
-            if current_path:
-                for s in current_path.split(","):
-                    s = s.strip().strip('"')
-                    if s.startswith("user_"):
-                        db.execute(text(f"SET LOCAL search_path TO {s}, public"))
-                        break
-        except Exception as e:
-            logger.warning(f"Impossible de restaurer search_path: {e}")

@@ -13,12 +13,12 @@ Date: 2025-12-17
 
 from typing import Any
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
-from services.plugin_task_helper import create_and_wait, _commit_and_restore_path
+from services.plugin_task_helper import create_and_wait
 from services.vinted.vinted_data_extractor import VintedDataExtractor
+from shared.schema_utils import SchemaManager, commit_and_restore_path
 from shared.vinted_constants import VintedOrderAPI, VintedConversationAPI
 from shared.logging_setup import get_logger
 
@@ -42,43 +42,7 @@ class VintedOrderSyncService:
     def __init__(self):
         """Initialize VintedOrderSyncService."""
         self.extractor = VintedDataExtractor()
-        self._current_schema: str | None = None
-
-    def _capture_schema(self, db: Session) -> None:
-        """Capture current schema name for later restoration."""
-        try:
-            result = db.execute(text("SHOW search_path"))
-            current_path = result.scalar()
-            if current_path:
-                for schema in current_path.split(","):
-                    schema = schema.strip().strip('"')
-                    if schema.startswith("user_"):
-                        self._current_schema = schema
-                        break
-        except Exception:
-            pass
-
-    def _restore_search_path(self, db: Session) -> None:
-        """
-        Restore PostgreSQL search_path after rollback using captured schema.
-
-        CRITICAL (2025-12-18): Gere le cas InFailedSqlTransaction
-        - Apres rollback, la session peut encore etre dans un etat invalide
-        - On doit d'abord forcer un rollback propre
-        """
-        try:
-            # Forcer un rollback propre pour s'assurer qu'on est hors transaction
-            # Cela evite InFailedSqlTransaction si un rollback precedent a echoue
-            try:
-                db.rollback()
-            except Exception:
-                pass  # Ignore si deja rollback
-
-            if self._current_schema:
-                db.execute(text(f"SET LOCAL search_path TO {self._current_schema}, public"))
-        except Exception as e:
-            # Log mais ne pas re-raise - on continue avec le search_path par defaut
-            logger.warning(f"Impossible de restaurer search_path: {e}")
+        self._schema_manager = SchemaManager()
 
     def _order_exists(self, db: Session, transaction_id: int) -> bool:
         """Check if order already exists in database."""
@@ -115,7 +79,7 @@ class VintedOrderSyncService:
         logger.info("Sync commandes: demarrage (historique complet)")
 
         # Capture schema for restoration after potential rollbacks
-        self._capture_schema(db)
+        self._schema_manager.capture(db)
 
         stats = {"synced": 0, "duplicates": 0, "errors": 0, "pages": 0}
         page = 1
@@ -173,15 +137,15 @@ class VintedOrderSyncService:
 
                     if order_data:
                         self._save_order(db, order_data, products_data)
-                        _commit_and_restore_path(db)
+                        commit_and_restore_path(db)
                         stats["synced"] += 1
 
                 except Exception as e:
                     logger.error(f"Erreur tx {transaction_id}: {type(e).__name__}: {e}")
                     stats["errors"] += 1
                     db.rollback()
-                    self._restore_search_path(db)
-                    logger.debug(f"Search path restored to {self._current_schema}")
+                    self._schema_manager.restore_after_rollback(db)
+                    logger.debug(f"Search path restored to {self._schema_manager.schema}")
 
             # Check duplicate threshold
             if len(orders) > 0 and page_duplicates / len(orders) >= duplicate_threshold:
@@ -228,7 +192,7 @@ class VintedOrderSyncService:
         logger.info(f"Sync commandes: {month_str}")
 
         # Capture schema for restoration after potential rollbacks
-        self._capture_schema(db)
+        self._schema_manager.capture(db)
 
         stats = {"synced": 0, "duplicates": 0, "errors": 0, "pages": 0}
         processed_ids = set()
@@ -335,15 +299,15 @@ class VintedOrderSyncService:
 
                     if order_data:
                         self._save_order(db, order_data, products_data)
-                        _commit_and_restore_path(db)
+                        commit_and_restore_path(db)
                         stats["synced"] += 1
 
                 except Exception as e:
                     logger.error(f"Erreur conv {conversation_id}: {type(e).__name__}: {e}")
                     stats["errors"] += 1
                     db.rollback()
-                    self._restore_search_path(db)
-                    logger.debug(f"Search path restored to {self._current_schema}")
+                    self._schema_manager.restore_after_rollback(db)
+                    logger.debug(f"Search path restored to {self._schema_manager.schema}")
 
             # Pagination
             pagination = result.get('invoice_lines_pagination', {})
