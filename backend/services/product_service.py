@@ -81,9 +81,10 @@ class ProductService:
             product_data.dim6
         )
 
-        # ===== 2. AUTO-CREATE SIZE IF MISSING (Business Rule 2025-12-09) =====
+        # ===== 2. AUTO-CREATE SIZE ORIGINAL IF PROVIDED (Business Rule 2026-01-06) =====
         if size_original:
-            ProductAttributeRepository.get_or_create_size(db, size_original)
+            from repositories.size_original_repository import SizeOriginalRepository
+            SizeOriginalRepository.get_or_create(db, size_original)
 
         # ===== 3. CALCULATE PRICE IF ABSENT (Business Rule 2025-12-09) =====
         price = product_data.price
@@ -246,6 +247,20 @@ class ProductService:
 
         # Partial validation: only modified attributes
         update_dict = product_data.model_dump(exclude_unset=True)
+
+        # ===== AUTO-CREATE SIZE ORIGINAL IF MODIFIED (Business Rule 2026-01-06) =====
+        if 'size_original' in update_dict:
+            size_original_value = ProductUtils.adjust_size(
+                update_dict.get('size_original'),
+                update_dict.get('dim1', product.dim1),
+                update_dict.get('dim6', product.dim6)
+            )
+
+            if size_original_value:
+                from repositories.size_original_repository import SizeOriginalRepository
+                SizeOriginalRepository.get_or_create(db, size_original_value)
+                update_dict['size_original'] = size_original_value
+
         AttributeValidator.validate_product_attributes(db, update_dict, partial=True)
 
         # Apply modifications

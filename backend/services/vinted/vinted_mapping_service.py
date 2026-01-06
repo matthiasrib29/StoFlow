@@ -28,7 +28,7 @@ from models.public.brand import Brand
 from models.public.color import Color
 from models.public.condition import Condition
 from models.public.material import Material
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 
 
 class VintedMappingService:
@@ -273,7 +273,7 @@ class VintedMappingService:
 
         # Try women's size first
         size = db.query(Size).filter(
-            Size.vinted_women_id == vinted_size_id
+            SizeNormalized.vinted_women_id == vinted_size_id
         ).first()
 
         if size:
@@ -281,7 +281,7 @@ class VintedMappingService:
 
         # Try men's size
         size = db.query(Size).filter(
-            Size.vinted_men_id == vinted_size_id
+            SizeNormalized.vinted_men_id == vinted_size_id
         ).first()
 
         if size:

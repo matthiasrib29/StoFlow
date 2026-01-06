@@ -394,9 +394,8 @@ class EbayAspectValueService:
         """
         query = text("""
             SELECT ebay_gb_waist_size
-            FROM product_attributes.sizes
-            WHERE LOWER(name) = LOWER(:size_value)
-            OR LOWER(label) = LOWER(:size_value)
+            FROM product_attributes.sizes_normalized
+            WHERE LOWER(name_en) = LOWER(:size_value)
             LIMIT 1
         """)
 
@@ -424,9 +423,8 @@ class EbayAspectValueService:
         """
         query = text("""
             SELECT ebay_gb_inside_leg
-            FROM product_attributes.sizes
-            WHERE LOWER(name) = LOWER(:size_value)
-            OR LOWER(label) = LOWER(:size_value)
+            FROM product_attributes.sizes_normalized
+            WHERE LOWER(name_en) = LOWER(:size_value)
             LIMIT 1
         """)
 

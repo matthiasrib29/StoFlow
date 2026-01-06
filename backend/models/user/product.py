@@ -123,10 +123,17 @@ class Product(Base):
         ),
         ForeignKeyConstraint(
             ["size_normalized"],
-            ["sizes.name_en"] if os.getenv('TESTING') else ["product_attributes.sizes.name_en"],
+            ["sizes_normalized.name_en"] if os.getenv('TESTING') else ["product_attributes.sizes_normalized.name_en"],
             onupdate="CASCADE",
             ondelete="SET NULL",
             name="fk_products_size_normalized",
+        ),
+        ForeignKeyConstraint(
+            ["size_original"],
+            ["sizes_original.name"] if os.getenv('TESTING') else ["product_attributes.sizes_original.name"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_size_original",
         ),
         ForeignKeyConstraint(
             ["color"],
@@ -258,10 +265,10 @@ class Product(Base):
         Integer, nullable=True, comment="État - note 0-10 (FK product_attributes.conditions.note)"
     )
     size_normalized: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, index=True, comment="Taille standardisée (FK product_attributes.sizes)"
+        String(100), nullable=True, index=True, comment="Taille standardisée (FK product_attributes.sizes_normalized)"
     )
     size_original: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Taille originale de l'étiquette (texte libre)"
+        String(100), nullable=True, comment="Taille originale (FK product_attributes.sizes_original, auto-créée)"
     )
     color: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True, comment="Couleur (FK public.colors)"

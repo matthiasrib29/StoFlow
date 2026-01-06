@@ -23,7 +23,7 @@ from models.public.fit import Fit
 from models.public.gender import Gender
 from models.public.material import Material
 from models.public.season import Season
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 
 def init_db():
     """Crée toutes les tables dans la base de données."""
