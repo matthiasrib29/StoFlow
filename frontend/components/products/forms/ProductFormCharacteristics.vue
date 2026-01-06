@@ -12,16 +12,22 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <!-- Catégorie -->
         <div>
-          <label class="block text-xs font-semibold mb-1 text-secondary-900">Catégorie *</label>
+          <label class="block text-xs font-semibold mb-1 text-secondary-900 flex items-center gap-1">
+            Catégorie *
+            <i v-if="validation?.isFieldValid?.('category')" class="pi pi-check-circle text-green-500 text-xs" />
+          </label>
           <AutoComplete
             :model-value="category"
             :suggestions="categorySuggestions"
             :min-length="1"
             placeholder="Sélectionner..."
             class="w-full"
-            :class="{ 'p-invalid': validation?.hasError('category') }"
+            :class="{
+              'p-invalid': validation?.hasError('category'),
+              'border-green-400': validation?.isFieldValid?.('category')
+            }"
             :loading="loadingCategories"
-            @update:model-value="$emit('update:category', $event)"
+            @update:model-value="handleCategoryChange"
             @complete="handleCategorySearch"
             @blur="validation?.touch('category')"
           />
@@ -32,16 +38,22 @@
 
         <!-- Marque -->
         <div>
-          <label class="block text-xs font-semibold mb-1 text-secondary-900">Marque *</label>
+          <label class="block text-xs font-semibold mb-1 text-secondary-900 flex items-center gap-1">
+            Marque *
+            <i v-if="validation?.isFieldValid?.('brand')" class="pi pi-check-circle text-green-500 text-xs" />
+          </label>
           <AutoComplete
             :model-value="brand"
             :suggestions="brandSuggestions"
             :min-length="1"
             placeholder="Ex: Nike, Levi's..."
             class="w-full"
-            :class="{ 'p-invalid': validation?.hasError('brand') }"
+            :class="{
+              'p-invalid': validation?.hasError('brand'),
+              'border-green-400': validation?.isFieldValid?.('brand')
+            }"
             :loading="loadingBrands"
-            @update:model-value="$emit('update:brand', $event)"
+            @update:model-value="handleBrandChange"
             @complete="handleBrandSearch"
             @blur="validation?.touch('brand')"
           />
@@ -52,7 +64,10 @@
 
         <!-- Genre -->
         <div>
-          <label class="block text-xs font-semibold mb-1 text-secondary-900">Genre *</label>
+          <label class="block text-xs font-semibold mb-1 text-secondary-900 flex items-center gap-1">
+            Genre *
+            <i v-if="validation?.isFieldValid?.('gender')" class="pi pi-check-circle text-green-500 text-xs" />
+          </label>
           <Select
             :model-value="gender"
             :options="genderOptions"
@@ -60,9 +75,12 @@
             option-value="value"
             placeholder="Sélectionner..."
             class="w-full"
-            :class="{ 'p-invalid': validation?.hasError('gender') }"
+            :class="{
+              'p-invalid': validation?.hasError('gender'),
+              'border-green-400': validation?.isFieldValid?.('gender')
+            }"
             :loading="loadingGenders"
-            @update:model-value="$emit('update:gender', $event)"
+            @update:model-value="handleGenderChange"
             @blur="validation?.touch('gender')"
           />
           <small v-if="validation?.hasError('gender')" class="p-error">
@@ -80,28 +98,64 @@
       />
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Taille -->
-        <ProductsFormsSizeAutocomplete
-          :model-value="sizeOriginal"
-          :has-error="validation?.hasError('size_original')"
-          :error-message="validation?.getError('size_original')"
-          @update:model-value="$emit('update:sizeOriginal', $event)"
-          @update:normalized="$emit('update:sizeNormalized', $event)"
-          @blur="validation?.touch('size_original')"
-        />
+        <!-- Taille étiquette (texte libre) -->
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-secondary-900 flex items-center gap-1">
+            Taille (étiquette) *
+            <i v-if="validation?.isFieldValid?.('size_original')" class="pi pi-check-circle text-green-500 text-xs" />
+          </label>
+          <InputText
+            :model-value="sizeOriginal"
+            placeholder="Ex: W32/L34, 42 EUR, XL..."
+            class="w-full"
+            :class="{
+              'p-invalid': validation?.hasError('size_original'),
+              'border-green-400': validation?.isFieldValid?.('size_original')
+            }"
+            @update:model-value="handleSizeOriginalChange"
+            @blur="validation?.touch('size_original')"
+          />
+          <small class="text-xs text-gray-500">Taille exacte sur l'étiquette du vêtement</small>
+          <small v-if="validation?.hasError('size_original')" class="p-error block">
+            {{ validation?.getError('size_original') }}
+          </small>
+        </div>
+
+        <!-- Taille standardisée (dropdown) -->
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-secondary-900">Taille standardisée</label>
+          <Select
+            :model-value="sizeNormalized"
+            :options="sizeOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="Sélectionner..."
+            class="w-full"
+            show-clear
+            :loading="loadingSizes"
+            @update:model-value="$emit('update:size-normalized', $event)"
+          />
+          <small class="text-xs text-gray-500">Équivalent standard (S, M, L...)</small>
+        </div>
 
         <!-- Couleur -->
         <div>
-          <label class="block text-xs font-semibold mb-1 text-secondary-900">Couleur *</label>
+          <label class="block text-xs font-semibold mb-1 text-secondary-900 flex items-center gap-1">
+            Couleur *
+            <i v-if="validation?.isFieldValid?.('color')" class="pi pi-check-circle text-green-500 text-xs" />
+          </label>
           <AutoComplete
             :model-value="color"
             :suggestions="colorSuggestions"
             :min-length="1"
             placeholder="Ex: Bleu, Noir..."
             class="w-full"
-            :class="{ 'p-invalid': validation?.hasError('color') }"
+            :class="{
+              'p-invalid': validation?.hasError('color'),
+              'border-green-400': validation?.isFieldValid?.('color')
+            }"
             :loading="loadingColors"
-            @update:model-value="$emit('update:color', $event)"
+            @update:model-value="handleColorChange"
             @complete="handleColorSearch"
             @blur="validation?.touch('color')"
           />
@@ -112,16 +166,22 @@
 
         <!-- Matière -->
         <div>
-          <label class="block text-xs font-semibold mb-1 text-secondary-900">Matière *</label>
+          <label class="block text-xs font-semibold mb-1 text-secondary-900 flex items-center gap-1">
+            Matière *
+            <i v-if="validation?.isFieldValid?.('material')" class="pi pi-check-circle text-green-500 text-xs" />
+          </label>
           <AutoComplete
             :model-value="material"
             :suggestions="materialSuggestions"
             :min-length="1"
             placeholder="Ex: Coton, Denim..."
             class="w-full"
-            :class="{ 'p-invalid': validation?.hasError('material') }"
+            :class="{
+              'p-invalid': validation?.hasError('material'),
+              'border-green-400': validation?.isFieldValid?.('material')
+            }"
             :loading="loadingMaterials"
-            @update:model-value="$emit('update:material', $event)"
+            @update:model-value="handleMaterialChange"
             @complete="handleMaterialSearch"
             @blur="validation?.touch('material')"
           />
@@ -133,14 +193,23 @@
     </div>
 
     <!-- ===== ATTRIBUTS VÊTEMENTS (Optionnels) ===== -->
-    <div class="border border-gray-200 rounded-lg p-4 space-y-4">
-      <div class="flex items-center justify-between cursor-pointer" @click="showClothingAttrs = !showClothingAttrs">
+    <div class="border border-gray-200 rounded-lg p-4 space-y-4 transition-all duration-200 hover:border-gray-300">
+      <div class="flex items-center justify-between cursor-pointer select-none" @click="showClothingAttrs = !showClothingAttrs">
         <h4 class="text-xs font-semibold text-gray-600 uppercase flex items-center gap-2">
           <i class="pi pi-palette text-xs" />
           Attributs vêtements
           <span class="text-gray-400 font-normal">(optionnel)</span>
+          <span
+            v-if="clothingFilledCount > 0"
+            class="bg-primary-400 text-secondary-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1"
+          >
+            {{ clothingFilledCount }} rempli{{ clothingFilledCount > 1 ? 's' : '' }}
+          </span>
         </h4>
-        <i :class="showClothingAttrs ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" class="text-gray-400" />
+        <i
+          :class="showClothingAttrs ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+          class="text-gray-400 transition-transform duration-200"
+        />
       </div>
 
       <div v-show="showClothingAttrs" class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
@@ -282,14 +351,23 @@
     </div>
 
     <!-- ===== VINTAGE & TENDANCE (Optionnels) ===== -->
-    <div class="border border-gray-200 rounded-lg p-4 space-y-4">
-      <div class="flex items-center justify-between cursor-pointer" @click="showVintageAttrs = !showVintageAttrs">
+    <div class="border border-gray-200 rounded-lg p-4 space-y-4 transition-all duration-200 hover:border-gray-300">
+      <div class="flex items-center justify-between cursor-pointer select-none" @click="showVintageAttrs = !showVintageAttrs">
         <h4 class="text-xs font-semibold text-gray-600 uppercase flex items-center gap-2">
           <i class="pi pi-clock text-xs" />
           Vintage & Tendance
           <span class="text-gray-400 font-normal">(optionnel)</span>
+          <span
+            v-if="vintageFilledCount > 0"
+            class="bg-primary-400 text-secondary-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1"
+          >
+            {{ vintageFilledCount }} rempli{{ vintageFilledCount > 1 ? 's' : '' }}
+          </span>
         </h4>
-        <i :class="showVintageAttrs ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" class="text-gray-400" />
+        <i
+          :class="showVintageAttrs ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+          class="text-gray-400 transition-transform duration-200"
+        />
       </div>
 
       <div v-show="showVintageAttrs" class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
@@ -341,14 +419,23 @@
     </div>
 
     <!-- ===== DÉTAILS (Optionnels) ===== -->
-    <div class="border border-gray-200 rounded-lg p-4 space-y-4">
-      <div class="flex items-center justify-between cursor-pointer" @click="showDetailsAttrs = !showDetailsAttrs">
+    <div class="border border-gray-200 rounded-lg p-4 space-y-4 transition-all duration-200 hover:border-gray-300">
+      <div class="flex items-center justify-between cursor-pointer select-none" @click="showDetailsAttrs = !showDetailsAttrs">
         <h4 class="text-xs font-semibold text-gray-600 uppercase flex items-center gap-2">
           <i class="pi pi-list text-xs" />
           Détails supplémentaires
           <span class="text-gray-400 font-normal">(optionnel)</span>
+          <span
+            v-if="detailsFilledCount > 0"
+            class="bg-primary-400 text-secondary-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1"
+          >
+            {{ detailsFilledCount }} rempli{{ detailsFilledCount > 1 ? 's' : '' }}
+          </span>
         </h4>
-        <i :class="showDetailsAttrs ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" class="text-gray-400" />
+        <i
+          :class="showDetailsAttrs ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+          class="text-gray-400 transition-transform duration-200"
+        />
       </div>
 
       <div v-show="showDetailsAttrs" class="space-y-4 pt-2">
@@ -416,7 +503,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import type { AttributeOption } from '~/composables/useAttributes'
 import { useLocaleStore } from '~/stores/locale'
 
@@ -454,16 +541,18 @@ interface Props {
   validation?: any
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   validation: undefined
 })
 
-defineEmits<{
+// ===== HANDLERS AVEC VALIDATION TEMPS RÉEL =====
+
+const emit = defineEmits<{
   'update:category': [value: string]
   'update:brand': [value: string]
   'update:condition': [value: number]
-  'update:sizeOriginal': [value: string]
-  'update:sizeNormalized': [value: string | null]
+  'update:size-original': [value: string]
+  'update:size-normalized': [value: string | null]
   'update:color': [value: string]
   'update:gender': [value: string]
   'update:material': [value: string]
@@ -486,6 +575,84 @@ defineEmits<{
   'update:marking': [value: string | null]
 }>()
 
+// Handlers for required fields with real-time validation
+const handleCategoryChange = (value: string | undefined) => {
+  const val = value || ''
+  emit('update:category', val)
+  if (props.validation?.validateDebounced) {
+    props.validation.validateDebounced('category', val)
+  }
+}
+
+const handleBrandChange = (value: string | undefined) => {
+  const val = value || ''
+  emit('update:brand', val)
+  if (props.validation?.validateDebounced) {
+    props.validation.validateDebounced('brand', val)
+  }
+}
+
+const handleGenderChange = (value: string | undefined) => {
+  const val = value || ''
+  emit('update:gender', val)
+  if (props.validation?.validateDebounced) {
+    props.validation.validateDebounced('gender', val)
+  }
+}
+
+const handleSizeOriginalChange = (value: string | undefined) => {
+  const val = value || ''
+  emit('update:size-original', val)
+  if (props.validation?.validateDebounced) {
+    props.validation.validateDebounced('size_original', val)
+  }
+}
+
+const handleColorChange = (value: string | undefined) => {
+  const val = value || ''
+  emit('update:color', val)
+  if (props.validation?.validateDebounced) {
+    props.validation.validateDebounced('color', val)
+  }
+}
+
+const handleMaterialChange = (value: string | undefined) => {
+  const val = value || ''
+  emit('update:material', val)
+  if (props.validation?.validateDebounced) {
+    props.validation.validateDebounced('material', val)
+  }
+}
+
+// Computed: count filled clothing attributes
+const clothingFilledCount = computed(() => {
+  const clothingFields = [
+    props.fit, props.season, props.sport, props.neckline,
+    props.length, props.pattern, props.rise, props.closure, props.sleeveLength
+  ]
+  return clothingFields.filter(v => v !== null && v !== undefined && v !== '').length
+})
+
+// Computed: count filled vintage attributes
+const vintageFilledCount = computed(() => {
+  const vintageFields = [props.origin, props.decade, props.trend]
+  return vintageFields.filter(v => v !== null && v !== undefined && v !== '').length
+})
+
+// Computed: count filled details attributes
+const detailsFilledCount = computed(() => {
+  const detailsFields = [
+    props.location,
+    props.model,
+    props.marking
+  ]
+  let count = detailsFields.filter(v => v !== null && v !== undefined && v !== '').length
+  // Arrays: count if they have at least one item
+  if (props.conditionSup && props.conditionSup.length > 0) count++
+  if (props.uniqueFeature && props.uniqueFeature.length > 0) count++
+  return count
+})
+
 // État des sections repliables
 const showClothingAttrs = ref(false)
 const showVintageAttrs = ref(false)
@@ -501,9 +668,11 @@ const loadingBrands = ref(false)
 const loadingColors = ref(false)
 const loadingMaterials = ref(false)
 const loadingGenders = ref(false)
+const loadingSizes = ref(false)
 
 // Données pour les dropdowns
 const genderOptions = ref<AttributeOption[]>([])
+const sizeOptions = ref<AttributeOption[]>([])
 const fitOptions = ref<AttributeOption[]>([])
 const seasonOptions = ref<AttributeOption[]>([])
 const sportOptions = ref<AttributeOption[]>([])
@@ -531,14 +700,16 @@ const allMaterials = ref<AttributeOption[]>([])
 // Charger les attributs
 const loadAttributes = async () => {
   const lang = localeStore.locale
+  loadingSizes.value = true
 
   // Charger en parallèle
   const [
-    genders, fits, seasons, sports, necklines, lengths,
+    genders, sizes, fits, seasons, sports, necklines, lengths,
     patterns, rises, closures, sleeves, origins, decades, trends,
     categories, colors, materials
   ] = await Promise.all([
     fetchAttribute('genders', lang),
+    fetchAttribute('sizes', lang),
     fetchAttribute('fits', lang),
     fetchAttribute('seasons', lang),
     fetchAttribute('sports', lang),
@@ -557,6 +728,7 @@ const loadAttributes = async () => {
   ])
 
   genderOptions.value = genders
+  sizeOptions.value = sizes
   fitOptions.value = fits
   seasonOptions.value = seasons
   sportOptions.value = sports
@@ -572,6 +744,7 @@ const loadAttributes = async () => {
   allCategories.value = categories
   allColors.value = colors
   allMaterials.value = materials
+  loadingSizes.value = false
 }
 
 onMounted(() => {

@@ -17,13 +17,23 @@ from sqlalchemy.orm import Session
 
 from models.public.brand import Brand
 from models.public.category import Category
+from models.public.closure import Closure
 from models.public.color import Color
 from models.public.condition import Condition
+from models.public.decade import Decade
 from models.public.fit import Fit
 from models.public.gender import Gender
+from models.public.length import Length
 from models.public.material import Material
+from models.public.neckline import Neckline
+from models.public.origin import Origin
+from models.public.pattern import Pattern
+from models.public.rise import Rise
 from models.public.season import Season
 from models.public.size import Size
+from models.public.sleeve_length import SleeveLength
+from models.public.sport import Sport
+from models.public.trend import Trend
 from shared.database import get_db
 
 router = APIRouter(prefix="/attributes", tags=["Attributes"])
@@ -39,6 +49,18 @@ ATTRIBUTE_MODELS = {
     "materials": Material,
     "fits": Fit,
     "sizes": Size,
+    # Clothing attributes
+    "sports": Sport,
+    "necklines": Neckline,
+    "lengths": Length,
+    "patterns": Pattern,
+    "rises": Rise,
+    "closures": Closure,
+    "sleeve_lengths": SleeveLength,
+    # Vintage attributes
+    "origins": Origin,
+    "decades": Decade,
+    "trends": Trend,
 }
 
 # Configuration pour chaque type d'attribut
@@ -91,6 +113,58 @@ ATTRIBUTE_CONFIG = {
         "value_field": "name_en",
         "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
         "extra_fields": ["vinted_id", "ebay_size", "etsy_size"],
+        "supports_search": False,
+    },
+    # Clothing attributes
+    "sports": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr"],
+        "supports_search": False,
+    },
+    "necklines": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "lengths": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "patterns": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "rises": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "closures": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "sleeve_lengths": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    # Vintage attributes
+    "origins": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "decades": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "trends": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
         "supports_search": False,
     },
 }
