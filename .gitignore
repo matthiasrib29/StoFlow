@@ -134,3 +134,4 @@ docker-compose.override.yml
 .claude/settings.local.json
 .playwright-mcp/
 backend/migrations/archive_*/
+venv
