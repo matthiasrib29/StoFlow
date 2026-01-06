@@ -343,19 +343,17 @@ CREATE TABLE plugin_tasks (
 
 ## 📚 Documentation
 
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md) - Architecture technique détaillée
-- [`BUSINESS_LOGIC.md`](./BUSINESS_LOGIC.md) - Logique métier du proxy
-- [`API_PROXY.md`](./API_PROXY.md) - Documentation complète de l'API
+See the [CLAUDE.md](./CLAUDE.md) file for development guidelines and architecture overview.
 
 ---
 
 ## 🤝 Contribution
 
-Pour modifier le proxy :
+Key files for modifications:
 
-1. **Ajouter un nouveau verbe HTTP** : Modifier `HttpRequestPayload` dans `task-poller.ts`
-2. **Ajouter un type de contenu** : Modifier `content_type` dans `proxy.ts`
-3. **Changer la logique d'injection** : Modifier `executeTask()` dans `task-poller.ts`
+1. **Background service** : `src/background/index.ts` and `src/background/PollingManager.ts`
+2. **API client** : `src/api/StoflowAPI.ts`
+3. **Vinted API hook** : `src/content/stoflow-vinted-api.js`
 
 ---
 

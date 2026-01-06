@@ -10,7 +10,6 @@ interface Message {
 }
 
 class BackgroundService {
-  private syncIntervalId: number | null = null;
   private pollingManager: PollingManager;
 
   constructor() {

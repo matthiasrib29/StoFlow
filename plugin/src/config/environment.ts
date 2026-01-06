@@ -150,16 +150,19 @@ export function validateConfig(): void {
     throw new Error(`Invalid VITE_BACKEND_URL: ${ENV.BACKEND_URL}`);
   }
 
-  if (ENV.POLL_INTERVAL < CONSTANTS.LIMITS.MIN_POLL_INTERVAL) {
-    console.warn(
-      `[Config] POLL_INTERVAL (${ENV.POLL_INTERVAL}ms) is below minimum (${CONSTANTS.LIMITS.MIN_POLL_INTERVAL}ms)`
-    );
-  }
+  // Config validation warnings are logged only in dev mode
+  if (ENV.IS_DEV) {
+    if (ENV.POLL_INTERVAL < CONSTANTS.LIMITS.MIN_POLL_INTERVAL) {
+      console.warn(
+        `[Config] POLL_INTERVAL (${ENV.POLL_INTERVAL}ms) is below minimum (${CONSTANTS.LIMITS.MIN_POLL_INTERVAL}ms)`
+      );
+    }
 
-  if (ENV.POLL_MAX_INTERVAL > CONSTANTS.LIMITS.MAX_POLL_INTERVAL) {
-    console.warn(
-      `[Config] POLL_MAX_INTERVAL (${ENV.POLL_MAX_INTERVAL}ms) exceeds maximum (${CONSTANTS.LIMITS.MAX_POLL_INTERVAL}ms)`
-    );
+    if (ENV.POLL_MAX_INTERVAL > CONSTANTS.LIMITS.MAX_POLL_INTERVAL) {
+      console.warn(
+        `[Config] POLL_MAX_INTERVAL (${ENV.POLL_MAX_INTERVAL}ms) exceeds maximum (${CONSTANTS.LIMITS.MAX_POLL_INTERVAL}ms)`
+      );
+    }
   }
 }
 

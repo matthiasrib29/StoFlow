@@ -1,40 +1,80 @@
 import { ContentLogger } from '../utils/logger';
+import { ENV } from '../config/environment';
 
 /**
  * Script injector for Stoflow Vinted API
  *
- * Injects stoflow-vinted-api.js into MAIN world to access Webpack modules
- * Creates a bridge for communication between MAIN and ISOLATED worlds
+ * Injects modular scripts into MAIN world to access Webpack modules.
+ * Scripts are loaded in sequence: logger -> datadome -> api-core -> bootstrap
  *
  * Author: Claude
- * Date: 2025-12-11
+ * Date: 2026-01-06
  */
 
-// Inject the Stoflow API script into the page's MAIN world
-function injectStoflowAPI() {
-  // Éviter la double injection
-  if (document.getElementById('stoflow-api-script')) {
-    ContentLogger.debug('🛍️ [Stoflow] API script déjà injecté, skip');
+// Module files to inject in order
+const API_MODULES = [
+  'src/content/stoflow-vinted-logger.js',
+  'src/content/stoflow-vinted-datadome.js',
+  'src/content/stoflow-vinted-api-core.js',
+  'src/content/stoflow-vinted-bootstrap.js'
+];
+
+/**
+ * Inject a single script and return a promise
+ */
+function injectScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL(src);
+    script.type = 'text/javascript';
+
+    script.onload = () => {
+      ContentLogger.debug(`🛍️ [Stoflow] Loaded: ${src}`);
+      resolve();
+    };
+
+    script.onerror = (error) => {
+      ContentLogger.error(`🛍️ [Stoflow] Failed to load: ${src}`, error);
+      reject(error);
+    };
+
+    (document.head || document.documentElement).appendChild(script);
+  });
+}
+
+// Inject the Stoflow API scripts into the page's MAIN world
+async function injectStoflowAPI() {
+  // Avoid double injection
+  if (document.getElementById('stoflow-api-marker')) {
+    ContentLogger.debug('🛍️ [Stoflow] API scripts already injected, skip');
     return;
   }
 
-  const script = document.createElement('script');
-  script.id = 'stoflow-api-script';
-  script.src = chrome.runtime.getURL('src/content/stoflow-vinted-api.js');
-  script.type = 'text/javascript';
+  // Mark as injected
+  const marker = document.createElement('div');
+  marker.id = 'stoflow-api-marker';
+  marker.style.display = 'none';
+  document.body.appendChild(marker);
 
-  script.onload = () => {
-    ContentLogger.debug('🛍️ [Stoflow] API script injecté dans MAIN world');
+  // Set debug flag in MAIN world before loading modules
+  const debugScript = document.createElement('script');
+  debugScript.textContent = `window.__STOFLOW_DEBUG__ = ${ENV.ENABLE_DEBUG_LOGS};`;
+  (document.head || document.documentElement).appendChild(debugScript);
+  debugScript.remove();
+
+  try {
+    // Load modules sequentially (order matters)
+    for (const module of API_MODULES) {
+      await injectScript(module);
+    }
+
+    ContentLogger.debug('🛍️ [Stoflow] All API modules loaded');
 
     // Notify MAIN world to initialize
-    window.postMessage({ type: 'STOFLOW_INIT_API' }, '*');
-  };
-
-  script.onerror = (error) => {
-    ContentLogger.error('🛍️ [Stoflow] Erreur injection API script:', error);
-  };
-
-  (document.head || document.documentElement).appendChild(script);
+    window.postMessage({ type: 'STOFLOW_INIT_API' }, window.location.origin);
+  } catch (error) {
+    ContentLogger.error('🛍️ [Stoflow] Error loading API modules:', error);
+  }
 }
 
 // Initialize on load

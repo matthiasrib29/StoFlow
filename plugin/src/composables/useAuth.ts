@@ -12,11 +12,20 @@ export interface AuthResponse {
   refresh_token: string;
   user_id: number;
   role: string;
+  email?: string;
+  subscription_tier?: string;
+}
+
+export interface UserData {
+  user_id: number;
+  role: string;
+  email?: string;
   subscription_tier?: string;
 }
 
 export function useAuth() {
   const token = ref<string | null>(null);
+  const user = ref<UserData | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -29,13 +38,16 @@ export function useAuth() {
   const checkAuth = async () => {
     const result = await chrome.storage.local.get([
       CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN,
-      CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN
+      CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN,
+      CONSTANTS.STORAGE_KEYS.USER_DATA
     ]);
 
     const accessToken = result[CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN];
+    const userData = result[CONSTANTS.STORAGE_KEYS.USER_DATA];
 
     if (accessToken) {
       token.value = accessToken;
+      user.value = userData || null;
       AuthLogger.debug('[Auth] ✅ Token trouvé (SSO ou login précédent);');
       return true;
     }
@@ -106,6 +118,7 @@ export function useAuth() {
       CONSTANTS.STORAGE_KEYS.USER_DATA
     ]);
     token.value = null;
+    user.value = null;
     AuthLogger.debug('[Auth] 🚪 Déconnexion réussie');
   };
 
@@ -125,6 +138,7 @@ export function useAuth() {
 
   return {
     token,
+    user,
     loading,
     error,
     isAuthenticated,
