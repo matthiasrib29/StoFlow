@@ -14,7 +14,7 @@ from models.public.category import Category
 from models.public.brand import Brand
 from models.public.color import Color
 from models.public.condition import Condition
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 from models.public.material import Material
 from models.public.season import Season
 

@@ -60,8 +60,8 @@ class ProductCreate(BaseModel):
 
     # Attributs optionnels mais recommandés (alignés avec DB nullable=True)
     brand: str | None = Field(None, max_length=100, description="Marque (FK product_attributes.brands)")
-    size_normalized: str | None = Field(None, max_length=100, description="Taille standardisée (FK product_attributes.sizes)")
-    size_original: str | None = Field(None, max_length=100, description="Taille originale étiquette (texte libre)")
+    size_normalized: str | None = Field(None, max_length=100, description="Taille standardisée (FK product_attributes.sizes_normalized)")
+    size_original: str | None = Field(None, max_length=100, description="Taille originale (FK product_attributes.sizes_original, auto-créée)")
     color: str | None = Field(None, max_length=100, description="Couleur (FK product_attributes.colors)")
 
     # Attributs optionnels avec FK
