@@ -157,6 +157,7 @@ import {
   ArcElement,
 } from 'chart.js'
 import { formatDateTime } from '~/utils/formatters'
+import { adminLogger } from '~/utils/logger'
 import Card from 'primevue/card'
 import Tag from 'primevue/tag'
 import Select from 'primevue/select'
@@ -205,7 +206,7 @@ onMounted(async () => {
   try {
     await fetchAll(selectedPeriod.value as 'week' | 'month' | '3months')
   } catch (e) {
-    console.error('Failed to fetch admin stats:', e)
+    adminLogger.error('Failed to fetch admin stats', { error: e })
   }
 })
 
@@ -214,7 +215,7 @@ const onPeriodChange = async () => {
   try {
     await fetchRegistrations(selectedPeriod.value as 'week' | 'month' | '3months')
   } catch (e) {
-    console.error('Failed to fetch registrations:', e)
+    adminLogger.error('Failed to fetch registrations', { error: e })
   }
 }
 

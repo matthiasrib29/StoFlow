@@ -68,9 +68,9 @@ interface Props {
 defineProps<Props>()
 
 defineEmits<{
-  (e: 'show-jobs'): void
-  (e: 'connect'): void
-  (e: 'disconnect'): void
+  'show-jobs': []
+  'connect': []
+  'disconnect': []
 }>()
 </script>
 

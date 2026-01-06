@@ -9,6 +9,7 @@
  */
 
 import { defineStore } from 'pinia'
+import { ebayLogger } from '~/utils/logger'
 import type {
   EbayAccount,
   EbayTokens,
@@ -176,7 +177,7 @@ export const useEbayStore = defineStore('ebay', {
 
         return status
       } catch (error) {
-        console.error('Erreur vérification statut eBay:', error)
+        ebayLogger.error('Erreur vérification statut eBay', { error })
         this.isConnected = false
         throw error
       }
@@ -232,7 +233,7 @@ export const useEbayStore = defineStore('ebay', {
         this.returnPolicies = returns
         this.paymentPolicies = payment
       } catch (error) {
-        console.error('Erreur chargement politiques:', error)
+        ebayLogger.error('Erreur chargement politiques', { error })
       } finally {
         this.isLoadingPolicies = false
       }
@@ -331,7 +332,7 @@ export const useEbayStore = defineStore('ebay', {
         this.account = await fetchAccountInfo(this.account)
         return this.account
       } catch (error) {
-        console.error('Erreur chargement infos compte eBay:', error)
+        ebayLogger.error('Erreur chargement infos compte eBay', { error })
         throw error
       }
     },
@@ -341,7 +342,7 @@ export const useEbayStore = defineStore('ebay', {
         const { fetchStats } = useEbayAccount()
         this.stats = await fetchStats()
       } catch (error) {
-        console.error('Erreur chargement stats:', error)
+        ebayLogger.error('Erreur chargement stats', { error })
       }
     },
 

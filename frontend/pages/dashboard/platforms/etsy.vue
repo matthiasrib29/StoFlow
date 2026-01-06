@@ -95,6 +95,8 @@
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { formatCurrency, formatDate, getStatusLabel, getStatusSeverity } from '~/utils/formatters'
+import { etsyLogger } from '~/utils/logger'
+import type { Publication } from '~/stores/publications'
 
 definePageMeta({
   layout: 'dashboard'
@@ -109,7 +111,7 @@ const publicationsStore = usePublicationsStore()
 const isConnected = ref(false)
 const loading = ref(false)
 const priceModalVisible = ref(false)
-const selectedPublication = ref<any>(null)
+const selectedPublication = ref<Publication | null>(null)
 const newPrice = ref(0)
 
 // Stats (mock data)
@@ -337,7 +339,7 @@ onMounted(async () => {
     loading.value = true
     await publicationsStore.fetchPublications()
   } catch (error) {
-    console.error('Erreur chargement publications:', error)
+    etsyLogger.error('Failed to load publications', { error })
   } finally {
     loading.value = false
   }

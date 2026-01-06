@@ -6,6 +6,7 @@
  * - Checks token expiration client-side
  * - Provides secure token cleanup
  */
+import { authLogger } from '~/utils/logger'
 
 interface JwtPayload {
   exp?: number
@@ -24,7 +25,7 @@ export const useTokenValidator = () => {
     try {
       const parts = token.split('.')
       if (parts.length !== 3) {
-        console.warn('[TokenValidator] Invalid JWT structure')
+        authLogger.warn('Invalid JWT structure')
         return null
       }
 
@@ -33,7 +34,7 @@ export const useTokenValidator = () => {
       const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
       return JSON.parse(decoded)
     } catch (error) {
-      console.warn('[TokenValidator] Failed to decode token:', error)
+      authLogger.warn('Failed to decode token', { error })
       return null
     }
   }
@@ -98,7 +99,7 @@ export const useTokenValidator = () => {
 
     // Check required claims exist
     if (!payload.exp) {
-      console.warn('[TokenValidator] Token missing exp claim')
+      authLogger.warn('Token missing exp claim')
       return false
     }
 
@@ -121,13 +122,13 @@ export const useTokenValidator = () => {
     }
 
     if (!isValidToken(token)) {
-      console.warn(`[TokenValidator] Invalid token in localStorage (${key}), removing`)
+      authLogger.warn(`Invalid token in localStorage (${key}), removing`)
       localStorage.removeItem(key)
       return null
     }
 
     if (isTokenExpired(token)) {
-      console.warn(`[TokenValidator] Expired token in localStorage (${key}), removing`)
+      authLogger.warn(`Expired token in localStorage (${key}), removing`)
       localStorage.removeItem(key)
       return null
     }
@@ -186,13 +187,13 @@ export const useTokenValidator = () => {
 
     // Clean up invalid access token
     if (accessToken && !accessValid) {
-      console.log('[TokenValidator] Cleaning invalid/expired access token')
+      authLogger.debug('Cleaning invalid/expired access token')
       localStorage.removeItem('token')
     }
 
     // Clean up invalid refresh token
     if (refreshToken && !refreshValid) {
-      console.log('[TokenValidator] Cleaning invalid refresh token')
+      authLogger.debug('Cleaning invalid refresh token')
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('user')
     }

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { useAuthStore } from './auth'
+import { productLogger } from '~/utils/logger'
 
 export interface Product {
   // Identifiants
@@ -12,7 +13,7 @@ export interface Product {
 
   // Attributs obligatoires (Updated 2025-12-08)
   category: string
-  condition: string
+  condition: number | null  // Note 0-10 (aligned with backend ProductCreate schema)
   brand: string
   label_size: string  // Renamed from 'size' to match API
   color: string
@@ -157,7 +158,7 @@ export const useProductsStore = defineStore('products', {
         }
       } catch (error: any) {
         this.error = error.message
-        console.error('Error fetching products:', error)
+        productLogger.error('Error fetching products', { error: error?.message })
         throw error
       } finally {
         this.isLoading = false
@@ -178,7 +179,7 @@ export const useProductsStore = defineStore('products', {
         return product
       } catch (error: any) {
         this.error = error.message
-        console.error('Error fetching product:', error)
+        productLogger.error('Error fetching product', { error: error?.message })
         throw error
       } finally {
         this.isLoading = false
@@ -201,7 +202,7 @@ export const useProductsStore = defineStore('products', {
         return newProduct
       } catch (error: any) {
         this.error = error.message
-        console.error('Error creating product:', error)
+        productLogger.error('Error creating product', { error: error?.message })
         throw error
       } finally {
         this.isLoading = false
@@ -228,7 +229,7 @@ export const useProductsStore = defineStore('products', {
         return updatedProduct
       } catch (error: any) {
         this.error = error.message
-        console.error('Error updating product:', error)
+        productLogger.error('Error updating product', { error: error?.message })
         throw error
       } finally {
         this.isLoading = false
@@ -253,7 +254,7 @@ export const useProductsStore = defineStore('products', {
         }
       } catch (error: any) {
         this.error = error.message
-        console.error('Error deleting product:', error)
+        productLogger.error('Error deleting product', { error: error?.message })
         throw error
       } finally {
         this.isLoading = false
@@ -321,7 +322,7 @@ export const useProductsStore = defineStore('products', {
         return imageData
       } catch (error: any) {
         this.error = error.message
-        console.error('Error uploading image:', error)
+        productLogger.error('Error uploading image', { error: error?.message })
         throw error
       } finally {
         this.isLoading = false
@@ -340,7 +341,7 @@ export const useProductsStore = defineStore('products', {
         await api.delete(`/api/products/${productId}/images/${imageId}`)
       } catch (error: any) {
         this.error = error.message
-        console.error('Error deleting image:', error)
+        productLogger.error('Error deleting image', { error: error?.message })
         throw error
       } finally {
         this.isLoading = false
@@ -361,7 +362,7 @@ export const useProductsStore = defineStore('products', {
         await api.put(`/api/products/${productId}/images/reorder`, imageOrder)
       } catch (error: any) {
         this.error = error.message
-        console.error('Error reordering images:', error)
+        productLogger.error('Error reordering images', { error: error?.message })
         throw error
       } finally {
         this.isLoading = false

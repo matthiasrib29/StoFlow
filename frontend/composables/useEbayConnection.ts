@@ -2,6 +2,7 @@
  * Composable for eBay connection management.
  * Handles OAuth flow, connection status, and settings.
  */
+import { ebayLogger } from '~/utils/logger'
 
 export function useEbayConnection() {
   const ebayStore = useEbayStore()
@@ -90,7 +91,7 @@ export function useEbayConnection() {
     try {
       await ebayStore.checkConnectionStatus()
     } catch (error) {
-      console.error('Erreur vérification statut eBay:', error)
+      ebayLogger.error('Erreur vérification statut eBay', { error })
     }
   }
 
@@ -124,7 +125,7 @@ export function useEbayConnection() {
         listingSettings.defaultReturnPolicy = ebayStore.defaultReturnPolicy.id
       }
     } catch (error) {
-      console.error('Erreur chargement données:', error)
+      ebayLogger.error('Erreur chargement données', { error })
     } finally {
       loading.value = false
     }

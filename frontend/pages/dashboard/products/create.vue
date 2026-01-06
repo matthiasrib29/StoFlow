@@ -139,6 +139,7 @@
 import { useProductsStore } from '~/stores/products'
 import { useProductDraft } from '~/composables/useProductDraft'
 import { type ProductFormData, defaultProductFormData } from '~/types/product'
+import { productLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -287,7 +288,7 @@ const analyzeImagesAndFill = async () => {
       )
     }
   } catch (error: any) {
-    console.error('AI analysis error:', error)
+    productLogger.error('AI analysis error', { error: error.message })
 
     // Gérer les erreurs spécifiques
     if (error?.statusCode === 402) {
@@ -342,7 +343,7 @@ const fillFormWithAIResults = (attrs: Record<string, any>) => {
 
   for (const [apiField, formField] of mappings) {
     if (attrs[apiField] !== null && attrs[apiField] !== undefined) {
-      // @ts-ignore - Dynamic key access
+      // @ts-expect-error - Dynamic key access
       form.value[formField] = attrs[apiField]
       fieldsUpdated++
     }
@@ -376,7 +377,7 @@ const fillFormWithAIResults = (attrs: Record<string, any>) => {
     fieldsUpdated++
   }
 
-  console.log(`[AI] Filled ${fieldsUpdated} fields from AI analysis`)
+  productLogger.debug(`Filled ${fieldsUpdated} fields from AI analysis`)
 }
 
 // Handle form updates from ProductForm
@@ -481,7 +482,7 @@ const handleSubmit = async () => {
     // Redirect to products list
     router.push('/dashboard/products')
   } catch (error: any) {
-    console.error('Error creating product:', error)
+    productLogger.error('Error creating product', { error: error.message })
     showError(
       'Erreur',
       error.message || 'Impossible de créer le produit',

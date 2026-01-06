@@ -159,6 +159,8 @@
 </template>
 
 <script setup lang="ts">
+import { subscriptionLogger } from '~/utils/logger'
+
 definePageMeta({
   layout: 'dashboard'
 })
@@ -215,7 +217,7 @@ const loadSubscriptionInfo = async () => {
     currentProducts.value = data.current_products_count
     currentPlatforms.value = data.current_platforms_count
   } catch (err: any) {
-    console.error('Error loading subscription info:', err)
+    subscriptionLogger.error('Error loading subscription info', { error: err.message })
     error.value = err.message || 'Impossible de charger les informations d\'abonnement'
   } finally {
     loading.value = false

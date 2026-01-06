@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { AttributeOption } from '~/composables/useAttributes'
+import { attributeLogger } from '~/utils/logger'
 
 /**
  * Composable pour charger des attributs de manière générique
@@ -39,7 +40,7 @@ export function useAttributeLoader() {
       const data = await fetchAttribute<T>(attributeType, lang)
       targetRef.value = data
     } catch (error) {
-      console.error(`Error loading ${attributeType}:`, error)
+      attributeLogger.error(`Error loading ${attributeType}`, { error })
       targetRef.value = []
     } finally {
       loadingRef.value = false

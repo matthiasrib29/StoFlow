@@ -13,9 +13,11 @@ const sessionStorageMock = {
     mockSessionStorage[key] = value
   }),
   removeItem: vi.fn((key: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
     delete mockSessionStorage[key]
   }),
   clear: vi.fn(() => {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
     Object.keys(mockSessionStorage).forEach(key => delete mockSessionStorage[key])
   })
 }
@@ -266,7 +268,7 @@ describe('OAuth CSRF Protection', () => {
         'simple_code'
       ]
 
-      const codePattern = /^[a-zA-Z0-9_\-\.^#]+$/
+      const codePattern = /^[a-zA-Z0-9_.^#-]+$/
 
       validCodes.forEach(code => {
         expect(codePattern.test(code)).toBe(true)
@@ -280,7 +282,7 @@ describe('OAuth CSRF Protection', () => {
         'code\x00nullbyte'
       ]
 
-      const codePattern = /^[a-zA-Z0-9_\-\.^#]+$/
+      const codePattern = /^[a-zA-Z0-9_.^#-]+$/
 
       invalidCodes.forEach(code => {
         expect(codePattern.test(code)).toBe(false)

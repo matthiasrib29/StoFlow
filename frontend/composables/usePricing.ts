@@ -7,6 +7,7 @@
  * @author Claude
  * @date 2024-12-24
  */
+import { subscriptionLogger } from '~/utils/logger'
 
 export interface PricingFeature {
   feature_text: string
@@ -52,7 +53,7 @@ export const usePricing = () => {
       plans.value = response.tiers
       return response.tiers
     } catch (err) {
-      console.error('Failed to fetch pricing plans:', err)
+      subscriptionLogger.error('Failed to fetch pricing plans', { error: err })
       error.value = 'Failed to load pricing plans'
       return []
     } finally {

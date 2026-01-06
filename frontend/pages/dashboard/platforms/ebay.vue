@@ -40,6 +40,8 @@
 <script setup lang="ts">
 import { useConfirm } from 'primevue/useconfirm'
 import { formatCurrency, formatNumber } from '~/utils/formatters'
+import { ebayLogger } from '~/utils/logger'
+import type { Publication } from '~/stores/publications'
 
 definePageMeta({
   layout: 'dashboard'
@@ -60,7 +62,7 @@ const loading = ref(false)
 const priceModalVisible = ref(false)
 const shippingPolicyModal = ref(false)
 const returnPolicyModal = ref(false)
-const selectedPublication = ref<any>(null)
+const selectedPublication = ref<Publication | null>(null)
 
 // Options for settings
 const syncIntervals = [
@@ -278,7 +280,7 @@ onMounted(async () => {
   try {
     await ebayStore.checkConnectionStatus()
   } catch (error) {
-    console.error('Erreur vérification statut eBay:', error)
+    ebayLogger.error('Failed to check eBay connection status', { error })
   }
 
   if (ebayStore.isConnected) {
@@ -302,7 +304,7 @@ onMounted(async () => {
         listingSettings.defaultReturnPolicy = ebayStore.defaultReturnPolicy.id
       }
     } catch (error) {
-      console.error('Erreur chargement données:', error)
+      ebayLogger.error('Failed to load eBay data', { error })
     } finally {
       loading.value = false
     }

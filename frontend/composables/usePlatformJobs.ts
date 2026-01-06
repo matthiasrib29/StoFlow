@@ -4,6 +4,7 @@
  * Provides real-time job status updates and cancel/pause/resume actions
  * for any marketplace platform (Vinted, eBay, Etsy)
  */
+import { platformLogger } from '~/utils/logger'
 
 export type PlatformCode = 'vinted' | 'ebay' | 'etsy'
 
@@ -117,7 +118,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
       jobs.value = response.jobs
     } catch (err: any) {
       error.value = err.message || `Failed to fetch ${config.name} jobs`
-      console.error(`[usePlatformJobs:${platformCode}] fetchJobs error:`, err)
+      platformLogger.error(`[${platformCode}] fetchJobs error`, { error: err.message })
     } finally {
       isLoading.value = false
     }
@@ -143,7 +144,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
       jobs.value = response.jobs
     } catch (err: any) {
       error.value = err.message || `Failed to fetch ${config.name} jobs`
-      console.error(`[usePlatformJobs:${platformCode}] fetchActiveJobs error:`, err)
+      platformLogger.error(`[${platformCode}] fetchActiveJobs error`, { error: err.message })
     } finally {
       isLoading.value = false
     }
@@ -167,7 +168,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
       return false
     } catch (err: any) {
       error.value = err.message || 'Failed to cancel job'
-      console.error(`[usePlatformJobs:${platformCode}] cancelJob error:`, err)
+      platformLogger.error(`[${platformCode}] cancelJob error`, { error: err.message })
       return false
     }
   }
@@ -189,7 +190,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
       return false
     } catch (err: any) {
       error.value = err.message || 'Failed to pause job'
-      console.error(`[usePlatformJobs:${platformCode}] pauseJob error:`, err)
+      platformLogger.error(`[${platformCode}] pauseJob error`, { error: err.message })
       return false
     }
   }
@@ -211,7 +212,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
       return false
     } catch (err: any) {
       error.value = err.message || 'Failed to resume job'
-      console.error(`[usePlatformJobs:${platformCode}] resumeJob error:`, err)
+      platformLogger.error(`[${platformCode}] resumeJob error`, { error: err.message })
       return false
     }
   }

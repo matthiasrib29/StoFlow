@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { vintedLogger } from '~/utils/logger'
 
 /**
  * Interface for Vinted conversation
@@ -155,7 +156,7 @@ export const useVintedMessagesStore = defineStore('vintedMessages', {
         return response
       } catch (error: any) {
         this.error = error.message || 'Error fetching conversations'
-        console.error('Error fetching conversations:', error)
+        vintedLogger.error('Error fetching conversations', { error })
         throw error
       } finally {
         this.isLoadingConversations = false
@@ -183,7 +184,7 @@ export const useVintedMessagesStore = defineStore('vintedMessages', {
         return response
       } catch (error: any) {
         this.error = error.message || 'Error fetching conversation'
-        console.error('Error fetching conversation:', error)
+        vintedLogger.error('Error fetching conversation', { error })
         throw error
       } finally {
         this.isLoadingMessages = false
@@ -230,7 +231,7 @@ export const useVintedMessagesStore = defineStore('vintedMessages', {
         return response
       } catch (error: any) {
         this.error = error.message || 'Error syncing inbox'
-        console.error('Error syncing inbox:', error)
+        vintedLogger.error('Error syncing inbox', { error })
         throw error
       } finally {
         this.isSyncing = false
@@ -261,7 +262,7 @@ export const useVintedMessagesStore = defineStore('vintedMessages', {
         return response
       } catch (error: any) {
         this.error = error.message || 'Error syncing conversation'
-        console.error('Error syncing conversation:', error)
+        vintedLogger.error('Error syncing conversation', { error })
         throw error
       } finally {
         this.isLoadingMessages = false
@@ -290,7 +291,7 @@ export const useVintedMessagesStore = defineStore('vintedMessages', {
           this.currentConversation.unread_count = 0
         }
       } catch (error: any) {
-        console.error('Error marking as read:', error)
+        vintedLogger.error('Error marking as read', { error })
         throw error
       }
     },
@@ -330,7 +331,7 @@ export const useVintedMessagesStore = defineStore('vintedMessages', {
 
         return response
       } catch (error: any) {
-        console.error('Error fetching stats:', error)
+        vintedLogger.error('Error fetching stats', { error })
         throw error
       }
     }

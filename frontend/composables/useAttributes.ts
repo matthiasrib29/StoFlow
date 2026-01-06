@@ -11,6 +11,7 @@
  * Les données sont mises en cache côté client pour éviter
  * des appels répétés au backend.
  */
+import { attributeLogger } from '~/utils/logger'
 
 export interface AttributeOption {
   value: string
@@ -68,7 +69,7 @@ export const useAttributes = () => {
       )
       return response
     } catch (error) {
-      console.error(`Error fetching ${attributeType}:`, error)
+      attributeLogger.error(`Error fetching ${attributeType}`, { error })
       return []
     }
   }
@@ -172,7 +173,7 @@ export const useAttributes = () => {
       )
       return response
     } catch (error) {
-      console.error('Error searching brands:', error)
+      attributeLogger.error('Error searching brands', { error })
       return []
     }
   }

@@ -156,10 +156,6 @@ const validation = useProductFormValidation()
 const { showWarn, showError, showSuccess } = useAppToast()
 const { post } = useApi()
 
-// AI composable
-const productIdRef = computed(() => props.productId)
-const hasImagesRef = computed(() => props.hasImages)
-
 // États
 const isGeneratingDescription = ref(false)
 const isAnalyzingImages = ref(false)

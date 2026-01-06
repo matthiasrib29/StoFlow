@@ -5,6 +5,7 @@
  * - Créer une session Checkout (subscriptions ou crédits)
  * - Créer une session Customer Portal (gérer l'abonnement)
  */
+import { subscriptionLogger } from '~/utils/logger'
 
 export interface CheckoutSessionRequest {
   payment_type: 'subscription' | 'credits'
@@ -73,7 +74,7 @@ export const useStripe = () => {
       // Redirection vers Stripe Checkout
       window.location.href = url
     } catch (error) {
-      console.error('Error creating checkout session:', error)
+      subscriptionLogger.error('Error creating checkout session', { error })
       throw error
     }
   }
@@ -87,7 +88,7 @@ export const useStripe = () => {
       // Redirection vers le Customer Portal
       window.location.href = url
     } catch (error) {
-      console.error('Error creating customer portal session:', error)
+      subscriptionLogger.error('Error creating customer portal session', { error })
       throw error
     }
   }

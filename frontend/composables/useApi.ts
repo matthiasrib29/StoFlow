@@ -5,6 +5,7 @@
  */
 
 import { useTokenValidator } from '~/composables/useTokenValidator'
+import { apiLogger } from '~/utils/logger'
 
 interface ApiError {
   detail: string
@@ -31,7 +32,7 @@ export const useApi = () => {
 
       // Token invalid or expired
       if (token) {
-        console.log('[API] Access token invalid/expired, will attempt refresh')
+        apiLogger.debug('Access token invalid/expired, will attempt refresh')
       }
       return null
     }
@@ -161,7 +162,7 @@ export const useApi = () => {
 
       return null as T
     } catch (error: any) {
-      console.error('API Error:', error)
+      apiLogger.error('API Error', { error: error.message })
       throw error
     }
   }
@@ -192,7 +193,7 @@ export const useApi = () => {
 
       return true
     } catch (error) {
-      console.error('Refresh token error:', error)
+      apiLogger.error('Refresh token error', { error })
       return false
     }
   }

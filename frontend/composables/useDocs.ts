@@ -7,6 +7,7 @@
  * @author Claude
  * @date 2024-12-24
  */
+import { docsLogger } from '~/utils/logger'
 
 export interface DocArticleSummary {
   id: number
@@ -69,7 +70,7 @@ export const useDocs = () => {
       categories.value = data.categories
       return data.categories
     } catch (err) {
-      console.error('Failed to fetch documentation:', err)
+      docsLogger.error('Failed to fetch documentation', { error: err })
       error.value = 'Failed to load documentation'
       return []
     } finally {
@@ -91,7 +92,7 @@ export const useDocs = () => {
       currentCategory.value = data
       return data
     } catch (err) {
-      console.error(`Failed to fetch category ${categorySlug}:`, err)
+      docsLogger.error(`Failed to fetch category ${categorySlug}`, { error: err })
       error.value = 'Category not found'
       return null
     } finally {
@@ -113,7 +114,7 @@ export const useDocs = () => {
       currentArticle.value = data
       return data
     } catch (err) {
-      console.error(`Failed to fetch article ${articleSlug}:`, err)
+      docsLogger.error(`Failed to fetch article ${articleSlug}`, { error: err })
       error.value = 'Article not found'
       return null
     } finally {

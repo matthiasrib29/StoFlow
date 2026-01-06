@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { etsyLogger } from '~/utils/logger'
 
 interface EtsyTokens {
   access_token: string
@@ -99,7 +100,7 @@ export const useEtsyStore = defineStore('etsy', {
 
         return status
       } catch (error) {
-        console.error('Erreur vérification statut Etsy:', error)
+        etsyLogger.error('Erreur vérification statut Etsy', { error })
         this.isConnected = false
         throw error
       }
@@ -220,7 +221,7 @@ export const useEtsyStore = defineStore('etsy', {
         // Réinitialiser le state
         this.$reset()
       } catch (error: any) {
-        console.error('Erreur déconnexion Etsy:', error)
+        etsyLogger.error('Erreur déconnexion Etsy', { error })
         throw error
       } finally {
         this.isLoading = false
@@ -238,7 +239,7 @@ export const useEtsyStore = defineStore('etsy', {
         const listings = await api.get<EtsyListing[]>('/api/etsy/listings')
         this.listings = listings ?? []
       } catch (error) {
-        console.error('Erreur chargement listings Etsy:', error)
+        etsyLogger.error('Erreur chargement listings Etsy', { error })
         throw error
       } finally {
         this.isLoadingListings = false
@@ -254,7 +255,7 @@ export const useEtsyStore = defineStore('etsy', {
         const stats = await api.get<EtsyStats>('/api/etsy/stats')
         this.stats = stats
       } catch (error) {
-        console.error('Erreur chargement stats Etsy:', error)
+        etsyLogger.error('Erreur chargement stats Etsy', { error })
         throw error
       }
     },
@@ -277,7 +278,7 @@ export const useEtsyStore = defineStore('etsy', {
 
         return newListing
       } catch (error: any) {
-        console.error('Erreur création listing Etsy:', error)
+        etsyLogger.error('Erreur création listing Etsy', { error })
         throw error
       } finally {
         this.isLoading = false
@@ -302,7 +303,7 @@ export const useEtsyStore = defineStore('etsy', {
 
         return updatedListing
       } catch (error: any) {
-        console.error('Erreur mise à jour listing Etsy:', error)
+        etsyLogger.error('Erreur mise à jour listing Etsy', { error })
         throw error
       } finally {
         this.isLoading = false
@@ -325,7 +326,7 @@ export const useEtsyStore = defineStore('etsy', {
         // Recharger les stats
         await this.fetchStats()
       } catch (error: any) {
-        console.error('Erreur suppression listing Etsy:', error)
+        etsyLogger.error('Erreur suppression listing Etsy', { error })
         throw error
       } finally {
         this.isLoading = false

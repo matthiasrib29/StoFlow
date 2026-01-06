@@ -230,6 +230,7 @@
 </template>
 
 <script setup lang="ts">
+import { subscriptionLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -351,7 +352,7 @@ const handlePayment = async () => {
     // La redirection vers Stripe se fait automatiquement
     // L'utilisateur reviendra sur la page success ou cancel après le paiement
   } catch (err: any) {
-    console.error('Payment error:', err)
+    subscriptionLogger.error('Payment error', { error: err.message })
     showError('Erreur de paiement', err.data?.detail || err.message || 'Une erreur est survenue lors de la création de la session de paiement', 5000)
     processing.value = false
   }

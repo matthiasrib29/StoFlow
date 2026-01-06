@@ -4,7 +4,7 @@
  * Provides connection status checking and disconnect functionality
  * for any marketplace platform (Vinted, eBay, Etsy)
  */
-
+import { platformLogger } from '~/utils/logger'
 import type { PlatformCode } from './usePlatformJobs'
 
 interface PlatformConnectionConfig {
@@ -55,7 +55,7 @@ export const usePlatformConnection = (platformCode: PlatformCode) => {
     } catch (err: any) {
       isConnected.value = false
       error.value = err.message || `Failed to fetch ${config.name} status`
-      console.error(`[usePlatformConnection:${platformCode}] fetchStatus error:`, err)
+      platformLogger.error(`[${platformCode}] fetchStatus error`, { error: err.message })
     } finally {
       isLoading.value = false
     }
@@ -80,7 +80,7 @@ export const usePlatformConnection = (platformCode: PlatformCode) => {
       return true
     } catch (err: any) {
       error.value = err.message || `Failed to disconnect ${config.name}`
-      console.error(`[usePlatformConnection:${platformCode}] disconnect error:`, err)
+      platformLogger.error(`[${platformCode}] disconnect error`, { error: err.message })
       return false
     } finally {
       isLoading.value = false

@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import type { ProductFormData } from '~/types/product'
+import { productLogger } from '~/utils/logger'
 
 const STORAGE_KEY = 'stoflow_product_draft'
 const EXPIRY_DAYS = 7
@@ -71,7 +72,7 @@ export function useProductDraft() {
       lastSaved.value = new Date()
       hasDraft.value = true
     } catch (error) {
-      console.warn('[useProductDraft] Failed to save draft:', error)
+      productLogger.warn('Failed to save draft', { error })
     }
   }
 
@@ -110,7 +111,7 @@ export function useProductDraft() {
         photoCount: draft.photoCount
       }
     } catch (error) {
-      console.warn('[useProductDraft] Failed to load draft:', error)
+      productLogger.warn('Failed to load draft', { error })
       return null
     }
   }
@@ -124,7 +125,7 @@ export function useProductDraft() {
       hasDraft.value = false
       lastSaved.value = null
     } catch (error) {
-      console.warn('[useProductDraft] Failed to clear draft:', error)
+      productLogger.warn('Failed to clear draft', { error })
     }
   }
 

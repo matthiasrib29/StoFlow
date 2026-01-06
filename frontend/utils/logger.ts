@@ -142,3 +142,16 @@ export const authLogger = createLogger({ prefix: 'Auth' })
 export const apiLogger = createLogger({ prefix: 'API' })
 export const pluginLogger = createLogger({ prefix: 'Plugin' })
 export const oauthLogger = createLogger({ prefix: 'OAuth' })
+
+// Platform-specific loggers
+export const ebayLogger = createLogger({ prefix: 'eBay' })
+export const etsyLogger = createLogger({ prefix: 'Etsy' })
+export const vintedLogger = createLogger({ prefix: 'Vinted' })
+
+// Domain-specific loggers
+export const productLogger = createLogger({ prefix: 'Products' })
+export const platformLogger = createLogger({ prefix: 'Platform' })
+export const subscriptionLogger = createLogger({ prefix: 'Subscription' })
+export const adminLogger = createLogger({ prefix: 'Admin' })
+export const attributeLogger = createLogger({ prefix: 'Attributes' })
+export const docsLogger = createLogger({ prefix: 'Docs' })

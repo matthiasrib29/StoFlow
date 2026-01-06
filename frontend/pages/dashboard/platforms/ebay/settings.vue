@@ -238,6 +238,7 @@
 
 <script setup lang="ts">
 import { useConfirm } from 'primevue/useconfirm'
+import { ebayLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -353,7 +354,7 @@ onMounted(async () => {
       await loadPolicies()
     }
   } catch (e) {
-    console.error('Error on mount:', e)
+    ebayLogger.error('Failed to initialize eBay settings', { error: e })
   }
 })
 </script>

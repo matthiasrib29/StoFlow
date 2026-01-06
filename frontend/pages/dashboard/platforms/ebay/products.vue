@@ -225,6 +225,7 @@
 
 <script setup lang="ts">
 import { formatCurrency, getStatusLabel, getStatusSeverity } from '~/utils/formatters'
+import { ebayLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -291,7 +292,7 @@ const fetchProducts = async () => {
     totalProducts.value = response?.total || 0
   } catch (e: any) {
     error.value = e.message || 'Erreur lors du chargement'
-    console.error('Error fetching eBay products:', e)
+    ebayLogger.error('Failed to fetch eBay products', { error: e.message })
   } finally {
     loading.value = false
   }
@@ -363,7 +364,7 @@ onMounted(async () => {
       await fetchProducts()
     }
   } catch (e) {
-    console.error('Error on mount:', e)
+    ebayLogger.error('Failed to initialize eBay products page', { error: e })
   }
 })
 </script>
