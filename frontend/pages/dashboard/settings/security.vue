@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Page Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-secondary-900 mb-1">Sécurité</h1>
-      <p class="text-gray-600">Gérez la sécurité de votre compte</p>
-    </div>
+    <PageHeader
+      title="Sécurité"
+      subtitle="Gérez la sécurité de votre compte"
+    />
 
     <!-- Contenu -->
     <div class="space-y-6">

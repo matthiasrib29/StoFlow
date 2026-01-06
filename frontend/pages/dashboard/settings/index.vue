@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Page Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-secondary-900 mb-1">Profil</h1>
-      <p class="text-gray-600">Gérez vos informations personnelles</p>
-    </div>
+    <PageHeader
+      title="Profil"
+      subtitle="Gérez vos informations personnelles"
+    />
 
     <!-- Contenu -->
     <Card class="shadow-sm modern-rounded border border-gray-100">

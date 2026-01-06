@@ -20,19 +20,19 @@
 
     <!-- Edit Form -->
     <div v-else>
-      <!-- Page Header -->
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h1 class="text-2xl font-bold text-secondary-900">Modifier le produit</h1>
-          <p class="text-sm text-gray-500">{{ product.title }}</p>
-        </div>
-        <Button
-          label="Retour"
-          icon="pi pi-arrow-left"
-          class="bg-gray-200 hover:bg-gray-300 text-secondary-900 border-0"
-          @click="$router.push('/dashboard/products')"
-        />
-      </div>
+      <PageHeader
+        title="Modifier le produit"
+        :subtitle="product.title"
+      >
+        <template #actions>
+          <Button
+            label="Retour"
+            icon="pi pi-arrow-left"
+            class="bg-gray-200 hover:bg-gray-300 text-secondary-900 border-0"
+            @click="$router.push('/dashboard/products')"
+          />
+        </template>
+      </PageHeader>
 
       <!-- Photo Section Title -->
       <div class="flex items-center justify-between mb-2">

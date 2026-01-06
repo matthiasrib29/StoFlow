@@ -1,20 +1,18 @@
 <template>
   <div class="p-4 lg:p-8">
-    <!-- Page Header -->
-    <div class="mb-6 lg:mb-8">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
-        <div>
-          <h1 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">Produits StoFlow</h1>
-          <p class="text-gray-600 text-sm lg:text-base">Gérez votre catalogue de produits</p>
-        </div>
+    <PageHeader
+      title="Produits StoFlow"
+      subtitle="Gérez votre catalogue de produits"
+    >
+      <template #actions>
         <Button
           label="Créer un produit"
           icon="pi pi-plus"
-          class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold w-full sm:w-auto"
+          class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
           @click="$router.push('/dashboard/products/create')"
         />
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <ProductsFilterBar
