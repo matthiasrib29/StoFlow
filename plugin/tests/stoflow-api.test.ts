@@ -1,5 +1,7 @@
 /**
  * Tests for StoflowAPI client
+ *
+ * Updated: 2026-01-06 - Removed polling-related tests (externally_connectable migration)
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -47,103 +49,54 @@ describe('StoflowAPI', () => {
     (chrome.storage.local.get as any).mockResolvedValue({});
   });
 
-  describe('isAuthenticated', () => {
-    it('should return false when no token is stored', async () => {
+  describe('refreshAccessToken', () => {
+    it('should return error when no refresh token', async () => {
       (chrome.storage.local.get as any).mockResolvedValue({});
 
-      const result = await StoflowAPI.isAuthenticated();
+      const result = await StoflowAPI.refreshAccessToken();
 
-      expect(result).toBe(false);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('no_refresh_token');
     });
 
-    it('should return true when token exists', async () => {
+    it('should refresh token successfully', async () => {
       (chrome.storage.local.get as any).mockResolvedValue({
-        stoflow_access_token: 'valid-token'
-      });
-
-      const result = await StoflowAPI.isAuthenticated();
-
-      expect(result).toBe(true);
-    });
-  });
-
-  describe('getToken', () => {
-    it('should return null when no token', async () => {
-      (chrome.storage.local.get as any).mockResolvedValue({});
-
-      const token = await StoflowAPI.getToken();
-
-      expect(token).toBe(null);
-    });
-
-    it('should return token when available', async () => {
-      (chrome.storage.local.get as any).mockResolvedValue({
-        stoflow_access_token: 'my-token'
-      });
-
-      const token = await StoflowAPI.getToken();
-
-      expect(token).toBe('my-token');
-    });
-  });
-
-  describe('request', () => {
-    it('should make authenticated request with correct headers', async () => {
-      (chrome.storage.local.get as any).mockResolvedValue({
-        stoflow_access_token: 'test-token'
+        stoflow_refresh_token: 'valid-refresh-token'
       });
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ data: 'test' })
+        json: () => Promise.resolve({
+          access_token: 'new-access-token',
+          refresh_token: 'new-refresh-token'
+        })
       });
 
-      await StoflowAPI.request('/test-endpoint', { method: 'GET' });
+      const result = await StoflowAPI.refreshAccessToken();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/test-endpoint'),
+      expect(result.success).toBe(true);
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
         expect.objectContaining({
-          headers: expect.objectContaining({
-            'Authorization': 'Bearer test-token',
-            'Content-Type': 'application/json'
-          })
+          stoflow_access_token: 'new-access-token'
         })
       );
     });
 
-    it('should throw error on 401 response', async () => {
+    it('should clear tokens on 401 response', async () => {
       (chrome.storage.local.get as any).mockResolvedValue({
-        stoflow_access_token: 'expired-token'
+        stoflow_refresh_token: 'expired-refresh-token'
       });
 
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
-        json: () => Promise.resolve({ detail: 'Token expired' })
+        text: () => Promise.resolve('Token expired')
       });
 
-      await expect(StoflowAPI.request('/test', { method: 'GET' }))
-        .rejects.toThrow();
-    });
-  });
+      const result = await StoflowAPI.refreshAccessToken();
 
-  describe('getTasksWithLongPolling', () => {
-    it('should make request with correct timeout', async () => {
-      (chrome.storage.local.get as any).mockResolvedValue({
-        stoflow_access_token: 'test-token'
-      });
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ tasks: [] })
-      });
-
-      await StoflowAPI.getTasksWithLongPolling(30);
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('timeout=30'),
-        expect.any(Object)
-      );
+      expect(result.success).toBe(false);
+      expect(chrome.storage.local.remove).toHaveBeenCalled();
     });
   });
 
@@ -161,55 +114,76 @@ describe('StoflowAPI', () => {
       await StoflowAPI.syncVintedUser('12345', 'testuser');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/vinted/sync'),
+        expect.stringContaining('/vinted/connect'),
         expect.objectContaining({
           method: 'POST',
           body: expect.stringContaining('12345')
         })
       );
     });
+
+    it('should throw error on backend failure', async () => {
+      (chrome.storage.local.get as any).mockResolvedValue({
+        stoflow_access_token: 'test-token'
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: () => Promise.resolve('Server error')
+      });
+
+      await expect(StoflowAPI.syncVintedUser('12345', 'testuser'))
+        .rejects.toThrow();
+    });
   });
 
-  describe('completeTask', () => {
-    it('should send task completion to backend', async () => {
+  describe('getVintedConnectionStatus', () => {
+    it('should fetch vinted connection status', async () => {
       (chrome.storage.local.get as any).mockResolvedValue({
         stoflow_access_token: 'test-token'
       });
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ success: true })
+        json: () => Promise.resolve({
+          is_connected: true,
+          vinted_user_id: '12345',
+          login: 'testuser'
+        })
       });
 
-      await StoflowAPI.completeTask('task-123', { result: 'done' });
+      const result = await StoflowAPI.getVintedConnectionStatus();
 
+      expect(result.is_connected).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/tasks/task-123/complete'),
+        expect.stringContaining('/vinted/status'),
         expect.objectContaining({
-          method: 'POST'
+          method: 'GET'
         })
       );
     });
   });
 
-  describe('failTask', () => {
-    it('should send task failure to backend', async () => {
+  describe('notifyVintedDisconnect', () => {
+    it('should notify backend of vinted disconnect', async () => {
       (chrome.storage.local.get as any).mockResolvedValue({
         stoflow_access_token: 'test-token'
       });
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ success: true })
+        json: () => Promise.resolve({ message: 'Disconnection recorded' })
       });
 
-      await StoflowAPI.failTask('task-456', 'Something went wrong');
+      const result = await StoflowAPI.notifyVintedDisconnect();
 
+      expect(result.message).toBe('Disconnection recorded');
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/tasks/task-456/fail'),
+        expect.stringContaining('/vinted/notify-disconnect'),
         expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('Something went wrong')
+          method: 'POST'
         })
       );
     });
