@@ -19,6 +19,10 @@ const STATE_MAX_AGE_MS = 10 * 60 * 1000 // 10 minutes
  * Generate a cryptographically secure random state
  */
 const generateState = (): string => {
+  if (!import.meta.client) {
+    // Fallback côté serveur (jamais utilisé en pratique car OAuth = client-only)
+    return ''
+  }
   const array = new Uint8Array(32)
   crypto.getRandomValues(array)
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
@@ -28,6 +32,7 @@ const generateState = (): string => {
  * Store OAuth state in sessionStorage
  */
 const storeState = (state: string): void => {
+  if (!import.meta.client) return
   sessionStorage.setItem(OAUTH_STATE_KEY, state)
   sessionStorage.setItem(OAUTH_STATE_TIMESTAMP_KEY, Date.now().toString())
 }
@@ -36,6 +41,8 @@ const storeState = (state: string): void => {
  * Retrieve and validate stored OAuth state
  */
 const retrieveAndValidateState = (receivedState: string): boolean => {
+  if (!import.meta.client) return false
+
   const storedState = sessionStorage.getItem(OAUTH_STATE_KEY)
   const storedTimestamp = sessionStorage.getItem(OAUTH_STATE_TIMESTAMP_KEY)
 
@@ -69,6 +76,7 @@ const retrieveAndValidateState = (receivedState: string): boolean => {
  * Clear any pending OAuth state
  */
 const clearState = (): void => {
+  if (!import.meta.client) return
   sessionStorage.removeItem(OAUTH_STATE_KEY)
   sessionStorage.removeItem(OAUTH_STATE_TIMESTAMP_KEY)
 }
@@ -95,7 +103,14 @@ export const useEbayOAuth = () => {
   const getOAuthUrl = (): string => {
     const baseUrl = 'https://auth.ebay.com/oauth2/authorize'
     const clientId = (config.public.ebayClientId as string) || 'YOUR_EBAY_CLIENT_ID'
-    const redirectUri = (config.public.ebayRedirectUri as string) || `${window.location.origin}/dashboard/platforms/ebay/callback`
+
+    let redirectUri = config.public.ebayRedirectUri as string
+    if (!redirectUri && import.meta.client) {
+      redirectUri = `${window.location.origin}/dashboard/platforms/ebay/callback`
+    } else if (!redirectUri) {
+      // Fallback côté serveur (ne devrait jamais arriver si .env configuré)
+      redirectUri = 'http://localhost:3000/dashboard/platforms/ebay/callback'
+    }
     const params = new URLSearchParams({
       client_id: clientId,
       response_type: 'code',
@@ -123,6 +138,11 @@ export const useEbayOAuth = () => {
    * SECURITY: Generates and stores a state parameter to prevent CSRF attacks
    */
   const initiateOAuth = async (onSuccess: () => void): Promise<boolean> => {
+    if (!import.meta.client) {
+      console.warn('OAuth initiation called on server-side, ignoring')
+      return false
+    }
+
     try {
       // Generate CSRF protection state
       const state = generateState()

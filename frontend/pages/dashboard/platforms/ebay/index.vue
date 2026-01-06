@@ -198,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatCurrency } from '~/utils/formatters'
+import { formatCurrency, formatNumber } from '~/utils/formatters'
 import { ebayLogger } from '~/utils/logger'
 
 definePageMeta({
@@ -237,10 +237,6 @@ const getSellerLevelSeverity = () => {
   if (level === 'above_standard') return 'info'
   if (level === 'standard') return 'warning'
   return 'secondary'
-}
-
-const formatNumber = (value: number): string => {
-  return new Intl.NumberFormat('fr-FR').format(value || 0)
 }
 
 

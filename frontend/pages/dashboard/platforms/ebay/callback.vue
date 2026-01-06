@@ -97,7 +97,9 @@ const processCallback = async () => {
 
     // Fermer la fenêtre après 2 secondes
     setTimeout(() => {
-      window.close()
+      if (import.meta.client) {
+        window.close()
+      }
     }, 2000)
 
   } catch (err: any) {
@@ -108,7 +110,9 @@ const processCallback = async () => {
 }
 
 const retry = () => {
-  window.close()
+  if (import.meta.client) {
+    window.close()
+  }
 }
 
 onMounted(() => {
