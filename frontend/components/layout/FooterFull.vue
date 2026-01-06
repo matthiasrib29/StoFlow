@@ -31,9 +31,10 @@
         <div>
           <h4 class="font-bold mb-4 text-white">Légal</h4>
           <ul class="space-y-2 text-gray-400">
-            <li><a href="#" class="hover:text-white transition-colors">Mentions légales</a></li>
-            <li><a href="#" class="hover:text-white transition-colors">CGU</a></li>
-            <li><a href="#" class="hover:text-white transition-colors">Politique de confidentialité</a></li>
+            <li><NuxtLink to="/legal/mentions" class="hover:text-white transition-colors">Mentions légales</NuxtLink></li>
+            <li><NuxtLink to="/legal/cgu" class="hover:text-white transition-colors">CGU</NuxtLink></li>
+            <li><NuxtLink to="/legal/cgv" class="hover:text-white transition-colors">CGV</NuxtLink></li>
+            <li><NuxtLink to="/legal/privacy" class="hover:text-white transition-colors">Politique de confidentialité</NuxtLink></li>
           </ul>
         </div>
       </div>
