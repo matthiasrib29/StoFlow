@@ -1,15 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useAuth } from '../composables/useAuth';
-import LoginForm from '../components/LoginForm.vue';
 import DevModeBanner from '../components/DevModeBanner.vue';
 import VintedSessionInfo from '../components/VintedSessionInfo.vue';
-
-const { isAuthenticated, user, checkAuth } = useAuth();
-
-onMounted(async () => {
-  await checkAuth();
-});
 </script>
 
 <template>
@@ -21,23 +12,12 @@ onMounted(async () => {
     </header>
 
     <main>
-      <!-- Formulaire de connexion si non authentifié -->
-      <LoginForm v-if="!isAuthenticated" />
-
-      <!-- Statut si authentifié -->
-      <div v-else class="status-container">
-        <!-- Connexion Stoflow -->
-        <div class="status-card">
-          <div class="status-header">
-            <div class="status-icon connected">🟢</div>
-            <div>
-              <h2>Connexion Stoflow</h2>
-              <p class="status-detail">Authentifié</p>
-            </div>
-          </div>
-          <div class="user-info">
-            <span class="user-email">{{ user?.email || 'Utilisateur' }}</span>
-          </div>
+      <div class="status-container">
+        <!-- Info Auth -->
+        <div class="info-card">
+          <p class="info-text">
+            🔐 Gérez votre authentification sur <strong>stoflow.io</strong>
+          </p>
         </div>
 
         <!-- Connexion Vinted avec informations détaillées -->
@@ -46,7 +26,7 @@ onMounted(async () => {
         <!-- Info automatique -->
         <div class="info-card">
           <p class="info-text">
-            ℹ️ La synchronisation se fait <strong>automatiquement</strong> en arrière-plan.
+            ℹ️ Le plugin agit comme proxy entre stoflow.io et Vinted.
           </p>
         </div>
       </div>
