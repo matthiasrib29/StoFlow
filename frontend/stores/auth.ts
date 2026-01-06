@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { syncTokenToPlugin, syncLogoutToPlugin } from '~/composables/usePluginSync'
+import { syncTokenToPlugin, syncLogoutToPlugin } from '~/composables/useVintedBridge'
 import { useTokenValidator } from '~/composables/useTokenValidator'
 import {
   setAuthData,

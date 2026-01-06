@@ -3,7 +3,7 @@
  */
 
 import { APILogger } from '../utils/logger';
-import { ENV, CONSTANTS, getActiveBackendUrl } from '../config/environment';
+import { CONSTANTS, getActiveBackendUrl } from '../config/environment';
 
 export class StoflowAPI {
   /**
@@ -185,66 +185,6 @@ export class StoflowAPI {
   }
 
   /**
-   * Récupère les tâches avec LONG POLLING
-   *
-   * La requête reste ouverte jusqu'au timeout côté backend:
-   * - Si tâche disponible → retour immédiat
-   * - Si pas de tâche → attente jusqu'à timeout
-   *
-   * @param timeout Timeout en secondes (default: ENV.LONG_POLL_TIMEOUT)
-   * @returns {tasks, has_pending_tasks, next_poll_interval_ms}
-   */
-  static async getTasksWithLongPolling(timeout: number = ENV.LONG_POLL_TIMEOUT): Promise<{
-    tasks: any[];
-    has_pending_tasks: boolean;
-    next_poll_interval_ms: number;
-  }> {
-    // AbortController pour gérer le timeout côté client (35s = 30s backend + 5s marge)
-    const controller = new AbortController();
-    const clientTimeout = setTimeout(() => controller.abort(), (timeout + 5) * 1000);
-
-    try {
-      const baseUrl = this.getBaseUrl();
-      const response = await this.fetchWithAuth(
-        `${baseUrl}/api/plugin/tasks?timeout=${timeout}`,
-        {
-          method: 'GET',
-          signal: controller.signal
-        }
-      );
-
-      clearTimeout(clientTimeout);
-
-      if (!response.ok) {
-        throw new Error(`Erreur backend: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (data.has_pending_tasks) {
-        APILogger.debug(`[StoflowAPI] Long Polling: ${data.tasks?.length || 0} tâche(s) reçue(s)`);
-      }
-
-      return {
-        tasks: data.tasks || [],
-        has_pending_tasks: data.has_pending_tasks || false,
-        next_poll_interval_ms: data.next_poll_interval_ms || 0
-      };
-    } catch (error: any) {
-      clearTimeout(clientTimeout);
-
-      // Ne pas logger les erreurs d'abort (timeout normal)
-      if (error.name === 'AbortError') {
-        APILogger.debug('[StoflowAPI] Long Polling: timeout client');
-        return { tasks: [], has_pending_tasks: false, next_poll_interval_ms: 5000 };
-      }
-
-      APILogger.error('[StoflowAPI] Erreur long polling:', error);
-      throw error; // Propager l'erreur pour que le PollingManager gère le retry
-    }
-  }
-
-  /**
    * Notifie le backend d'une déconnexion Vinted détectée
    *
    * Appelé par le plugin quand il détecte que l'utilisateur n'est plus connecté à Vinted.
@@ -276,33 +216,4 @@ export class StoflowAPI {
     }
   }
 
-  /**
-   * Rapporte qu'une tâche est terminée avec les données
-   */
-  static async reportTaskComplete(taskId: string, result: any): Promise<any> {
-    try {
-      APILogger.debug(`[StoflowAPI] Envoi résultat tâche ${taskId}...`);
-
-      const baseUrl = this.getBaseUrl();
-      const response = await this.fetchWithAuth(`${baseUrl}/api/plugin/tasks/${taskId}/result`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(result)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur backend: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      APILogger.debug(`[StoflowAPI] ✅ Tâche ${taskId} terminée`);
-
-      return data;
-    } catch (error) {
-      APILogger.error('[StoflowAPI] Erreur report task:', error);
-      throw error;
-    }
-  }
 }

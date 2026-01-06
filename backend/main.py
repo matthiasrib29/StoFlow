@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, Request
-from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -36,7 +35,6 @@ from api.subscription import router as subscription_router
 from api.vinted import router as vinted_router  # Now from api/vinted/__init__.py
 from middleware.rate_limit import rate_limit_middleware
 from middleware.security_headers import SecurityHeadersMiddleware
-from models.user.plugin_task import PluginTask, TaskStatus
 from services.r2_service import r2_service
 from services.datadome_scheduler import (
     start_datadome_scheduler,
@@ -44,7 +42,7 @@ from services.datadome_scheduler import (
     get_datadome_scheduler
 )
 from shared.config import settings
-from shared.database import SessionLocal
+# Note: SessionLocal removed - no longer needed after plugin tasks cleanup removal
 from shared.logging_setup import setup_logging
 
 # Configuration du logging
@@ -59,104 +57,6 @@ app = FastAPI(
 )
 
 
-def cleanup_all_pending_plugin_tasks() -> dict[str, int]:
-    """
-    Annule TOUTES les tâches plugin PENDING/PROCESSING au démarrage.
-
-    CRITICAL (2025-12-18): Évite le flood Vinted au restart.
-    - Annule TOUTES les tâches PENDING (pas seulement les vieilles)
-    - Annule TOUTES les tâches PROCESSING (plugin crashé)
-    - Empêche le plugin de récupérer des tâches abandonnées
-
-    Returns:
-        dict: {"cancelled": int, "schemas_processed": int}
-    """
-    db = SessionLocal()
-    cancelled_total = 0
-    schemas_processed = 0
-
-    try:
-        # Récupérer tous les schémas utilisateur
-        result = db.execute(text(
-            "SELECT schema_name FROM information_schema.schemata "
-            "WHERE schema_name LIKE 'user_%'"
-        ))
-        user_schemas = [row[0] for row in result]
-
-        for schema in user_schemas:
-            try:
-                # Skip invalid schemas (template, test schemas without tables)
-                if schema in ("user_invalid", "template_tenant"):
-                    continue
-
-                # Vérifier que la table plugin_tasks existe dans ce schéma
-                table_exists = db.execute(text("""
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.tables
-                        WHERE table_schema = :schema AND table_name = 'plugin_tasks'
-                    )
-                """), {"schema": schema}).scalar()
-
-                if not table_exists:
-                    continue
-
-                # Configurer le search_path pour ce schéma
-                db.execute(text(f"SET LOCAL search_path TO {schema}, public"))
-
-                # Annuler TOUTES les tâches PENDING
-                pending_result = db.execute(text("""
-                    UPDATE plugin_tasks
-                    SET status = :cancelled_status,
-                        error_message = :error_msg,
-                        completed_at = NOW()
-                    WHERE status = :pending_status
-                """), {
-                    "cancelled_status": TaskStatus.CANCELLED.value,
-                    "pending_status": TaskStatus.PENDING.value,
-                    "error_msg": "Auto-cancelled at backend startup",
-                })
-                pending_cancelled = pending_result.rowcount
-
-                # Annuler TOUTES les tâches PROCESSING (plugin crashé)
-                processing_result = db.execute(text("""
-                    UPDATE plugin_tasks
-                    SET status = :cancelled_status,
-                        error_message = :error_msg,
-                        completed_at = NOW()
-                    WHERE status = :processing_status
-                """), {
-                    "cancelled_status": TaskStatus.CANCELLED.value,
-                    "processing_status": TaskStatus.PROCESSING.value,
-                    "error_msg": "Auto-cancelled at backend startup (stale processing)",
-                })
-                processing_cancelled = processing_result.rowcount
-
-                schema_total = pending_cancelled + processing_cancelled
-                if schema_total > 0:
-                    logger.info(
-                        f"🧹 {schema}: {schema_total} tâches annulées "
-                        f"({pending_cancelled} pending, {processing_cancelled} processing)"
-                    )
-                    cancelled_total += schema_total
-
-                schemas_processed += 1
-
-            except Exception as e:
-                logger.warning(f"Erreur nettoyage {schema}: {e}")
-                db.rollback()  # CRITICAL: Rollback to recover from failed transaction
-                continue
-
-        db.commit()
-
-    except Exception as e:
-        logger.error(f"Erreur nettoyage global des tâches: {e}")
-        db.rollback()
-    finally:
-        db.close()
-
-    return {"cancelled": cancelled_total, "schemas_processed": schemas_processed}
-
-
 # Startup event: créer répertoire uploads
 @app.on_event("startup")
 async def startup_event():
@@ -165,9 +65,6 @@ async def startup_event():
 
     Security (2025-12-05):
     - Valide que les secrets requis sont configurés via .env
-
-    Safety (2025-12-18):
-    - Nettoie les tâches plugin obsolètes pour éviter flood Vinted
     """
     # ===== SECURITY FIX (2025-12-05): Validate secrets at startup =====
     required_secrets = [
@@ -190,19 +87,6 @@ async def startup_event():
         )
         logger.error(error_msg)
         raise ValueError(error_msg)
-
-    # ===== SAFETY FIX (2025-12-18): Cleanup ALL pending plugin tasks =====
-    # CRITIQUE: Évite le flood Vinted au redémarrage
-    # Annule TOUTES les tâches PENDING/PROCESSING (pas seulement les vieilles)
-    # car elles appartiennent à une session précédente et ne doivent pas être exécutées
-    cleanup_result = cleanup_all_pending_plugin_tasks()
-    if cleanup_result["cancelled"] > 0:
-        logger.warning(
-            f"🧹 Nettoyage tâches au démarrage: {cleanup_result['cancelled']} annulées "
-            f"dans {cleanup_result['schemas_processed']} schémas"
-        )
-    else:
-        logger.info("✅ Aucune tâche en attente à nettoyer")
 
     logger.info("✅ All required secrets configured")
 

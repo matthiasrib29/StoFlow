@@ -1,8 +1,18 @@
-// Background service worker pour Firefox/Chrome (Manifest V3)
+/**
+ * Background service worker for StoFlow Extension (Manifest V3)
+ *
+ * Architecture: externally_connectable
+ * - Receives messages directly from stoflow.io via chrome.runtime.onMessageExternal
+ * - Executes Vinted operations via content scripts
+ * - No polling - all operations are request/response
+ *
+ * Author: Claude
+ * Date: 2026-01-06
+ */
 
 import { StoflowAPI } from '../api/StoflowAPI';
-import { PollingManager } from './PollingManager';
 import { BackgroundLogger } from '../utils/logger';
+import { handleExternalMessage, isAllowedOrigin, ExternalMessage, ExternalResponse } from './VintedActionHandler';
 
 interface Message {
   action: string;
@@ -10,81 +20,103 @@ interface Message {
 }
 
 class BackgroundService {
-  private pollingManager: PollingManager;
-
   constructor() {
-    this.pollingManager = new PollingManager();
     this.setupListeners();
-    this.startAutoSync();
     this.checkAndRefreshTokenOnStartup();
+    BackgroundLogger.info('🚀 [Background] StoFlow Extension v2.0 started (externally_connectable mode)');
   }
 
   private setupListeners(): void {
-    // Écouter messages depuis popup/content scripts
+    // Listen to messages from popup/content scripts (internal)
     chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
-      this.handleMessage(message, sender).then(sendResponse);
+      this.handleInternalMessage(message, sender).then(sendResponse);
       return true; // Keep channel open for async response
     });
 
-    // Écouter messages EXTERNES depuis stoflow.io (SSO direct)
+    // Listen to EXTERNAL messages from stoflow.io (externally_connectable)
     if (chrome.runtime.onMessageExternal) {
-      chrome.runtime.onMessageExternal.addListener((message: Message, sender, sendResponse) => {
-        BackgroundLogger.debug('External message received', { action: message.action, from: sender.url });
+      chrome.runtime.onMessageExternal.addListener((message: ExternalMessage, sender, sendResponse) => {
+        BackgroundLogger.debug('[Background] External message received', {
+          action: message.action,
+          requestId: message.requestId,
+          from: sender.url
+        });
 
-        // Vérifier que le message vient de stoflow.io
-        if (sender.url && sender.url.includes('stoflow.io')) {
-          this.handleMessage(message, sender).then(sendResponse);
-        } else {
-          BackgroundLogger.warn('External message rejected (unauthorized origin)', sender.url);
-          sendResponse({ success: false, error: 'Unauthorized origin' });
+        // Verify the message comes from an allowed origin
+        if (!isAllowedOrigin(sender.url)) {
+          BackgroundLogger.warn('[Background] External message rejected (unauthorized origin)', sender.url);
+          sendResponse({
+            success: false,
+            error: 'Unauthorized origin',
+            errorCode: 'UNAUTHORIZED_ORIGIN'
+          });
+          return true;
         }
 
+        // Handle the message
+        this.handleExternalMessage(message, sender).then(sendResponse);
         return true;
       });
-      BackgroundLogger.debug('onMessageExternal listener configured');
+
+      BackgroundLogger.debug('[Background] onMessageExternal listener configured for stoflow.io');
     } else {
-      BackgroundLogger.debug('onMessageExternal not available (Firefox?)');
+      BackgroundLogger.debug('[Background] onMessageExternal not available (Firefox uses content script fallback)');
     }
 
-    // Écouter installation
-    chrome.runtime.onInstalled.addListener(() => {
-      this.onInstall();
+    // Listen for installation
+    chrome.runtime.onInstalled.addListener((details) => {
+      this.onInstall(details);
     });
   }
 
-  private async handleMessage(
+  /**
+   * Handle external messages from stoflow.io
+   * Routes to VintedActionHandler for Vinted operations, or handles auth locally
+   */
+  private async handleExternalMessage(
+    message: ExternalMessage,
+    sender: chrome.runtime.MessageSender
+  ): Promise<ExternalResponse> {
+    const { action, requestId, payload } = message;
+
+    // Auth actions are handled locally
+    if (action === 'SYNC_TOKEN_FROM_WEBSITE') {
+      const result = await this.syncTokenFromWebsite(message);
+      return { ...result, requestId };
+    }
+
+    if (action === 'LOGOUT_FROM_WEBSITE') {
+      const result = await this.logoutFromWebsite();
+      return { ...result, requestId };
+    }
+
+    // All other actions are delegated to VintedActionHandler
+    return handleExternalMessage(message);
+  }
+
+  /**
+   * Handle internal messages from popup/content scripts
+   */
+  private async handleInternalMessage(
     message: Message,
     sender: chrome.runtime.MessageSender
   ): Promise<any> {
-    BackgroundLogger.debug('Message received', { action: message.action });
+    BackgroundLogger.debug('[Background] Internal message received', { action: message.action });
 
     switch (message.action) {
+      // ============ VINTED COOKIES (legacy, kept for popup) ============
       case 'SAVE_VINTED_COOKIES':
         return await this.saveVintedCookies(message.cookies);
 
       case 'GET_VINTED_INFO':
         return await this.getVintedInfo();
 
+      // ============ AUTH (from popup or content script) ============
       case 'SYNC_TOKEN_FROM_WEBSITE':
         return await this.syncTokenFromWebsite(message);
 
       case 'LOGOUT_FROM_WEBSITE':
         return await this.logoutFromWebsite();
-
-      case 'START_POLLING':
-        this.pollingManager.start();
-        return { success: true };
-
-      case 'STOP_POLLING':
-        this.pollingManager.stop();
-        return { success: true };
-
-      case 'SET_POLLING_INTERVAL':
-        this.pollingManager.setInterval(message.interval);
-        return { success: true };
-
-      case 'GET_VINTED_CONNECTION_STATUS':
-        return await this.getVintedConnectionStatus();
 
       case 'CHECK_AUTH_STATUS':
         return await this.checkAuthStatus();
@@ -92,64 +124,84 @@ class BackgroundService {
       case 'REFRESH_TOKEN':
         return await this.refreshAccessToken();
 
+      // ============ VINTED STATUS ============
+      case 'GET_VINTED_CONNECTION_STATUS':
+        return await this.getVintedConnectionStatus();
+
+      // ============ VINTED ACTIONS (forward to handler) ============
+      case 'VINTED_API_CALL':
+      case 'VINTED_GET_USER_INFO':
+      case 'VINTED_GET_USER_PROFILE':
+      case 'VINTED_GET_WARDROBE':
+      case 'VINTED_PUBLISH':
+      case 'VINTED_UPDATE':
+      case 'VINTED_DELETE':
+      case 'VINTED_BATCH':
+      case 'CHECK_VINTED_TAB':
+      case 'OPEN_VINTED_TAB':
+      case 'PING':
+        return handleExternalMessage(message);
+
       default:
         return { success: false, error: 'Unknown action' };
     }
   }
 
+  // ============================================================
+  // COOKIE MANAGEMENT (kept for popup compatibility)
+  // ============================================================
+
   private async saveVintedCookies(cookies: any[]): Promise<any> {
-    BackgroundLogger.debug('[Background] Sauvegarde de', cookies.length, 'cookies Vinted');
+    BackgroundLogger.debug('[Background] Saving', cookies.length, 'Vinted cookies');
 
     try {
-      // Sauvegarder dans le storage
       await chrome.storage.local.set({
         vinted_cookies: cookies,
         vinted_cookies_timestamp: Date.now()
       });
 
-      BackgroundLogger.debug('[Background] ✅ Cookies sauvegardés');
+      BackgroundLogger.debug('[Background] ✅ Cookies saved');
 
-      // Afficher un résumé
       const sessionCookie = cookies.find(c => c.name === 'v_sid' || c.name === '_vinted_fr_session');
       if (sessionCookie) {
-        BackgroundLogger.debug('[Background] 🔑 Session cookie trouvé:', sessionCookie.name);
+        BackgroundLogger.debug('[Background] 🔑 Session cookie found:', sessionCookie.name);
       }
 
       return { success: true, count: cookies.length };
-    } catch (error) {
-      BackgroundLogger.error('[Background] Erreur sauvegarde cookies:', error);
+    } catch (error: any) {
+      BackgroundLogger.error('[Background] Cookie save error:', error);
       return { success: false, error: error.message };
     }
   }
 
   private async getVintedInfo(): Promise<any> {
     try {
-      // Récupérer les infos utilisateur Vinted
       const cookies = await chrome.cookies.getAll({ domain: '.vinted.fr' });
-
-      BackgroundLogger.debug('[Background] Récupération infos utilisateur Vinted...');
-      BackgroundLogger.debug('[Background] Cookies disponibles:', cookies.length);
 
       return {
         success: true,
         cookies_count: cookies.length,
         has_session: cookies.some(c => c.name === 'v_sid' || c.name === '_vinted_fr_session')
       };
-    } catch (error) {
-      BackgroundLogger.error('[Background] Erreur récupération infos:', error);
+    } catch (error: any) {
+      BackgroundLogger.error('[Background] Get Vinted info error:', error);
       return { success: false, error: error.message };
     }
   }
 
+  // ============================================================
+  // AUTH MANAGEMENT
+  // ============================================================
+
   private async syncTokenFromWebsite(message: any): Promise<any> {
-    BackgroundLogger.debug('SSO token sync started');
+    BackgroundLogger.debug('[Background] SSO token sync started');
 
     try {
       const { access_token, refresh_token } = message;
 
       if (!access_token) {
-        BackgroundLogger.error('SSO sync failed: access_token missing');
-        throw new Error('access_token manquant');
+        BackgroundLogger.error('[Background] SSO sync failed: access_token missing');
+        throw new Error('access_token missing');
       }
 
       const { CONSTANTS } = await import('../config/environment');
@@ -160,22 +212,16 @@ class BackgroundService {
         [CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN]: refresh_token || null
       });
 
-      // Start polling automatically
-      this.pollingManager.start();
-
-      BackgroundLogger.success('SSO token synced successfully');
+      BackgroundLogger.success('[Background] SSO token synced successfully');
       return { success: true };
-    } catch (error) {
-      BackgroundLogger.error('SSO token sync failed', error);
+    } catch (error: any) {
+      BackgroundLogger.error('[Background] SSO token sync failed', error);
       return { success: false, error: error.message };
     }
   }
 
-  /**
-   * Déconnexion depuis le site web (SSO)
-   */
   private async logoutFromWebsite(): Promise<any> {
-    BackgroundLogger.debug('SSO logout started');
+    BackgroundLogger.debug('[Background] SSO logout started');
 
     try {
       const { CONSTANTS } = await import('../config/environment');
@@ -187,121 +233,14 @@ class BackgroundService {
         CONSTANTS.STORAGE_KEYS.USER_DATA
       ]);
 
-      // Stop polling
-      this.pollingManager.stop();
-
-      BackgroundLogger.success('SSO logout completed');
+      BackgroundLogger.success('[Background] SSO logout completed');
       return { success: true };
-    } catch (error) {
-      BackgroundLogger.error('SSO logout failed', error);
+    } catch (error: any) {
+      BackgroundLogger.error('[Background] SSO logout failed', error);
       return { success: false, error: error.message };
     }
   }
 
-  private async startAutoSync(): Promise<void> {
-    // Vérifier paramètres au démarrage
-    const storage = await chrome.storage.local.get(['polling_enabled', 'stoflow_access_token']);
-
-    // Si polling_enabled n'est pas défini mais qu'on a un token, l'activer par défaut
-    const pollingEnabled = storage.polling_enabled ?? !!storage.stoflow_access_token;
-
-    // Démarrer le polling si activé et authentifié
-    if (pollingEnabled && storage.stoflow_access_token) {
-      BackgroundLogger.debug('[Background] Démarrage du polling automatique');
-      this.pollingManager.start();
-    } else {
-      BackgroundLogger.debug('[Background] Polling désactivé (polling_enabled=' + pollingEnabled + ', token=' + !!storage.stoflow_access_token + ')');
-    }
-  }
-
-  private async onInstall(): Promise<void> {
-    BackgroundLogger.debug('Extension installed!');
-
-    // Setup initial
-    await chrome.storage.local.set({
-      polling_enabled: true,  // Activer le polling par défaut
-      settings: {
-        autoSync: true,
-        syncInterval: 60,
-        notifications: true,
-        platforms: {
-          vinted: { enabled: true, autoImport: false },
-          ebay: { enabled: true, autoImport: false },
-          etsy: { enabled: false, autoImport: false }
-        }
-      }
-    });
-
-    // Ouvrir page onboarding
-    await chrome.tabs.create({
-      url: chrome.runtime.getURL('options.html')
-    });
-  }
-
-
-
-  /**
-   * Vérifie et rafraîchit le token au démarrage du plugin
-   */
-  private async checkAndRefreshTokenOnStartup(): Promise<void> {
-    BackgroundLogger.debug('🚀 [BACKGROUND] Vérification token au démarrage...');
-
-    try {
-      const authStatus = await this.checkAuthStatus();
-
-      if (authStatus.authenticated) {
-        BackgroundLogger.debug(`✅ [BACKGROUND] Déjà authentifié (expire dans ${authStatus.expires_in_minutes} min);`);
-
-        // Si le token expire dans moins de 5 minutes, le rafraîchir
-        if (authStatus.expires_in_minutes < 5 && authStatus.has_refresh_token) {
-          BackgroundLogger.debug('🔄 [BACKGROUND] Token expire bientôt, refresh proactif...');
-          await this.refreshAccessToken();
-        }
-
-        // Démarrer le polling
-        this.pollingManager.start();
-      } else {
-        BackgroundLogger.debug(`⚠️ [BACKGROUND] Non authentifié: ${authStatus.reason || 'unknown'}`);
-
-        // Si le token est expiré mais qu'on a un refresh token, tenter le refresh
-        if (authStatus.reason === 'token_expired') {
-          const refreshResult = await this.refreshAccessToken();
-          if (refreshResult.success) {
-            BackgroundLogger.debug('✅ [BACKGROUND] Token rafraîchi avec succès au démarrage');
-            this.pollingManager.start();
-          }
-        }
-      }
-    } catch (error) {
-      BackgroundLogger.error('❌ [BACKGROUND] Erreur vérification token:', error);
-    }
-  }
-
-  private async showNotification(title: string, message: string): Promise<void> {
-    await chrome.notifications.create({
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('icons/icon48.png'),
-      title,
-      message
-    });
-  }
-
-  /**
-   * Récupère le statut de connexion Vinted
-   */
-  private async getVintedConnectionStatus(): Promise<any> {
-    try {
-      const result = await StoflowAPI.getVintedConnectionStatus();
-      return { success: true, data: result };
-    } catch (error) {
-      BackgroundLogger.error('[Background] ❌ Erreur statut Vinted:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Vérifie si l'utilisateur est authentifié à Stoflow
-   */
   private async checkAuthStatus(): Promise<any> {
     try {
       const { CONSTANTS } = await import('../config/environment');
@@ -317,16 +256,15 @@ class BackgroundService {
         return { authenticated: false, reason: 'no_token' };
       }
 
-      // Vérifier si le token est expiré (JWT decode basique)
+      // Verify token expiration (basic JWT decode)
       try {
         const payload = JSON.parse(atob(accessToken.split('.')[1]));
-        const expiresAt = payload.exp * 1000; // Convert to milliseconds
+        const expiresAt = payload.exp * 1000;
         const now = Date.now();
 
         if (now >= expiresAt) {
-          BackgroundLogger.debug('[Background] Token expiré, tentative de refresh...');
+          BackgroundLogger.debug('[Background] Token expired, attempting refresh...');
 
-          // Tenter un refresh si on a un refresh token
           if (refreshToken) {
             const refreshResult = await this.refreshAccessToken();
             if (refreshResult.success) {
@@ -337,7 +275,6 @@ class BackgroundService {
           return { authenticated: false, reason: 'token_expired' };
         }
 
-        // Token valide, calculer le temps restant
         const remainingMs = expiresAt - now;
         const remainingMinutes = Math.floor(remainingMs / 60000);
 
@@ -347,33 +284,102 @@ class BackgroundService {
           has_refresh_token: !!refreshToken
         };
       } catch (decodeError) {
-        // Token malformé
-        BackgroundLogger.error('[Background] Token malformé:', decodeError);
+        BackgroundLogger.error('[Background] Malformed token:', decodeError);
         return { authenticated: false, reason: 'invalid_token' };
       }
-    } catch (error) {
-      BackgroundLogger.error('[Background] Erreur check auth:', error);
+    } catch (error: any) {
+      BackgroundLogger.error('[Background] Auth check error:', error);
       return { authenticated: false, error: error.message };
     }
   }
 
-  /**
-   * Rafraîchit le token d'accès avec le refresh token
-   * Delegates to StoflowAPI.refreshAccessToken() to avoid code duplication
-   */
   private async refreshAccessToken(): Promise<{ success: boolean; error?: string }> {
-    BackgroundLogger.debug('[Background] 🔄 Tentative de refresh token...');
+    BackgroundLogger.debug('[Background] 🔄 Attempting token refresh...');
     const result = await StoflowAPI.refreshAccessToken();
 
     if (result.success) {
-      BackgroundLogger.debug('[Background] ✅ Token rafraîchi avec succès');
+      BackgroundLogger.debug('[Background] ✅ Token refreshed successfully');
     } else {
-      BackgroundLogger.error('[Background] ❌ Refresh échoué:', result.error);
+      BackgroundLogger.error('[Background] ❌ Refresh failed:', result.error);
     }
 
     return result;
   }
+
+  // ============================================================
+  // VINTED STATUS
+  // ============================================================
+
+  private async getVintedConnectionStatus(): Promise<any> {
+    try {
+      const result = await StoflowAPI.getVintedConnectionStatus();
+      return { success: true, data: result };
+    } catch (error: any) {
+      BackgroundLogger.error('[Background] ❌ Vinted status error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ============================================================
+  // LIFECYCLE
+  // ============================================================
+
+  private async checkAndRefreshTokenOnStartup(): Promise<void> {
+    BackgroundLogger.debug('[Background] 🚀 Checking token on startup...');
+
+    try {
+      const authStatus = await this.checkAuthStatus();
+
+      if (authStatus.authenticated) {
+        BackgroundLogger.debug(`[Background] ✅ Authenticated (expires in ${authStatus.expires_in_minutes} min)`);
+
+        // Proactive refresh if token expires soon
+        if (authStatus.expires_in_minutes < 5 && authStatus.has_refresh_token) {
+          BackgroundLogger.debug('[Background] 🔄 Token expiring soon, proactive refresh...');
+          await this.refreshAccessToken();
+        }
+      } else {
+        BackgroundLogger.debug(`[Background] ⚠️ Not authenticated: ${authStatus.reason || 'unknown'}`);
+
+        // Try refresh if token expired but we have refresh token
+        if (authStatus.reason === 'token_expired') {
+          const refreshResult = await this.refreshAccessToken();
+          if (refreshResult.success) {
+            BackgroundLogger.debug('[Background] ✅ Token refreshed on startup');
+          }
+        }
+      }
+    } catch (error) {
+      BackgroundLogger.error('[Background] ❌ Token check error:', error);
+    }
+  }
+
+  private async onInstall(details: chrome.runtime.InstalledDetails): Promise<void> {
+    BackgroundLogger.info('[Background] Extension installed!', details.reason);
+
+    if (details.reason === 'install') {
+      // Initial setup
+      await chrome.storage.local.set({
+        settings: {
+          autoSync: true,
+          notifications: true,
+          platforms: {
+            vinted: { enabled: true },
+            ebay: { enabled: true },
+            etsy: { enabled: false }
+          }
+        }
+      });
+
+      // Open onboarding page
+      await chrome.tabs.create({
+        url: 'https://stoflow.io/extension-installed'
+      });
+    } else if (details.reason === 'update') {
+      BackgroundLogger.info('[Background] Extension updated to v' + chrome.runtime.getManifest().version);
+    }
+  }
 }
 
-// Initialiser le service
+// Initialize the service
 new BackgroundService();
