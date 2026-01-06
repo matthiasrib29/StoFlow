@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-secondary-900 mb-2">Changer d'abonnement</h1>
-      <p class="text-gray-600">Choisissez le plan qui correspond le mieux à vos besoins</p>
-    </div>
+    <PageHeader
+      title="Changer d'abonnement"
+      subtitle="Choisissez le plan qui correspond le mieux à vos besoins"
+    />
 
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-20">

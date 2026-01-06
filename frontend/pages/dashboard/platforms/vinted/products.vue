@@ -1,10 +1,23 @@
 <template>
   <div class="page-container">
     <!-- Page Header -->
-    <VintedPageHeader
-      title="Annonces Vinted"
-      subtitle="Gérez vos annonces synchronisées depuis Vinted"
-    />
+    <PageHeader
+      title="Produits Vinted"
+      subtitle="Gérez vos produits synchronisés depuis Vinted"
+    >
+      <template #actions>
+        <!-- Sync Button -->
+        <Button
+          label="Synchroniser"
+          icon="pi pi-sync"
+          :loading="syncing"
+          :disabled="!isConnected || syncing"
+          class="btn-secondary"
+          v-tooltip.top="!isConnected ? 'Connexion Vinted requise pour synchroniser' : ''"
+          @click="syncProducts"
+        />
+      </template>
+    </PageHeader>
 
     <!-- Content -->
     <Card class="shadow-sm modern-rounded border border-gray-100">
@@ -53,23 +66,12 @@
                 class="w-48"
               />
             </div>
-
-            <!-- Sync Button -->
-            <Button
-              label="Synchroniser"
-              icon="pi pi-sync"
-              :loading="syncing"
-              :disabled="!isConnected || syncing"
-              class="btn-secondary"
-              v-tooltip.top="!isConnected ? 'Connexion Vinted requise pour synchroniser' : ''"
-              @click="syncProducts"
-            />
           </div>
 
           <!-- Loading -->
           <div v-if="loading" class="text-center py-12">
             <ProgressSpinner style="width: 50px; height: 50px" />
-            <p class="mt-4 text-gray-500">Chargement des annonces...</p>
+            <p class="mt-4 text-gray-500">Chargement des produits...</p>
           </div>
 
           <!-- Error -->
@@ -89,7 +91,7 @@
             <i class="pi pi-box text-4xl text-gray-300 mb-4"/>
             <p class="text-gray-500">
               {{ products.length === 0
-                ? (isConnected ? 'Aucune annonce synchronisée' : 'Aucun produit importé')
+                ? (isConnected ? 'Aucun produit synchronisé' : 'Aucun produit importé')
                 : 'Aucun résultat pour cette recherche'
               }}
             </p>
@@ -371,7 +373,7 @@ async function fetchProducts() {
     products.value = response?.products || []
   } catch (e: any) {
     vintedLogger.error('Failed to fetch Vinted products', { error: e.message })
-    error.value = e.message || 'Erreur lors du chargement des annonces'
+    error.value = e.message || 'Erreur lors du chargement des produits'
   } finally {
     loading.value = false
   }

@@ -2,14 +2,14 @@
   <div class="min-h-screen">
     <!-- Main Content -->
     <div class="dashboard-content p-4 lg:p-8">
-      <!-- Header -->
-      <div class="mb-6 lg:mb-8">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-          <h1 class="text-2xl lg:text-3xl font-bold text-secondary-900">Tableau de bord</h1>
+      <PageHeader
+        title="Tableau de bord"
+        :subtitle="`Bienvenue${authStore.user?.full_name ? ', ' + authStore.user.full_name : ''}`"
+      >
+        <template #actions>
           <span class="text-sm text-gray-500">{{ currentDate }}</span>
-        </div>
-        <p class="text-gray-600 text-sm lg:text-base">Bienvenue{{ authStore.user?.full_name ? `, ${authStore.user.full_name}` : '' }}</p>
-      </div>
+        </template>
+      </PageHeader>
 
       <!-- Stats Cards - Simplified for MVP1 -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-6 mb-6 lg:mb-8 stagger-grid-fast">

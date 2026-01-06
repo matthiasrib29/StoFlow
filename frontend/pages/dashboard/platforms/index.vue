@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Page Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-secondary-900 mb-1">Plateformes</h1>
-      <p class="text-gray-600">Vue d'ensemble de vos intégrations et publications</p>
-    </div>
+    <PageHeader
+      title="Plateformes"
+      subtitle="Vue d'ensemble de vos intégrations et publications"
+    />
 
     <!-- Stats globales des plateformes -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

@@ -22,29 +22,20 @@
     >
       <div v-if="isOpen" class="ml-3 mt-1 space-y-1 overflow-hidden border-l-2 border-gray-100 pl-3">
         <NuxtLink
-          :to="`/dashboard/platforms/${platform}`"
-          class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-          :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === `/dashboard/platforms/${platform}` }"
-        >
-          <i class="pi pi-chart-line text-sm"/>
-          <span>Vue d'ensemble</span>
-        </NuxtLink>
-        <NuxtLink
           :to="`/dashboard/platforms/${platform}/products`"
           class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
           active-class="bg-primary-50 text-secondary-900 font-semibold"
         >
           <i class="pi pi-box text-sm"/>
-          <span>Annonces {{ label }}</span>
+          <span>Produits {{ label }}</span>
         </NuxtLink>
         <NuxtLink
-          v-if="platform === 'vinted'"
-          :to="`/dashboard/platforms/${platform}/analytics`"
+          :to="`/dashboard/platforms/${platform}/statistics`"
           class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
           active-class="bg-primary-50 text-secondary-900 font-semibold"
         >
           <i class="pi pi-chart-bar text-sm"/>
-          <span>Analytiques</span>
+          <span>Statistiques</span>
         </NuxtLink>
         <NuxtLink
           :to="`/dashboard/platforms/${platform}/settings`"

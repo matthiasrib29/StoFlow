@@ -1,18 +1,16 @@
 <template>
   <div class="page-container">
-    <!-- Page Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-secondary-900 mb-1">Notifications</h1>
-      <p class="text-gray-600">Gérez vos préférences de notifications</p>
-    </div>
+    <PageHeader
+      title="Notifications"
+      subtitle="Gérez vos préférences de notifications"
+    />
 
-    <!-- Bientôt disponible -->
     <Card class="shadow-sm modern-rounded border border-gray-100">
       <template #content>
-        <div class="flex flex-col items-center justify-center py-12 text-center">
-          <i class="pi pi-clock text-6xl text-gray-300 mb-4" />
-          <h3 class="text-xl font-semibold text-secondary-900 mb-2">Bientôt disponible</h3>
-          <p class="text-gray-600 max-w-md">
+        <div class="text-center py-12">
+          <i class="pi pi-clock text-4xl text-gray-300 mb-4" />
+          <h3 class="text-xl font-bold text-secondary-900 mb-2">Bientôt disponible</h3>
+          <p class="text-gray-500">
             La gestion des notifications sera disponible dans une prochaine version.
           </p>
         </div>

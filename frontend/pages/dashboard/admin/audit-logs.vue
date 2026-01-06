@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold text-secondary-900">Logs d'audit</h1>
-      <p class="text-gray-500 mt-1">Historique des actions administratives</p>
-    </div>
+    <PageHeader
+      title="Logs d'audit"
+      subtitle="Historique des actions administratives"
+    />
 
     <!-- Filters -->
     <Card class="mb-6 shadow-sm">
