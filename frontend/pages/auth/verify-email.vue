@@ -43,7 +43,7 @@
             <Button
               label="Renvoyer un email"
               icon="pi pi-envelope"
-              class="bg-primary-600 hover:bg-primary-700 border-0 font-bold"
+              class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
               @click="showResendForm = true"
               :disabled="showResendForm"
             />
