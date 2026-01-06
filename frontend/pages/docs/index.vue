@@ -1,42 +1,10 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50 flex flex-col">
     <!-- Header -->
-    <header class="bg-white border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div class="flex items-center justify-between">
-          <!-- Logo & Back -->
-          <div class="flex items-center gap-4">
-            <NuxtLink to="/" class="flex items-center gap-2 text-secondary-900 hover:text-primary-600">
-              <div class="w-8 h-8 bg-secondary-900 rounded-lg flex items-center justify-center">
-                <span class="text-primary-400 font-bold text-sm">S</span>
-              </div>
-              <span class="text-xl font-bold">Stoflow</span>
-            </NuxtLink>
-            <span class="text-gray-300">|</span>
-            <h1 class="text-lg font-semibold text-secondary-900">Documentation</h1>
-          </div>
-
-          <!-- Search (optional future feature) -->
-          <div class="hidden md:flex items-center gap-4">
-            <NuxtLink
-              to="/login"
-              class="text-gray-600 hover:text-secondary-900"
-            >
-              Connexion
-            </NuxtLink>
-            <NuxtLink
-              to="/register"
-              class="px-4 py-2 bg-secondary-900 text-white rounded-lg hover:bg-secondary-800"
-            >
-              Essai gratuit
-            </NuxtLink>
-          </div>
-        </div>
-      </div>
-    </header>
+    <LayoutHeaderPublic />
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-24 w-full">
       <div class="flex gap-8">
         <!-- Sidebar -->
         <DocsDocSidebar
@@ -130,10 +98,10 @@
             </h3>
             <p class="text-gray-600 mb-4">{{ error }}</p>
             <button
-              class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              class="px-4 py-2 bg-primary-400 text-secondary-900 font-semibold rounded-lg hover:bg-primary-500 transition-colors"
               @click="loadDocs"
             >
-              R&eacute;essayer
+              Réessayer
             </button>
           </div>
 
@@ -155,31 +123,9 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200 mt-12">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div class="flex items-center gap-2">
-            <div class="w-6 h-6 bg-secondary-900 rounded flex items-center justify-center">
-              <span class="text-primary-400 font-bold text-xs">S</span>
-            </div>
-            <span class="text-gray-600 text-sm">
-              &copy; {{ new Date().getFullYear() }} Stoflow. Tous droits r&eacute;serv&eacute;s.
-            </span>
-          </div>
-          <div class="flex items-center gap-6 text-sm">
-            <NuxtLink to="/" class="text-gray-600 hover:text-secondary-900">
-              Accueil
-            </NuxtLink>
-            <NuxtLink to="/#pricing" class="text-gray-600 hover:text-secondary-900">
-              Tarifs
-            </NuxtLink>
-            <NuxtLink to="/login" class="text-gray-600 hover:text-secondary-900">
-              Connexion
-            </NuxtLink>
-          </div>
-        </div>
-      </div>
-    </footer>
+    <div class="mt-12">
+      <LayoutFooterMinimal />
+    </div>
   </div>
 </template>
 
