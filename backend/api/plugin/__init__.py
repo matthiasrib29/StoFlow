@@ -18,12 +18,11 @@ Date: 2025-12-17
 from fastapi import APIRouter
 
 from .sync import router as sync_router
-from .tasks import router as tasks_router
 
 router = APIRouter(prefix="/plugin", tags=["Plugin"])
 
 # Include sub-routers
 router.include_router(sync_router)
-router.include_router(tasks_router)
+# Note: tasks router removed - now using externally_connectable pattern
 
 __all__ = ["router"]

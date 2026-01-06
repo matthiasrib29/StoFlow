@@ -8,7 +8,7 @@
  * Note: Auth session restoration is handled by auth.global.ts middleware
  * to avoid duplicate loadFromStorage() calls on every navigation
  */
-import { initPluginListener } from '~/composables/usePluginSync'
+import { initPluginListener } from '~/composables/useVintedBridge'
 
 export default defineNuxtPlugin(() => {
   const localeStore = useLocaleStore()
