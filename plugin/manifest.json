@@ -36,7 +36,9 @@
     "https://api.stoflow.com/*",
     "https://api.stoflow.io/*",
     "https://stoflow.io/*",
-    "https://www.stoflow.io/*"
+    "https://www.stoflow.io/*",
+    "http://localhost:3000/*",
+    "http://localhost:5173/*"
   ],
 
   "background": {
@@ -66,7 +68,9 @@
     {
       "matches": [
         "https://stoflow.io/*",
-        "https://www.stoflow.io/*"
+        "https://www.stoflow.io/*",
+        "http://localhost:3000/*",
+        "http://localhost:5173/*"
       ],
       "js": ["src/content/stoflow-web.ts"],
       "run_at": "document_idle"

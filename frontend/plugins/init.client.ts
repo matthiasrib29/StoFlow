@@ -2,7 +2,7 @@
  * Client-side initialization plugin
  *
  * Handles client-only initialization tasks:
- * - Plugin sync: Initialize secure communication with browser extension
+ * - Plugin detection: Initialize communication with browser extension (Firefox fallback)
  * - Locale: Restore locale preferences
  *
  * Note: Auth session restoration is handled by auth.global.ts middleware
@@ -13,9 +13,8 @@ import { initPluginListener } from '~/composables/useVintedBridge'
 export default defineNuxtPlugin(() => {
   const localeStore = useLocaleStore()
 
-  // Initialize secure plugin communication listener
-  // This allows the browser extension to announce itself and establish
-  // a secure channel for token synchronization
+  // Initialize plugin communication listener (Firefox fallback)
+  // This allows the browser extension to announce itself via postMessage
   initPluginListener()
 
   // Restore locale preference from localStorage (defaults to French if not set)

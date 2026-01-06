@@ -310,67 +310,6 @@ export function useVintedBridge() {
     return sendMessage({ action: 'OPEN_VINTED_TAB', payload: { url } })
   }
 
-  // ============================================================
-  // AUTH SYNC
-  // ============================================================
-
-  /**
-   * Sync tokens to the plugin (called after login)
-   */
-  async function syncToken(accessToken: string, refreshToken: string): Promise<boolean> {
-    if (!import.meta.client) return false
-
-    log.info('Syncing tokens to plugin...')
-
-    try {
-      const response = await sendMessage({
-        action: 'SYNC_TOKEN_FROM_WEBSITE',
-        access_token: accessToken,
-        refresh_token: refreshToken
-      })
-
-      if (response?.success) {
-        log.info('Tokens synced successfully')
-        return true
-      } else {
-        log.warn('Token sync failed:', response?.error)
-        return false
-      }
-    } catch (err: any) {
-      if (err instanceof PluginNotInstalledError) {
-        log.debug('Plugin not installed, skipping token sync')
-        return false
-      }
-      log.error('Token sync error:', err)
-      return false
-    }
-  }
-
-  /**
-   * Sync logout to the plugin
-   */
-  async function syncLogout(): Promise<boolean> {
-    if (!import.meta.client) return false
-
-    log.info('Syncing logout to plugin...')
-
-    try {
-      const response = await sendMessage({ action: 'LOGOUT_FROM_WEBSITE' })
-
-      if (response?.success) {
-        log.info('Logout synced successfully')
-        return true
-      }
-      return false
-    } catch (err: any) {
-      if (err instanceof PluginNotInstalledError) {
-        log.debug('Plugin not installed, skipping logout sync')
-        return false
-      }
-      log.error('Logout sync error:', err)
-      return false
-    }
-  }
 
   // ============================================================
   // VINTED ACTIONS
@@ -689,10 +628,6 @@ export function useVintedBridge() {
     checkVintedTab,
     openVintedTab,
 
-    // Auth sync
-    syncToken,
-    syncLogout,
-
     // Vinted actions
     getUserInfo,
     getUserProfile,
@@ -726,22 +661,6 @@ export function getVintedBridge() {
     bridgeInstance.init()
   }
   return bridgeInstance
-}
-
-/**
- * Sync token to plugin (standalone function for stores)
- */
-export async function syncTokenToPlugin(accessToken: string, refreshToken: string): Promise<boolean> {
-  const bridge = getVintedBridge()
-  return bridge?.syncToken(accessToken, refreshToken) ?? false
-}
-
-/**
- * Sync logout to plugin (standalone function for stores)
- */
-export async function syncLogoutToPlugin(): Promise<boolean> {
-  const bridge = getVintedBridge()
-  return bridge?.syncLogout() ?? false
 }
 
 /**

@@ -10,7 +10,6 @@
  * Date: 2026-01-06
  */
 
-import { StoflowAPI } from '../api/StoflowAPI';
 import { BackgroundLogger } from '../utils/logger';
 import { handleExternalMessage, isAllowedOrigin, ExternalMessage, ExternalResponse } from './VintedActionHandler';
 
@@ -22,7 +21,6 @@ interface Message {
 class BackgroundService {
   constructor() {
     this.setupListeners();
-    this.checkAndRefreshTokenOnStartup();
     BackgroundLogger.info('🚀 [Background] StoFlow Extension v2.0 started (externally_connectable mode)');
   }
 
@@ -71,26 +69,13 @@ class BackgroundService {
 
   /**
    * Handle external messages from stoflow.io
-   * Routes to VintedActionHandler for Vinted operations, or handles auth locally
+   * All actions are delegated to VintedActionHandler
    */
   private async handleExternalMessage(
     message: ExternalMessage,
     sender: chrome.runtime.MessageSender
   ): Promise<ExternalResponse> {
-    const { action, requestId, payload } = message;
-
-    // Auth actions are handled locally
-    if (action === 'SYNC_TOKEN_FROM_WEBSITE') {
-      const result = await this.syncTokenFromWebsite(message);
-      return { ...result, requestId };
-    }
-
-    if (action === 'LOGOUT_FROM_WEBSITE') {
-      const result = await this.logoutFromWebsite();
-      return { ...result, requestId };
-    }
-
-    // All other actions are delegated to VintedActionHandler
+    // All actions are delegated to VintedActionHandler
     return handleExternalMessage(message);
   }
 
@@ -110,23 +95,6 @@ class BackgroundService {
 
       case 'GET_VINTED_INFO':
         return await this.getVintedInfo();
-
-      // ============ AUTH (from popup or content script) ============
-      case 'SYNC_TOKEN_FROM_WEBSITE':
-        return await this.syncTokenFromWebsite(message);
-
-      case 'LOGOUT_FROM_WEBSITE':
-        return await this.logoutFromWebsite();
-
-      case 'CHECK_AUTH_STATUS':
-        return await this.checkAuthStatus();
-
-      case 'REFRESH_TOKEN':
-        return await this.refreshAccessToken();
-
-      // ============ VINTED STATUS ============
-      case 'GET_VINTED_CONNECTION_STATUS':
-        return await this.getVintedConnectionStatus();
 
       // ============ VINTED ACTIONS (forward to handler) ============
       case 'VINTED_API_CALL':
@@ -189,170 +157,10 @@ class BackgroundService {
     }
   }
 
-  // ============================================================
-  // AUTH MANAGEMENT
-  // ============================================================
-
-  private async syncTokenFromWebsite(message: any): Promise<any> {
-    BackgroundLogger.debug('[Background] SSO token sync started');
-
-    try {
-      const { access_token, refresh_token } = message;
-
-      if (!access_token) {
-        BackgroundLogger.error('[Background] SSO sync failed: access_token missing');
-        throw new Error('access_token missing');
-      }
-
-      const { CONSTANTS } = await import('../config/environment');
-
-      // Store tokens
-      await chrome.storage.local.set({
-        [CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN]: access_token,
-        [CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN]: refresh_token || null
-      });
-
-      BackgroundLogger.success('[Background] SSO token synced successfully');
-      return { success: true };
-    } catch (error: any) {
-      BackgroundLogger.error('[Background] SSO token sync failed', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  private async logoutFromWebsite(): Promise<any> {
-    BackgroundLogger.debug('[Background] SSO logout started');
-
-    try {
-      const { CONSTANTS } = await import('../config/environment');
-
-      // Remove tokens
-      await chrome.storage.local.remove([
-        CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN,
-        CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN,
-        CONSTANTS.STORAGE_KEYS.USER_DATA
-      ]);
-
-      BackgroundLogger.success('[Background] SSO logout completed');
-      return { success: true };
-    } catch (error: any) {
-      BackgroundLogger.error('[Background] SSO logout failed', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  private async checkAuthStatus(): Promise<any> {
-    try {
-      const { CONSTANTS } = await import('../config/environment');
-      const result = await chrome.storage.local.get([
-        CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN,
-        CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN
-      ]);
-
-      const accessToken = result[CONSTANTS.STORAGE_KEYS.ACCESS_TOKEN];
-      const refreshToken = result[CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN];
-
-      if (!accessToken) {
-        return { authenticated: false, reason: 'no_token' };
-      }
-
-      // Verify token expiration (basic JWT decode)
-      try {
-        const payload = JSON.parse(atob(accessToken.split('.')[1]));
-        const expiresAt = payload.exp * 1000;
-        const now = Date.now();
-
-        if (now >= expiresAt) {
-          BackgroundLogger.debug('[Background] Token expired, attempting refresh...');
-
-          if (refreshToken) {
-            const refreshResult = await this.refreshAccessToken();
-            if (refreshResult.success) {
-              return { authenticated: true, refreshed: true };
-            }
-          }
-
-          return { authenticated: false, reason: 'token_expired' };
-        }
-
-        const remainingMs = expiresAt - now;
-        const remainingMinutes = Math.floor(remainingMs / 60000);
-
-        return {
-          authenticated: true,
-          expires_in_minutes: remainingMinutes,
-          has_refresh_token: !!refreshToken
-        };
-      } catch (decodeError) {
-        BackgroundLogger.error('[Background] Malformed token:', decodeError);
-        return { authenticated: false, reason: 'invalid_token' };
-      }
-    } catch (error: any) {
-      BackgroundLogger.error('[Background] Auth check error:', error);
-      return { authenticated: false, error: error.message };
-    }
-  }
-
-  private async refreshAccessToken(): Promise<{ success: boolean; error?: string }> {
-    BackgroundLogger.debug('[Background] 🔄 Attempting token refresh...');
-    const result = await StoflowAPI.refreshAccessToken();
-
-    if (result.success) {
-      BackgroundLogger.debug('[Background] ✅ Token refreshed successfully');
-    } else {
-      BackgroundLogger.error('[Background] ❌ Refresh failed:', result.error);
-    }
-
-    return result;
-  }
-
-  // ============================================================
-  // VINTED STATUS
-  // ============================================================
-
-  private async getVintedConnectionStatus(): Promise<any> {
-    try {
-      const result = await StoflowAPI.getVintedConnectionStatus();
-      return { success: true, data: result };
-    } catch (error: any) {
-      BackgroundLogger.error('[Background] ❌ Vinted status error:', error);
-      return { success: false, error: error.message };
-    }
-  }
 
   // ============================================================
   // LIFECYCLE
   // ============================================================
-
-  private async checkAndRefreshTokenOnStartup(): Promise<void> {
-    BackgroundLogger.debug('[Background] 🚀 Checking token on startup...');
-
-    try {
-      const authStatus = await this.checkAuthStatus();
-
-      if (authStatus.authenticated) {
-        BackgroundLogger.debug(`[Background] ✅ Authenticated (expires in ${authStatus.expires_in_minutes} min)`);
-
-        // Proactive refresh if token expires soon
-        if (authStatus.expires_in_minutes < 5 && authStatus.has_refresh_token) {
-          BackgroundLogger.debug('[Background] 🔄 Token expiring soon, proactive refresh...');
-          await this.refreshAccessToken();
-        }
-      } else {
-        BackgroundLogger.debug(`[Background] ⚠️ Not authenticated: ${authStatus.reason || 'unknown'}`);
-
-        // Try refresh if token expired but we have refresh token
-        if (authStatus.reason === 'token_expired') {
-          const refreshResult = await this.refreshAccessToken();
-          if (refreshResult.success) {
-            BackgroundLogger.debug('[Background] ✅ Token refreshed on startup');
-          }
-        }
-      }
-    } catch (error) {
-      BackgroundLogger.error('[Background] ❌ Token check error:', error);
-    }
-  }
 
   private async onInstall(details: chrome.runtime.InstalledDetails): Promise<void> {
     BackgroundLogger.info('[Background] Extension installed!', details.reason);
