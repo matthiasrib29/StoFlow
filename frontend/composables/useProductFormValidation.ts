@@ -1,4 +1,5 @@
 import { ref, computed, readonly, type Ref } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
 import type { ProductFormData } from '~/types/product'
 
 // Re-export ProductFormData for backwards compatibility
@@ -34,6 +35,9 @@ export function useProductFormValidation() {
 
   // Champs qui ont été touchés par l'utilisateur
   const touched = ref<Set<string>>(new Set())
+
+  // Champs qui sont valides et remplis
+  const validFields = ref<Set<string>>(new Set())
 
   /**
    * Marquer un champ comme touché
@@ -201,9 +205,39 @@ export function useProductFormValidation() {
 
     if (error) {
       errors.value.set(field, error)
+      validFields.value.delete(field)
     } else {
       errors.value.delete(field)
+      // Mark as valid only if the field has a value
+      const hasValue = value !== null && value !== undefined && value !== ''
+      if (hasValue) {
+        validFields.value.add(field)
+      } else {
+        validFields.value.delete(field)
+      }
     }
+  }
+
+  /**
+   * Validation avec debounce (300ms) pour éviter trop de validations
+   */
+  const debouncedValidate = useDebounceFn((field: string, value: any) => {
+    validateAndSetError(field, value)
+  }, 300)
+
+  /**
+   * Valider un champ avec debounce (pour utiliser sur @input)
+   */
+  const validateDebounced = (field: keyof ProductFormData | string, value: any): void => {
+    touched.value.add(field)
+    debouncedValidate(field, value)
+  }
+
+  /**
+   * Vérifier si un champ est valide ET rempli (pour afficher checkmark)
+   */
+  const isFieldValid = (field: string): boolean => {
+    return validFields.value.has(field) && !errors.value.has(field)
   }
 
   /**
@@ -231,6 +265,7 @@ export function useProductFormValidation() {
   const reset = (): void => {
     errors.value.clear()
     touched.value.clear()
+    validFields.value.clear()
   }
 
   /**
@@ -246,6 +281,7 @@ export function useProductFormValidation() {
     // État (readonly pour éviter modifications externes)
     errors: readonly(errors) as Readonly<Ref<Map<string, string>>>,
     touched: readonly(touched) as Readonly<Ref<Set<string>>>,
+    validFields: readonly(validFields) as Readonly<Ref<Set<string>>>,
     isValid,
 
     // Méthodes
@@ -254,8 +290,10 @@ export function useProductFormValidation() {
     validateField,
     validateForm,
     validateAndSetError,
+    validateDebounced,
     getError,
     hasError,
+    isFieldValid,
     reset
   }
 }

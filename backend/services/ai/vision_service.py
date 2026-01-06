@@ -295,3 +295,144 @@ ATTRIBUTS À EXTRAIRE:
 - marking: Textes/marquages visibles (dates, codes, inscriptions...)
 
 Analyse TOUTES les images fournies pour une extraction complète."""
+
+    @staticmethod
+    async def analyze_images_direct(
+        db: Session,
+        image_files: list[tuple[bytes, str]],
+        user_id: int,
+        monthly_credits: int = 0,
+    ) -> tuple[VisionExtractedAttributes, int, Decimal, int]:
+        """
+        Analyse des images uploadées directement (sans produit existant).
+
+        Utilisé pour la création de produit avec pré-remplissage IA.
+
+        Args:
+            db: Session SQLAlchemy
+            image_files: Liste de tuples (contenu_bytes, mime_type)
+            user_id: ID de l'utilisateur
+            monthly_credits: Crédits mensuels de l'abonnement
+
+        Returns:
+            tuple: (attributes, tokens_used, cost, images_analyzed)
+
+        Raises:
+            AIQuotaExceededError: Si crédits insuffisants
+            AIGenerationError: Si erreur API Gemini ou pas d'images
+        """
+        start_time = time.time()
+
+        # 1. Vérifier qu'il y a des images
+        if not image_files:
+            raise AIGenerationError("Aucune image fournie pour l'analyse.")
+
+        # 2. Vérifier les crédits
+        AIVisionService._check_credits(db, user_id, monthly_credits)
+
+        # 3. Limiter le nombre d'images selon config
+        images_to_analyze = image_files[: settings.gemini_max_images]
+        images_analyzed = len(images_to_analyze)
+
+        logger.info(
+            f"[AIVisionService] Analyzing {images_analyzed} images directly "
+            f"for user_id={user_id}"
+        )
+
+        # 4. Créer les Parts Gemini à partir des bytes
+        image_parts = []
+        for content, mime_type in images_to_analyze:
+            part = types.Part.from_bytes(
+                data=content,
+                mime_type=mime_type,
+            )
+            image_parts.append(part)
+
+        if not image_parts:
+            raise AIGenerationError("Impossible de traiter les images.")
+
+        # 5. Construire le prompt
+        prompt = AIVisionService._build_prompt()
+
+        # 6. Appeler Gemini Vision API
+        try:
+            client = genai.Client(api_key=settings.gemini_api_key)
+
+            # Construire le contenu multimodal
+            contents = [prompt] + image_parts
+
+            # Appeler avec structured output
+            response = client.models.generate_content(
+                model=settings.gemini_model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=VisionExtractedAttributes,
+                ),
+            )
+
+            # Parser la réponse
+            import json
+
+            response_data = json.loads(response.text)
+            attributes = VisionExtractedAttributes(**response_data)
+
+            # 7. Calculer les métriques
+            input_tokens = response.usage_metadata.prompt_token_count
+            output_tokens = response.usage_metadata.candidates_token_count
+            total_tokens = input_tokens + output_tokens
+
+            # 8. Calculer le coût
+            pricing = AIVisionService.MODEL_PRICING.get(
+                settings.gemini_model, {"input": 0.075, "output": 0.30}
+            )
+            cost = Decimal(
+                str(
+                    (input_tokens * pricing["input"] / 1_000_000)
+                    + (output_tokens * pricing["output"] / 1_000_000)
+                )
+            )
+
+            generation_time_ms = int((time.time() - start_time) * 1000)
+
+            # 9. Logger la génération (sans product_id)
+            log = AIGenerationLog(
+                product_id=None,  # Pas de produit associé
+                model=settings.gemini_model,
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=total_tokens,
+                total_cost=cost,
+                cached=False,
+                generation_time_ms=generation_time_ms,
+            )
+            db.add(log)
+
+            # 10. Incrémenter les crédits utilisés
+            AIVisionService._consume_credit(db, user_id)
+
+            db.commit()
+
+            logger.info(
+                f"[AIVisionService] Analyzed images direct: user_id={user_id}, "
+                f"images={images_analyzed}, tokens={total_tokens}, "
+                f"cost=${cost:.6f}, time={generation_time_ms}ms, "
+                f"confidence={attributes.confidence:.2f}"
+            )
+
+            return attributes, total_tokens, cost, images_analyzed
+
+        except genai.errors.AuthenticationError as e:
+            logger.error(f"[AIVisionService] Gemini auth error: {e}")
+            raise AIGenerationError("Clé API Gemini invalide ou expirée")
+        except genai.errors.ResourceExhausted as e:
+            logger.error(f"[AIVisionService] Gemini rate limit: {e}")
+            raise AIGenerationError(
+                "Limite de requêtes Gemini atteinte. Réessayez dans quelques minutes."
+            )
+        except genai.errors.APIError as e:
+            logger.error(f"[AIVisionService] Gemini API error: {e}")
+            raise AIGenerationError(f"Erreur API Gemini: {str(e)}")
+        except Exception as e:
+            logger.error(f"[AIVisionService] Unexpected error: {e}", exc_info=True)
+            raise AIGenerationError(f"Erreur inattendue: {str(e)}")
