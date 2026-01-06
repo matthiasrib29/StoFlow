@@ -64,11 +64,6 @@ export default defineNuxtConfig({
     transpile: ['primevue']
   },
 
-  // Dev server configuration
-  devServer: {
-    port: 3000
-  },
-
   // Runtime config - Environment variables override these defaults
   // NUXT_PUBLIC_API_URL and NUXT_PUBLIC_API_BASE_URL are auto-injected by Nuxt
   // See: https://nuxt.com/docs/guide/going-further/runtime-config
@@ -77,7 +72,9 @@ export default defineNuxtConfig({
       // URL de base de l'API (sans /api) - overridden by NUXT_PUBLIC_API_URL
       apiUrl: 'http://localhost:8000',
       // URL de base de l'API (avec /api) - overridden by NUXT_PUBLIC_API_BASE_URL
-      apiBaseUrl: 'http://localhost:8000/api'
+      apiBaseUrl: 'http://localhost:8000/api',
+      // Dev environment number (1, 2, or 3) - overridden by NUXT_PUBLIC_DEV_ENV
+      devEnv: ''
     }
   },
 
