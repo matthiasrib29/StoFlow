@@ -123,28 +123,11 @@
       @update:pricing-details="updateField('pricing_details', $event)"
     />
 
-    <!-- ===== ACTIONS ===== -->
-    <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-      <Button
-        type="button"
-        label="Annuler"
-        icon="pi pi-times"
-        class="bg-gray-200 hover:bg-gray-300 text-secondary-900 border-0"
-        @click="$emit('cancel')"
-      />
-      <Button
-        type="submit"
-        :label="submitLabel"
-        icon="pi pi-check"
-        class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
-        :loading="isSubmitting"
-      />
-    </div>
   </form>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { ProductFormData } from '~/types/product'
 
 interface Props {
@@ -181,12 +164,27 @@ const hasImagesRef = computed(() => props.hasImages)
 const isGeneratingDescription = ref(false)
 const isAnalyzingImages = ref(false)
 
+// Local form state to avoid race conditions when multiple fields update simultaneously
+const localForm = ref<ProductFormData>({ ...props.modelValue })
+
+// Sync local form with prop when prop changes from parent
+watch(() => props.modelValue, (newVal) => {
+  // Only update if the prop is different (to avoid loops)
+  if (JSON.stringify(newVal) !== JSON.stringify(localForm.value)) {
+    localForm.value = { ...newVal }
+  }
+}, { deep: true })
+
 // Mettre à jour un champ
 const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) => {
-  emit('update:modelValue', {
-    ...props.modelValue,
+  // Update local state first (synchronously)
+  localForm.value = {
+    ...localForm.value,
     [field]: value
-  })
+  }
+
+  // Emit the updated form
+  emit('update:modelValue', { ...localForm.value })
 
   // Valider le champ si déjà touché
   if (validation.touched.value.has(field as string)) {

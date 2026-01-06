@@ -55,29 +55,45 @@
             >
               <img :src="element.preview" class="w-full h-full object-cover select-none" draggable="false">
 
-              <!-- Delete Button - Top Right -->
-              <button
-                class="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full border-2 border-secondary-900 shadow-[0_4px_12px_rgba(0,0,0,0.4)] opacity-80 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
-                style="background-color: #facc15; color: #1a1a1a;"
-                aria-label="Supprimer la photo"
-                @click.stop="removeImage(element)"
-              >
-                <i class="pi pi-times text-sm font-bold"/>
-              </button>
+              <!-- Overlay with actions on hover -->
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3 z-10">
+                <!-- Set as primary button (only for non-first images) -->
+                <button
+                  v-if="index !== 0"
+                  class="w-10 h-10 flex items-center justify-center rounded-full bg-primary-400 hover:bg-primary-500 text-secondary-900 shadow-lg transition-all duration-200 hover:scale-110"
+                  aria-label="Définir comme principale"
+                  title="Définir comme principale"
+                  @click.stop="setAsPrimary(element, index)"
+                >
+                  <i class="pi pi-star text-lg"/>
+                </button>
+
+                <!-- Delete button -->
+                <button
+                  class="w-10 h-10 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all duration-200 hover:scale-110"
+                  aria-label="Supprimer la photo"
+                  title="Supprimer"
+                  @click.stop="removeImage(element)"
+                >
+                  <i class="pi pi-trash text-lg"/>
+                </button>
+              </div>
 
               <!-- Main Badge - Top Left (first image) -->
-              <div v-if="index === 0" class="absolute top-2 left-2 bg-primary-400 text-secondary-900 text-xs font-bold px-2 py-1 rounded z-10">
+              <div v-if="index === 0" class="absolute top-2 left-2 bg-primary-400 text-secondary-900 text-xs font-bold px-2 py-1 rounded-full z-20 flex items-center gap-1 shadow-md">
+                <i class="pi pi-star-fill text-xs"/>
                 Principale
               </div>
 
               <!-- New Badge - Bottom Left (for new photos) -->
-              <div v-if="element.type === 'new'" class="absolute bottom-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded z-10">
+              <div v-if="element.type === 'new'" class="absolute bottom-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded z-20">
                 Nouvelle
               </div>
 
               <!-- Drag Handle Indicator -->
-              <div class="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                <i class="pi pi-arrows-alt"/>
+              <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                <i class="pi pi-arrows-alt text-xs"/>
+                <span>Déplacer</span>
               </div>
             </div>
           </template>
@@ -102,11 +118,24 @@
     </div>
 
     <!-- Upload Zone - Only show when no images at all -->
-    <div v-if="allImages.length === 0" class="border-2 border-dashed rounded-xl p-6 transition-all duration-300 border-gray-300 hover:border-primary-400">
+    <div
+      v-if="allImages.length === 0"
+      class="border-2 border-dashed rounded-xl p-8 transition-all duration-300"
+      :class="{
+        'border-primary-400 bg-primary-50 scale-[1.01]': isDraggingFile,
+        'border-gray-300 hover:border-primary-400 hover:bg-gray-50': !isDraggingFile
+      }"
+    >
       <div class="flex flex-col items-center justify-center gap-4">
         <!-- Icon -->
-        <div class="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 bg-primary-400">
-          <i class="pi pi-cloud-upload text-4xl text-secondary-900"/>
+        <div
+          class="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300"
+          :class="{
+            'bg-primary-400 scale-110': isDraggingFile,
+            'bg-primary-400': !isDraggingFile
+          }"
+        >
+          <i class="pi pi-cloud-upload text-4xl text-secondary-900" :class="{ 'animate-bounce': isDraggingFile }"/>
         </div>
 
         <!-- Text -->
@@ -391,6 +420,17 @@ const removeImage = (element: UnifiedImage) => {
       emit('update:photos', newPhotos)
     }
   }
+}
+
+// Set an image as primary (move to first position)
+const setAsPrimary = (element: UnifiedImage, currentIndex: number) => {
+  const currentImages = [...allImages.value]
+  // Remove from current position and insert at first position
+  const [item] = currentImages.splice(currentIndex, 1)
+  currentImages.unshift(item)
+  // Update via computed setter
+  allImages.value = currentImages
+  showSuccess('Photo principale', 'La photo a été définie comme principale', 2000)
 }
 
 // Expose method to open file selector from parent
