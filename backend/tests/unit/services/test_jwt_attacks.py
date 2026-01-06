@@ -38,6 +38,7 @@ class TestTokenTampering:
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         # Créer un token valide
         token = AuthService.create_access_token(user_id=1, role="user")
@@ -57,6 +58,7 @@ class TestTokenTampering:
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         # Créer un token valide
         token = AuthService.create_access_token(user_id=1, role="user")
@@ -101,6 +103,7 @@ class TestUserIdManipulation:
         mock_settings.jwt_secret_key = "secret_key_for_test"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         # Créer un token pour user 1
         original_token = AuthService.create_access_token(user_id=1, role="user")
@@ -125,6 +128,7 @@ class TestUserIdManipulation:
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=42, role="user")
         payload = AuthService.verify_token(token, token_type="access")
@@ -146,6 +150,7 @@ class TestRoleEscalation:
         mock_settings.jwt_secret_key = "secret_key"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         # Créer un token "user"
         user_token = AuthService.create_access_token(user_id=1, role="user")
@@ -170,6 +175,7 @@ class TestRoleEscalation:
         mock_settings.jwt_secret_key = "secret_key"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         admin_token = AuthService.create_access_token(user_id=1, role="admin")
         payload = AuthService.verify_token(admin_token, token_type="access")
@@ -254,6 +260,7 @@ class TestAlgorithmConfusionAttacks:
         mock_settings.jwt_secret_key = "secret_key"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         # Token valide avec le bon algorithme
         valid_token = AuthService.create_access_token(user_id=1, role="user")
@@ -275,6 +282,7 @@ class TestTokenTypeConfusion:
         mock_settings.jwt_secret_key = "secret"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
 
         refresh_token = AuthService.create_refresh_token(user_id=1)
 
@@ -289,6 +297,7 @@ class TestTokenTypeConfusion:
         mock_settings.jwt_secret_key = "secret"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         access_token = AuthService.create_access_token(user_id=1, role="user")
 

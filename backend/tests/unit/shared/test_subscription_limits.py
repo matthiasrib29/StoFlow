@@ -315,11 +315,9 @@ class TestCheckAndWarnFunctions:
 
         mock_db = Mock()
 
-        # Patcher le modèle PlatformMapping là où il est importé
-        with patch('models.public.platform_mapping.PlatformMapping') as mock_model:
-            mock_model.user_id = Mock()
-            mock_model.credentials = Mock()
-            mock_db.query.return_value.filter.return_value.count.return_value = 2
+        # Patcher la fonction de comptage des plateformes connectées
+        with patch('shared.subscription_limits._count_connected_platforms') as mock_count:
+            mock_count.return_value = 2
 
             result = check_and_warn_platform_limit(mock_user, mock_db)
 
@@ -338,10 +336,9 @@ class TestCheckAndWarnFunctions:
 
         mock_db = Mock()
 
-        with patch('models.public.platform_mapping.PlatformMapping') as mock_model:
-            mock_model.user_id = Mock()
-            mock_model.credentials = Mock()
-            mock_db.query.return_value.filter.return_value.count.return_value = 2
+        # Patcher la fonction de comptage des plateformes connectées
+        with patch('shared.subscription_limits._count_connected_platforms') as mock_count:
+            mock_count.return_value = 2
 
             with pytest.raises(SubscriptionLimitError) as exc_info:
                 check_and_warn_platform_limit(mock_user, mock_db)

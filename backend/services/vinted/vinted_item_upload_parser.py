@@ -243,7 +243,7 @@ class VintedItemUploadParser:
                     from datetime import datetime, timezone
                     dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
                     return dt.isoformat()
-                except Exception:
+                except (ValueError, OSError):
                     pass
 
         return None

@@ -556,8 +556,8 @@ class TestTaskManagement:
     """Tests pour la gestion des tâches liées aux jobs."""
 
     def test_cancel_job_tasks(self, mock_db, sample_job):
-        """Test annulation des tâches d'un job."""
-        from services.vinted.vinted_job_service import VintedJobService
+        """Test annulation des tâches d'un job via StatusManager."""
+        from services.vinted.vinted_job_status_manager import VintedJobStatusManager
 
         # Créer des tâches mockées
         tasks = []
@@ -568,18 +568,9 @@ class TestTaskManagement:
             task.status = TaskStatus.PENDING
             tasks.append(task)
 
-        def query_side_effect(model):
-            mock_query = MagicMock()
-            if model == VintedJob:
-                mock_query.filter.return_value.first.return_value = sample_job
-            elif model == PluginTask:
-                mock_query.filter.return_value.all.return_value = tasks
-            return mock_query
+        mock_db.query.return_value.filter.return_value.all.return_value = tasks
 
-        mock_db.query.side_effect = query_side_effect
-
-        service = VintedJobService(mock_db)
-        count = service._cancel_job_tasks(job_id=1)
+        count = VintedJobStatusManager._cancel_job_tasks(mock_db, job_id=1)
 
         assert count == 3
         for task in tasks:
@@ -649,27 +640,18 @@ class TestActionTypeCaching:
 
 
 class TestStatistics:
-    """Tests pour les statistiques."""
+    """Tests pour les statistiques via VintedJobStatsService."""
 
     def test_update_job_stats_creates_new(self, mock_db, sample_job, mock_action_type_publish):
         """Test création de stats quand elles n'existent pas."""
-        from services.vinted.vinted_job_service import VintedJobService
+        from services.vinted.vinted_job_stats_service import VintedJobStatsService
 
         sample_job.started_at = datetime.now(timezone.utc) - timedelta(seconds=5)
         sample_job.completed_at = datetime.now(timezone.utc)
 
-        def query_side_effect(model):
-            mock_query = MagicMock()
-            if model == VintedJobStats:
-                mock_query.filter.return_value.first.return_value = None
-            elif model == VintedActionType:
-                mock_query.filter.return_value.first.return_value = mock_action_type_publish
-            return mock_query
+        mock_db.query.return_value.filter.return_value.first.return_value = None
 
-        mock_db.query.side_effect = query_side_effect
-
-        service = VintedJobService(mock_db)
-        service._update_job_stats(sample_job, success=True)
+        VintedJobStatsService.update_job_stats(mock_db, sample_job, success=True)
 
         # Vérifier qu'un nouveau stats a été ajouté
         mock_db.add.assert_called()
@@ -680,7 +662,7 @@ class TestStatistics:
 
     def test_update_job_stats_increments_existing(self, mock_db, sample_job, mock_action_type_publish):
         """Test incrémentation de stats existantes."""
-        from services.vinted.vinted_job_service import VintedJobService
+        from services.vinted.vinted_job_stats_service import VintedJobStatsService
 
         sample_job.started_at = datetime.now(timezone.utc) - timedelta(seconds=5)
         sample_job.completed_at = datetime.now(timezone.utc)
@@ -692,18 +674,9 @@ class TestStatistics:
         existing_stats.failure_count = 2
         existing_stats.avg_duration_ms = 5000
 
-        def query_side_effect(model):
-            mock_query = MagicMock()
-            if model == VintedJobStats:
-                mock_query.filter.return_value.first.return_value = existing_stats
-            elif model == VintedActionType:
-                mock_query.filter.return_value.first.return_value = mock_action_type_publish
-            return mock_query
+        mock_db.query.return_value.filter.return_value.first.return_value = existing_stats
 
-        mock_db.query.side_effect = query_side_effect
-
-        service = VintedJobService(mock_db)
-        service._update_job_stats(sample_job, success=False)
+        VintedJobStatsService.update_job_stats(mock_db, sample_job, success=False)
 
         assert existing_stats.total_jobs == 11
         assert existing_stats.success_count == 8

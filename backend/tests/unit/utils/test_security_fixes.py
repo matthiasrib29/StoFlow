@@ -260,38 +260,9 @@ async def test_timing_attack_delay_exists():
 
 
 # ===== TEST #9: Path Traversal Protection =====
-
-def test_path_traversal_blocked_double_dot():
-    """Test que ../ est bloqué."""
-    with pytest.raises(ValueError) as exc:
-        FileService.delete_product_image("uploads/../../etc/passwd")
-
-    assert "Path traversal" in str(exc.value)
-    assert ".." in str(exc.value)
-
-
-def test_path_traversal_blocked_resolve():
-    """Test que paths hors uploads/ sont bloqués."""
-    # Tenter d'accéder à un fichier système
-    with pytest.raises(ValueError) as exc:
-        FileService.delete_product_image("/etc/passwd")
-
-    assert "Path traversal" in str(exc.value) or "must be inside" in str(exc.value)
-
-
-def test_path_traversal_valid_path_allowed():
-    """Test qu'un chemin valide dans uploads/ est autorisé."""
-    # Créer un fichier temporaire
-    test_path = Path("uploads/test_user/products/1/test.jpg")
-    test_path.parent.mkdir(parents=True, exist_ok=True)
-    test_path.write_text("test")
-
-    # Delete devrait fonctionner
-    result = FileService.delete_product_image(str(test_path))
-    assert result is True
-
-    # Cleanup
-    test_path.parent.rmdir() if test_path.parent.exists() else None
+# NOTE (2026-01-06): Tests supprimés - stockage migré vers R2 cloud.
+# FileService.delete_product_image utilise maintenant des URLs R2.
+# La protection path traversal n'est plus applicable pour les URLs cloud.
 
 
 # ===== TEST #10: Password Complexity =====

@@ -155,7 +155,7 @@ class VintedDataExtractor:
         try:
             from dateutil import parser as date_parser
             return date_parser.parse(date_str)
-        except Exception:
+        except (ValueError, TypeError):
             return None
 
     # =========================================================================

@@ -7,7 +7,12 @@ from typing import Generator
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+
+from shared.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 from shared.config import settings
 
@@ -65,7 +70,7 @@ def get_db() -> Generator[Session, None, None]:
     try:
         yield db
         db.commit()  # Auto-commit on success
-    except Exception:
+    except SQLAlchemyError:
         db.rollback()  # Rollback on error
         raise
     finally:
@@ -85,7 +90,7 @@ def get_db_context() -> Generator[Session, None, None]:
     try:
         yield db
         db.commit()
-    except Exception:
+    except SQLAlchemyError:
         db.rollback()
         raise
     finally:
@@ -152,6 +157,6 @@ def check_database_connection() -> bool:
         with get_db_context() as db:
             db.execute(text("SELECT 1"))
         return True
-    except Exception as e:
-        print(f"❌ Database connection failed: {e}")
+    except (OperationalError, SQLAlchemyError) as e:
+        logger.error(f"Database connection failed: {e}")
         return False

@@ -178,5 +178,5 @@ class EbayTradingClient(EbayBaseClient):
         """
         try:
             return self.get_user()
-        except Exception:
+        except (requests.exceptions.RequestException, RuntimeError):
             return None

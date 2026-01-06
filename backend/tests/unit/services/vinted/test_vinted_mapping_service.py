@@ -286,9 +286,8 @@ class TestMapSize:
         """Test mapping taille femme."""
         mock_db = Mock()
         mock_size = Mock()
-        mock_size.vinted_woman_id = 206
-        mock_size.vinted_man_top_id = None
-        mock_size.vinted_man_bottom_id = None
+        mock_size.vinted_women_id = 206
+        mock_size.vinted_men_id = None
         mock_db.query.return_value.filter.return_value.first.return_value = mock_size
 
         result = VintedMappingService.map_size(mock_db, "M", "female", "T-shirt")
@@ -299,9 +298,8 @@ class TestMapSize:
         """Test mapping taille homme haut."""
         mock_db = Mock()
         mock_size = Mock()
-        mock_size.vinted_woman_id = None
-        mock_size.vinted_man_top_id = 210
-        mock_size.vinted_man_bottom_id = None
+        mock_size.vinted_women_id = None
+        mock_size.vinted_men_id = 210
         mock_db.query.return_value.filter.return_value.first.return_value = mock_size
 
         result = VintedMappingService.map_size(mock_db, "L", "male", "Sweater")
@@ -312,9 +310,8 @@ class TestMapSize:
         """Test mapping taille homme bas."""
         mock_db = Mock()
         mock_size = Mock()
-        mock_size.vinted_woman_id = None
-        mock_size.vinted_man_top_id = None
-        mock_size.vinted_man_bottom_id = 207
+        mock_size.vinted_women_id = None
+        mock_size.vinted_men_id = 207
         mock_db.query.return_value.filter.return_value.first.return_value = mock_size
 
         result = VintedMappingService.map_size(mock_db, "32", "male", "Jeans")

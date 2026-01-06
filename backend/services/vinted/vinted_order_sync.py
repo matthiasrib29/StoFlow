@@ -408,7 +408,7 @@ class VintedOrderSyncService:
                 'delivered_at': delivered_at,
                 'completed_at': transaction.get('status_updated_at')
             }
-        except Exception:
+        except (ValueError, KeyError, TypeError):
             return None
 
     def _extract_products_from_transaction(self, transaction: dict) -> list[dict]:
@@ -470,7 +470,7 @@ class VintedOrderSyncService:
                         'brand': None,
                         'photo_url': None
                     })
-        except Exception:
+        except (ValueError, KeyError, TypeError):
             pass
 
         return products

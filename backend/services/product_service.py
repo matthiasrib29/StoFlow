@@ -1,79 +1,69 @@
 """
 Product Service
 
-Service pour la logique métier des produits.
+Service for product business logic.
 
 Business Rules (Updated 2025-12-09):
-- ID auto-incrémenté comme identifiant unique (PostgreSQL SERIAL)
-- Prix calculé automatiquement si absent
-- Taille ajustée automatiquement selon dimensions
-- Auto-création size si manquante
-- Validation automatique des FK (brand, category, condition doivent exister)
-- Status MVP: DRAFT, PUBLISHED, SOLD, ARCHIVED uniquement
-- Soft delete (deleted_at au lieu de suppression physique)
+- Auto-incremented ID as unique identifier (PostgreSQL SERIAL)
+- Price calculated automatically if absent
+- Size adjusted automatically based on dimensions
+- Auto-create size if missing
+- Strict FK validation (brand, category, condition must exist)
+- Status MVP: DRAFT, PUBLISHED, SOLD, ARCHIVED only
+- Soft delete (deleted_at instead of physical deletion)
+
+Refactored: 2026-01-06
+- Extracted image operations to ProductImageService
+- Extracted status management to ProductStatusManager
+- Migrated DB operations to ProductRepository
 """
 
-from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
-from models.public.brand import Brand
-from models.public.category import Category
-from models.public.color import Color
-from models.public.condition import Condition
-from models.public.fit import Fit
-from models.public.gender import Gender
-from shared.datetime_utils import utc_now
-from models.public.material import Material
-from models.public.season import Season
-from models.public.size import Size
 from models.user.product import Product, ProductStatus
-from services.validators import AttributeValidator
+from repositories.product_attribute_repository import ProductAttributeRepository
+from repositories.product_repository import ProductRepository
 from schemas.product_schemas import ProductCreate, ProductUpdate
-from services.product_utils import ProductUtils
 from services.pricing_service import PricingService
+from services.product_image_service import ProductImageService
+from services.product_status_manager import ProductStatusManager
+from services.product_utils import ProductUtils
+from services.validators import AttributeValidator
+from shared.datetime_utils import utc_now
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
 
 class ProductService:
-    """Service pour gérer les produits."""
-
-    # Statuts autorisés pour MVP
-    MVP_STATUSES = [
-        ProductStatus.DRAFT,
-        ProductStatus.PUBLISHED,
-        ProductStatus.SOLD,
-        ProductStatus.ARCHIVED,
-    ]
+    """Service for product management."""
 
     @staticmethod
     def create_product(db: Session, product_data: ProductCreate, user_id: int) -> Product:
         """
-        Crée un nouveau produit avec toutes les fonctionnalités PostEditFlet.
+        Create a new product with all PostEditFlet features.
 
         Business Rules (Updated 2025-12-09):
-        - ID auto-incrémenté comme identifiant unique (PostgreSQL SERIAL)
-        - Prix calculé automatiquement si absent (PricingService)
-        - Taille ajustée automatiquement si dim1/dim6 fournis (W{dim1}/L{dim6})
-        - Auto-création size si manquante (pièce unique vintage)
-        - Validation stricte brand (pas d'auto-création)
-        - Status par défaut: DRAFT
-        - stock_quantity par défaut: 1 (pièce unique)
+        - Auto-incremented ID as unique identifier (PostgreSQL SERIAL)
+        - Price calculated automatically if absent (PricingService)
+        - Size adjusted automatically if dim1/dim6 provided (W{dim1}/L{dim6})
+        - Auto-create size if missing (vintage unique piece)
+        - Strict brand validation (no auto-creation)
+        - Default status: DRAFT
+        - Default stock_quantity: 1 (unique piece)
 
         Args:
-            db: Session SQLAlchemy
-            product_data: Données du produit à créer
-            user_id: ID de l'utilisateur (pour schema user_X)
+            db: SQLAlchemy Session
+            product_data: Product data to create
+            user_id: User ID (for user_X schema)
 
         Returns:
-            Product: Le produit créé
+            Product: Created product
 
         Raises:
-            ValueError: Si un attribut FK est invalide (brand, category, condition, etc.)
+            ValueError: If a FK attribute is invalid (brand, category, condition, etc.)
         """
         import time
         start_time = time.time()
@@ -84,43 +74,35 @@ class ProductService:
             f"category={product_data.category}, brand={product_data.brand}"
         )
 
-        schema_name = f"user_{user_id}"
-
-        # ===== 1. AJUSTER TAILLE SI DIMENSIONS FOURNIES (Business Rule 2025-12-09) =====
+        # ===== 1. ADJUST SIZE IF DIMENSIONS PROVIDED (Business Rule 2025-12-09) =====
         size_original = ProductUtils.adjust_size(
             product_data.size_original,
             product_data.dim1,
             product_data.dim6
         )
 
-        # ===== 2. AUTO-CRÉER SIZE SI MANQUANTE (Business Rule 2025-12-09) =====
+        # ===== 2. AUTO-CREATE SIZE IF MISSING (Business Rule 2025-12-09) =====
         if size_original:
-            size_exists = db.query(Size).filter(Size.name_en == size_original).first()
-            if not size_exists:
-                new_size = Size(name_en=size_original, name_fr=None)
-                db.add(new_size)
-                db.commit()
+            ProductAttributeRepository.get_or_create_size(db, size_original)
 
-        # ===== 3. CALCULER PRIX SI ABSENT (Business Rule 2025-12-09) =====
+        # ===== 3. CALCULATE PRICE IF ABSENT (Business Rule 2025-12-09) =====
         price = product_data.price
         if not price:
-            # Calculer automatiquement
             price = PricingService.calculate_price(
                 db=db,
                 brand=product_data.brand,
                 category=product_data.category,
                 condition=product_data.condition,
-                rarity=None,  # TODO: Ajouter si besoin
-                quality=None,  # TODO: Ajouter si besoin
+                rarity=None,
+                quality=None,
             )
 
-        # ===== 4. VALIDATION DES ATTRIBUTS (Refactored 2025-12-09) =====
-        # Valider tous les attributs FK
+        # ===== 4. VALIDATE ATTRIBUTES (Refactored 2025-12-09) =====
         validation_data = product_data.model_dump()
-        validation_data['size_original'] = size_original  # Utiliser taille ajustée
+        validation_data['size_original'] = size_original  # Use adjusted size
         AttributeValidator.validate_product_attributes(db, validation_data)
 
-        # ===== 5. CRÉER LE PRODUIT =====
+        # ===== 5. CREATE PRODUCT =====
         product = Product(
             title=product_data.title,
             description=product_data.description,
@@ -128,7 +110,7 @@ class ProductService:
             category=product_data.category,
             brand=product_data.brand,
             condition=product_data.condition,
-            size_original=size_original,  # Taille originale (ajustée si dimensions fournies)
+            size_original=size_original,
             color=product_data.color,
             material=product_data.material,
             fit=product_data.fit,
@@ -150,11 +132,11 @@ class ProductService:
             dim4=product_data.dim4,
             dim5=product_data.dim5,
             dim6=product_data.dim6,
-            stock_quantity=product_data.stock_quantity,  # Default: 1
+            stock_quantity=product_data.stock_quantity,
             status=ProductStatus.DRAFT,
         )
 
-        db.add(product)
+        ProductRepository.create(db, product)
         db.commit()
         db.refresh(product)
 
@@ -170,23 +152,19 @@ class ProductService:
     @staticmethod
     def get_product_by_id(db: Session, product_id: int) -> Optional[Product]:
         """
-        Récupère un produit par ID.
+        Get a product by ID.
 
         Business Rules:
-        - Ignore les produits soft-deleted (deleted_at NOT NULL)
+        - Ignores soft-deleted products (deleted_at NOT NULL)
 
         Args:
-            db: Session SQLAlchemy
-            product_id: ID du produit
+            db: SQLAlchemy Session
+            product_id: Product ID
 
         Returns:
-            Product ou None si non trouvé/supprimé
+            Product or None if not found/deleted
         """
-        return (
-            db.query(Product)
-            .filter(Product.id == product_id, Product.deleted_at == None)
-            .first()
-        )
+        return ProductRepository.get_by_id(db, product_id)
 
     @staticmethod
     def list_products(
@@ -198,92 +176,83 @@ class ProductService:
         brand: Optional[str] = None,
     ) -> tuple[list[Product], int]:
         """
-        Liste les produits avec filtres et pagination.
+        List products with filters and pagination.
 
         Business Rules:
-        - Ignore les produits soft-deleted
-        - Tri par défaut: created_at DESC (plus récents en premier)
-        - Limit max: 100 (défini par l'API)
+        - Ignores soft-deleted products
+        - Default sort: created_at DESC (newest first)
+        - Max limit: 100 (defined by API)
 
         Args:
-            db: Session SQLAlchemy
-            skip: Nombre de résultats à sauter (pagination)
-            limit: Nombre max de résultats
-            status: Filtre par status (optionnel)
-            category: Filtre par catégorie (optionnel)
-            brand: Filtre par marque (optionnel)
+            db: SQLAlchemy Session
+            skip: Number of results to skip (pagination)
+            limit: Max number of results
+            status: Filter by status (optional)
+            category: Filter by category (optional)
+            brand: Filter by brand (optional)
 
         Returns:
-            Tuple (liste de produits, total count)
+            Tuple (list of products, total count)
         """
-        # Base query: seulement produits non supprimés
-        query = db.query(Product).filter(Product.deleted_at == None)
-
-        # Filtres optionnels
-        if status:
-            query = query.filter(Product.status == status)
-        if category:
-            query = query.filter(Product.category == category)
-        if brand:
-            query = query.filter(Product.brand == brand)
-
-        # Total count (avant pagination)
-        total = query.count()
-
-        # Appliquer tri et pagination
-        products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
-
-        return products, total
+        return ProductRepository.list(
+            db,
+            skip=skip,
+            limit=limit,
+            status=status,
+            category=category,
+            brand=brand,
+        )
 
     @staticmethod
     def update_product(
         db: Session, product_id: int, product_data: ProductUpdate
     ) -> Optional[Product]:
         """
-        Met à jour un produit.
+        Update a product.
 
         Business Rules:
-        - Validation des FK si modifiés (brand, category, condition, etc.)
-        - updated_at automatiquement mis à jour par SQLAlchemy
-        - Ne peut pas modifier un produit supprimé
+        - FK validation if modified (brand, category, condition, etc.)
+        - updated_at automatically updated by SQLAlchemy
+        - Cannot modify a deleted product
+        - SOLD products are immutable
 
         Args:
-            db: Session SQLAlchemy
-            product_id: ID du produit à modifier
-            product_data: Nouvelles données (champs optionnels)
+            db: SQLAlchemy Session
+            product_id: Product ID to modify
+            product_data: New data (optional fields)
 
         Returns:
-            Product mis à jour ou None si non trouvé
+            Updated Product or None if not found
 
         Raises:
-            ValueError: Si un attribut FK est invalide
+            ValueError: If a FK attribute is invalid or product is SOLD
         """
         import time
         start_time = time.time()
 
         logger.info(f"[ProductService] Starting update_product: product_id={product_id}")
 
-        product = ProductService.get_product_by_id(db, product_id)
+        product = ProductRepository.get_by_id(db, product_id)
         if not product:
             logger.warning(f"[ProductService] update_product: product_id={product_id} not found")
             return None
 
-        # ===== BUSINESS RULE (2025-12-05): SOLD products are immutable =====
-        if product.status == ProductStatus.SOLD:
+        # BUSINESS RULE (2025-12-05): SOLD products are immutable
+        if ProductStatusManager.is_immutable(product):
             raise ValueError(
                 "Cannot modify SOLD product. Product is locked after sale. "
                 "Contact support if price/data correction needed."
             )
 
-        # ===== VALIDATION DES ATTRIBUTS (Refactored 2025-12-05) =====
-        # Validation partielle : seulement les attributs modifiés (was 30 lines!)
+        # Partial validation: only modified attributes
         update_dict = product_data.model_dump(exclude_unset=True)
         AttributeValidator.validate_product_attributes(db, update_dict, partial=True)
 
-        # Appliquer les modifications
+        # Apply modifications
         for key, value in update_dict.items():
             setattr(product, key, value)
 
+        ProductRepository.update(db, product)
         db.commit()
         db.refresh(product)
 
@@ -298,263 +267,104 @@ class ProductService:
     @staticmethod
     def delete_product(db: Session, product_id: int) -> bool:
         """
-        Supprime un produit (soft delete).
+        Delete a product (soft delete).
 
         Business Rules (2025-12-04):
-        - Soft delete: marque deleted_at au lieu de supprimer physiquement
-        - Les images ne sont PAS supprimées (restent pour historique)
-        - Le produit reste visible dans les rapports mais invisible dans les listes
+        - Soft delete: marks deleted_at instead of physical deletion
+        - Images are NOT deleted (kept for history)
+        - Product remains visible in reports but invisible in lists
 
         Args:
-            db: Session SQLAlchemy
-            product_id: ID du produit à supprimer
+            db: SQLAlchemy Session
+            product_id: Product ID to delete
 
         Returns:
-            bool: True si supprimé, False si non trouvé
+            bool: True if deleted, False if not found
         """
         logger.info(f"[ProductService] Starting delete_product: product_id={product_id}")
 
-        product = ProductService.get_product_by_id(db, product_id)
+        product = ProductRepository.get_by_id(db, product_id)
         if not product:
             logger.warning(f"[ProductService] delete_product: product_id={product_id} not found")
             return False
 
-        product.deleted_at = utc_now()
+        ProductRepository.soft_delete(db, product)
         db.commit()
 
         logger.info(f"[ProductService] delete_product completed: product_id={product_id} (soft deleted)")
 
         return True
 
+    # =========================================================================
+    # DELEGATED METHODS (to specialized services)
+    # =========================================================================
+
     @staticmethod
     def add_image(
         db: Session, product_id: int, image_url: str, display_order: int | None = None
     ) -> dict:
         """
-        Ajoute une image à un produit (JSONB).
-
-        Business Rules (Updated 2026-01-03):
-        - Maximum 20 images par produit (limite Vinted)
-        - Vérifier que le produit existe et n'est pas supprimé
-        - display_order auto-calculé si non fourni (append à la fin)
-        - Images stockées en JSONB: [{url, order, created_at}, ...]
+        Add an image to a product. Delegates to ProductImageService.
 
         Args:
-            db: Session SQLAlchemy
-            product_id: ID du produit
-            image_url: URL de l'image (CDN)
-            display_order: Ordre d'affichage (auto si None)
+            db: SQLAlchemy Session
+            product_id: Product ID
+            image_url: Image URL (CDN)
+            display_order: Display order (auto if None)
 
         Returns:
-            dict: L'image créée {url, order, created_at}
-
-        Raises:
-            ValueError: Si produit non trouvé ou limite atteinte
+            dict: Created image {url, order, created_at}
         """
-        product = ProductService.get_product_by_id(db, product_id)
-        if not product:
-            raise ValueError(f"Product with id {product_id} not found")
-
-        # ===== BUSINESS RULE: Cannot add images to SOLD products =====
-        if product.status == ProductStatus.SOLD:
-            raise ValueError(
-                "Cannot add images to SOLD product. Product is locked after sale."
-            )
-
-        # Get current images (ensure list)
-        images = product.images or []
-
-        # Vérifier la limite de 20 images
-        if len(images) >= 20:
-            raise ValueError(f"Product already has {len(images)} images (max 20)")
-
-        # Auto-calculate display_order if not provided
-        if display_order is None:
-            display_order = len(images)
-
-        # Create new image entry
-        new_image = {
-            "url": image_url,
-            "order": display_order,
-            "created_at": utc_now().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        }
-
-        # Append and save
-        images.append(new_image)
-        product.images = images
-        db.flush()
-
-        return new_image
+        return ProductImageService.add_image(db, product_id, image_url, display_order)
 
     @staticmethod
     def delete_image(db: Session, product_id: int, image_url: str) -> bool:
         """
-        Supprime une image par URL.
-
-        Business Rules (Updated 2026-01-03):
-        - Suppression de l'entrée JSONB
-        - Le fichier CDN doit être supprimé par FileService (R2)
-        - Réordonne automatiquement les images restantes
+        Delete an image by URL. Delegates to ProductImageService.
 
         Args:
-            db: Session SQLAlchemy
-            product_id: ID du produit
-            image_url: URL de l'image à supprimer
+            db: SQLAlchemy Session
+            product_id: Product ID
+            image_url: Image URL to delete
 
         Returns:
-            bool: True si supprimée, False si non trouvée
+            bool: True if deleted, False if not found
         """
-        product = ProductService.get_product_by_id(db, product_id)
-        if not product:
-            return False
-
-        images = product.images or []
-
-        # Filter out the image to delete
-        new_images = [img for img in images if img.get("url") != image_url]
-
-        if len(new_images) == len(images):
-            return False  # Image not found
-
-        # Reorder remaining images (0, 1, 2, ...)
-        for i, img in enumerate(new_images):
-            img["order"] = i
-
-        product.images = new_images
-        db.commit()
-
-        return True
+        return ProductImageService.delete_image(db, product_id, image_url)
 
     @staticmethod
     def reorder_images(
         db: Session, product_id: int, ordered_urls: list[str]
     ) -> list[dict]:
         """
-        Réordonne les images d'un produit.
-
-        Business Rules (Updated 2026-01-03):
-        - ordered_urls: liste d'URLs dans le nouvel ordre
-        - L'ordre dans la liste détermine le display_order (0, 1, 2, ...)
-        - Vérifie que toutes les URLs appartiennent au produit
+        Reorder product images. Delegates to ProductImageService.
 
         Args:
-            db: Session SQLAlchemy
-            product_id: ID du produit
-            ordered_urls: Liste d'URLs dans l'ordre souhaité
+            db: SQLAlchemy Session
+            product_id: Product ID
+            ordered_urls: List of URLs in desired order
 
         Returns:
-            list[dict]: Images réordonnées
-
-        Raises:
-            ValueError: Si une URL n'appartient pas au produit
+            list[dict]: Reordered images
         """
-        product = ProductService.get_product_by_id(db, product_id)
-        if not product:
-            raise ValueError(f"Product with id {product_id} not found")
-
-        images = product.images or []
-        current_urls = {img.get("url") for img in images}
-
-        # Vérifier que toutes les URLs existent
-        for url in ordered_urls:
-            if url not in current_urls:
-                raise ValueError(
-                    f"Image URL not found in product {product_id}: {url}"
-                )
-
-        # Build URL -> image mapping
-        url_to_image = {img.get("url"): img for img in images}
-
-        # Reorder based on ordered_urls
-        reordered = []
-        for i, url in enumerate(ordered_urls):
-            img = url_to_image[url].copy()
-            img["order"] = i
-            reordered.append(img)
-
-        product.images = reordered
-        db.commit()
-        db.refresh(product)
-
-        return product.images
+        return ProductImageService.reorder_images(db, product_id, ordered_urls)
 
     @staticmethod
     def update_product_status(
         db: Session, product_id: int, new_status: ProductStatus
     ) -> Optional[Product]:
         """
-        Met à jour le status d'un produit.
-
-        Business Rules (MVP - 2025-12-04):
-        - Transitions MVP autorisées:
-          - DRAFT → PUBLISHED
-          - PUBLISHED → SOLD
-          - PUBLISHED → ARCHIVED
-          - SOLD → ARCHIVED
-        - Autres statuts non autorisés pour MVP
+        Update product status. Delegates to ProductStatusManager.
 
         Args:
-            db: Session SQLAlchemy
-            product_id: ID du produit
-            new_status: Nouveau status
+            db: SQLAlchemy Session
+            product_id: Product ID
+            new_status: New status
 
         Returns:
-            Product mis à jour ou None si non trouvé
-
-        Raises:
-            ValueError: Si status non autorisé pour MVP ou transition invalide
+            Updated Product or None if not found
         """
-        if new_status not in ProductService.MVP_STATUSES:
-            raise ValueError(
-                f"Status {new_status} not allowed in MVP. "
-                f"Allowed: {', '.join([s.value for s in ProductService.MVP_STATUSES])}"
-            )
+        return ProductStatusManager.update_status(db, product_id, new_status)
 
-        product = ProductService.get_product_by_id(db, product_id)
-        if not product:
-            return None
 
-        # Valider les transitions (Business Rules 2025-12-05)
-        current_status = product.status
-        valid_transitions = {
-            ProductStatus.DRAFT: [ProductStatus.PUBLISHED, ProductStatus.ARCHIVED],  # Can archive draft
-            ProductStatus.PUBLISHED: [ProductStatus.SOLD, ProductStatus.ARCHIVED],
-            ProductStatus.SOLD: [ProductStatus.ARCHIVED],
-            ProductStatus.ARCHIVED: [],  # Aucune transition depuis ARCHIVED
-        }
-
-        if new_status not in valid_transitions.get(current_status, []):
-            raise ValueError(
-                f"Invalid transition: {current_status.value} → {new_status.value}"
-            )
-
-        # ===== BUSINESS RULES (2025-12-05): Publication validation =====
-        if new_status == ProductStatus.PUBLISHED:
-            # Cannot publish with zero stock
-            if product.stock_quantity <= 0:
-                raise ValueError(
-                    f"Cannot publish product with zero or negative stock. "
-                    f"Current stock: {product.stock_quantity}. Please add inventory first."
-                )
-            # Cannot publish without images (min 1 required)
-            image_count = len(product.images or [])
-            if image_count == 0:
-                raise ValueError(
-                    "Cannot publish product without images. "
-                    "Please add at least 1 product image before publishing."
-                )
-
-        # Mettre à jour le status
-        product.status = new_status
-
-        # Mettre à jour sold_at si vendu + reset stock (Business Rule 2025-12-05)
-        if new_status == ProductStatus.SOLD:
-            if not product.sold_at:
-                product.sold_at = utc_now()
-            # Produit vendu → stock à zéro (produit unique)
-            product.stock_quantity = 0
-
-        db.commit()
-        db.refresh(product)
-
-        return product
+__all__ = ["ProductService"]

@@ -15,6 +15,7 @@ Author: Claude (porté depuis pythonApiWOO)
 Date: 2025-12-10
 """
 
+import json
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -346,7 +347,7 @@ class EbayAccountClient(EbayBaseClient):
                 error_data = resp.text
                 try:
                     error_data = resp.json()
-                except Exception:
+                except json.JSONDecodeError:
                     pass
                 raise RuntimeError(f"Erreur eBay {resp.status_code}: {error_data}")
 

@@ -10,6 +10,7 @@ Couverture:
 
 Author: Claude
 Date: 2025-12-10
+Updated: 2026-01-06 (migrated to UserRepository mocks)
 """
 
 import pytest
@@ -18,7 +19,6 @@ from unittest.mock import Mock, patch, MagicMock
 from jose import jwt
 
 from services.auth_service import AuthService
-from models.public.user import SubscriptionTier
 from shared.datetime_utils import utc_now
 
 
@@ -107,6 +107,7 @@ class TestCreateAccessToken:
         """Test que create_access_token retourne une string."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=1, role="user")
 
@@ -118,6 +119,7 @@ class TestCreateAccessToken:
         """Test que le token contient user_id."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=123, role="user")
         payload = jwt.decode(token, "test_secret", algorithms=["HS256"])
@@ -129,6 +131,7 @@ class TestCreateAccessToken:
         """Test que le token contient le rôle."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=1, role="admin")
         payload = jwt.decode(token, "test_secret", algorithms=["HS256"])
@@ -140,6 +143,7 @@ class TestCreateAccessToken:
         """Test que le type de token est 'access'."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=1, role="user")
         payload = jwt.decode(token, "test_secret", algorithms=["HS256"])
@@ -151,6 +155,7 @@ class TestCreateAccessToken:
         """Test que le token a une expiration."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=1, role="user")
         payload = jwt.decode(token, "test_secret", algorithms=["HS256"])
@@ -171,6 +176,7 @@ class TestCreateRefreshToken:
         """Test que create_refresh_token retourne une string."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
 
         token = AuthService.create_refresh_token(user_id=1)
 
@@ -182,6 +188,7 @@ class TestCreateRefreshToken:
         """Test que le refresh token contient user_id."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
 
         token = AuthService.create_refresh_token(user_id=456)
         payload = jwt.decode(token, "test_secret", algorithms=["HS256"])
@@ -193,6 +200,7 @@ class TestCreateRefreshToken:
         """Test que le type de token est 'refresh'."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
 
         token = AuthService.create_refresh_token(user_id=1)
         payload = jwt.decode(token, "test_secret", algorithms=["HS256"])
@@ -204,6 +212,7 @@ class TestCreateRefreshToken:
         """Test que le refresh token n'a pas de rôle."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
 
         token = AuthService.create_refresh_token(user_id=1)
         payload = jwt.decode(token, "test_secret", algorithms=["HS256"])
@@ -215,6 +224,7 @@ class TestCreateRefreshToken:
         """Test que le refresh token expire dans 7 jours."""
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
 
         token = AuthService.create_refresh_token(user_id=1)
         payload = jwt.decode(token, "test_secret", algorithms=["HS256"])
@@ -233,7 +243,9 @@ class TestVerifyToken:
     def test_verify_valid_access_token(self, mock_settings):
         """Test vérification d'un access token valide."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=1, role="user")
         payload = AuthService.verify_token(token, token_type="access")
@@ -246,7 +258,9 @@ class TestVerifyToken:
     def test_verify_valid_refresh_token(self, mock_settings):
         """Test vérification d'un refresh token valide."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
 
         token = AuthService.create_refresh_token(user_id=1)
         payload = AuthService.verify_token(token, token_type="refresh")
@@ -259,7 +273,9 @@ class TestVerifyToken:
     def test_verify_wrong_token_type(self, mock_settings):
         """Test vérification avec mauvais type de token."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         access_token = AuthService.create_access_token(user_id=1, role="user")
         # Essayer de vérifier comme refresh token
@@ -271,6 +287,7 @@ class TestVerifyToken:
     def test_verify_invalid_token(self, mock_settings):
         """Test vérification d'un token invalide."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
 
         payload = AuthService.verify_token("invalid.token.here")
@@ -281,6 +298,7 @@ class TestVerifyToken:
     def test_verify_expired_token(self, mock_settings):
         """Test vérification d'un token expiré."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
 
         # Créer un token expiré manuellement
@@ -301,7 +319,8 @@ class TestVerifyToken:
 class TestAuthenticateUser:
     """Tests pour la méthode authenticate_user."""
 
-    def test_authenticate_valid_user(self):
+    @patch('services.auth_service.UserRepository')
+    def test_authenticate_valid_user(self, mock_repo):
         """Test authentification utilisateur valide."""
         mock_db = Mock()
         mock_user = Mock()
@@ -311,38 +330,44 @@ class TestAuthenticateUser:
         mock_user.hashed_password = AuthService.hash_password("password123")
         mock_user.locked_until = None
         mock_user.failed_login_attempts = 0
+        mock_user.schema_name = "user_1"
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
 
         result = AuthService.authenticate_user(mock_db, "test@example.com", "password123")
 
         assert result is not None
         assert result.id == 1
+        mock_repo.get_by_email.assert_called_once_with(mock_db, "test@example.com")
 
-    def test_authenticate_user_not_found(self):
+    @patch('services.auth_service.UserRepository')
+    def test_authenticate_user_not_found(self, mock_repo):
         """Test authentification utilisateur non trouvé."""
         mock_db = Mock()
-        mock_db.query.return_value.filter.return_value.first.return_value = None
+        mock_repo.get_by_email.return_value = None
 
         result = AuthService.authenticate_user(mock_db, "unknown@example.com", "password")
 
         assert result is None
 
-    def test_authenticate_inactive_user(self):
+    @patch('services.auth_service.UserRepository')
+    def test_authenticate_inactive_user(self, mock_repo):
         """Test authentification utilisateur inactif."""
         mock_db = Mock()
         mock_user = Mock()
+        mock_user.id = 1
         mock_user.is_active = False
         mock_user.locked_until = None
         mock_user.failed_login_attempts = 0
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
 
         result = AuthService.authenticate_user(mock_db, "inactive@example.com", "password")
 
         assert result is None
 
-    def test_authenticate_wrong_password(self):
+    @patch('services.auth_service.UserRepository')
+    def test_authenticate_wrong_password(self, mock_repo):
         """Test authentification avec mauvais mot de passe."""
         mock_db = Mock()
         mock_user = Mock()
@@ -353,13 +378,15 @@ class TestAuthenticateUser:
         mock_user.locked_until = None
         mock_user.failed_login_attempts = 0
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
 
         result = AuthService.authenticate_user(mock_db, "test@example.com", "wrongpassword")
 
         assert result is None
+        mock_repo.increment_failed_login.assert_called_once_with(mock_db, mock_user)
 
-    def test_authenticate_updates_last_login(self):
+    @patch('services.auth_service.UserRepository')
+    def test_authenticate_updates_last_login(self, mock_repo):
         """Test que last_login est mis à jour."""
         mock_db = Mock()
         mock_user = Mock()
@@ -370,41 +397,49 @@ class TestAuthenticateUser:
         mock_user.last_login = None
         mock_user.locked_until = None
         mock_user.failed_login_attempts = 0
+        mock_user.schema_name = "user_1"
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
 
         AuthService.authenticate_user(mock_db, "test@example.com", "password")
 
-        assert mock_user.last_login is not None
+        mock_repo.reset_login_failures.assert_called_once_with(mock_db, mock_user)
+        mock_repo.update_login_stats.assert_called_once()
         mock_db.commit.assert_called_once()
 
 
 class TestGetUserFromToken:
     """Tests pour la méthode get_user_from_token."""
 
+    @patch('services.auth_service.UserRepository')
     @patch('services.auth_service.settings')
-    def test_get_user_valid_token(self, mock_settings):
+    def test_get_user_valid_token(self, mock_settings, mock_repo):
         """Test récupération utilisateur avec token valide."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         mock_db = Mock()
         mock_user = Mock()
         mock_user.id = 1
         mock_user.is_active = True
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_id.return_value = mock_user
 
         token = AuthService.create_access_token(user_id=1, role="user")
         result = AuthService.get_user_from_token(mock_db, token)
 
         assert result is not None
         assert result.id == 1
+        mock_repo.get_by_id.assert_called_once_with(mock_db, 1)
 
+    @patch('services.auth_service.UserRepository')
     @patch('services.auth_service.settings')
-    def test_get_user_invalid_token(self, mock_settings):
+    def test_get_user_invalid_token(self, mock_settings, mock_repo):
         """Test récupération utilisateur avec token invalide."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
 
         mock_db = Mock()
@@ -412,19 +447,23 @@ class TestGetUserFromToken:
         result = AuthService.get_user_from_token(mock_db, "invalid.token")
 
         assert result is None
+        mock_repo.get_by_id.assert_not_called()
 
+    @patch('services.auth_service.UserRepository')
     @patch('services.auth_service.settings')
-    def test_get_user_inactive_user(self, mock_settings):
+    def test_get_user_inactive_user(self, mock_settings, mock_repo):
         """Test récupération utilisateur inactif."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         mock_db = Mock()
         mock_user = Mock()
         mock_user.id = 1
         mock_user.is_active = False
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_id.return_value = mock_user
 
         token = AuthService.create_access_token(user_id=1, role="user")
         result = AuthService.get_user_from_token(mock_db, token)
@@ -435,11 +474,15 @@ class TestGetUserFromToken:
 class TestRefreshAccessToken:
     """Tests pour la méthode refresh_access_token."""
 
+    @patch('services.auth_service.UserRepository')
     @patch('services.auth_service.settings')
-    def test_refresh_valid_token(self, mock_settings):
+    def test_refresh_valid_token(self, mock_settings, mock_repo):
         """Test refresh avec token valide."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         mock_db = Mock()
         mock_user = Mock()
@@ -448,7 +491,7 @@ class TestRefreshAccessToken:
         mock_user.role = Mock()
         mock_user.role.value = "user"
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_id.return_value = mock_user
 
         refresh_token = AuthService.create_refresh_token(user_id=1)
         result = AuthService.refresh_access_token(mock_db, refresh_token)
@@ -456,11 +499,14 @@ class TestRefreshAccessToken:
         assert result is not None
         assert "access_token" in result
         assert result["token_type"] == "bearer"
+        mock_repo.get_by_id.assert_called_once_with(mock_db, 1)
 
+    @patch('services.auth_service.UserRepository')
     @patch('services.auth_service.settings')
-    def test_refresh_invalid_token(self, mock_settings):
+    def test_refresh_invalid_token(self, mock_settings, mock_repo):
         """Test refresh avec token invalide."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
 
         mock_db = Mock()
@@ -468,30 +514,37 @@ class TestRefreshAccessToken:
         result = AuthService.refresh_access_token(mock_db, "invalid.token")
 
         assert result is None
+        mock_repo.get_by_id.assert_not_called()
 
+    @patch('services.auth_service.UserRepository')
     @patch('services.auth_service.settings')
-    def test_refresh_inactive_user(self, mock_settings):
+    def test_refresh_inactive_user(self, mock_settings, mock_repo):
         """Test refresh avec utilisateur inactif."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
 
         mock_db = Mock()
         mock_user = Mock()
         mock_user.id = 1
         mock_user.is_active = False
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_id.return_value = mock_user
 
         refresh_token = AuthService.create_refresh_token(user_id=1)
         result = AuthService.refresh_access_token(mock_db, refresh_token)
 
         assert result is None
 
+    @patch('services.auth_service.UserRepository')
     @patch('services.auth_service.settings')
-    def test_refresh_with_access_token_fails(self, mock_settings):
+    def test_refresh_with_access_token_fails(self, mock_settings, mock_repo):
         """Test refresh avec un access token (doit échouer)."""
         mock_settings.jwt_secret_key = "test_secret"
+        mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         mock_db = Mock()
 
@@ -499,6 +552,7 @@ class TestRefreshAccessToken:
         result = AuthService.refresh_access_token(mock_db, access_token)
 
         assert result is None
+        mock_repo.get_by_id.assert_not_called()
 
 
 # NOTE (2025-12-12): TestGetSubscriptionLimits SUPPRIMÉE

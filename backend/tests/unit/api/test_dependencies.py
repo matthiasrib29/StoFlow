@@ -408,6 +408,7 @@ class TestGetUserDB:
     def test_get_user_db_validates_schema_name(self, mock_validate):
         """Test que get_user_db valide le schema_name."""
         from api.dependencies import get_user_db
+        from unittest.mock import ANY
 
         mock_db = Mock()
         mock_user = Mock()
@@ -421,8 +422,8 @@ class TestGetUserDB:
 
         get_user_db(db=mock_db, current_user=mock_user)
 
-        # Vérifier que _validate_schema_name a été appelé
-        mock_validate.assert_called_once_with("user_1")
+        # Vérifier que _validate_schema_name a été appelé avec schema_name et db
+        mock_validate.assert_called_once_with("user_1", ANY)
 
     def test_get_user_db_blocks_invalid_schema_name(self):
         """Test que get_user_db bloque les schema_name invalides."""
@@ -464,6 +465,7 @@ class TestGetUserDB:
     def test_get_user_db_uses_set_local(self, mock_validate):
         """Test que get_user_db utilise SET LOCAL (pas SET)."""
         from api.dependencies import get_user_db
+        from unittest.mock import ANY
 
         mock_db = Mock()
         mock_user = Mock()
@@ -483,7 +485,7 @@ class TestGetUserDB:
         assert mock_db.execute.call_count >= 2
 
         # Vérifier que le bon schema est utilisé via _validate_schema_name
-        mock_validate.assert_called_once_with("user_1")
+        mock_validate.assert_called_once_with("user_1", ANY)
 
 
 # ============================================================================

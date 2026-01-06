@@ -431,6 +431,14 @@ class TestProductResponse:
             length = None
             sport = None
             unique_feature = None
+            marking = None
+            # Pricing attributes
+            pricing_edit = None
+            pricing_rarity = None
+            pricing_quality = None
+            pricing_details = None
+            pricing_style = None
+            # Dimensions
             dim1 = None
             dim2 = None
             dim3 = None
