@@ -22,7 +22,7 @@ Handles authentication, API requests, and synchronization tasks.
 ```
 plugin/
 ├── src/
-│   ├── background/      # Service worker (index.ts, PollingManager.ts)
+│   ├── background/      # Service worker (index.ts, VintedActionHandler.ts)
 │   ├── popup/           # Extension popup UI (Vue)
 │   ├── content/         # Content scripts (vinted.ts, stoflow-web.ts)
 │   ├── api/             # Backend API client (StoflowAPI.ts)
@@ -35,12 +35,19 @@ plugin/
 └── manifest.firefox.json # Firefox specific manifest
 ```
 
-### Communication Flow
+### Communication Flow (externally_connectable)
 ```
-Backend API <-> Plugin Background <-> Vinted API
-                    ^
-                    |
-              Popup UI / Content Scripts
+stoflow.io ---> chrome.runtime.sendMessage(EXTENSION_ID) ---> Plugin Background
+                                                                     |
+                                                                     v
+                                                               Vinted Tab
+                                                               (content script)
+                                                                     |
+                                                                     v
+                                                               Vinted API
+
+Firefox fallback (no externally_connectable support):
+stoflow.io ---> postMessage ---> stoflow-web.ts ---> background ---> Vinted
 ```
 
 ---
@@ -181,11 +188,11 @@ VITE_API_URL=https://api.stoflow.com
 | Fichier | Description |
 |---------|-------------|
 | `src/background/index.ts` | Main service worker |
-| `src/background/PollingManager.ts` | Task polling logic |
+| `src/background/VintedActionHandler.ts` | External message handler for Vinted actions |
 | `src/api/StoflowAPI.ts` | Backend communication |
 | `src/composables/useAuth.ts` | Authentication composable |
 | `src/content/vinted.ts` | Vinted content script |
-| `src/content/stoflow-web.ts` | StoFlow website integration |
+| `src/content/stoflow-web.ts` | StoFlow website integration (Firefox fallback) |
 
 ---
 

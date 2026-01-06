@@ -2,7 +2,8 @@
  * Types HTTP partagés pour les appels API
  *
  * Ces types sont utilisés par:
- * - src/background/PollingManager.ts (background)
+ * - src/background/VintedActionHandler.ts (external message handler)
+ * - src/content/vinted.ts (content script)
  */
 
 /**
