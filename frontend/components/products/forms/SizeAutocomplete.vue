@@ -13,10 +13,10 @@
       class="w-full"
       :class="{ 'p-invalid': hasError }"
       :loading="loading"
-      @update:model-value="handleInput"
       @complete="handleSearch"
-      @item-select="handleSelect"
-      @blur="$emit('blur')"
+      @update:model-value="handleValueChange"
+      @item-select="handleItemSelect"
+      @blur="handleBlur"
     >
       <template #option="{ option }">
         <div class="flex items-center gap-2">
@@ -74,6 +74,20 @@ const loading = ref(false)
 const normalizedSize = ref<string | null>(null)
 const allSizes = ref<string[]>([])
 
+// Handle value changes from AutoComplete (typing or selection)
+const handleValueChange = (value: string | null) => {
+  const strValue = value || ''
+  emit('update:modelValue', strValue)
+  checkNormalized(strValue)
+}
+
+// Handle item selection from dropdown
+const handleItemSelect = (event: { value: string }) => {
+  const strValue = event.value || ''
+  emit('update:modelValue', strValue)
+  checkNormalized(strValue)
+}
+
 // API
 const { get } = useApi()
 
@@ -109,16 +123,9 @@ const handleSearch = (event: { query: string }) => {
   }
 }
 
-// Gestion de l'input
-const handleInput = (value: string) => {
-  emit('update:modelValue', value)
-  checkNormalized(value)
-}
-
-// Sélection d'une suggestion
-const handleSelect = (event: { value: string }) => {
-  emit('update:modelValue', event.value)
-  checkNormalized(event.value)
+// Handle blur - emit blur event
+const handleBlur = () => {
+  emit('blur')
 }
 
 // Vérifier si la taille est normalisée

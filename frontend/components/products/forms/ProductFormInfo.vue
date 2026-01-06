@@ -8,18 +8,24 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Titre -->
       <div class="md:col-span-2">
-        <label for="title" class="block text-xs font-semibold mb-1 text-secondary-900">
+        <label for="title" class="block text-xs font-semibold mb-1 text-secondary-900 flex items-center gap-1">
           Titre du produit *
+          <i v-if="validation?.isFieldValid?.('title')" class="pi pi-check-circle text-green-500 text-xs" />
         </label>
-        <InputText
-          id="title"
-          :model-value="title"
-          placeholder="Ex: Levi's 501 Vintage W32/L34"
-          class="w-full"
-          :class="{ 'p-invalid': validation?.hasError('title') }"
-          @update:model-value="$emit('update:title', $event)"
-          @blur="validation?.touch('title')"
-        />
+        <div class="relative">
+          <InputText
+            id="title"
+            :model-value="title"
+            placeholder="Ex: Levi's 501 Vintage W32/L34"
+            class="w-full"
+            :class="{
+              'p-invalid': validation?.hasError('title'),
+              'border-green-400': validation?.isFieldValid?.('title')
+            }"
+            @update:model-value="handleTitleChange"
+            @blur="validation?.touch('title')"
+          />
+        </div>
         <small v-if="validation?.hasError('title')" class="p-error">
           {{ validation?.getError('title') }}
         </small>
@@ -28,8 +34,9 @@
       <!-- Description -->
       <div class="md:col-span-2">
         <div class="flex items-center justify-between mb-1">
-          <label for="description" class="block text-xs font-semibold text-secondary-900">
+          <label for="description" class="block text-xs font-semibold text-secondary-900 flex items-center gap-1">
             Description *
+            <i v-if="validation?.isFieldValid?.('description')" class="pi pi-check-circle text-green-500 text-xs" />
           </label>
           <Button
             v-if="productId"
@@ -48,8 +55,11 @@
           placeholder="Décrivez votre produit en détail : état, caractéristiques, histoire..."
           rows="4"
           class="w-full"
-          :class="{ 'p-invalid': validation?.hasError('description') }"
-          @update:model-value="$emit('update:description', $event)"
+          :class="{
+            'p-invalid': validation?.hasError('description'),
+            'border-green-400': validation?.isFieldValid?.('description')
+          }"
+          @update:model-value="handleDescriptionChange"
           @blur="validation?.touch('description')"
         />
         <small v-if="validation?.hasError('description')" class="p-error">
@@ -114,18 +124,36 @@ interface Props {
   validation?: any
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   productId: undefined,
   isGeneratingDescription: false,
   suggestedPrice: null,
   validation: undefined
 })
 
-defineEmits<{
+const emit = defineEmits<{
   'update:title': [value: string]
   'update:description': [value: string]
   'update:price': [value: number | null]
   'update:stockQuantity': [value: number]
   'generateDescription': []
 }>()
+
+// Handle title change with validation
+const handleTitleChange = (value: string) => {
+  emit('update:title', value)
+  // Validate with debounce if validation is available
+  if (props.validation?.validateDebounced) {
+    props.validation.validateDebounced('title', value)
+  }
+}
+
+// Handle description change with validation
+const handleDescriptionChange = (value: string) => {
+  emit('update:description', value)
+  // Validate with debounce if validation is available
+  if (props.validation?.validateDebounced) {
+    props.validation.validateDebounced('description', value)
+  }
+}
 </script>
