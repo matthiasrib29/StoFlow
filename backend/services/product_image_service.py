@@ -86,7 +86,7 @@ class ProductImageService:
         # Append and save
         images.append(new_image)
         product.images = images
-        db.flush()
+        db.commit()
 
         logger.debug(
             f"[ProductImageService] Image added: product_id={product_id}, "
