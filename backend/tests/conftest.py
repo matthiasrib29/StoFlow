@@ -208,7 +208,8 @@ def cleanup_data(request):
                 cleanup_session.execute(text("TRUNCATE TABLE product_attributes.categories CASCADE"))
                 cleanup_session.execute(text("TRUNCATE TABLE product_attributes.colors CASCADE"))
                 cleanup_session.execute(text("TRUNCATE TABLE product_attributes.conditions CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.sizes CASCADE"))
+                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.sizes_normalized CASCADE"))
+                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.sizes_original CASCADE"))
                 cleanup_session.execute(text("TRUNCATE TABLE product_attributes.materials CASCADE"))
                 cleanup_session.execute(text("TRUNCATE TABLE product_attributes.fits CASCADE"))
                 cleanup_session.execute(text("TRUNCATE TABLE product_attributes.genders CASCADE"))
@@ -357,7 +358,7 @@ def seed_attributes(db_session: Session):
     from models.public.category import Category
     from models.public.color import Color
     from models.public.condition import Condition
-    from models.public.size import Size
+    from models.public.size_normalized import SizeNormalized
     from models.public.material import Material
     from models.public.fit import Fit
     from models.public.gender import Gender
@@ -402,11 +403,11 @@ def seed_attributes(db_session: Session):
 
     # Sizes
     sizes = [
-        Size(name_en="XS", name_fr="XS"),
-        Size(name_en="S", name_fr="S"),
-        Size(name_en="M", name_fr="M"),
-        Size(name_en="L", name_fr="L"),
-        Size(name_en="XL", name_fr="XL"),
+        SizeNormalized(name_en="XS", name_fr="XS"),
+        SizeNormalized(name_en="S", name_fr="S"),
+        SizeNormalized(name_en="M", name_fr="M"),
+        SizeNormalized(name_en="L", name_fr="L"),
+        SizeNormalized(name_en="XL", name_fr="XL"),
     ]
     for s in sizes:
         db_session.merge(s)

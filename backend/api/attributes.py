@@ -30,7 +30,7 @@ from models.public.origin import Origin
 from models.public.pattern import Pattern
 from models.public.rise import Rise
 from models.public.season import Season
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 from models.public.sleeve_length import SleeveLength
 from models.public.sport import Sport
 from models.public.trend import Trend
@@ -48,7 +48,7 @@ ATTRIBUTE_MODELS = {
     "colors": Color,
     "materials": Material,
     "fits": Fit,
-    "sizes": Size,
+    "sizes": SizeNormalized,
     # Clothing attributes
     "sports": Sport,
     "necklines": Neckline,

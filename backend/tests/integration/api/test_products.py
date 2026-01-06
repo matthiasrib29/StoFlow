@@ -26,7 +26,7 @@ from models.public.fit import Fit
 from models.public.gender import Gender
 from models.public.material import Material
 from models.public.season import Season
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 from models.user.product import Product, ProductStatus
 from services.product_service import ProductService
 
@@ -75,10 +75,10 @@ def seed_attributes(db_session: Session):
 
     # Sizes (name_en is PK)
     sizes = [
-        Size(name_en="S", name_fr="S"),
-        Size(name_en="M", name_fr="M"),
-        Size(name_en="L", name_fr="L"),
-        Size(name_en="W32L34", name_fr="W32L34"),
+        SizeNormalized(name_en="S", name_fr="S"),
+        SizeNormalized(name_en="M", name_fr="M"),
+        SizeNormalized(name_en="L", name_fr="L"),
+        SizeNormalized(name_en="W32L34", name_fr="W32L34"),
     ]
     db_session.add_all(sizes)
 
@@ -724,5 +724,94 @@ class TestProductAPI:
         data = response.json()
 
         assert len(data) == 3
+
+
+def test_create_product_auto_creates_size_original(
+    client, auth_headers, db_session
+):
+    """
+    Test auto-création de size_original lors de create product.
+
+    Business Rule (2026-01-06):
+    - size_original est auto-créée dans sizes_original (product_attributes schema)
+    - ProductUtils.adjust_size() formate automatiquement les tailles (W32/L34)
+    - FK validée automatiquement par SQLAlchemy
+    """
+    from repositories.size_original_repository import SizeOriginalRepository
+
+    payload = {
+        "title": "Jean Levi's 501 Vintage",
+        "description": "Jean vintage en excellent état",
+        "price": 45.00,
+        "category": "Jeans",
+        "brand": "Levi's",
+        "condition": 8,
+        "size_original": "32 x 34",  # String input (sera formaté en W32/L34)
+        "dim1": 32,
+        "dim6": 34,
+        "stock_quantity": 1
+    }
+
+    response = client.post("/api/products", json=payload, headers=auth_headers)
+
+    assert response.status_code == 201
+    data = response.json()
+
+    # Vérifier que size_original a été ajusté
+    assert data["size_original"] == "W32/L34"
+
+    # Vérifier que la taille existe dans sizes_original
+    size = SizeOriginalRepository.get_by_name(db_session, "W32/L34")
+    assert size is not None
+    assert size.name == "W32/L34"
+
+
+def test_create_product_size_original_case_insensitive(
+    client, auth_headers, db_session
+):
+    """
+    Test évite duplicates case-insensitive pour size_original.
+
+    Business Rule (2026-01-06):
+    - get_or_create() normalise les noms (w32/l34 → W32/L34)
+    - Lookup case-insensitive pour éviter duplicates
+    """
+    from repositories.size_original_repository import SizeOriginalRepository
+
+    # Créer produit avec lowercase
+    payload1 = {
+        "title": "Jean #1",
+        "description": "Test",
+        "price": 40.00,
+        "category": "Jeans",
+        "brand": "Levi's",
+        "condition": 8,
+        "size_original": "w32/l34",  # lowercase
+        "stock_quantity": 1
+    }
+
+    response1 = client.post("/api/products", json=payload1, headers=auth_headers)
+    assert response1.status_code == 201
+
+    # Créer produit avec uppercase (même taille)
+    payload2 = {
+        "title": "Jean #2",
+        "description": "Test",
+        "price": 45.00,
+        "category": "Jeans",
+        "brand": "Levi's",
+        "condition": 8,
+        "size_original": "W32/L34",  # uppercase
+        "stock_quantity": 1
+    }
+
+    response2 = client.post("/api/products", json=payload2, headers=auth_headers)
+    assert response2.status_code == 201
+
+    # Vérifier qu'il n'y a qu'une seule entrée dans sizes_original
+    count = db_session.query(
+        SizeOriginalRepository.get_by_name(db_session, "W32/L34").__class__
+    ).filter_by(name="W32/L34").count()
+    assert count == 1
 
 

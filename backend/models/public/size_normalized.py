@@ -1,12 +1,13 @@
 """
-Size Model
+SizeNormalized Model
 
-Table pour les tailles de produits (schema product_attributes).
+Table pour les tailles normalisées de produits (schema product_attributes).
 
-Business Rules (Updated: 2026-01-05):
+Business Rules (Updated: 2026-01-06):
 - 7 langues supportées: EN, FR, DE, IT, ES, NL, PL
 - Mappings marketplace: vinted_women_id, vinted_men_id, ebay_size, etsy_size
 - Vinted a des IDs différents pour femmes vs hommes
+- Table read-only (aucune auto-création)
 """
 
 from sqlalchemy import BigInteger, String
@@ -15,9 +16,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from shared.database import Base
 
 
-class Size(Base):
+class SizeNormalized(Base):
     """
-    Modèle pour les tailles de produits (multilingue).
+    Modèle pour les tailles normalisées de produits (multilingue).
 
     Attributes:
     - 7 traductions (EN, FR, DE, IT, ES, NL, PL)
@@ -25,7 +26,7 @@ class Size(Base):
     - ebay_size, etsy_size: IDs autres marketplaces
     """
 
-    __tablename__ = "sizes"
+    __tablename__ = "sizes_normalized"
     __table_args__ = {"schema": "product_attributes"}
 
     # ===== PRIMARY KEY =====
@@ -73,4 +74,4 @@ class Size(Base):
         return self.name_en
 
     def __repr__(self) -> str:
-        return f"<Size(name_en='{self.name_en}')>"
+        return f"<SizeNormalized(name_en='{self.name_en}')>"

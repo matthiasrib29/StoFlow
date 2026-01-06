@@ -32,7 +32,7 @@ from models.public.fit import Fit
 from models.public.gender import Gender
 from models.public.material import Material
 from models.public.season import Season
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -134,59 +134,36 @@ class ProductAttributeRepository:
         )
 
     # =========================================================================
-    # SIZE
+    # SIZE NORMALIZED
     # =========================================================================
 
     @staticmethod
-    def get_size_by_name(db: Session, name_en: str) -> Optional[Size]:
+    def get_size_normalized_by_name(db: Session, name_en: str) -> Optional[SizeNormalized]:
         """
-        Récupère une Size par son nom anglais.
+        Récupère une SizeNormalized par son nom anglais.
 
         Args:
             db: Session SQLAlchemy
             name_en: Nom anglais de la taille
 
         Returns:
-            Size si trouvée, None sinon
+            SizeNormalized si trouvée, None sinon
         """
-        return db.query(Size).filter(Size.name_en == name_en).first()
+        return db.query(SizeNormalized).filter(SizeNormalized.name_en == name_en).first()
 
     @staticmethod
-    def get_or_create_size(
-        db: Session, name_en: str, name_fr: Optional[str] = None
-    ) -> Size:
+    def list_sizes_normalized(db: Session, limit: int = 200) -> List[SizeNormalized]:
         """
-        Récupère ou crée une Size.
-
-        Args:
-            db: Session SQLAlchemy
-            name_en: Nom anglais de la taille
-            name_fr: Nom français (optionnel)
-
-        Returns:
-            Size existante ou nouvellement créée
-        """
-        size = ProductAttributeRepository.get_size_by_name(db, name_en)
-        if not size:
-            size = Size(name_en=name_en, name_fr=name_fr)
-            db.add(size)
-            db.flush()
-            logger.info(f"[ProductAttributeRepository] Size created: {name_en}")
-        return size
-
-    @staticmethod
-    def list_sizes(db: Session, limit: int = 200) -> List[Size]:
-        """
-        Liste toutes les tailles.
+        Liste toutes les tailles normalisées.
 
         Args:
             db: Session SQLAlchemy
             limit: Nombre max de résultats
 
         Returns:
-            Liste de Size
+            Liste de SizeNormalized
         """
-        return db.query(Size).order_by(Size.name_en).limit(limit).all()
+        return db.query(SizeNormalized).order_by(SizeNormalized.name_en).limit(limit).all()
 
     # =========================================================================
     # COLOR
@@ -479,7 +456,7 @@ class ProductAttributeRepository:
                 db, material
             )
         if size:
-            result["size"] = ProductAttributeRepository.get_size_by_name(db, size)
+            result["size"] = ProductAttributeRepository.get_size_normalized_by_name(db, size)
         if category:
             result["category"] = ProductAttributeRepository.get_category_by_name(
                 db, category
@@ -511,7 +488,7 @@ class ProductAttributeRepository:
             "color": ProductAttributeRepository.get_color_by_name,
             "condition": ProductAttributeRepository.get_condition_by_name,
             "material": ProductAttributeRepository.get_material_by_name,
-            "size": ProductAttributeRepository.get_size_by_name,
+            "size": ProductAttributeRepository.get_size_normalized_by_name,
             "category": ProductAttributeRepository.get_category_by_name,
             "fit": ProductAttributeRepository.get_fit_by_name,
             "gender": ProductAttributeRepository.get_gender_by_name,

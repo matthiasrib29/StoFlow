@@ -25,7 +25,7 @@ from models.public.fit import Fit
 from models.public.gender import Gender
 from models.public.material import Material
 from models.public.season import Season
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 
 
 class AttributeValidator:
@@ -82,11 +82,11 @@ class AttributeValidator:
             'required': False,
             'display_name': 'Color'
         },
-        'size_original': {
-            'model': Size,
+        'size_normalized': {
+            'model': SizeNormalized,
             'field': 'name_en',
             'required': False,
-            'display_name': 'Size'
+            'display_name': 'Normalized Size'
         },
         'material': {
             'model': Material,

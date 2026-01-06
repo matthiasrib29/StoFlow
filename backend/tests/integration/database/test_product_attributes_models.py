@@ -23,7 +23,7 @@ from models.public.fit import Fit
 from models.public.gender import Gender
 from models.public.material import Material
 from models.public.season import Season
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 
 
 # ===== MODEL REGISTRY =====
@@ -37,7 +37,7 @@ PRODUCT_ATTRIBUTE_MODELS = {
     "genders": Gender,
     "materials": Material,
     "seasons": Season,
-    "sizes": Size,
+    "sizes": SizeNormalized,
 }
 
 # Expected primary keys for each model
