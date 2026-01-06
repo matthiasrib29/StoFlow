@@ -1,19 +1,20 @@
 /**
- * Content Script pour le site web Stoflow
+ * Content Script for StoFlow Website
  *
- * Ce script s'injecte sur le site web Stoflow et gère la synchronisation SSO
- * avec le frontend Nuxt.
+ * This script injects on stoflow.io and handles:
+ * 1. SSO token synchronization with the frontend
+ * 2. Firefox fallback for Vinted actions (since Firefox doesn't support externally_connectable)
  *
- * SÉCURITÉ: Communication bidirectionnelle sécurisée
- * 1. Le plugin s'annonce au frontend avec son origine (STOFLOW_PLUGIN_READY)
- * 2. Le frontend mémorise l'origine et répond avec STOFLOW_FRONTEND_ACK
- * 3. Les tokens sont échangés uniquement avec validation d'origine stricte
+ * Architecture:
+ * - Chrome: Frontend uses chrome.runtime.sendMessage directly (externally_connectable)
+ * - Firefox: Frontend uses postMessage → this content script → background script
  *
- * Flow:
- * 1. Plugin se charge → envoie STOFLOW_PLUGIN_READY
- * 2. Frontend reçoit → mémorise l'origine du plugin
- * 3. User se connecte → Frontend envoie STOFLOW_SYNC_TOKEN vers l'origine du plugin
- * 4. Plugin reçoit (avec validation d'origine) → stocke dans chrome.storage
+ * Security:
+ * - Validates message origins against whitelist
+ * - Tokens are only exchanged with validated origins
+ *
+ * Author: Claude
+ * Date: 2026-01-06
  */
 
 import { CONSTANTS } from '../config/environment';
@@ -262,6 +263,53 @@ function showSyncNotification() {
   }, 3000);
 }
 
+// ==================== FIREFOX FALLBACK: VINTED ACTIONS ====================
+
+/**
+ * Handles Vinted actions from the frontend (Firefox fallback)
+ *
+ * Since Firefox doesn't support externally_connectable, the frontend sends
+ * Vinted actions via postMessage, and we relay them to the background script.
+ */
+async function handleVintedAction(data: any, origin: string) {
+  const { action, requestId, payload } = data;
+
+  log.debug('Vinted action received:', action, requestId);
+
+  try {
+    // Forward to background script
+    const response = await chrome.runtime.sendMessage({
+      action,
+      requestId,
+      payload
+    });
+
+    // Send response back to frontend via postMessage
+    window.postMessage({
+      type: 'VINTED_ACTION_RESPONSE',
+      requestId,
+      ...response
+    }, origin);
+
+    if (response?.success) {
+      log.debug('Vinted action completed:', action);
+    } else {
+      log.warn('Vinted action failed:', action, response?.error);
+    }
+  } catch (error: any) {
+    log.error('Error forwarding Vinted action:', error);
+
+    // Send error response back to frontend
+    window.postMessage({
+      type: 'VINTED_ACTION_RESPONSE',
+      requestId,
+      success: false,
+      error: error.message || 'Content script error',
+      errorCode: 'CONTENT_SCRIPT_ERROR'
+    }, origin);
+  }
+}
+
 // ==================== LISTENERS ====================
 
 /**
@@ -313,6 +361,13 @@ function setupMessageListener() {
         } catch (error) {
           log.error('Erreur logout:', error);
         }
+        break;
+
+      // ============ FIREFOX FALLBACK: Vinted Actions ============
+      // Firefox doesn't support externally_connectable, so the frontend
+      // sends Vinted actions via postMessage instead of chrome.runtime.sendMessage
+      case 'VINTED_ACTION':
+        await handleVintedAction(data, event.origin);
         break;
 
       default:

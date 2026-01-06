@@ -351,7 +351,7 @@ See the [CLAUDE.md](./CLAUDE.md) file for development guidelines and architectur
 
 Key files for modifications:
 
-1. **Background service** : `src/background/index.ts` and `src/background/PollingManager.ts`
+1. **Background service** : `src/background/index.ts` and `src/background/VintedActionHandler.ts`
 2. **API client** : `src/api/StoflowAPI.ts`
 3. **Vinted API hook** : `src/content/stoflow-vinted-api.js`
 
