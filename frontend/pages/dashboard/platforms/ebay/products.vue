@@ -40,7 +40,7 @@
             label="Connecter maintenant"
             icon="pi pi-link"
             class="btn-primary"
-            @click="$router.push('/dashboard/platforms/ebay')"
+            @click="navigateTo('/dashboard/platforms/ebay')"
           />
         </div>
       </template>
@@ -129,94 +129,100 @@
           </div>
 
           <!-- Products Table -->
-          <DataTable
-            v-else
-            :value="filteredProducts"
-            :paginator="true"
-            :rows="20"
-            :rowsPerPageOptions="[10, 20, 50]"
-            :loading="loading"
-            stripedRows
-            class="modern-table"
-            responsiveLayout="scroll"
-          >
-            <!-- Image + Title -->
-            <Column header="Produit" style="min-width: 300px">
-              <template #body="{ data }">
-                <div class="flex items-center gap-3">
-                  <img
-                    v-if="data.image_url"
-                    :src="data.image_url"
-                    :alt="data.title"
-                    class="w-12 h-12 rounded-lg object-cover"
-                  >
-                  <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                    <i class="pi pi-image text-gray-400"/>
+          <ClientOnly v-else>
+            <DataTable
+              :value="filteredProducts"
+              :paginator="true"
+              :rows="20"
+              :rowsPerPageOptions="[10, 20, 50]"
+              :loading="loading"
+              stripedRows
+              class="modern-table"
+              responsiveLayout="scroll"
+            >
+              <!-- Image + Title -->
+              <Column header="Produit" style="min-width: 300px">
+                <template #body="{ data }">
+                  <div class="flex items-center gap-3">
+                    <img
+                      v-if="data.image_url"
+                      :src="data.image_url"
+                      :alt="data.title"
+                      class="w-12 h-12 rounded-lg object-cover"
+                    >
+                    <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <i class="pi pi-image text-gray-400"/>
+                    </div>
+                    <div>
+                      <p class="font-semibold text-secondary-900 line-clamp-1">{{ data.title }}</p>
+                      <p class="text-xs text-gray-500">SKU: {{ data.ebay_sku || data.id }}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p class="font-semibold text-secondary-900 line-clamp-1">{{ data.title }}</p>
-                    <p class="text-xs text-gray-500">SKU: {{ data.ebay_sku || data.id }}</p>
+                </template>
+              </Column>
+
+              <!-- Price -->
+              <Column header="Prix" sortable field="price" style="min-width: 100px">
+                <template #body="{ data }">
+                  <span class="font-bold text-secondary-900">{{ formatCurrency(data.price) }}</span>
+                </template>
+              </Column>
+
+              <!-- Quantity -->
+              <Column header="Stock" sortable field="quantity" style="min-width: 80px">
+                <template #body="{ data }">
+                  <Tag
+                    :severity="data.quantity > 0 ? 'success' : 'danger'"
+                    :value="data.quantity || 0"
+                  />
+                </template>
+              </Column>
+
+              <!-- Condition -->
+              <Column header="Etat" style="min-width: 120px">
+                <template #body="{ data }">
+                  <span class="text-sm">{{ getConditionLabel(data.condition) }}</span>
+                </template>
+              </Column>
+
+              <!-- Status -->
+              <Column header="Statut" style="min-width: 100px">
+                <template #body="{ data }">
+                  <Tag
+                    :severity="getStatusSeverity(data.status)"
+                    :value="getStatusLabel(data.status)"
+                  />
+                </template>
+              </Column>
+
+              <!-- Actions -->
+              <Column header="Actions" style="min-width: 120px">
+                <template #body="{ data }">
+                  <div class="flex gap-2">
+                    <Button
+                      v-if="data.listing_url"
+                      icon="pi pi-external-link"
+                      class="p-button-sm p-button-text"
+                      v-tooltip="'Voir sur eBay'"
+                      @click="openOnEbay(data.listing_url)"
+                    />
+                    <Button
+                      icon="pi pi-sync"
+                      class="p-button-sm p-button-text"
+                      v-tooltip="'Synchroniser'"
+                      :loading="syncingId === data.id"
+                      @click="syncProduct(data)"
+                    />
                   </div>
-                </div>
-              </template>
-            </Column>
-
-            <!-- Price -->
-            <Column header="Prix" sortable field="price" style="min-width: 100px">
-              <template #body="{ data }">
-                <span class="font-bold text-secondary-900">{{ formatCurrency(data.price) }}</span>
-              </template>
-            </Column>
-
-            <!-- Quantity -->
-            <Column header="Stock" sortable field="quantity" style="min-width: 80px">
-              <template #body="{ data }">
-                <Tag
-                  :severity="data.quantity > 0 ? 'success' : 'danger'"
-                  :value="data.quantity || 0"
-                />
-              </template>
-            </Column>
-
-            <!-- Condition -->
-            <Column header="Etat" style="min-width: 120px">
-              <template #body="{ data }">
-                <span class="text-sm">{{ getConditionLabel(data.condition) }}</span>
-              </template>
-            </Column>
-
-            <!-- Status -->
-            <Column header="Statut" style="min-width: 100px">
-              <template #body="{ data }">
-                <Tag
-                  :severity="getStatusSeverity(data.status)"
-                  :value="getStatusLabel(data.status)"
-                />
-              </template>
-            </Column>
-
-            <!-- Actions -->
-            <Column header="Actions" style="min-width: 120px">
-              <template #body="{ data }">
-                <div class="flex gap-2">
-                  <Button
-                    v-if="data.listing_url"
-                    icon="pi pi-external-link"
-                    class="p-button-sm p-button-text"
-                    v-tooltip="'Voir sur eBay'"
-                    @click="openOnEbay(data.listing_url)"
-                  />
-                  <Button
-                    icon="pi pi-sync"
-                    class="p-button-sm p-button-text"
-                    v-tooltip="'Synchroniser'"
-                    :loading="syncingId === data.id"
-                    @click="syncProduct(data)"
-                  />
-                </div>
-              </template>
-            </Column>
-          </DataTable>
+                </template>
+              </Column>
+            </DataTable>
+            <template #fallback>
+              <div class="flex justify-center items-center p-8">
+                <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+              </div>
+            </template>
+          </ClientOnly>
         </template>
       </Card>
     </template>
@@ -338,6 +344,7 @@ const syncProduct = async (product: any) => {
 }
 
 const openOnEbay = (url: string) => {
+  if (!import.meta.client) return
   window.open(url, '_blank')
 }
 

@@ -24,7 +24,7 @@
             label="Connecter maintenant"
             icon="pi pi-link"
             class="btn-primary"
-            @click="$router.push('/dashboard/platforms/ebay')"
+            @click="navigateTo('/dashboard/platforms/ebay')"
           />
         </div>
       </template>
@@ -232,7 +232,9 @@
     </template>
 
     <!-- Confirm Dialog -->
-    <ConfirmDialog />
+    <ClientOnly>
+      <ConfirmDialog />
+    </ClientOnly>
   </div>
 </template>
 
@@ -310,6 +312,7 @@ const handleDisconnect = () => {
 }
 
 const openEbaySettings = (type: string) => {
+  if (!import.meta.client) return
   const urls: Record<string, string> = {
     shipping: 'https://www.ebay.fr/sh/settings/shipping-preferences',
     return: 'https://www.ebay.fr/sh/settings/return-preferences'
