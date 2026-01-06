@@ -1,55 +1,103 @@
-Termine la feature actuelle (tout automatique) :
+Termine la feature actuelle (mode automatique) :
 
-## ⚠️ RÈGLE IMPORTANTE - Gestion des conflits
+## 🚀 Mode AUTO par défaut
 
-**En cas de conflit ou d'erreur à N'IMPORTE quelle étape :**
-1. **NE PAS essayer de résoudre automatiquement** si tu n'es pas sûr à 100%
-2. **POSER UNE QUESTION** à l'utilisateur pour comprendre comment procéder
-3. Afficher clairement le conflit/erreur et proposer des options
+Tout est automatique sauf en cas d'erreur critique (conflits merge).
 
-## 1. Vérifications
-- Vérifie qu'on n'est pas sur develop ou prod
-- git status
+## ⚠️ Gestion des erreurs
 
-## 2. Commit & Push
-- git add .
-- git commit -m "feat: [déduis le message des changements]"
-- git push -u origin $(git branch --show-current)
-- **Si erreur push** (divergence, rejected, etc.) → DEMANDER à l'utilisateur : "Push rejeté, voulez-vous force push, pull + rebase, ou autre ?"
+**Stratégies automatiques :**
+- Push rejeté → Pull + retry automatique
+- Divergence git develop → Auto-merge (pull --no-rebase)
+- Multiple heads Alembic → Auto-merge heads
+- Suppression worktree → Automatique
 
-## 3. PR & Merge
-- gh pr create --fill --base develop
-- gh pr merge --merge --delete-branch
-- **Si conflit de merge** → ARRÊTER et DEMANDER :
-  - Afficher les fichiers en conflit
-  - Demander : "Des conflits ont été détectés. Comment voulez-vous procéder ?"
-  - Proposer des options (résoudre manuellement, abandonner, etc.)
+**Arrêt + question SEULEMENT si :**
+- Conflit de merge dans la PR
+- Erreur Alembic critique lors du merge heads
 
-## 4. Update develop
-- cd ~/StoFlow
-- git checkout develop
-- git pull origin develop
+---
 
-## 5. ALEMBIC - Merge des heads si nécessaire
-- cd ~/StoFlow/backend
-- HEADS=$(alembic heads 2>/dev/null | grep -c "head")
-- Si HEADS > 1 :
-  - Affiche : "⚠️ Plusieurs heads Alembic détectés, merge en cours..."
-  - alembic merge -m "merge: unify migration heads" heads
-  - **Si erreur Alembic** → DEMANDER à l'utilisateur comment procéder
-  - alembic upgrade head
-  - git add migrations/
-  - git commit -m "chore: merge alembic heads"
-  - git push origin develop
-  - Affiche : "✅ Heads Alembic mergés"
-- Sinon :
-  - Affiche : "✅ Alembic OK (1 seul head)"
+## Étapes
 
-## 6. Cleanup worktree & branch
-- Sauvegarde le nom de la branche actuelle : BRANCH=$(git branch --show-current)
-- Demande : "Supprimer le worktree et la branche '$BRANCH' ? (o/n)"
-- Si oui :
-  - git worktree remove [worktree actuel]
-  - cd ~/StoFlow
-  - git branch -d $BRANCH (supprime la branche locale)
-  - Affiche : "✅ Worktree et branche '$BRANCH' supprimés"
+### 1. Vérifications
+```bash
+git branch --show-current  # Vérifie qu'on n'est pas sur develop/prod
+git status
+```
+
+### 2. Commit & Push
+```bash
+git add .
+git commit -m "feat/fix/chore: [déduis du contexte]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+git push -u origin $(git branch --show-current)
+```
+
+**Si push rejeté** → `git pull --no-rebase && git push` (retry auto)
+
+### 3. PR & Merge
+```bash
+gh pr create --fill --base develop
+gh pr merge --merge --delete-branch  # Depuis ~/StoFlow si erreur worktree
+```
+
+**Si conflit merge** → ⛔ ARRÊTER et DEMANDER à l'utilisateur comment résoudre
+
+### 4. Update develop
+```bash
+cd ~/StoFlow
+git checkout develop
+git pull --no-rebase origin develop  # Auto-merge si divergence
+git push origin develop  # Push le merge commit si créé
+```
+
+### 5. Alembic check & auto-merge
+```bash
+cd ~/StoFlow/backend
+HEADS=$(alembic heads 2>/dev/null | grep -c "head")
+```
+
+**Si HEADS > 1** (multiple heads détectés) :
+```bash
+alembic merge -m "merge: unify migration heads" heads
+alembic upgrade head
+git add migrations/
+git commit -m "chore: merge alembic heads"
+git push origin develop
+```
+
+**Si erreur Alembic** → ⛔ ARRÊTER et DEMANDER
+
+### 6. Cleanup automatique
+```bash
+BRANCH=$(git branch --show-current)
+WORKTREE=$(git worktree list | grep $BRANCH | awk '{print $1}')
+git worktree remove $WORKTREE
+cd ~/StoFlow
+git branch -d $BRANCH
+```
+
+---
+
+## 📊 Résumé final
+
+Afficher un tableau récapitulatif :
+
+```
+╔══════════════════════════════════════════╗
+║  ✅ FEATURE/HOTFIX TERMINÉ               ║
+╠══════════════════════════════════════════╣
+║  🌿 Branche : [nom]                      ║
+║  🔗 PR : #[numero]                       ║
+║  ✅ Mergé dans develop                   ║
+║  ✅ Alembic : [status]                   ║
+║  ✅ Worktree supprimé                    ║
+╠══════════════════════════════════════════╣
+║  📍 Tu es maintenant sur ~/StoFlow       ║
+║     (branche develop)                    ║
+╚══════════════════════════════════════════╝
+```
