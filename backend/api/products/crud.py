@@ -92,7 +92,7 @@ def create_product(
 
 @router.get("/", response_model=ProductListResponse, status_code=status.HTTP_200_OK)
 def list_products(
-    skip: int = Query(0, ge=0, description="Nombre de résultats à sauter (pagination)"),
+    page: int = Query(1, ge=1, description="Numéro de page (1-indexed, défaut: 1)"),
     limit: int = Query(20, ge=1, le=100, description="Nombre max de résultats (max 100)"),
     status_filter: ProductStatus | None = Query(None, alias="status", description="Filtre par status"),
     category: str | None = Query(None, description="Filtre par catégorie"),
@@ -108,16 +108,19 @@ def list_products(
     - ADMIN/SUPPORT: voient tous les produits
     - Ignore les produits supprimés (deleted_at NOT NULL)
     - Tri par défaut: created_at DESC (plus récents en premier)
-    - Pagination: skip/limit (max 100 items par page)
+    - Pagination: page/limit (max 100 items par page)
 
     Query Parameters:
-        - skip: Nombre de résultats à sauter (défaut: 0)
+        - page: Numéro de page (1-indexed, défaut: 1)
         - limit: Nombre max de résultats (défaut: 20, max: 100)
         - status: Filtre par status (DRAFT, PUBLISHED, SOLD, ARCHIVED)
         - category: Filtre par catégorie (ex: "Jeans")
         - brand: Filtre par marque (ex: "Levi's")
     """
     db, current_user = user_db  # search_path already set by get_user_db
+
+    # Convertir page (1-indexed) en skip (0-indexed)
+    skip = (page - 1) * limit
 
     # Si USER, filtrer par user_id (isolation stricte)
     # Note: Le filtrage par user est géré automatiquement via le search_path (schema user_X)
@@ -127,7 +130,6 @@ def list_products(
     )
 
     # Calculer pagination
-    page = (skip // limit) + 1
     total_pages = math.ceil(total / limit) if total > 0 else 1
 
     return ProductListResponse(
