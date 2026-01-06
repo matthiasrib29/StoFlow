@@ -564,7 +564,7 @@ class TestProductAPI:
     def test_list_products_pagination(self, client: TestClient, auth_headers: dict, test_product: Product):
         """Test de liste avec pagination."""
         response = client.get(
-            "/api/products/?skip=0&limit=10",
+            "/api/products/?page=1&limit=10",
             headers=auth_headers,
         )
 
@@ -580,6 +580,115 @@ class TestProductAPI:
         assert data["total"] == 1
         assert data["page"] == 1
         assert len(data["products"]) == 1
+
+    def test_list_products_pagination_page_1(self, client: TestClient, auth_headers: dict, db_session: Session, seed_attributes):
+        """Page 1 retourne produits 1-20."""
+        from schemas.product_schemas import ProductCreate
+
+        # Créer 50 produits
+        for i in range(1, 51):
+            product_data = ProductCreate(
+                title=f"Product {i}",
+                description="Test pagination",
+                price=Decimal("10.00"),
+                category="Jeans",
+                condition=6,
+            )
+            ProductService.create_product(db_session, product_data)
+
+        response = client.get("/api/products/?page=1&limit=20", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 1
+        assert data["page_size"] == 20
+        assert data["total"] == 50
+        assert data["total_pages"] == 3
+        assert len(data["products"]) == 20
+
+    def test_list_products_pagination_page_2(self, client: TestClient, auth_headers: dict, db_session: Session, seed_attributes):
+        """Page 2 retourne produits 21-40."""
+        from schemas.product_schemas import ProductCreate
+
+        # Créer 50 produits
+        for i in range(1, 51):
+            product_data = ProductCreate(
+                title=f"Product {i}",
+                description="Test pagination",
+                price=Decimal("10.00"),
+                category="Jeans",
+                condition=6,
+            )
+            ProductService.create_product(db_session, product_data)
+
+        response = client.get("/api/products/?page=2&limit=20", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 2
+        assert data["page_size"] == 20
+        assert data["total"] == 50
+        assert len(data["products"]) == 20
+
+    def test_list_products_pagination_page_6_bug_fix(self, client: TestClient, auth_headers: dict, db_session: Session, seed_attributes):
+        """Page 6 retourne produits 101-120 (test du bug original)."""
+        from schemas.product_schemas import ProductCreate
+
+        # Créer 150 produits
+        for i in range(1, 151):
+            product_data = ProductCreate(
+                title=f"Product {i}",
+                description="Test pagination",
+                price=Decimal("10.00"),
+                category="Jeans",
+                condition=6,
+            )
+            ProductService.create_product(db_session, product_data)
+
+        response = client.get("/api/products/?page=6&limit=20", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 6
+        assert data["page_size"] == 20
+        assert data["total"] == 150
+        assert data["total_pages"] == 8
+        assert len(data["products"]) == 20
+
+    def test_list_products_invalid_page_zero(self, client: TestClient, auth_headers: dict):
+        """page=0 retourne 422 Validation Error."""
+        response = client.get("/api/products/?page=0&limit=20", headers=auth_headers)
+
+        assert response.status_code == 422
+
+    def test_list_products_invalid_page_negative(self, client: TestClient, auth_headers: dict):
+        """page=-1 retourne 422 Validation Error."""
+        response = client.get("/api/products/?page=-1&limit=20", headers=auth_headers)
+
+        assert response.status_code == 422
+
+    def test_list_products_response_page_field_matches_request(self, client: TestClient, auth_headers: dict, db_session: Session, seed_attributes):
+        """La réponse contient le bon numéro de page (bug fix validation)."""
+        from schemas.product_schemas import ProductCreate
+
+        # Créer 50 produits
+        for i in range(1, 51):
+            product_data = ProductCreate(
+                title=f"Product {i}",
+                description="Test pagination",
+                price=Decimal("10.00"),
+                category="Jeans",
+                condition=6,
+            )
+            ProductService.create_product(db_session, product_data)
+
+        response = client.get("/api/products/?page=3&limit=10", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        # CRITIQUE: page doit correspondre au paramètre, pas être recalculé depuis skip
+        assert data["page"] == 3
+        assert data["page_size"] == 10
 
     def test_list_products_filter_by_status(self, client: TestClient, auth_headers: dict, test_product: Product):
         """Test de filtre par status."""
