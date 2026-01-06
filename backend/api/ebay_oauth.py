@@ -279,7 +279,7 @@ def ebay_connection_status(
     ebay_creds = db.query(EbayCredentials).first()
 
     if not ebay_creds or not ebay_creds.access_token:
-        return {"connected": False, "message": "eBay account not connected"}
+        return {"is_connected": False, "message": "eBay account not connected"}
 
     now = datetime.now(timezone.utc)
 
@@ -293,7 +293,7 @@ def ebay_connection_status(
     )
 
     return {
-        "connected": True,
+        "is_connected": True,
         "access_token_valid": access_token_valid,
         "refresh_token_valid": refresh_token_valid,
         "access_token_expires_at": (
