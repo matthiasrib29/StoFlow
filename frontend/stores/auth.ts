@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia'
-import { syncTokenToPlugin, syncLogoutToPlugin } from '~/composables/useVintedBridge'
 import { useTokenValidator } from '~/composables/useTokenValidator'
 import {
   setAuthData,
@@ -243,13 +242,6 @@ export const useAuthStore = defineStore('auth', {
             user,
             expiresInSeconds: 3600 // 1 hour default
           })
-
-          // Synchroniser avec le plugin navigateur (SSO)
-          try {
-            syncTokenToPlugin(data.access_token, data.refresh_token)
-          } catch (error) {
-            authLogger.debug('Plugin not available:', error)
-          }
         }
 
         return { success: true }
@@ -274,13 +266,6 @@ export const useAuthStore = defineStore('auth', {
       if (import.meta.client) {
         // Clear all tokens from secure storage
         clearTokens()
-
-        // Synchroniser la déconnexion avec le plugin navigateur (SSO)
-        try {
-          syncLogoutToPlugin()
-        } catch (error) {
-          authLogger.debug('Plugin not available on logout:', error)
-        }
       }
     },
 
@@ -326,14 +311,6 @@ export const useAuthStore = defineStore('auth', {
               // Attempt to get a new access token
               authLogger.debug('Access token expired, refreshing...')
               this.refreshAccessToken()
-            }
-
-            // Synchroniser avec le plugin navigateur (SSO) si utilisateur déjà connecté
-            authLogger.debug('Session restored, syncing with plugin...')
-            try {
-              syncTokenToPlugin(this.token || '', refreshToken)
-            } catch (error) {
-              authLogger.debug('Plugin not available on loadFromStorage:', error)
             }
           } catch (error) {
             authLogger.error('Error loading session:', error)
@@ -387,13 +364,6 @@ export const useAuthStore = defineStore('auth', {
         if (import.meta.client) {
           // Update access token in secure storage
           setAccessToken(data.access_token, 3600) // 1 hour default
-
-          // Synchroniser avec le plugin navigateur (SSO)
-          try {
-            syncTokenToPlugin(data.access_token, this.refreshToken)
-          } catch (error) {
-            authLogger.debug('Plugin not available:', error)
-          }
         }
 
         return true

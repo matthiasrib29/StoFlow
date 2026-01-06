@@ -15,41 +15,10 @@
  */
 export const ENV = {
   /**
-   * URL de l'API backend Stoflow
+   * URL de l'API backend Stoflow (kept for future use with eBay/Etsy)
    * @default https://api.stoflow.io
    */
   BACKEND_URL: import.meta.env.VITE_BACKEND_URL || 'https://api.stoflow.io',
-
-  /**
-   * Intervalle de polling initial (en ms)
-   * @default 5000 (5 secondes)
-   */
-  POLL_INTERVAL: Number(import.meta.env.VITE_POLL_INTERVAL) || 5000,
-
-  /**
-   * Intervalle de polling maximum avec backoff (en ms)
-   * @default 60000 (60 secondes)
-   */
-  POLL_MAX_INTERVAL: Number(import.meta.env.VITE_POLL_MAX_INTERVAL) || 60000,
-
-  /**
-   * Timeout global pour les requêtes API (en ms)
-   * @default 30000 (30 secondes)
-   */
-  API_TIMEOUT: Number(import.meta.env.VITE_API_TIMEOUT) || 30000,
-
-  /**
-   * Timeout pour les requêtes HTTP individuelles (en ms)
-   * @default 10000 (10 secondes)
-   */
-  REQUEST_TIMEOUT: Number(import.meta.env.VITE_REQUEST_TIMEOUT) || 10000,
-
-  /**
-   * Timeout pour le long polling (en secondes)
-   * Doit correspondre au timeout côté backend
-   * @default 30 (30 secondes)
-   */
-  LONG_POLL_TIMEOUT: Number(import.meta.env.VITE_LONG_POLL_TIMEOUT) || 30,
 
   /**
    * Timeout pour les requêtes vers l'API Vinted (en ms)
@@ -117,9 +86,6 @@ export const CONSTANTS = {
    * Clés du storage Chrome
    */
   STORAGE_KEYS: {
-    ACCESS_TOKEN: 'stoflow_access_token',
-    REFRESH_TOKEN: 'stoflow_refresh_token',
-    USER_DATA: 'stoflow_user_data',
     CONFIG_OVERRIDES: 'config_overrides',
   } as const,
 
@@ -129,8 +95,6 @@ export const CONSTANTS = {
   LIMITS: {
     MAX_REQUEST_BODY_SIZE: 1024 * 1024, // 1MB
     MAX_RETRIES: 3,
-    MIN_POLL_INTERVAL: 5000, // 5s
-    MAX_POLL_INTERVAL: 60000, // 60s
     CSRF_CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
   } as const,
 } as const;
@@ -149,21 +113,6 @@ export function validateConfig(): void {
   } catch (error) {
     throw new Error(`Invalid VITE_BACKEND_URL: ${ENV.BACKEND_URL}`);
   }
-
-  // Config validation warnings are logged only in dev mode
-  if (ENV.IS_DEV) {
-    if (ENV.POLL_INTERVAL < CONSTANTS.LIMITS.MIN_POLL_INTERVAL) {
-      console.warn(
-        `[Config] POLL_INTERVAL (${ENV.POLL_INTERVAL}ms) is below minimum (${CONSTANTS.LIMITS.MIN_POLL_INTERVAL}ms)`
-      );
-    }
-
-    if (ENV.POLL_MAX_INTERVAL > CONSTANTS.LIMITS.MAX_POLL_INTERVAL) {
-      console.warn(
-        `[Config] POLL_MAX_INTERVAL (${ENV.POLL_MAX_INTERVAL}ms) exceeds maximum (${CONSTANTS.LIMITS.MAX_POLL_INTERVAL}ms)`
-      );
-    }
-  }
 }
 
 /**
@@ -176,7 +125,6 @@ export function logConfig(): void {
   console.debug('  - Mode:', ENV.MODE);
   console.debug('  - Version:', ENV.APP_VERSION);
   console.debug('  - Backend URL:', ENV.BACKEND_URL);
-  console.debug('  - Poll Interval:', ENV.POLL_INTERVAL, 'ms');
   console.debug('  - Debug Logs:', ENV.ENABLE_DEBUG_LOGS);
 }
 

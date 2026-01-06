@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { StoflowAPI } from '../api/StoflowAPI';
 import { PopupLogger } from '../utils/logger';
 
 interface VintedSession {
@@ -59,18 +58,6 @@ const loadVintedSession = async () => {
 
         if (session.value.isConnected) {
           PopupLogger.debug('Connected to Vinted', { userId: response.data.userId, login: response.data.login });
-
-          // Synchroniser la connexion avec le backend Stoflow
-          try {
-            await StoflowAPI.syncVintedUser(
-              response.data.userId,
-              response.data.login
-            );
-            PopupLogger.debug('Vinted user synced with backend');
-          } catch (syncError) {
-            PopupLogger.error('Backend sync error:', syncError);
-            // Ne pas bloquer - la connexion locale est quand même détectée
-          }
         } else {
           PopupLogger.debug('Not connected (userId or login missing)');
         }
