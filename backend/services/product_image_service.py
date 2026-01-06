@@ -35,11 +35,15 @@ class ProductImageService:
         """
         Add an image to a product (JSONB).
 
-        Business Rules (Updated 2026-01-03):
+        Business Rules (Updated 2026-01-06):
         - Maximum 20 images per product (Vinted limit)
         - Verify product exists and is not deleted
         - display_order auto-calculated if not provided (append at end)
         - Images stored in JSONB: [{url, order, created_at}, ...]
+
+        ⚠️ IMPORTANT: This method does NOT commit the transaction.
+        The caller is responsible for calling db.commit() or relying on
+        FastAPI's auto-commit from get_db() dependency.
 
         Args:
             db: SQLAlchemy Session
@@ -83,10 +87,11 @@ class ProductImageService:
             "created_at": utc_now().strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
 
-        # Append and save
+        # Append to images list
         images.append(new_image)
         product.images = images
-        db.commit()
+        # NOTE: Transaction is NOT committed here
+        # Caller is responsible for calling db.commit() or db.flush()
 
         logger.debug(
             f"[ProductImageService] Image added: product_id={product_id}, "
