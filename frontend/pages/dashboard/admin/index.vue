@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold text-secondary-900">Tableau de bord Admin</h1>
-      <p class="text-gray-500 mt-1">Vue d'ensemble de la plateforme</p>
-    </div>
+    <PageHeader
+      title="Tableau de bord Admin"
+      subtitle="Vue d'ensemble de la plateforme"
+    />
 
     <!-- KPI Cards Row -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

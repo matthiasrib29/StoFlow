@@ -1,12 +1,19 @@
 <template>
-  <div>
-    <!-- Breadcrumb -->
-    <div class="mb-6">
-      <NuxtLink to="/dashboard/products" class="text-primary-600 hover:underline">
-        <i class="pi pi-arrow-left mr-2"/>
-        Retour aux produits
-      </NuxtLink>
-    </div>
+  <div class="page-container">
+    <PageHeader
+      title="Détail du produit"
+      :subtitle="product?.title || 'Chargement...'"
+    >
+      <template #actions>
+        <Button
+          label="Retour"
+          icon="pi pi-arrow-left"
+          severity="secondary"
+          text
+          @click="$router.push('/dashboard/products')"
+        />
+      </template>
+    </PageHeader>
 
     <!-- Loading -->
     <div v-if="productsStore.isLoading" class="text-center py-12">

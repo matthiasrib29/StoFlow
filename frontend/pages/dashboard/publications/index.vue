@@ -4,11 +4,20 @@
 -->
 <template>
   <div class="page-container">
-    <div class="text-center py-20">
-      <i class="pi pi-clock text-6xl text-gray-300 mb-4"/>
-      <h3 class="text-2xl font-bold text-secondary-900 mb-2">Bientôt disponible</h3>
-      <p class="text-gray-500">Cette fonctionnalité sera disponible dans une prochaine version</p>
-    </div>
+    <PageHeader
+      title="Publications"
+      subtitle="Gérez vos publications sur toutes les plateformes"
+    />
+
+    <Card class="shadow-sm modern-rounded border border-gray-100">
+      <template #content>
+        <div class="text-center py-12">
+          <i class="pi pi-clock text-4xl text-gray-300 mb-4"/>
+          <h3 class="text-xl font-bold text-secondary-900 mb-2">Bientôt disponible</h3>
+          <p class="text-gray-500">Cette fonctionnalité sera disponible dans une prochaine version</p>
+        </div>
+      </template>
+    </Card>
   </div>
 </template>
 

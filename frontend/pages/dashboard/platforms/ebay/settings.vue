@@ -1,38 +1,13 @@
 <template>
-  <div class="page-container">
-    <!-- Page Header -->
-    <div class="flex items-center justify-between mb-8">
-      <div>
-        <div class="flex items-center gap-2 mb-1">
-          <NuxtLink to="/dashboard/platforms/ebay" class="text-gray-500 hover:text-gray-700">
-            <i class="pi pi-arrow-left"/>
-          </NuxtLink>
-          <h1 class="text-2xl font-bold text-secondary-900">Parametres eBay</h1>
-        </div>
-        <p class="text-gray-500">Configurez votre integration eBay</p>
-      </div>
-    </div>
-
-    <!-- Not connected -->
-    <Card v-if="!ebayStore.isConnected" class="shadow-sm modern-rounded border border-gray-100">
-      <template #content>
-        <div class="text-center py-12">
-          <i class="pi pi-link text-4xl text-gray-300 mb-4"/>
-          <h3 class="text-xl font-bold text-secondary-900 mb-2">Connectez votre compte eBay</h3>
-          <p class="text-gray-500 mb-4">Accedez aux parametres apres connexion</p>
-          <Button
-            label="Connecter maintenant"
-            icon="pi pi-link"
-            class="btn-primary"
-            @click="navigateTo('/dashboard/platforms/ebay')"
-          />
-        </div>
-      </template>
-    </Card>
-
-    <!-- Connected -->
-    <template v-else>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <PlatformSettingsPage
+    platform="ebay"
+    :is-connected="ebayStore.isConnected"
+    subtitle="Configurez votre integration eBay"
+    back-to="/dashboard/platforms/ebay/products"
+    :columns="2"
+  >
+    <!-- Settings sections -->
+    <template #content>
         <!-- Account Info -->
         <Card class="shadow-sm modern-rounded border border-gray-100">
           <template #content>
@@ -228,14 +203,14 @@
             </div>
           </template>
         </Card>
-      </div>
     </template>
 
-    <!-- Confirm Dialog -->
-    <ClientOnly>
-      <ConfirmDialog />
-    </ClientOnly>
-  </div>
+    <!-- Confirm Dialog (outside PlatformSettingsPage content) -->
+  </PlatformSettingsPage>
+
+  <ClientOnly>
+    <ConfirmDialog />
+  </ClientOnly>
 </template>
 
 <script setup lang="ts">
@@ -270,10 +245,19 @@ const syncIntervals = [
 
 // Methods
 const loadPolicies = async () => {
+  ebayLogger.info('Loading eBay policies')
   loadingPolicies.value = true
   try {
     await ebayStore.fetchPolicies()
+    ebayLogger.info('eBay policies loaded successfully', {
+      shippingPoliciesCount: ebayStore.shippingPolicies.length,
+      returnPoliciesCount: ebayStore.returnPolicies.length
+    })
   } catch (e: any) {
+    ebayLogger.error('Failed to load eBay policies', {
+      error: e.message,
+      stack: e.stack
+    })
     showError('Erreur', 'Impossible de charger les politiques', 5000)
   } finally {
     loadingPolicies.value = false
@@ -281,11 +265,19 @@ const loadPolicies = async () => {
 }
 
 const saveSettings = async () => {
+  ebayLogger.info('Saving eBay sync settings', {
+    settings: syncSettings
+  })
   saving.value = true
   try {
     await ebayStore.saveSyncSettings(syncSettings)
+    ebayLogger.info('eBay sync settings saved successfully')
     showSuccess('Sauvegarde', 'Parametres enregistres', 3000)
   } catch (e: any) {
+    ebayLogger.error('Failed to save eBay sync settings', {
+      error: e.message,
+      stack: e.stack
+    })
     showError('Erreur', e.message || 'Impossible de sauvegarder', 5000)
   } finally {
     saving.value = false
@@ -293,6 +285,7 @@ const saveSettings = async () => {
 }
 
 const handleDisconnect = () => {
+  ebayLogger.info('User requested eBay account disconnect')
   confirm?.require({
     message: 'Voulez-vous vraiment deconnecter votre compte eBay ?',
     header: 'Confirmation',
@@ -300,13 +293,22 @@ const handleDisconnect = () => {
     acceptLabel: 'Oui, deconnecter',
     rejectLabel: 'Annuler',
     accept: async () => {
+      ebayLogger.info('User confirmed eBay account disconnect')
       try {
         await ebayStore.disconnect()
+        ebayLogger.info('eBay account disconnected successfully')
         showSuccess('Deconnecte', 'Compte eBay deconnecte', 3000)
         navigateTo('/dashboard/platforms/ebay')
       } catch (e: any) {
+        ebayLogger.error('Failed to disconnect eBay account', {
+          error: e.message,
+          stack: e.stack
+        })
         showError('Erreur', e.message || 'Impossible de deconnecter', 5000)
       }
+    },
+    reject: () => {
+      ebayLogger.debug('User cancelled eBay account disconnect')
     }
   })
 }
@@ -350,11 +352,24 @@ const getShippingTypeLabel = (policy: any): string => {
 
 // Init
 onMounted(async () => {
+  ebayLogger.info('eBay Settings page mounted', {
+    route: '/dashboard/platforms/ebay/settings'
+  })
+
   try {
     await ebayStore.checkConnectionStatus()
+    ebayLogger.debug('Connection status checked', {
+      isConnected: ebayStore.isConnected
+    })
+
     if (ebayStore.isConnected) {
       Object.assign(syncSettings, ebayStore.syncSettings)
+      ebayLogger.debug('Sync settings loaded', { syncSettings })
       await loadPolicies()
+    } else {
+      ebayLogger.warn('User not connected to eBay', {
+        redirectRequired: true
+      })
     }
   } catch (e) {
     ebayLogger.error('Failed to initialize eBay settings', { error: e })

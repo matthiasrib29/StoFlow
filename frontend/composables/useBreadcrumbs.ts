@@ -58,28 +58,28 @@ export function useBreadcrumbs() {
 
       const subSectionLabels: Record<string, string> = {
         'publications': 'Publications',
-        'products': 'Annonces',
+        'products': 'Produits',
         'sales': 'Ventes',
         'shipments': 'Expéditions',
-        'analytics': 'Analytiques',
+        'statistics': 'Statistiques',
         'settings': 'Paramètres',
         'messages': 'Messages'
       }
 
       if (path.includes('/vinted')) {
-        crumbs.push({ label: 'Vinted', path: '/dashboard/platforms/vinted' })
+        crumbs.push({ label: 'Vinted', path: '/dashboard/platforms/vinted/products' })
         const subSection = path.split('/vinted/')[1]
         if (subSection && subSectionLabels[subSection]) {
           crumbs.push({ label: subSectionLabels[subSection] })
         }
       } else if (path.includes('/ebay')) {
-        crumbs.push({ label: 'eBay', path: '/dashboard/platforms/ebay' })
+        crumbs.push({ label: 'eBay', path: '/dashboard/platforms/ebay/products' })
         const subSection = path.split('/ebay/')[1]
         if (subSection && subSectionLabels[subSection]) {
           crumbs.push({ label: subSectionLabels[subSection] })
         }
       } else if (path.includes('/etsy')) {
-        crumbs.push({ label: 'Etsy', path: '/dashboard/platforms/etsy' })
+        crumbs.push({ label: 'Etsy', path: '/dashboard/platforms/etsy/products' })
         const subSection = path.split('/etsy/')[1]
         if (subSection && subSectionLabels[subSection]) {
           crumbs.push({ label: subSectionLabels[subSection] })

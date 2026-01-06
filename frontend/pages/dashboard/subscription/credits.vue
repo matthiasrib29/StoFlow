@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-secondary-900 mb-2">Crédits IA</h1>
-      <p class="text-gray-600">Achetez des crédits supplémentaires pour utiliser les fonctionnalités IA</p>
-    </div>
+    <PageHeader
+      title="Crédits IA"
+      subtitle="Achetez des crédits supplémentaires pour utiliser les fonctionnalités IA"
+    />
 
     <!-- Current Credits Info -->
     <Card class="shadow-md modern-rounded mb-6">
