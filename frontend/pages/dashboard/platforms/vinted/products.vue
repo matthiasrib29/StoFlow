@@ -9,21 +9,27 @@
     <!-- Content -->
     <Card class="shadow-sm modern-rounded border border-gray-100">
       <template #content>
-        <!-- Not connected -->
-        <div v-if="!isConnected" class="text-center py-12">
-          <i class="pi pi-link text-4xl text-gray-300 mb-4"/>
-          <h3 class="text-xl font-bold text-secondary-900 mb-2">Connectez votre compte Vinted</h3>
-          <p class="text-gray-500 mb-4">Accédez à vos annonces après connexion</p>
-          <Button
-            label="Connecter maintenant"
-            icon="pi pi-link"
-            class="btn-primary"
-            @click="$router.push('/dashboard/platforms/vinted')"
-          />
-        </div>
+        <!-- Bannière offline -->
+        <InfoBox v-if="!isConnected" type="warning" icon="pi pi-exclamation-triangle" class="mb-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-semibold">Mode hors ligne</p>
+              <p class="text-sm mt-1">
+                Vous consultez vos produits importés. Reconnectez-vous pour synchroniser, publier ou modifier.
+              </p>
+            </div>
+            <Button
+              label="Connecter"
+              icon="pi pi-link"
+              size="small"
+              class="btn-primary ml-4"
+              @click="$router.push('/dashboard/platforms/vinted')"
+            />
+          </div>
+        </InfoBox>
 
-        <!-- Connected -->
-        <div v-else>
+        <!-- Contenu principal (toujours visible) -->
+        <div>
           <!-- Toolbar -->
           <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
             <!-- Search -->
@@ -53,7 +59,9 @@
               label="Synchroniser"
               icon="pi pi-sync"
               :loading="syncing"
+              :disabled="!isConnected || syncing"
               class="btn-secondary"
+              v-tooltip.top="!isConnected ? 'Connexion Vinted requise pour synchroniser' : ''"
               @click="syncProducts"
             />
           </div>
@@ -80,14 +88,24 @@
           <div v-else-if="filteredProducts.length === 0" class="text-center py-12">
             <i class="pi pi-box text-4xl text-gray-300 mb-4"/>
             <p class="text-gray-500">
-              {{ products.length === 0 ? 'Aucune annonce synchronisée' : 'Aucun résultat pour cette recherche' }}
+              {{ products.length === 0
+                ? (isConnected ? 'Aucune annonce synchronisée' : 'Aucun produit importé')
+                : 'Aucun résultat pour cette recherche'
+              }}
             </p>
             <Button
-              v-if="products.length === 0"
+              v-if="products.length === 0 && isConnected"
               label="Synchroniser maintenant"
               icon="pi pi-sync"
               class="mt-4 btn-primary"
               @click="syncProducts"
+            />
+            <Button
+              v-if="products.length === 0 && !isConnected"
+              label="Connecter Vinted"
+              icon="pi pi-link"
+              class="mt-4 btn-primary"
+              @click="$router.push('/dashboard/platforms/vinted')"
             />
           </div>
 
@@ -214,7 +232,8 @@
                   <Button
                     icon="pi pi-times"
                     class="p-button-text p-button-sm p-button-danger"
-                    v-tooltip.top="'Délier'"
+                    :disabled="!isConnected"
+                    v-tooltip.top="!isConnected ? 'Connexion requise' : 'Délier'"
                     @click="unlinkProduct(data)"
                   />
                 </div>
@@ -223,6 +242,8 @@
                     label="Lier"
                     icon="pi pi-link"
                     class="p-button-outlined p-button-sm"
+                    :disabled="!isConnected"
+                    v-tooltip.top="!isConnected ? 'Connexion requise' : ''"
                     @click="openLinkModal(data)"
                   />
                 </div>
@@ -260,6 +281,7 @@
 <script setup lang="ts">
 import { useToast } from 'primevue/usetoast'
 import LinkProductModal from '~/components/vinted/LinkProductModal.vue'
+import InfoBox from '~/components/ui/InfoBox.vue'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
 import { formatDate, getStatusLabel, getStatusSeverity } from '~/utils/formatters'
 import { vintedLogger } from '~/utils/logger'
@@ -432,14 +454,13 @@ function goToProduct(productId: number) {
 // Init
 onMounted(async () => {
   await fetchStatus()
-  if (isConnected.value) {
-    await fetchProducts()
-  }
+  // Charger les produits même si déconnecté
+  await fetchProducts()
 })
 
-// Watch connection
+// Rafraîchir les produits à la reconnexion
 watch(isConnected, async (connected) => {
-  if (connected && products.value.length === 0) {
+  if (connected) {
     await fetchProducts()
   }
 })
