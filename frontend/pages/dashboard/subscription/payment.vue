@@ -144,8 +144,8 @@
               <div class="flex items-start gap-3">
                 <Checkbox v-model="acceptTerms" :binary="true" input-id="terms" />
                 <label for="terms" class="text-sm text-gray-700">
-                  J'accepte les <a href="#" class="text-primary-400 hover:underline">conditions générales</a>
-                  et la <a href="#" class="text-primary-400 hover:underline">politique de confidentialité</a>
+                  J'accepte les <NuxtLink to="/legal/cgv" target="_blank" class="text-primary-400 hover:underline">conditions générales de vente</NuxtLink>
+                  et la <NuxtLink to="/legal/privacy" target="_blank" class="text-primary-400 hover:underline">politique de confidentialité</NuxtLink>
                 </label>
               </div>
 
