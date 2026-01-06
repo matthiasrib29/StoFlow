@@ -71,10 +71,19 @@
       "matches": ["<all_urls>"]
     },
     {
-      "resources": ["src/content/stoflow-vinted-api.js"],
+      "resources": [
+        "src/content/stoflow-vinted-logger.js",
+        "src/content/stoflow-vinted-datadome.js",
+        "src/content/stoflow-vinted-api-core.js",
+        "src/content/stoflow-vinted-bootstrap.js"
+      ],
       "matches": ["https://www.vinted.fr/*", "https://www.vinted.com/*"]
     }
   ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
 
   "browser_specific_settings": {
     "gecko": {

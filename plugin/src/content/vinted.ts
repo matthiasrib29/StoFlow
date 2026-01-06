@@ -5,7 +5,6 @@
  */
 
 import { VintedLogger } from '../utils/logger';
-import { ENV } from '../config/environment';
 import { sendPostMessageRequest } from './message-utils';
 
 // Import the API injector - this injects stoflow-vinted-api.js into MAIN world

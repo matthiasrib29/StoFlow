@@ -74,13 +74,12 @@ function isValidTokenMessage(data: any): data is { type: string; access_token: s
 function announceToFrontend() {
   log.debug('Annonce au frontend...');
 
-  // Envoyer vers toutes les origines autorisées (le frontend écoutera)
-  // Note: On envoie vers '*' car on ne connaît pas encore l'origine exacte du frontend
-  // Mais le MESSAGE lui-même ne contient PAS de données sensibles
+  // Send to current origin (the frontend will listen)
+  // Note: Using window.location.origin instead of '*' for better security
   window.postMessage({
     type: 'STOFLOW_PLUGIN_READY',
     version: '1.0.0'
-  }, '*');
+  }, window.location.origin);
 
   log.info('Plugin annoncé au frontend');
 }

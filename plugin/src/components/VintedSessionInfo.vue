@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { StoflowAPI } from '../api/StoflowAPI';
+import { PopupLogger } from '../utils/logger';
 
 interface VintedSession {
   userId: string | null;
@@ -45,20 +46,11 @@ const loadVintedSession = async () => {
 
     // Envoyer un message au content script pour extraire userId + login
     try {
-      console.debug('');
-      console.debug('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
-      console.debug('🎯 [POPUP] Envoi de GET_VINTED_USER_INFO au tab', tab.id);
-      console.debug('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
+      PopupLogger.debug('Requesting Vinted user info from tab', tab.id);
 
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'GET_VINTED_USER_INFO' });
 
-      console.debug('🎯 Réponse reçue:', response);
-
       if (response?.success) {
-        console.debug('🎯 ✅ Succès - Données extraites:');
-        console.debug('🎯   - userId:', response.data.userId);
-        console.debug('🎯   - login:', response.data.login);
-
         session.value.userId = response.data.userId || null;
         session.value.login = response.data.login || null;
 
@@ -66,7 +58,7 @@ const loadVintedSession = async () => {
         session.value.isConnected = !!(response.data.userId && response.data.login);
 
         if (session.value.isConnected) {
-          console.debug('🎯 ✅ Connecté à Vinted (userId + login extraits)');
+          PopupLogger.debug('Connected to Vinted', { userId: response.data.userId, login: response.data.login });
 
           // Synchroniser la connexion avec le backend Stoflow
           try {
@@ -74,22 +66,19 @@ const loadVintedSession = async () => {
               response.data.userId,
               response.data.login
             );
-            console.debug('🎯 ✅ Connexion synchronisée avec le backend');
+            PopupLogger.debug('Vinted user synced with backend');
           } catch (syncError) {
-            console.error('🎯 ⚠️ Erreur sync backend:', syncError);
+            PopupLogger.error('Backend sync error:', syncError);
             // Ne pas bloquer - la connexion locale est quand même détectée
           }
         } else {
-          console.debug('🎯 ⚠️ Non connecté (userId ou login manquant)');
+          PopupLogger.debug('Not connected (userId or login missing)');
         }
       } else {
-        console.error('🎯 ❌ Échec - Erreur:', response?.error);
+        PopupLogger.error('Failed to extract info:', response?.error);
         error.value = 'Impossible d\'extraire les informations';
         session.value.isConnected = false;
       }
-
-      console.debug('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯');
-      console.debug('');
     } catch (sendError: any) {
       // Erreur de connexion = content script non chargé
       if (sendError.message?.includes('Could not establish connection') ||
@@ -123,7 +112,7 @@ const copyToClipboard = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text);
     alert(`${label} copié !`);
   } catch (err) {
-    console.error('Copy failed:', err);
+    PopupLogger.error('Copy failed:', err);
   }
 };
 

@@ -22,6 +22,8 @@ const DEFAULT_POLL_INTERVAL = 5000; // 5s par défaut si backend ne spécifie pa
 export class PollingManager {
   private isPolling: boolean = false;
   private shouldStop: boolean = false;
+  private isPaused: boolean = false;
+  private resumeTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   // Connection status tracking
   private wasConnected: boolean = true;
@@ -39,9 +41,6 @@ export class PollingManager {
     BackgroundLogger.debug('[Long Polling] 🚀 Démarrage');
     this.isPolling = true;
     this.shouldStop = false;
-
-    // TODO: Activer plus tard - Auto-pause quand onglet Vinted actif
-    // this.setupTabListener();
 
     // Démarrer la boucle de long polling
     this.longPollingLoop();

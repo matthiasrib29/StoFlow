@@ -117,7 +117,7 @@ class VintedAPIBridge {
         params: options.params,
         data: options.data,
         config: options.config
-      }, '*');
+      }, window.location.origin);
 
       // Timeout (configurable via ENV.VINTED_REQUEST_TIMEOUT)
       setTimeout(() => {
@@ -236,7 +236,9 @@ class VintedAPIBridge {
 // Export singleton instance
 export const vintedAPI = new VintedAPIBridge();
 
-// Expose globally for debugging
-(window as any).__stoflowVintedAPI = vintedAPI;
+// Expose globally for debugging (dev mode only)
+if (import.meta.env.DEV) {
+  (window as any).__stoflowVintedAPI = vintedAPI;
+}
 
 VintedLogger.debug('🛍️ [Stoflow] Vinted API Bridge initialized');
