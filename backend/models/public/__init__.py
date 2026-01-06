@@ -44,7 +44,8 @@ from models.public.origin import Origin
 from models.public.pattern import Pattern
 from models.public.rise import Rise
 from models.public.season import Season
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
+from models.public.size_original import SizeOriginal
 from models.public.sleeve_length import SleeveLength
 from models.public.sport import Sport
 from models.public.trend import Trend
@@ -94,7 +95,8 @@ __all__ = [
     "Pattern",
     "Rise",
     "Season",
-    "Size",
+    "SizeNormalized",
+    "SizeOriginal",
     "SleeveLength",
     "Sport",
     "Trend",

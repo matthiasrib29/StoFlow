@@ -24,7 +24,7 @@ from models.public.brand import Brand
 from models.public.category import Category
 from models.public.color import Color
 from models.public.condition import Condition
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 from models.user.product import Product, ProductStatus
 from services.auth_service import AuthService
 from services.product_service import ProductService

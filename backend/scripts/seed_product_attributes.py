@@ -29,7 +29,7 @@ from models.public.fit import Fit
 from models.public.gender import Gender
 from models.public.material import Material
 from models.public.season import Season
-from models.public.size import Size
+from models.public.size_normalized import SizeNormalized
 from shared.config import settings
 
 
@@ -148,7 +148,7 @@ def seed_sizes(session):
     for size in sizes:
         existing = session.query(Size).filter(Size.name_en == size).first()
         if not existing:
-            session.add(Size(name_en=size))
+            session.add(SizeNormalized(name_en=size))
             count += 1
 
     session.commit()
