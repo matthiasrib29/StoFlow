@@ -86,7 +86,7 @@ class EbayIdentityClient(EbayBaseClient):
         """
         try:
             return self.get_user()
-        except Exception:
+        except (requests.exceptions.RequestException, RuntimeError):
             return None
 
     def format_user_info(self, user_data: Dict[str, Any]) -> Dict[str, Any]:

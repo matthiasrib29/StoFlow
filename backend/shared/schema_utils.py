@@ -17,6 +17,7 @@ Date: 2025-01-05
 from typing import Optional
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from shared.logging_setup import get_logger
@@ -44,7 +45,7 @@ def get_current_schema(db: Session) -> Optional[str]:
                 schema = schema.strip().strip('"')
                 if schema.startswith("user_"):
                     return schema
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.warning(f"Failed to get current schema: {e}")
     return None
 
@@ -61,7 +62,7 @@ def restore_search_path(db: Session, schema_name: str) -> None:
     """
     try:
         db.execute(text(f"SET LOCAL search_path TO {schema_name}, public"))
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.warning(f"Failed to restore search_path to {schema_name}: {e}")
 
 
@@ -82,7 +83,7 @@ def restore_search_path_after_rollback(db: Session, schema_name: Optional[str] =
         # Force clean rollback to exit any failed transaction state
         try:
             db.rollback()
-        except Exception:
+        except SQLAlchemyError:
             pass  # Ignore if already rolled back
 
         # Get schema from parameter or detect from search_path
@@ -92,7 +93,7 @@ def restore_search_path_after_rollback(db: Session, schema_name: Optional[str] =
 
         if target_schema:
             db.execute(text(f"SET LOCAL search_path TO {target_schema}, public"))
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.warning(f"Failed to restore search_path after rollback: {e}")
 
 

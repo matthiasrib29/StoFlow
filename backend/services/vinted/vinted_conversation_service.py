@@ -1,13 +1,16 @@
 """
-Vinted Conversation Service - Synchronization of Vinted inbox/messages
+Vinted Conversation Service - Synchronization of Vinted conversations/messages
 
 Service dedicated to synchronizing conversations and messages from Vinted API.
 
 Methods available:
-- sync_inbox(): Sync conversation list from /api/v2/inbox
+- sync_inbox(): Sync conversation list (delegates to VintedInboxSyncService)
 - sync_conversation(): Sync messages for a specific conversation
 - get_conversations(): Get conversations from local DB
 - get_messages(): Get messages for a conversation
+
+Refactored: 2026-01-06
+- Extracted inbox sync to VintedInboxSyncService
 
 Author: Claude
 Date: 2025-12-19
@@ -25,6 +28,7 @@ from repositories.vinted_conversation_repository import (
     VintedMessageRepository,
 )
 from services.plugin_task_helper import create_and_wait
+from services.vinted.vinted_inbox_sync_service import VintedInboxSyncService
 from shared.schema_utils import SchemaManager, commit_and_restore_path
 from shared.vinted_constants import VintedConversationAPI, VintedReferers
 from shared.logging_setup import get_logger
@@ -46,9 +50,10 @@ class VintedConversationService:
     def __init__(self):
         """Initialize VintedConversationService."""
         self._schema_manager = SchemaManager()
+        self._inbox_sync_service = VintedInboxSyncService()
 
     # =========================================================================
-    # SYNC INBOX (list of conversations)
+    # SYNC INBOX (delegated to VintedInboxSyncService)
     # =========================================================================
 
     async def sync_inbox(
@@ -61,7 +66,7 @@ class VintedConversationService:
         """
         Sync conversations from Vinted inbox.
 
-        Uses PluginTask to call GET /api/v2/inbox.
+        Delegates to VintedInboxSyncService.
 
         Args:
             db: SQLAlchemy Session
@@ -70,157 +75,11 @@ class VintedConversationService:
             sync_all_pages: If True, fetch all pages until exhausted
 
         Returns:
-            dict with:
-            - synced: Number of conversations synced
-            - created: Number of new conversations
-            - updated: Number of updated conversations
-            - total: Total conversations in inbox
-            - unread: Number of unread conversations
+            dict with sync results
         """
-        self._schema_manager.capture(db)
-
-        result = {
-            "synced": 0,
-            "created": 0,
-            "updated": 0,
-            "total": 0,
-            "unread": 0,
-            "errors": []
-        }
-
-        try:
-            current_page = page
-            has_more = True
-
-            while has_more:
-                logger.info(f"[VintedConversationService] Fetching inbox page {current_page}")
-
-                # Call Vinted API via PluginTask
-                api_result = await create_and_wait(
-                    db=db,
-                    http_method="GET",
-                    path=VintedConversationAPI.get_inbox(page=current_page, per_page=per_page),
-                    referer=VintedReferers.INBOX,
-                    description=f"inbox page {current_page}"
-                )
-
-                if not api_result:
-                    logger.error("[VintedConversationService] No result from inbox API")
-                    result["errors"].append(f"Page {current_page}: No API response")
-                    break
-
-                # Parse response
-                conversations_data = api_result.get("conversations", [])
-                pagination = api_result.get("pagination", {})
-
-                result["total"] = pagination.get("total_entries", 0)
-
-                # Process each conversation
-                for conv_data in conversations_data:
-                    try:
-                        conv = self._parse_conversation(conv_data)
-                        existing = VintedConversationRepository.get_by_id(
-                            db, conv["conversation_id"]
-                        )
-
-                        if existing:
-                            # Update existing
-                            VintedConversationRepository.upsert(db, conv)
-                            result["updated"] += 1
-                        else:
-                            # Create new
-                            VintedConversationRepository.upsert(db, conv)
-                            result["created"] += 1
-
-                        result["synced"] += 1
-
-                        if conv.get("is_unread"):
-                            result["unread"] += 1
-
-                    except Exception as e:
-                        conv_id = conv_data.get("id", "unknown")
-                        logger.error(f"[VintedConversationService] Error processing conv {conv_id}: {e}")
-                        result["errors"].append(f"Conv {conv_id}: {str(e)}")
-
-                # Check if more pages
-                total_pages = pagination.get("total_pages", 1)
-                if sync_all_pages and current_page < total_pages:
-                    current_page += 1
-                else:
-                    has_more = False
-
-            logger.info(
-                f"[VintedConversationService] Inbox sync complete: "
-                f"synced={result['synced']}, created={result['created']}, "
-                f"updated={result['updated']}, unread={result['unread']}"
-            )
-
-            return result
-
-        except Exception as e:
-            logger.error(f"[VintedConversationService] sync_inbox error: {e}")
-            self._schema_manager.restore_after_rollback(db)
-            raise
-
-    def _parse_conversation(self, data: dict) -> dict:
-        """
-        Parse conversation data from Vinted API response.
-
-        Args:
-            data: Raw conversation data from API
-
-        Returns:
-            dict ready for VintedConversation model
-        """
-        opposite_user = data.get("opposite_user", {})
-        opposite_photo = opposite_user.get("photo", {}) or {}
-        item_photos = data.get("item_photos", [])
-        first_photo = item_photos[0] if item_photos else {}
-
-        # Parse datetime
-        updated_at_str = data.get("updated_at")
-        updated_at_vinted = None
-        if updated_at_str:
-            try:
-                updated_at_vinted = parse_datetime(updated_at_str)
-            except Exception:
-                pass
-
-        # Get thumbnail URL (100x100)
-        photo_url = None
-        thumbnails = opposite_photo.get("thumbnails", [])
-        for thumb in thumbnails:
-            if thumb.get("type") == "thumb100":
-                photo_url = thumb.get("url")
-                break
-        if not photo_url:
-            photo_url = opposite_photo.get("url")
-
-        # Get item photo URL
-        item_photo_url = None
-        item_thumbnails = first_photo.get("thumbnails", [])
-        for thumb in item_thumbnails:
-            if thumb.get("type") == "thumb150x210":
-                item_photo_url = thumb.get("url")
-                break
-        if not item_photo_url:
-            item_photo_url = first_photo.get("url")
-
-        return {
-            "conversation_id": data.get("id"),
-            "opposite_user_id": opposite_user.get("id"),
-            "opposite_user_login": opposite_user.get("login"),
-            "opposite_user_photo_url": photo_url,
-            "last_message_preview": data.get("description"),
-            "is_unread": data.get("unread", False),
-            "unread_count": 1 if data.get("unread") else 0,
-            "item_count": data.get("item_count", 1),
-            "item_id": first_photo.get("id") if first_photo else None,
-            "item_title": data.get("description"),  # Will be updated when syncing conversation
-            "item_photo_url": item_photo_url,
-            "updated_at_vinted": updated_at_vinted,
-            "last_synced_at": datetime.utcnow(),
-        }
+        return await self._inbox_sync_service.sync_inbox(
+            db, page=page, per_page=per_page, sync_all_pages=sync_all_pages
+        )
 
     # =========================================================================
     # SYNC CONVERSATION (messages for a specific conversation)
@@ -277,24 +136,7 @@ class VintedConversationService:
             conv_data = api_result.get("conversation", {})
 
             # Update conversation metadata
-            transaction = conv_data.get("transaction", {})
-            if transaction:
-                result["transaction_id"] = transaction.get("id")
-
-                # Update conversation with transaction info
-                conversation = VintedConversationRepository.get_by_id(db, conversation_id)
-                if conversation:
-                    conversation.transaction_id = transaction.get("id")
-                    conversation.item_id = transaction.get("item_id")
-                    conversation.item_title = transaction.get("item_title")
-
-                    # Get item photo from transaction
-                    item_photo = transaction.get("item_photo", {})
-                    if item_photo:
-                        conversation.item_photo_url = item_photo.get("url")
-
-                    conversation.last_synced_at = datetime.utcnow()
-                    commit_and_restore_path(db)
+            self._update_conversation_metadata(db, conversation_id, conv_data, result)
 
             # Process messages
             messages_data = conv_data.get("messages", [])
@@ -319,7 +161,7 @@ class VintedConversationService:
                     result["messages_synced"] += 1
                     result["messages_new"] += 1
 
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.error(f"[VintedConversationService] Error processing message: {e}")
                     result["errors"].append(str(e))
 
@@ -338,13 +180,37 @@ class VintedConversationService:
             self._schema_manager.restore_after_rollback(db)
             raise
 
-    def _get_current_user_id(self, conv_data: dict) -> Optional[int]:
-        """
-        Get current user ID from conversation data.
+    def _update_conversation_metadata(
+        self,
+        db: Session,
+        conversation_id: int,
+        conv_data: dict,
+        result: dict
+    ) -> None:
+        """Update conversation with transaction info from API response."""
+        transaction = conv_data.get("transaction", {})
+        if not transaction:
+            return
 
-        The current user is the one who is NOT the opposite_user.
-        We can infer this from transaction.buyer_id/seller_id and current_user_side.
-        """
+        result["transaction_id"] = transaction.get("id")
+
+        conversation = VintedConversationRepository.get_by_id(db, conversation_id)
+        if not conversation:
+            return
+
+        conversation.transaction_id = transaction.get("id")
+        conversation.item_id = transaction.get("item_id")
+        conversation.item_title = transaction.get("item_title")
+
+        item_photo = transaction.get("item_photo", {})
+        if item_photo:
+            conversation.item_photo_url = item_photo.get("url")
+
+        conversation.last_synced_at = datetime.utcnow()
+        commit_and_restore_path(db)
+
+    def _get_current_user_id(self, conv_data: dict) -> Optional[int]:
+        """Get current user ID from conversation data."""
         transaction = conv_data.get("transaction", {})
         current_side = transaction.get("current_user_side")
 
@@ -361,17 +227,7 @@ class VintedConversationService:
         conversation_id: int,
         current_user_id: Optional[int]
     ) -> dict:
-        """
-        Parse message data from Vinted API response.
-
-        Args:
-            data: Raw message data from API
-            conversation_id: Parent conversation ID
-            current_user_id: Current user's Vinted ID
-
-        Returns:
-            dict ready for VintedMessage model
-        """
+        """Parse message data from Vinted API response."""
         entity_type = data.get("entity_type", "message")
         entity = data.get("entity", {})
 
@@ -381,7 +237,7 @@ class VintedConversationService:
         if created_at_str:
             try:
                 created_at_vinted = parse_datetime(created_at_str)
-            except Exception:
+            except (ValueError, TypeError):
                 pass
 
         # Get message ID based on entity type
@@ -450,9 +306,7 @@ class VintedConversationService:
             unread_only: Filter to unread only
 
         Returns:
-            dict with:
-            - conversations: List of conversation dicts
-            - pagination: Pagination info
+            dict with conversations and pagination
         """
         conversations = VintedConversationRepository.get_all(
             db, page=page, per_page=per_page, unread_only=unread_only

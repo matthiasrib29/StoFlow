@@ -62,7 +62,7 @@ def validate_state(state: str, expected_user_id: int) -> bool:
     try:
         user_id_str, _ = state.split(":", 1)
         return int(user_id_str) == expected_user_id
-    except Exception:
+    except (ValueError, TypeError):
         return False
 
 
@@ -164,7 +164,7 @@ def exchange_code_for_tokens(
             error_data = response.text
             try:
                 error_data = response.json()
-            except Exception:
+            except (ValueError, requests.exceptions.JSONDecodeError):
                 pass
 
             logger.error(f"eBay token exchange failed: {error_data}")

@@ -79,7 +79,7 @@ class EncryptionService:
         try:
             if len(key) == 44 and key.endswith("="):
                 return Fernet(key.encode())
-        except Exception:
+        except (ValueError, TypeError):
             pass
 
         # Derive a Fernet-compatible key from the input

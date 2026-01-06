@@ -20,6 +20,7 @@ Author: Claude
 Date: 2025-12-10
 """
 
+import json
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -355,7 +356,7 @@ class EtsyBaseClient:
                 error_data = None
                 try:
                     error_data = response.json()
-                except Exception:
+                except json.JSONDecodeError:
                     error_data = {"raw_text": response.text[:500] if response.text else None}
 
                 logger.error(f"Etsy API error: {response.status_code} - {error_data}")

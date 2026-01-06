@@ -8,6 +8,7 @@ Couverture:
 
 Author: Claude
 Date: 2025-12-18
+Updated: 2026-01-06 (migrated to UserRepository mocks)
 """
 
 import pytest
@@ -26,7 +27,8 @@ from shared.datetime_utils import utc_now
 class TestAccountLockout:
     """Tests du système de verrouillage après échecs de login."""
 
-    def test_failed_login_increments_counter(self):
+    @patch('services.auth_service.UserRepository')
+    def test_failed_login_increments_counter(self, mock_repo):
         """Test que failed_login_attempts est incrémenté à chaque échec."""
         mock_db = Mock()
         mock_user = Mock()
@@ -37,17 +39,17 @@ class TestAccountLockout:
         mock_user.locked_until = None
         mock_user.failed_login_attempts = 0
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
 
         # Tentative avec mauvais mot de passe
         result = AuthService.authenticate_user(mock_db, "test@example.com", "wrong_password")
 
         assert result is None
-        assert mock_user.failed_login_attempts == 1
-        assert mock_user.last_failed_login is not None
+        mock_repo.increment_failed_login.assert_called_once_with(mock_db, mock_user)
         mock_db.commit.assert_called()
 
-    def test_multiple_failed_attempts_increment_counter(self):
+    @patch('services.auth_service.UserRepository')
+    def test_multiple_failed_attempts_increment_counter(self, mock_repo):
         """Test que le compteur s'incrémente à chaque tentative."""
         mock_db = Mock()
         mock_user = Mock()
@@ -58,14 +60,15 @@ class TestAccountLockout:
         mock_user.locked_until = None
         mock_user.failed_login_attempts = 3  # Déjà 3 échecs
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
 
         result = AuthService.authenticate_user(mock_db, "test@example.com", "wrong")
 
         assert result is None
-        assert mock_user.failed_login_attempts == 4
+        mock_repo.increment_failed_login.assert_called_once()
 
-    def test_account_locked_after_5_failed_attempts(self):
+    @patch('services.auth_service.UserRepository')
+    def test_account_locked_after_5_failed_attempts(self, mock_repo):
         """Test que le compte est verrouillé après 5 échecs."""
         mock_db = Mock()
         mock_user = Mock()
@@ -76,18 +79,21 @@ class TestAccountLockout:
         mock_user.locked_until = None
         mock_user.failed_login_attempts = 4  # 4 échecs, le 5ème va verrouiller
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
+
+        # Simulate increment_failed_login setting attempts to 5
+        def increment_side_effect(db, user):
+            user.failed_login_attempts = 5
+        mock_repo.increment_failed_login.side_effect = increment_side_effect
 
         result = AuthService.authenticate_user(mock_db, "test@example.com", "wrong")
 
         assert result is None
-        assert mock_user.failed_login_attempts == 5
-        assert mock_user.locked_until is not None
-        # Vérifie que c'est verrouillé pour environ 30 minutes
-        lock_duration = (mock_user.locked_until - utc_now()).total_seconds() / 60
-        assert 29 <= lock_duration <= 31
+        mock_repo.increment_failed_login.assert_called_once()
+        mock_repo.lock_account.assert_called_once()
 
-    def test_locked_account_rejects_login(self):
+    @patch('services.auth_service.UserRepository')
+    def test_locked_account_rejects_login(self, mock_repo):
         """Test qu'un compte verrouillé ne peut pas se connecter."""
         mock_db = Mock()
         mock_user = Mock()
@@ -98,14 +104,15 @@ class TestAccountLockout:
         mock_user.locked_until = utc_now() + timedelta(minutes=15)  # Verrouillé
         mock_user.failed_login_attempts = 5
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
 
         # Même avec le bon mot de passe, le login doit échouer
         result = AuthService.authenticate_user(mock_db, "test@example.com", "correct_password")
 
         assert result is None
 
-    def test_account_unlocks_after_lockout_duration(self):
+    @patch('services.auth_service.UserRepository')
+    def test_account_unlocks_after_lockout_duration(self, mock_repo):
         """Test qu'un compte se déverrouille après la durée de blocage."""
         mock_db = Mock()
         mock_user = Mock()
@@ -117,7 +124,7 @@ class TestAccountLockout:
         mock_user.failed_login_attempts = 5
         mock_user.schema_name = "user_1"
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
 
         # Login doit réussir car le verrouillage est expiré
         result = AuthService.authenticate_user(mock_db, "test@example.com", "correct_password")
@@ -125,7 +132,8 @@ class TestAccountLockout:
         assert result is not None
         assert result.id == 1
 
-    def test_successful_login_resets_failed_attempts(self):
+    @patch('services.auth_service.UserRepository')
+    def test_successful_login_resets_failed_attempts(self, mock_repo):
         """Test qu'un login réussi reset le compteur d'échecs."""
         mock_db = Mock()
         mock_user = Mock()
@@ -138,14 +146,13 @@ class TestAccountLockout:
         mock_user.last_failed_login = utc_now() - timedelta(hours=1)
         mock_user.schema_name = "user_1"
 
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+        mock_repo.get_by_email.return_value = mock_user
 
         result = AuthService.authenticate_user(mock_db, "test@example.com", "correct_password")
 
         assert result is not None
-        assert mock_user.failed_login_attempts == 0
-        assert mock_user.last_failed_login is None
-        assert mock_user.locked_until is None
+        mock_repo.reset_login_failures.assert_called_once_with(mock_db, mock_user)
+        mock_repo.update_login_stats.assert_called_once()
 
     def test_lockout_constants_correct_values(self):
         """Test que les constantes de lockout ont les bonnes valeurs."""
@@ -183,15 +190,17 @@ class TestEmailVerification:
         import re
         assert re.match(r'^[A-Za-z0-9_-]+$', token)
 
-    def test_generate_email_verification_token_updates_user(self):
-        """Test que le token est sauvegardé sur l'utilisateur."""
+    def test_generate_email_verification_token_stores_hash(self):
+        """Test que le hash du token est sauvegardé (pas le token original)."""
         mock_db = Mock()
         mock_user = Mock()
         mock_user.id = 1
 
         token = AuthService.generate_email_verification_token(mock_user, mock_db)
 
-        assert mock_user.email_verification_token == token
+        # Le token stocké est un hash SHA-256 (64 caractères hex)
+        assert mock_user.email_verification_token != token
+        assert len(mock_user.email_verification_token) == 64  # SHA-256 hex
         assert mock_user.email_verification_expires is not None
         mock_db.commit.assert_called_once()
 
@@ -214,13 +223,17 @@ class TestEmailVerification:
         mock_user = Mock()
         mock_user.id = 1
         mock_user.email = "test@example.com"
-        mock_user.email_verification_token = "valid_token_123"
         mock_user.email_verification_expires = utc_now() + timedelta(hours=12)
         mock_user.email_verified = False
 
+        # Generate a token and capture the hash
+        raw_token = "test_token_12345"
+        token_hash = AuthService._hash_token(raw_token)
+        mock_user.email_verification_token = token_hash
+
         mock_db.query.return_value.filter.return_value.first.return_value = mock_user
 
-        result = AuthService.verify_email_token(mock_db, "valid_token_123")
+        result = AuthService.verify_email_token(mock_db, raw_token)
 
         assert result is not None
         assert result.id == 1
@@ -234,13 +247,16 @@ class TestEmailVerification:
         mock_db = Mock()
         mock_user = Mock()
         mock_user.id = 1
-        mock_user.email_verification_token = "expired_token"
         mock_user.email_verification_expires = utc_now() - timedelta(hours=1)  # Expiré
         mock_user.email_verified = False
 
+        raw_token = "expired_token"
+        token_hash = AuthService._hash_token(raw_token)
+        mock_user.email_verification_token = token_hash
+
         mock_db.query.return_value.filter.return_value.first.return_value = mock_user
 
-        result = AuthService.verify_email_token(mock_db, "expired_token")
+        result = AuthService.verify_email_token(mock_db, raw_token)
 
         assert result is None
         # L'utilisateur ne doit pas être marqué comme vérifié
@@ -261,13 +277,16 @@ class TestEmailVerification:
         mock_user = Mock()
         mock_user.id = 1
         mock_user.email = "test@example.com"
-        mock_user.email_verification_token = "single_use_token"
         mock_user.email_verification_expires = utc_now() + timedelta(hours=12)
         mock_user.email_verified = False
 
+        raw_token = "single_use_token"
+        token_hash = AuthService._hash_token(raw_token)
+        mock_user.email_verification_token = token_hash
+
         mock_db.query.return_value.filter.return_value.first.return_value = mock_user
 
-        AuthService.verify_email_token(mock_db, "single_use_token")
+        AuthService.verify_email_token(mock_db, raw_token)
 
         assert mock_user.email_verification_token is None
         assert mock_user.email_verification_expires is None
@@ -293,6 +312,24 @@ class TestEmailVerification:
 
         assert AuthService.is_email_verified(mock_user) is False
 
+    def test_already_verified_email_rejected(self):
+        """Test qu'un email déjà vérifié ne peut pas être revérifié."""
+        mock_db = Mock()
+        mock_user = Mock()
+        mock_user.id = 1
+        mock_user.email_verified = True  # Déjà vérifié
+
+        raw_token = "reuse_token"
+        token_hash = AuthService._hash_token(raw_token)
+        mock_user.email_verification_token = token_hash
+        mock_user.email_verification_expires = utc_now() + timedelta(hours=12)
+
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
+
+        result = AuthService.verify_email_token(mock_db, raw_token)
+
+        assert result is None
+
 
 # ============================================================================
 # JWT SECRET ROTATION TESTS
@@ -307,6 +344,7 @@ class TestJWTSecretRotation:
         mock_settings.jwt_secret_key = "current_secret"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=1, role="user")
         payload = AuthService.verify_token(token, token_type="access")
@@ -348,6 +386,7 @@ class TestJWTSecretRotation:
         mock_settings.jwt_secret_key = current_secret
         mock_settings.jwt_secret_key_previous = old_secret
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         # Créer un token avec le secret actuel
         token = AuthService.create_access_token(user_id=1, role="user")
@@ -390,6 +429,7 @@ class TestJWTSecretRotation:
         mock_settings.jwt_secret_key = current_secret
         mock_settings.jwt_secret_key_previous = old_secret
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         # Créer un nouveau token
         token = AuthService.create_access_token(user_id=1, role="user")
@@ -408,6 +448,7 @@ class TestJWTSecretRotation:
         mock_settings.jwt_secret_key = "only_secret"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=1, role="user")
         payload = AuthService.verify_token(token, token_type="access")
@@ -421,6 +462,7 @@ class TestJWTSecretRotation:
         mock_settings.jwt_secret_key = "current_secret"
         mock_settings.jwt_secret_key_previous = ""  # String vide = pas de rotation
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         token = AuthService.create_access_token(user_id=1, role="user")
         payload = AuthService.verify_token(token, token_type="access")
@@ -441,6 +483,7 @@ class TestJWTTokenTypeValidation:
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_access_token_expire_minutes = 60
 
         access_token = AuthService.create_access_token(user_id=1, role="user")
         payload = AuthService.verify_token(access_token, token_type="refresh")
@@ -453,6 +496,7 @@ class TestJWTTokenTypeValidation:
         mock_settings.jwt_secret_key = "test_secret"
         mock_settings.jwt_secret_key_previous = None
         mock_settings.jwt_algorithm = "HS256"
+        mock_settings.jwt_refresh_token_expire_days = 7
 
         refresh_token = AuthService.create_refresh_token(user_id=1)
         payload = AuthService.verify_token(refresh_token, token_type="access")

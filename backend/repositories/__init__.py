@@ -22,12 +22,22 @@ Updated: 2025-12-24 - CategoryMappingRepository désactivé (modèle manquant)
 
 # DEPRECATED: CategoryMappingRepository désactivé - modèle manquant
 # from .category_mapping_repository import CategoryMappingRepository
+from .plugin_task_repository import PluginTaskRepository
+from .product_attribute_repository import ProductAttributeRepository
+from .product_repository import ProductRepository
+from .user_repository import UserRepository
+from .vinted_job_repository import VintedJobRepository
 from .vinted_mapping_repository import VintedMappingRepository
 from .vinted_product_repository import VintedProductRepository
 from .vinted_error_log_repository import VintedErrorLogRepository
 
 __all__ = [
     # 'CategoryMappingRepository',  # DEPRECATED
+    'PluginTaskRepository',
+    'ProductAttributeRepository',
+    'ProductRepository',
+    'UserRepository',
+    'VintedJobRepository',
     'VintedMappingRepository',
     'VintedProductRepository',
     'VintedErrorLogRepository',

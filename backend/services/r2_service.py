@@ -15,7 +15,7 @@ from typing import Optional
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 from shared.config import settings
 from shared.logging_setup import get_logger
@@ -143,7 +143,7 @@ class R2Service:
                 f"product_id={product_id}, error={error_code}: {e}"
             )
             raise
-        except Exception as e:
+        except BotoCoreError as e:
             logger.error(
                 f"[R2Service] Unexpected upload error: user_id={user_id}, "
                 f"product_id={product_id}, error={e}"
@@ -220,7 +220,7 @@ class R2Service:
                 f"[R2Service] Delete failed: key={object_key}, error={error_code}: {e}"
             )
             return False
-        except Exception as e:
+        except BotoCoreError as e:
             logger.error(
                 f"[R2Service] Unexpected delete error: key={object_key}, error={e}"
             )
@@ -253,7 +253,7 @@ class R2Service:
             if len(parts) >= 4:
                 return parts[3]
             return None
-        except Exception:
+        except (IndexError, ValueError):
             return None
 
     async def check_connection(self) -> bool:
@@ -274,7 +274,7 @@ class R2Service:
             error_code = e.response.get("Error", {}).get("Code", "Unknown")
             logger.error(f"[R2Service] Connection check failed: {error_code}")
             return False
-        except Exception as e:
+        except BotoCoreError as e:
             logger.error(f"[R2Service] Connection check error: {e}")
             return False
 

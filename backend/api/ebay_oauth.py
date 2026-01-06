@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_current_user, get_db, get_user_db
 from models.public.user import User
 from models.user.ebay_credentials import EbayCredentials
+from shared.exceptions import EbayError
 from services.ebay.ebay_oauth_service import (
     extract_user_id_from_state,
     generate_auth_url,
@@ -397,7 +398,7 @@ def get_ebay_account_info(
         try:
             fulfillment_policies = account_client.get_fulfillment_policies()
             fulfillment_count = fulfillment_policies.get("total", 0)
-        except Exception:
+        except (EbayError, ValueError):
             fulfillment_count = None
 
         return {
@@ -441,7 +442,7 @@ def get_shipping_policies(
         client = EbayAccountClient(db, user_id=current_user.id, marketplace_id=marketplace_id)
         policies = client.get_fulfillment_policies()
         return policies.get("fulfillmentPolicies", [])
-    except Exception:
+    except (EbayError, ValueError):
         return []
 
 
@@ -465,7 +466,7 @@ def get_return_policies(
         client = EbayAccountClient(db, user_id=current_user.id, marketplace_id=marketplace_id)
         policies = client.get_return_policies()
         return policies.get("returnPolicies", [])
-    except Exception:
+    except (EbayError, ValueError):
         return []
 
 
@@ -489,7 +490,7 @@ def get_payment_policies(
         client = EbayAccountClient(db, user_id=current_user.id, marketplace_id=marketplace_id)
         policies = client.get_payment_policies()
         return policies.get("paymentPolicies", [])
-    except Exception:
+    except (EbayError, ValueError):
         return []
 
 

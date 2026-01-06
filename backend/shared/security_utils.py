@@ -60,7 +60,7 @@ def redact_email(email: str | None) -> str:
             domain_redacted = domain[0] + "***"
 
         return f"{local_redacted}@{domain_redacted}"
-    except Exception:
+    except (ValueError, IndexError):
         return "<redacted>"
 
 

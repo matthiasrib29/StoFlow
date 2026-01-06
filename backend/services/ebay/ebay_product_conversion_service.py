@@ -513,7 +513,7 @@ class EbayProductConversionService:
                 images = json.loads(product.images)
                 if isinstance(images, list):
                     return images[:12]  # eBay limite à 12 images
-            except Exception:
+            except (json.JSONDecodeError, TypeError):
                 pass
 
         return []

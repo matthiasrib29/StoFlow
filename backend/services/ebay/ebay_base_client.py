@@ -234,7 +234,7 @@ class EbayBaseClient:
             try:
                 error_data = e.response.json()
                 error_msg += f": {error_data}"
-            except Exception:
+            except (ValueError, requests.exceptions.JSONDecodeError):
                 error_msg += f": {e.response.text}"
             raise RuntimeError(error_msg) from e
 
@@ -428,7 +428,7 @@ class EbayBaseClient:
                 error_data = None
                 try:
                     error_data = resp.json()
-                except Exception:
+                except (ValueError, requests.exceptions.JSONDecodeError):
                     error_data = {"raw_text": resp.text[:500] if resp.text else None}
 
                 # Rate limit
@@ -463,7 +463,7 @@ class EbayBaseClient:
             if resp.status_code in (200, 201):
                 try:
                     return resp.json()
-                except Exception:
+                except (ValueError, requests.exceptions.JSONDecodeError):
                     # Si parse JSON échoue mais status 2xx, retourner None
                     return None
 

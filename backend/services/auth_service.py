@@ -22,7 +22,8 @@ import bcrypt
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
-from models.public.user import User, SubscriptionTier
+from models.public.user import User
+from repositories.user_repository import UserRepository
 from shared.config import settings
 from shared.datetime_utils import utc_now
 from shared.logging_setup import get_logger
@@ -191,7 +192,7 @@ class AuthService:
             Utilisateur si authentification réussie, None sinon
         """
         # Chercher l'utilisateur par email (globalement unique)
-        user = db.query(User).filter(User.email == email).first()
+        user = UserRepository.get_by_email(db, email)
 
         # Vérifier que l'utilisateur existe
         if not user:
@@ -222,8 +223,7 @@ class AuthService:
         # Vérifier le mot de passe
         if not AuthService.verify_password(password, user.hashed_password):
             # Incrémenter le compteur d'échecs
-            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-            user.last_failed_login = utc_now()
+            UserRepository.increment_failed_login(db, user)
 
             logger.warning(
                 f"Login failed: email={email}, user_id={user.id}, "
@@ -232,8 +232,8 @@ class AuthService:
 
             # Verrouiller si trop d'échecs
             if user.failed_login_attempts >= AuthService.MAX_FAILED_ATTEMPTS:
-                from datetime import timedelta
-                user.locked_until = utc_now() + timedelta(minutes=AuthService.LOCKOUT_DURATION_MINUTES)
+                lock_until = utc_now() + timedelta(minutes=AuthService.LOCKOUT_DURATION_MINUTES)
+                UserRepository.lock_account(db, user, lock_until)
                 logger.warning(
                     f"Account locked: user_id={user.id}, email={email}, "
                     f"attempts={user.failed_login_attempts}, locked_for={AuthService.LOCKOUT_DURATION_MINUTES}min"
@@ -243,10 +243,8 @@ class AuthService:
             return None
 
         # Authentification réussie - reset le compteur et déverrouiller
-        user.failed_login_attempts = 0
-        user.last_failed_login = None
-        user.locked_until = None
-        user.last_login = utc_now()
+        UserRepository.reset_login_failures(db, user)
+        UserRepository.update_login_stats(db, user, last_login=utc_now())
         db.commit()
 
         # Log de la connexion avec source pour tracking
@@ -274,7 +272,7 @@ class AuthService:
         if not user_id:
             return None
 
-        user = db.query(User).filter(User.id == user_id).first()
+        user = UserRepository.get_by_id(db, user_id)
 
         # Vérifier que l'utilisateur est actif
         if not user or not user.is_active:
@@ -305,7 +303,7 @@ class AuthService:
             return None
 
         # Vérifier que l'utilisateur est toujours actif
-        user = db.query(User).filter(User.id == user_id).first()
+        user = UserRepository.get_by_id(db, user_id)
         if not user or not user.is_active:
             return None
 

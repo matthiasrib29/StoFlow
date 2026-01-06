@@ -185,7 +185,7 @@ class BaseOAuthHttpClient(ABC):
         error_body = None
         try:
             error_body = response.json()
-        except Exception:
+        except (ValueError, requests.exceptions.JSONDecodeError):
             error_body = {"raw_text": response.text[:500] if response.text else None}
 
         # Rate limit
@@ -293,7 +293,7 @@ class BaseOAuthHttpClient(ABC):
                 if response.status_code in (200, 201):
                     try:
                         return response.json()
-                    except Exception:
+                    except (ValueError, requests.exceptions.JSONDecodeError):
                         # Si parse JSON échoue mais status 2xx, retourner None
                         return None
 
