@@ -2,14 +2,20 @@
 Vinted Connection Routes
 
 Endpoints pour la gestion de la connexion au compte Vinted:
-- POST /connect: Connecter un compte Vinted
-- POST /check-connection: Vérifier via le plugin
+- POST /check-connection: Obtenir instruction pour connexion via plugin
+- POST /check-connection/callback: Recevoir résultat d'exécution plugin
 - GET /status: Statut de connexion
 - DELETE /disconnect: Déconnecter
 - POST /notify-disconnect: Notification auto par le plugin
 
+Flow orchestré (100% API Vinted):
+1. Frontend → POST /check-connection → Backend retourne instruction
+2. Frontend → Plugin exécute VINTED_GET_USER_PROFILE (API Vinted)
+3. Frontend → POST /check-connection/callback → Backend valide et sauvegarde
+
 Author: Claude
 Date: 2025-12-17
+Updated: 2026-01-06 (100% API flow, removed DOM extraction)
 """
 
 from datetime import datetime, timezone
@@ -19,81 +25,9 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
 from models.user.vinted_connection import VintedConnection
-from .shared import VintedConnectRequest, VintedConnectWithStatsRequest
+from .shared import VintedConnectionCallbackRequest
 
 router = APIRouter()
-
-
-@router.post("/connect")
-async def connect_vinted(
-    request: VintedConnectWithStatsRequest,
-    user_db: tuple = Depends(get_user_db),
-) -> dict:
-    """
-    Connecte/synchronise le compte Vinted de l'utilisateur.
-
-    Supports two modes:
-    - API mode: Plugin calls /api/v2/users/current and sends full profile with stats
-    - DOM mode: Plugin extracts userId + login from HTML (legacy fallback)
-
-    Args:
-        request: Body JSON avec vinted_user_id, login, et optionnellement stats
-
-    Returns:
-        {"success": True, "vinted_user_id": int, "login": str, "stats_updated": bool}
-    """
-    db, current_user = user_db
-    vinted_user_id = request.vinted_user_id
-    login = request.login
-    stats = request.stats
-    source = request.source or "unknown"
-
-    try:
-        now = datetime.now(timezone.utc)
-
-        # Chercher connexion existante
-        connection = db.query(VintedConnection).filter(
-            VintedConnection.vinted_user_id == vinted_user_id
-        ).first()
-
-        if connection:
-            # Mise à jour: marquer comme connecté
-            connection.login = login
-            connection.connect()
-        else:
-            connection = VintedConnection(
-                vinted_user_id=vinted_user_id,
-                login=login,
-                is_connected=True,
-                user_id=current_user.id,
-                created_at=now,
-                last_sync=now
-            )
-            db.add(connection)
-
-        # Update seller stats if provided (from API call)
-        stats_updated = False
-        if stats:
-            connection.update_seller_stats(stats.model_dump())
-            stats_updated = True
-
-        db.commit()
-
-        return {
-            "success": True,
-            "vinted_user_id": vinted_user_id,
-            "login": login,
-            "last_sync": now.isoformat(),
-            "stats_updated": stats_updated,
-            "source": source
-        }
-
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur connexion Vinted: {str(e)}"
-        )
 
 
 @router.post("/check-connection")
@@ -101,52 +35,147 @@ async def check_vinted_connection(
     user_db: tuple = Depends(get_user_db),
 ) -> dict:
     """
-    Vérifie la connexion Vinted via le plugin et récupère le profil complet.
+    Crée une instruction pour vérifier la connexion Vinted via le plugin.
 
-    Flow:
+    **Nouveau flow orchestré par le backend:**
     1. Frontend appelle cet endpoint
-    2. Backend crée une task get_vinted_user_profile
-    3. Plugin récupère la task et appelle l'API /api/v2/users/current
-    4. Si l'API échoue, fallback sur extraction DOM
-    5. Plugin renvoie userId/login + stats vendeur (si API)
-    6. Backend sauvegarde la connexion et les stats
+    2. Backend crée une PendingInstruction et la retourne
+    3. Frontend exécute l'instruction via le plugin
+    4. Frontend renvoie le résultat au callback /check-connection/callback
+    5. Backend valide et sauvegarde la connexion
 
     Returns:
         {
-            "connected": bool,
-            "vinted_user_id": int | null,
-            "login": str | null,
-            "source": "api" | "dom",
-            "stats_updated": bool,
-            "message": str
+            "instruction": "call_plugin",
+            "action": "VINTED_GET_USER_PROFILE",
+            "requestId": "abc-123-...",
+            "timeout": 30
         }
 
     Raises:
-        408: Timeout si le plugin ne répond pas dans les 30s
-        400: Si le plugin n'est pas connecté à Vinted
+        500: Erreur lors de la création de l'instruction
     """
-    from services.plugin_task_helper import verify_vinted_connection_with_profile
+    import uuid
+    from models.user.pending_instruction import PendingInstruction
 
     db, current_user = user_db
 
     try:
-        result = await verify_vinted_connection_with_profile(db, timeout=30)
+        # Générer un UUID unique pour cette instruction
+        instruction_id = str(uuid.uuid4())
 
-        if result.get("connected"):
-            vinted_user_id = result.get("userId")
-            login = result.get("login")
-            source = result.get("source", "unknown")
-            stats = result.get("stats")
-            now = datetime.now(timezone.utc)
+        # Créer l'instruction en attente
+        pending = PendingInstruction(
+            id=instruction_id,
+            user_id=current_user.id,
+            action="check_vinted_connection",
+            status="pending",
+            created_at=datetime.now(timezone.utc)
+        )
+        db.add(pending)
+        db.commit()
 
+        # Retourner l'instruction au frontend
+        return {
+            "instruction": "call_plugin",
+            "action": "VINTED_GET_USER_PROFILE",  # API Vinted avec stats
+            "requestId": instruction_id,
+            "timeout": 30
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur création instruction: {str(e)}"
+        )
+
+
+@router.post("/check-connection/callback")
+async def vinted_connection_callback(
+    request: VintedConnectionCallbackRequest,
+    user_db: tuple = Depends(get_user_db),
+) -> dict:
+    """
+    Callback appelé par le frontend après exécution de l'instruction plugin.
+
+    **Nouveau flow orchestré par le backend:**
+    1. Frontend reçoit instruction de /check-connection
+    2. Frontend exécute l'action via le plugin
+    3. Frontend envoie le résultat à ce callback
+    4. Backend valide, sauvegarde la connexion, et retourne le statut final
+
+    Args:
+        request: Body contenant requestId, success, result (userId, login), error
+
+    Returns:
+        {
+            "connected": bool,
+            "vinted_user_id": int | None,
+            "login": str | None,
+            "message": str
+        }
+
+    Raises:
+        404: Instruction non trouvée ou déjà traitée
+        500: Erreur lors de la sauvegarde
+    """
+    from models.user.pending_instruction import PendingInstruction
+
+    db, current_user = user_db
+
+    try:
+        # 1. Vérifier que l'instruction existe et appartient à l'utilisateur
+        instruction = db.query(PendingInstruction).filter(
+            PendingInstruction.id == request.requestId,
+            PendingInstruction.user_id == current_user.id,
+            PendingInstruction.status == "pending"
+        ).first()
+
+        if not instruction:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Instruction non trouvée ou déjà traitée"
+            )
+
+        now = datetime.now(timezone.utc)
+
+        # 2. Marquer l'instruction comme completed/failed
+        if request.success:
+            instruction.status = "completed"
+            instruction.result = request.result
+            instruction.completed_at = now
+        else:
+            instruction.status = "failed"
+            instruction.error = request.error
+            instruction.completed_at = now
+
+        # 3. Si succès, sauvegarder la connexion Vinted
+        if request.success and request.result:
+            # Format API uniquement (pas de fallback DOM)
+            vinted_user_id = request.result.get("id")
+            login = request.result.get("login")
+
+            # Validation stricte des champs requis
+            if not vinted_user_id or not login:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Missing required fields: id and login from plugin result"
+                )
+
+            vinted_user_id = int(vinted_user_id)
+
+            # Réutiliser la logique de /connect
             connection = db.query(VintedConnection).filter(
                 VintedConnection.vinted_user_id == vinted_user_id
             ).first()
 
             if connection:
+                # Mise à jour: marquer comme connecté
                 connection.login = login
                 connection.connect()
             else:
+                # Création: nouveau VintedConnection
                 connection = VintedConnection(
                     vinted_user_id=vinted_user_id,
                     login=login,
@@ -157,11 +186,9 @@ async def check_vinted_connection(
                 )
                 db.add(connection)
 
-            # Update seller stats if available (from API call)
-            stats_updated = False
-            if stats:
-                connection.update_seller_stats(stats)
-                stats_updated = True
+            # Sauvegarder les stats vendeur si présentes (de l'API Vinted)
+            if request.result.get("stats"):
+                connection.update_seller_stats(request.result["stats"])
 
             db.commit()
 
@@ -169,30 +196,27 @@ async def check_vinted_connection(
                 "connected": True,
                 "vinted_user_id": vinted_user_id,
                 "login": login,
-                "source": source,
-                "stats_updated": stats_updated,
                 "message": f"Connecté en tant que {login}"
             }
         else:
+            # Échec de la connexion
+            db.commit()
+
             return {
                 "connected": False,
                 "vinted_user_id": None,
                 "login": None,
-                "source": None,
-                "stats_updated": False,
-                "message": "Non connecté à Vinted. Ouvrez vinted.fr et connectez-vous."
+                "message": request.error or "Échec de la connexion Vinted"
             }
 
-    except TimeoutError:
-        raise HTTPException(
-            status_code=status.HTTP_408_REQUEST_TIMEOUT,
-            detail="Le plugin n'a pas répondu. Vérifiez que le plugin est actif et qu'un onglet Vinted est ouvert."
-        )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur vérification connexion: {str(e)}"
+            detail=f"Erreur callback connexion: {str(e)}"
         )
 
 

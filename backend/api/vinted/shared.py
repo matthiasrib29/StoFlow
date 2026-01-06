@@ -12,12 +12,6 @@ from models.public.user import User
 from models.user.vinted_connection import VintedConnection
 
 
-class VintedConnectRequest(BaseModel):
-    """Request body pour /connect (legacy - DOM extraction only)"""
-    vinted_user_id: int
-    login: str
-
-
 class VintedSellerStats(BaseModel):
     """Seller statistics from Vinted API /api/v2/users/current"""
     item_count: Optional[int] = None
@@ -33,20 +27,17 @@ class VintedSellerStats(BaseModel):
     is_on_holiday: Optional[bool] = None
 
 
-class VintedConnectWithStatsRequest(BaseModel):
+class VintedConnectionCallbackRequest(BaseModel):
     """
-    Request body pour /connect avec stats vendeur.
+    Request body pour le callback après exécution d'une instruction plugin.
 
-    Supports two modes:
-    - full_profile: From API /api/v2/users/current (includes stats)
-    - dom_extraction: From DOM parsing (legacy, userId + login only)
+    Le frontend envoie ce payload après avoir exécuté une instruction
+    (ex: VINTED_GET_USER_PROFILE) via le plugin.
     """
-    vinted_user_id: int
-    login: str
-    # Optional stats (only present if from API call)
-    stats: Optional[VintedSellerStats] = None
-    # Source indicator
-    source: Optional[str] = None  # "api" or "dom"
+    requestId: str  # UUID de l'instruction créée par le backend
+    success: bool  # Indique si l'opération a réussi
+    result: Optional[dict] = None  # Résultat de l'opération (userId, login, etc.)
+    error: Optional[str] = None  # Message d'erreur en cas d'échec
 
 
 def get_active_vinted_connection(db: Session, user_id: int) -> VintedConnection:

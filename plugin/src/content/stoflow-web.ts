@@ -26,8 +26,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173'
 ];
 
-// Flag pour les logs (désactivés en production)
-const DEBUG_ENABLED = false;
+// Flag pour les logs (activés pour debug)
+const DEBUG_ENABLED = true;
 
 /**
  * Mini-logger for content script context
