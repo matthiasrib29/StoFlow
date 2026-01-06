@@ -96,6 +96,7 @@ import {
   type AttributeType,
   type AdminAttribute,
 } from '~/composables/useAdminAttributes'
+import { adminLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard',
@@ -159,7 +160,7 @@ const loadData = async (type: AttributeType) => {
   try {
     await fetchAttributes(type, { limit: 100 })
   } catch (e) {
-    console.error(`Failed to load ${type}:`, e)
+    adminLogger.error(`Failed to load ${type}`, { error: e })
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -280,11 +281,14 @@ onMounted(() => {
 
 <script lang="ts">
 // AttributeTable inline component
+// PrimeVue components must be explicitly imported for Options API components
+/* eslint-disable import/first */
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Button from 'primevue/button'
+import PButton from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
+/* eslint-enable import/first */
 
 interface ColumnDef {
   field: string
@@ -295,7 +299,7 @@ interface ColumnDef {
 
 const AttributeTable = defineComponent({
   name: 'AttributeTable',
-  components: { DataTable, Column, Button, InputText, Tag },
+  components: { DataTable, Column, PButton, InputText, Tag },
   props: {
     type: { type: String as PropType<AttributeType>, required: true },
     columns: { type: Array as PropType<ColumnDef[]>, required: true },
@@ -328,13 +332,13 @@ const AttributeTable = defineComponent({
               placeholder: 'Rechercher...',
               class: 'w-64',
             }),
-            h(Button, {
+            h(PButton, {
               icon: 'pi pi-refresh',
               severity: 'secondary',
               onClick: () => emit('refresh'),
             }),
           ]),
-          h(Button, {
+          h(PButton, {
             label: 'Nouveau',
             icon: 'pi pi-plus',
             onClick: () => emit('create'),
@@ -421,14 +425,14 @@ const AttributeTable = defineComponent({
                 {
                   body: ({ data }: any) =>
                     h('div', { class: 'flex gap-1' }, [
-                      h(Button, {
+                      h(PButton, {
                         icon: 'pi pi-pencil',
                         severity: 'secondary',
                         text: true,
                         size: 'small',
                         onClick: () => emit('edit', data),
                       }),
-                      h(Button, {
+                      h(PButton, {
                         icon: 'pi pi-trash',
                         severity: 'danger',
                         text: true,

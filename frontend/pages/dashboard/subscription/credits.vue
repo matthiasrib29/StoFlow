@@ -175,6 +175,8 @@
 </template>
 
 <script setup lang="ts">
+import { subscriptionLogger } from '~/utils/logger'
+
 definePageMeta({
   layout: 'dashboard'
 })
@@ -252,7 +254,7 @@ const loadData = async () => {
     currentCredits.value = info.ai_credits_remaining
     monthlyCredits.value = info.ai_credits_monthly
   } catch (err) {
-    console.error('Error loading subscription info:', err)
+    subscriptionLogger.error('Error loading subscription info', { error: err })
   }
 }
 

@@ -55,6 +55,8 @@
 </template>
 
 <script setup lang="ts">
+import { logger } from '~/utils/logger'
+
 definePageMeta({
   layout: 'dashboard'
 })
@@ -88,7 +90,7 @@ onMounted(async () => {
       await productsStore.fetchProducts()
     }
   } catch (error) {
-    console.error('Erreur chargement dashboard:', error)
+    logger.error('Erreur chargement dashboard', { error })
   }
 })
 </script>

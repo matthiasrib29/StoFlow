@@ -186,6 +186,7 @@
 <script setup lang="ts">
 import { useConfirm } from 'primevue/useconfirm'
 import { formatCurrency } from '~/utils/formatters'
+import type { Publication } from '~/stores/publications'
 
 definePageMeta({
   layout: 'dashboard'
@@ -224,7 +225,7 @@ const {
 
 // Local state for price editing
 const priceModalVisible = ref(false)
-const selectedPublication = ref<any>(null)
+const selectedPublication = ref<Publication | null>(null)
 const newPrice = ref(0)
 
 // Methods

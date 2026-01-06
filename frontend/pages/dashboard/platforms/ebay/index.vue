@@ -199,6 +199,7 @@
 
 <script setup lang="ts">
 import { formatCurrency } from '~/utils/formatters'
+import { ebayLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -250,7 +251,7 @@ onMounted(async () => {
       await ebayStore.fetchStats()
     }
   } catch (error) {
-    console.error('Error checking eBay status:', error)
+    ebayLogger.error('Failed to check eBay connection status', { error })
   }
 })
 </script>

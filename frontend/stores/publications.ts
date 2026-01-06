@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
+import { platformLogger } from '~/utils/logger'
 
-interface Publication {
+export interface Publication {
   id: number
   product_id: number
   product_title: string
@@ -97,7 +98,7 @@ export const usePublicationsStore = defineStore('publications', {
             vintedIntegration.last_sync = vintedStatus.last_sync
           }
         } catch (e) {
-          console.warn('Vinted status fetch failed:', e)
+          platformLogger.warn('Vinted status fetch failed', { error: e })
         }
 
         // Fetch eBay status
@@ -111,7 +112,7 @@ export const usePublicationsStore = defineStore('publications', {
             ebayIntegration.is_connected = ebayStatus.connected
           }
         } catch (e) {
-          console.warn('eBay status fetch failed:', e)
+          platformLogger.warn('eBay status fetch failed', { error: e })
         }
 
         // Etsy is disabled for now
@@ -122,7 +123,7 @@ export const usePublicationsStore = defineStore('publications', {
 
         return { integrations: this.integrations }
       } catch (error: any) {
-        console.error('Erreur chargement statut intégrations:', error)
+        platformLogger.error('Erreur chargement statut intégrations', { error })
         this.error = error.message
         throw error
       } finally {
@@ -164,7 +165,7 @@ export const usePublicationsStore = defineStore('publications', {
             allPublications.push(...vintedPublications)
           }
         } catch (error) {
-          console.warn('Erreur récupération produits Vinted:', error)
+          platformLogger.warn('Erreur récupération produits Vinted', { error })
         }
 
         // TODO: Ajouter récupération eBay et Etsy quand implémentés
@@ -292,7 +293,7 @@ export const usePublicationsStore = defineStore('publications', {
         // Même si l'API échoue, reset le state local
         integration.is_connected = false
         integration.last_sync = undefined
-        console.warn(`Erreur déconnexion ${platform}:`, error.message)
+        platformLogger.warn(`Erreur déconnexion ${platform}`, { error: error.message })
         return { success: true }
       } finally {
         this.isLoading = false

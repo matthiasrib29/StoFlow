@@ -198,6 +198,7 @@ import DatePicker from 'primevue/datepicker'
 import Tag from 'primevue/tag'
 import { useAdminAuditLogs } from '~/composables/useAdminAuditLogs'
 import { formatDateTime } from '~/utils/formatters'
+import { adminLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard',
@@ -266,7 +267,7 @@ const loadLogs = async () => {
       search: filters.value.search || undefined,
     })
   } catch (e) {
-    console.error('Failed to load audit logs:', e)
+    adminLogger.error('Failed to load audit logs', { error: e })
   }
 }
 

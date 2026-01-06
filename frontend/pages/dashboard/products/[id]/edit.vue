@@ -81,8 +81,9 @@
 </template>
 
 <script setup lang="ts">
-import { useProductsStore } from '~/stores/products'
+import { useProductsStore, type Product } from '~/stores/products'
 import { type ProductFormData, defaultProductFormData } from '~/types/product'
+import { productLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -90,7 +91,6 @@ definePageMeta({
 
 const route = useRoute()
 const router = useRouter()
-const config = useRuntimeConfig()
 const { showSuccess, showError, showWarn } = useAppToast()
 const productsStore = useProductsStore()
 
@@ -98,7 +98,7 @@ const id = parseInt(route.params.id as string)
 
 // State
 const loading = ref(true)
-const product = ref<any>(null)
+const product = ref<Product | null>(null)
 const isSubmitting = ref(false)
 
 // Form data with complete ProductFormData interface
@@ -222,7 +222,7 @@ onMounted(async () => {
       }
     }
   } catch (error) {
-    console.error('Erreur chargement produit:', error)
+    productLogger.error('Erreur chargement produit', { error })
     showError('Erreur', 'Impossible de charger le produit', 5000)
   } finally {
     loading.value = false
@@ -230,6 +230,12 @@ onMounted(async () => {
 })
 
 const handleSubmit = async () => {
+  // Validation: Vérifier que le produit existe
+  if (!product.value) {
+    showError('Erreur', 'Produit introuvable', 3000)
+    return
+  }
+
   // Validation: Vérifier qu'au moins 1 image existe
   if (existingImages.value.length === 0 && newPhotos.value.length === 0) {
     showWarn(
@@ -295,7 +301,7 @@ const handleSubmit = async () => {
       try {
         await productsStore.deleteProductImage(product.value.id, imageId)
       } catch (e) {
-        console.error('Error deleting image:', e)
+        productLogger.error('Error deleting image', { error: e })
       }
     }
 
@@ -308,7 +314,7 @@ const handleSubmit = async () => {
         })
         await productsStore.reorderProductImages(product.value.id, imageOrder)
       } catch (e) {
-        console.error('Error reordering images:', e)
+        productLogger.error('Error reordering images', { error: e })
       }
     }
 
@@ -331,7 +337,7 @@ const handleSubmit = async () => {
 
     router.push('/dashboard/products')
   } catch (error: any) {
-    console.error('Error updating product:', error)
+    productLogger.error('Error updating product', { error: error.message })
     showError('Erreur', error.message || 'Impossible de modifier le produit', 5000)
   } finally {
     isSubmitting.value = false

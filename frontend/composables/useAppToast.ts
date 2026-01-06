@@ -1,5 +1,6 @@
 import { useToast } from 'primevue/usetoast'
 import type { ToastMessageOptions } from 'primevue/toast'
+import { logger } from '~/utils/logger'
 
 /**
  * Composable sécurisé pour utiliser PrimeVue Toast avec SSR
@@ -21,8 +22,8 @@ export const useAppToast = () => {
   const showToast = (options: ToastMessageOptions) => {
     if (toast) {
       toast.add(options)
-    } else if (import.meta.dev) {
-      console.warn('Toast not available (SSR context)', options)
+    } else {
+      logger.warn('Toast not available (SSR context)', { options })
     }
   }
 

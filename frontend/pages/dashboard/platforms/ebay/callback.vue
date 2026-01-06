@@ -84,7 +84,7 @@ const processCallback = async () => {
   }
 
   // Validate code format (alphanumeric with common OAuth characters)
-  if (!/^[a-zA-Z0-9_\-\.]+$/.test(code)) {
+  if (!/^[a-zA-Z0-9_\-.]+$/.test(code)) {
     oauthLogger.warn('Invalid authorization code format')
     error.value = 'Code d\'autorisation invalide'
     isProcessing.value = false

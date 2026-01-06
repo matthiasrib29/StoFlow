@@ -96,7 +96,6 @@ const handlePlanClick = (plan: PricingPlan) => {
 // Handle demo button click
 const handleShowDemo = () => {
   // TODO: Implement demo modal or redirect
-  console.log('Show demo')
 }
 </script>
 

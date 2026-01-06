@@ -264,6 +264,7 @@ export function sanitizeText(text: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
     // Remove control characters (except newlines and tabs)
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
 }
 
@@ -286,6 +287,7 @@ export function sanitizeMultilineText(text: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
     // Keep \n and \r\n but remove other control chars
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
 }
 

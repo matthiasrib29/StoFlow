@@ -128,6 +128,7 @@
 <script setup lang="ts">
 import { useToast } from 'primevue/usetoast'
 import { formatDateTime } from '~/utils/formatters'
+import { platformLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -200,7 +201,7 @@ onMounted(async () => {
   try {
     await publicationsStore.fetchPublications()
   } catch (error) {
-    console.error('Erreur chargement plateformes:', error)
+    platformLogger.error('Failed to load platforms', { error })
   }
 })
 </script>

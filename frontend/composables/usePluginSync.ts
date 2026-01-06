@@ -7,6 +7,8 @@
  * 3. Validation stricte des origines pour éviter les attaques postMessage
  */
 
+import { pluginLogger } from '~/utils/logger'
+
 // ID de l'extension (défini dans manifest.json browser_specific_settings.gecko.id)
 const EXTENSION_ID = 'stoflow@stoflow.com'
 
@@ -19,26 +21,8 @@ const ALLOWED_EXTENSION_PREFIXES = [
 // Origine du plugin mémorisée après handshake
 let pluginOrigin: string | null = null
 
-// Flag pour éviter les logs en production
-const isDev = import.meta.dev
-
-/**
- * Logger sécurisé - logs uniquement en développement
- */
-const secureLog = {
-  debug: (...args: any[]) => {
-    if (isDev) console.log('[PluginSync]', ...args)
-  },
-  info: (...args: any[]) => {
-    if (isDev) console.info('[PluginSync]', ...args)
-  },
-  warn: (...args: any[]) => {
-    console.warn('[PluginSync]', ...args)
-  },
-  error: (...args: any[]) => {
-    console.error('[PluginSync]', ...args)
-  }
-}
+// Alias for pluginLogger to maintain code consistency
+const secureLog = pluginLogger
 
 /**
  * Vérifie si une origine est une extension valide

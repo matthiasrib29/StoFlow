@@ -23,8 +23,6 @@ export const useEbayAccount = () => {
   const fetchAccountInfo = async (currentAccount: EbayAccount | null): Promise<EbayAccount> => {
     const response = await api.get<AccountInfoResponse>('/api/ebay/account-info')
 
-    console.log('eBay account-info response:', response)
-
     // Start with current account or create new one
     const account: EbayAccount = currentAccount || {
       userId: '',

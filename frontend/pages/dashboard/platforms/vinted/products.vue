@@ -262,6 +262,7 @@ import { useToast } from 'primevue/usetoast'
 import LinkProductModal from '~/components/vinted/LinkProductModal.vue'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
 import { formatDate, getStatusLabel, getStatusSeverity } from '~/utils/formatters'
+import { vintedLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -347,7 +348,7 @@ async function fetchProducts() {
     const response = await api.get<{ products: VintedProduct[] }>('/api/vinted/products?limit=500')
     products.value = response?.products || []
   } catch (e: any) {
-    console.error('Error fetching products:', e)
+    vintedLogger.error('Failed to fetch Vinted products', { error: e.message })
     error.value = e.message || 'Erreur lors du chargement des annonces'
   } finally {
     loading.value = false
@@ -361,7 +362,7 @@ async function syncProducts() {
     await api.post('/api/vinted/products/sync')
     await fetchProducts()
   } catch (e: any) {
-    console.error('Error syncing products:', e)
+    vintedLogger.error('Failed to sync Vinted products', { error: e.message })
     error.value = e.message || 'Erreur lors de la synchronisation'
   } finally {
     syncing.value = false
@@ -414,7 +415,7 @@ async function unlinkProduct(product: VintedProduct) {
       life: 3000
     })
   } catch (e: any) {
-    console.error('Error unlinking product:', e)
+    vintedLogger.error('Failed to unlink Vinted product', { vintedId: product.vinted_id, error: e.message })
     toast?.add({
       severity: 'error',
       summary: 'Erreur',

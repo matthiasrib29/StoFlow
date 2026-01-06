@@ -2,6 +2,7 @@
  * Composable for eBay products management.
  * Handles loading, importing, enriching products.
  */
+import { ebayLogger } from '~/utils/logger'
 
 export function useEbayProducts() {
   const { get, post } = useApi()
@@ -46,7 +47,7 @@ export function useEbayProducts() {
       currentPage.value = response?.page || 1
       totalPages.value = response?.total_pages || 0
     } catch (error: any) {
-      console.error('Error loading eBay products:', error)
+      ebayLogger.error('Error loading products', { error: error.message })
       showError('Erreur', 'Impossible de charger les produits eBay', 5000)
     } finally {
       isLoading.value = false
@@ -72,7 +73,7 @@ export function useEbayProducts() {
       showSuccess('Import terminé', `${response?.imported_count || 0} produit(s) importé(s)`, 3000)
       await loadProducts()
     } catch (error: any) {
-      console.error('Error importing eBay products:', error)
+      ebayLogger.error('Error importing products', { error: error.message })
       showError('Erreur', error.message || 'Impossible d\'importer les produits', 5000)
     } finally {
       isImporting.value = false
@@ -103,7 +104,7 @@ export function useEbayProducts() {
 
       await loadProducts()
     } catch (error: any) {
-      console.error('Error enriching eBay products:', error)
+      ebayLogger.error('Error enriching products', { error: error.message })
       showError('Erreur', error.message || 'Impossible d\'enrichir les produits', 5000)
     } finally {
       isEnriching.value = false
@@ -134,7 +135,7 @@ export function useEbayProducts() {
 
       await loadProducts()
     } catch (error: any) {
-      console.error('Error refreshing aspects:', error)
+      ebayLogger.error('Error refreshing aspects', { error: error.message })
       showError('Erreur', error.message || 'Impossible de corriger les marques', 5000)
     } finally {
       isRefreshingAspects.value = false
@@ -152,7 +153,7 @@ export function useEbayProducts() {
       await loadProducts(currentPage.value)
       return true
     } catch (error: any) {
-      console.error('Error syncing product:', error)
+      ebayLogger.error('Error syncing product', { error: error.message })
       showError('Erreur', error.message || 'Impossible de synchroniser le produit', 5000)
       return false
     } finally {
