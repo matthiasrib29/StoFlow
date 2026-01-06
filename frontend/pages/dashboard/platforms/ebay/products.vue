@@ -1,55 +1,33 @@
 <template>
-  <div class="page-container">
-    <!-- Page Header -->
-    <div class="flex items-center justify-between mb-8">
-      <div>
-        <div class="flex items-center gap-2 mb-1">
-          <NuxtLink to="/dashboard/platforms/ebay" class="text-gray-500 hover:text-gray-700">
-            <i class="pi pi-arrow-left"/>
-          </NuxtLink>
-          <h1 class="text-2xl font-bold text-secondary-900">Produits eBay</h1>
-        </div>
-        <p class="text-gray-500">Gerez vos annonces importees depuis eBay</p>
-      </div>
-      <div class="flex gap-3">
-        <Button
-          label="Importer"
-          icon="pi pi-download"
-          class="btn-secondary"
-          :loading="isImporting"
-          @click="importProducts"
-        />
-        <Button
-          label="Synchroniser"
-          icon="pi pi-sync"
-          class="btn-primary"
-          :loading="isSyncing"
-          @click="syncProducts"
-        />
-      </div>
-    </div>
+  <PlatformProductsPage
+    platform="ebay"
+    :is-connected="ebayStore.isConnected"
+    :loading="loading"
+    :error="error"
+    :is-empty="products.length === 0"
+    @retry="fetchProducts"
+  >
+    <!-- Header Actions -->
+    <template #header-actions>
+      <Button
+        label="Importer"
+        icon="pi pi-download"
+        class="btn-secondary"
+        :loading="isImporting"
+        @click="importProducts"
+      />
+      <Button
+        label="Synchroniser"
+        icon="pi pi-sync"
+        class="btn-primary"
+        :loading="isSyncing"
+        @click="syncProducts"
+      />
+    </template>
 
-    <!-- Not connected -->
-    <Card v-if="!ebayStore.isConnected" class="shadow-sm modern-rounded border border-gray-100">
-      <template #content>
-        <div class="text-center py-12">
-          <i class="pi pi-link text-4xl text-gray-300 mb-4"/>
-          <h3 class="text-xl font-bold text-secondary-900 mb-2">Connectez votre compte eBay</h3>
-          <p class="text-gray-500 mb-4">Accedez a vos produits apres connexion</p>
-          <Button
-            label="Connecter maintenant"
-            icon="pi pi-link"
-            class="btn-primary"
-            @click="navigateTo('/dashboard/platforms/ebay')"
-          />
-        </div>
-      </template>
-    </Card>
-
-    <!-- Connected -->
-    <template v-else>
-      <!-- Stats Summary -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <!-- Stats Summary -->
+    <template #stats>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="bg-white rounded-xl p-4 border border-gray-100">
           <p class="text-sm text-gray-500">Total</p>
           <p class="text-2xl font-bold text-secondary-900">{{ totalProducts }}</p>
@@ -67,166 +45,140 @@
           <p class="text-2xl font-bold text-error-600">{{ outOfStockCount }}</p>
         </div>
       </div>
+    </template>
 
-      <!-- Toolbar -->
-      <Card class="shadow-sm modern-rounded border border-gray-100">
-        <template #content>
-          <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <!-- Search -->
-            <div class="flex items-center gap-3">
-              <IconField>
-                <InputIcon class="pi pi-search" />
-                <InputText
-                  v-model="searchQuery"
-                  placeholder="Rechercher..."
-                  class="w-64"
-                />
-              </IconField>
-
-              <!-- Status Filter -->
-              <Select
-                v-model="statusFilter"
-                :options="statusOptions"
-                optionLabel="label"
-                optionValue="value"
-                placeholder="Tous les statuts"
-                class="w-48"
-              />
-            </div>
-          </div>
-
-          <!-- Loading -->
-          <div v-if="loading" class="text-center py-12">
-            <ProgressSpinner style="width: 50px; height: 50px" />
-            <p class="mt-4 text-gray-500">Chargement des produits...</p>
-          </div>
-
-          <!-- Error -->
-          <div v-else-if="error" class="text-center py-12">
-            <i class="pi pi-exclamation-triangle text-4xl text-red-400 mb-4"/>
-            <p class="text-red-600">{{ error }}</p>
-            <Button
-              label="Reessayer"
-              icon="pi pi-refresh"
-              class="mt-4"
-              @click="fetchProducts"
+    <!-- Toolbar -->
+    <template #toolbar>
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <IconField>
+            <InputIcon class="pi pi-search" />
+            <InputText
+              v-model="searchQuery"
+              placeholder="Rechercher..."
+              class="w-64"
             />
-          </div>
+          </IconField>
 
-          <!-- Empty -->
-          <div v-else-if="filteredProducts.length === 0" class="text-center py-12">
-            <i class="pi pi-box text-4xl text-gray-300 mb-4"/>
-            <p class="text-gray-500">
-              {{ products.length === 0 ? 'Aucun produit importe' : 'Aucun resultat pour cette recherche' }}
-            </p>
-            <Button
-              v-if="products.length === 0"
-              label="Importer depuis eBay"
-              icon="pi pi-download"
-              class="mt-4 btn-primary"
-              @click="importProducts"
-            />
-          </div>
+          <Select
+            v-model="statusFilter"
+            :options="statusOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Tous les statuts"
+            class="w-48"
+          />
+        </div>
+      </div>
+    </template>
 
-          <!-- Products Table -->
-          <ClientOnly v-else>
-            <DataTable
-              :value="filteredProducts"
-              :paginator="true"
-              :rows="20"
-              :rowsPerPageOptions="[10, 20, 50]"
-              :loading="loading"
-              stripedRows
-              class="modern-table"
-              responsiveLayout="scroll"
-            >
-              <!-- Image + Title -->
-              <Column header="Produit" style="min-width: 300px">
-                <template #body="{ data }">
-                  <div class="flex items-center gap-3">
-                    <img
-                      v-if="data.image_url"
-                      :src="data.image_url"
-                      :alt="data.title"
-                      class="w-12 h-12 rounded-lg object-cover"
-                    >
-                    <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                      <i class="pi pi-image text-gray-400"/>
-                    </div>
-                    <div>
-                      <p class="font-semibold text-secondary-900 line-clamp-1">{{ data.title }}</p>
-                      <p class="text-xs text-gray-500">SKU: {{ data.ebay_sku || data.id }}</p>
-                    </div>
-                  </div>
-                </template>
-              </Column>
-
-              <!-- Price -->
-              <Column header="Prix" sortable field="price" style="min-width: 100px">
-                <template #body="{ data }">
-                  <span class="font-bold text-secondary-900">{{ formatCurrency(data.price) }}</span>
-                </template>
-              </Column>
-
-              <!-- Quantity -->
-              <Column header="Stock" sortable field="quantity" style="min-width: 80px">
-                <template #body="{ data }">
-                  <Tag
-                    :severity="data.quantity > 0 ? 'success' : 'danger'"
-                    :value="data.quantity || 0"
-                  />
-                </template>
-              </Column>
-
-              <!-- Condition -->
-              <Column header="Etat" style="min-width: 120px">
-                <template #body="{ data }">
-                  <span class="text-sm">{{ getConditionLabel(data.condition) }}</span>
-                </template>
-              </Column>
-
-              <!-- Status -->
-              <Column header="Statut" style="min-width: 100px">
-                <template #body="{ data }">
-                  <Tag
-                    :severity="getStatusSeverity(data.status)"
-                    :value="getStatusLabel(data.status)"
-                  />
-                </template>
-              </Column>
-
-              <!-- Actions -->
-              <Column header="Actions" style="min-width: 120px">
-                <template #body="{ data }">
-                  <div class="flex gap-2">
-                    <Button
-                      v-if="data.listing_url"
-                      icon="pi pi-external-link"
-                      class="p-button-sm p-button-text"
-                      v-tooltip="'Voir sur eBay'"
-                      @click="openOnEbay(data.listing_url)"
-                    />
-                    <Button
-                      icon="pi pi-sync"
-                      class="p-button-sm p-button-text"
-                      v-tooltip="'Synchroniser'"
-                      :loading="syncingId === data.id"
-                      @click="syncProduct(data)"
-                    />
-                  </div>
-                </template>
-              </Column>
-            </DataTable>
-            <template #fallback>
-              <div class="flex justify-center items-center p-8">
-                <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+    <!-- Products Table -->
+    <template #content>
+      <ClientOnly>
+        <DataTable
+          :value="filteredProducts"
+          :paginator="true"
+          :rows="20"
+          :rowsPerPageOptions="[10, 20, 50]"
+          stripedRows
+          class="modern-table"
+          responsiveLayout="scroll"
+        >
+          <!-- Image + Title -->
+          <Column header="Produit" style="min-width: 300px">
+            <template #body="{ data }">
+              <div class="flex items-center gap-3">
+                <img
+                  v-if="data.image_url"
+                  :src="data.image_url"
+                  :alt="data.title"
+                  class="w-12 h-12 rounded-lg object-cover"
+                >
+                <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <i class="pi pi-image text-gray-400"/>
+                </div>
+                <div>
+                  <p class="font-semibold text-secondary-900 line-clamp-1">{{ data.title }}</p>
+                  <p class="text-xs text-gray-500">SKU: {{ data.ebay_sku || data.id }}</p>
+                </div>
               </div>
             </template>
-          </ClientOnly>
+          </Column>
+
+          <!-- Price -->
+          <Column header="Prix" sortable field="price" style="min-width: 100px">
+            <template #body="{ data }">
+              <span class="font-bold text-secondary-900">{{ formatCurrency(data.price) }}</span>
+            </template>
+          </Column>
+
+          <!-- Quantity -->
+          <Column header="Stock" sortable field="quantity" style="min-width: 80px">
+            <template #body="{ data }">
+              <Tag
+                :severity="data.quantity > 0 ? 'success' : 'danger'"
+                :value="data.quantity || 0"
+              />
+            </template>
+          </Column>
+
+          <!-- Condition -->
+          <Column header="Etat" style="min-width: 120px">
+            <template #body="{ data }">
+              <span class="text-sm">{{ getConditionLabel(data.condition) }}</span>
+            </template>
+          </Column>
+
+          <!-- Status -->
+          <Column header="Statut" style="min-width: 100px">
+            <template #body="{ data }">
+              <Tag
+                :severity="getStatusSeverity(data.status)"
+                :value="getStatusLabel(data.status)"
+              />
+            </template>
+          </Column>
+
+          <!-- Actions -->
+          <Column header="Actions" style="min-width: 120px">
+            <template #body="{ data }">
+              <div class="flex gap-2">
+                <Button
+                  v-if="data.listing_url"
+                  icon="pi pi-external-link"
+                  class="p-button-sm p-button-text"
+                  v-tooltip="'Voir sur eBay'"
+                  @click="openOnEbay(data.listing_url)"
+                />
+                <Button
+                  icon="pi pi-sync"
+                  class="p-button-sm p-button-text"
+                  v-tooltip="'Synchroniser'"
+                  :loading="syncingId === data.id"
+                  @click="syncProduct(data)"
+                />
+              </div>
+            </template>
+          </Column>
+        </DataTable>
+        <template #fallback>
+          <div class="flex justify-center items-center p-8">
+            <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+          </div>
         </template>
-      </Card>
+      </ClientOnly>
     </template>
-  </div>
+
+    <!-- Empty Actions -->
+    <template #empty-actions>
+      <Button
+        label="Importer depuis eBay"
+        icon="pi pi-download"
+        class="mt-4 btn-primary"
+        @click="importProducts"
+      />
+    </template>
+  </PlatformProductsPage>
 </template>
 
 <script setup lang="ts">
@@ -238,7 +190,7 @@ definePageMeta({
 })
 
 const ebayStore = useEbayStore()
-const { showSuccess, showError, showInfo } = useAppToast()
+const { showSuccess, showError } = useAppToast()
 const { get, post } = useApi()
 
 // State
@@ -286,6 +238,11 @@ const outOfStockCount = computed(() => products.value.filter(p => (p.quantity ||
 
 // Methods
 const fetchProducts = async () => {
+  ebayLogger.info('Fetching eBay products', {
+    page: 1,
+    pageSize: 100
+  })
+
   loading.value = true
   error.value = null
   try {
@@ -296,21 +253,43 @@ const fetchProducts = async () => {
 
     products.value = response?.items || []
     totalProducts.value = response?.total || 0
+
+    ebayLogger.info('eBay products fetched successfully', {
+      totalProducts: totalProducts.value,
+      itemsCount: products.value.length,
+      activeCount: activeCount.value,
+      draftCount: draftCount.value,
+      outOfStockCount: outOfStockCount.value
+    })
   } catch (e: any) {
     error.value = e.message || 'Erreur lors du chargement'
-    ebayLogger.error('Failed to fetch eBay products', { error: e.message })
+    ebayLogger.error('Failed to fetch eBay products', {
+      error: e.message,
+      stack: e.stack
+    })
   } finally {
     loading.value = false
   }
 }
 
 const importProducts = async () => {
+  ebayLogger.info('Starting eBay products import')
   isImporting.value = true
   try {
     const response = await post<{ imported_count: number }>('/api/ebay/products/import')
-    showSuccess('Import termine', `${response?.imported_count || 0} produit(s) importe(s)`, 3000)
+    const importedCount = response?.imported_count || 0
+
+    ebayLogger.info('eBay products import completed', {
+      importedCount
+    })
+
+    showSuccess('Import terminé', `${importedCount} produit(s) importé(s)`, 3000)
     await fetchProducts()
   } catch (e: any) {
+    ebayLogger.error('eBay products import failed', {
+      error: e.message,
+      stack: e.stack
+    })
     showError('Erreur', e.message || 'Impossible d\'importer les produits', 5000)
   } finally {
     isImporting.value = false
@@ -318,12 +297,18 @@ const importProducts = async () => {
 }
 
 const syncProducts = async () => {
+  ebayLogger.info('Starting bulk products sync')
   isSyncing.value = true
   try {
     await post('/api/ebay/products/sync')
-    showSuccess('Synchronisation', 'Produits synchronises', 3000)
+    ebayLogger.info('Bulk products sync completed successfully')
+    showSuccess('Synchronisation', 'Produits synchronisés', 3000)
     await fetchProducts()
   } catch (e: any) {
+    ebayLogger.error('Bulk products sync failed', {
+      error: e.message,
+      stack: e.stack
+    })
     showError('Erreur', e.message || 'Erreur de synchronisation', 5000)
   } finally {
     isSyncing.value = false
@@ -331,12 +316,28 @@ const syncProducts = async () => {
 }
 
 const syncProduct = async (product: any) => {
+  ebayLogger.info('Syncing single product', {
+    productId: product.id,
+    ebaySku: product.ebay_sku,
+    title: product.title
+  })
+
   syncingId.value = product.id
   try {
     await post(`/api/ebay/products/${product.ebay_sku}/sync`)
-    showSuccess('Synchronise', 'Produit mis a jour', 3000)
+    ebayLogger.info('Single product sync completed', {
+      productId: product.id,
+      ebaySku: product.ebay_sku
+    })
+    showSuccess('Synchronisé', 'Produit mis à jour', 3000)
     await fetchProducts()
   } catch (e: any) {
+    ebayLogger.error('Single product sync failed', {
+      productId: product.id,
+      ebaySku: product.ebay_sku,
+      error: e.message,
+      stack: e.stack
+    })
     showError('Erreur', e.message || 'Erreur de synchronisation', 5000)
   } finally {
     syncingId.value = null
@@ -354,21 +355,32 @@ const getConditionLabel = (condition: string): string => {
     LIKE_NEW: 'Comme neuf',
     NEW_OTHER: 'Neuf autre',
     USED_EXCELLENT: 'Occasion excellent',
-    USED_VERY_GOOD: 'Occasion tres bon',
+    USED_VERY_GOOD: 'Occasion très bon',
     USED_GOOD: 'Occasion bon',
     USED_ACCEPTABLE: 'Occasion acceptable',
-    FOR_PARTS_OR_NOT_WORKING: 'Pour pieces'
+    FOR_PARTS_OR_NOT_WORKING: 'Pour pièces'
   }
-  return labels[condition] || condition || 'Non specifie'
+  return labels[condition] || condition || 'Non spécifié'
 }
-
 
 // Init
 onMounted(async () => {
+  ebayLogger.info('eBay Products page mounted', {
+    route: '/dashboard/platforms/ebay/products'
+  })
+
   try {
     await ebayStore.checkConnectionStatus()
+    ebayLogger.debug('Connection status checked', {
+      isConnected: ebayStore.isConnected
+    })
+
     if (ebayStore.isConnected) {
       await fetchProducts()
+    } else {
+      ebayLogger.warn('User not connected to eBay', {
+        redirectRequired: true
+      })
     }
   } catch (e) {
     ebayLogger.error('Failed to initialize eBay products page', { error: e })

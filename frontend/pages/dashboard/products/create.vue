@@ -1,10 +1,9 @@
 <template>
   <div class="pb-24">
     <div class="p-6">
-      <!-- Page Header -->
-      <div class="mb-3">
-        <h1 class="text-2xl font-bold text-secondary-900">Créer un produit</h1>
-      </div>
+      <PageHeader
+        title="Créer un produit"
+      />
 
       <!-- Photo Section Title -->
       <div class="flex items-center justify-between mb-2">

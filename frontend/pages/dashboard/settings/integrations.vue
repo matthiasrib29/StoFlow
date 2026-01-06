@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Page Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-secondary-900 mb-1">Intégrations</h1>
-      <p class="text-gray-600">Gérez vos connexions aux services externes</p>
-    </div>
+    <PageHeader
+      title="Intégrations"
+      subtitle="Gérez vos connexions aux services externes"
+    />
 
     <!-- Contenu -->
     <div class="space-y-6">

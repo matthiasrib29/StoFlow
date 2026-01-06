@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold text-secondary-900">Donnees de reference</h1>
-      <p class="text-gray-500 mt-1">Gestion des marques, categories, couleurs et matieres</p>
-    </div>
+    <PageHeader
+      title="Données de référence"
+      subtitle="Gestion des marques, catégories, couleurs et matières"
+    />
 
     <!-- Tabs -->
     <TabView v-model:activeIndex="activeTab" class="admin-tabs">

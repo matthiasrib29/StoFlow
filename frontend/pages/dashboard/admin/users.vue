@@ -1,20 +1,18 @@
 <template>
   <div class="p-4 lg:p-8">
-    <!-- Page Header -->
-    <div class="mb-6 lg:mb-8">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
-        <div>
-          <h1 class="text-2xl lg:text-3xl font-bold text-secondary-900 mb-1">Gestion des utilisateurs</h1>
-          <p class="text-gray-600 text-sm lg:text-base">Administrez les comptes utilisateurs de la plateforme</p>
-        </div>
+    <PageHeader
+      title="Gestion des utilisateurs"
+      subtitle="Administrez les comptes utilisateurs de la plateforme"
+    >
+      <template #actions>
         <Button
           label="Nouvel utilisateur"
           icon="pi pi-plus"
-          class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold w-full sm:w-auto"
+          class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
           @click="openCreateDialog"
         />
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <AdminUsersFilters

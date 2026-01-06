@@ -1,18 +1,19 @@
 <template>
-  <div class="p-8 max-w-4xl mx-auto">
-    <!-- Header -->
-    <div class="mb-6">
-      <Button
-        label="Retour"
-        icon="pi pi-arrow-left"
-        class="mb-4"
-        severity="secondary"
-        text
-        @click="goBack"
-      />
-      <h1 class="text-3xl font-bold text-secondary-900 mb-2">Paiement sécurisé</h1>
-      <p class="text-gray-600">Complétez votre commande</p>
-    </div>
+  <div class="page-container">
+    <PageHeader
+      title="Paiement sécurisé"
+      subtitle="Complétez votre commande"
+    >
+      <template #actions>
+        <Button
+          label="Retour"
+          icon="pi pi-arrow-left"
+          severity="secondary"
+          text
+          @click="goBack"
+        />
+      </template>
+    </PageHeader>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Payment Form -->

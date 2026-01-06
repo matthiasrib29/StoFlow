@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
-    <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-secondary-900 mb-2">Mon abonnement</h1>
-      <p class="text-gray-600">Consultez et gérez votre abonnement StoFlow</p>
-    </div>
+    <PageHeader
+      title="Mon abonnement"
+      subtitle="Consultez et gérez votre abonnement StoFlow"
+    />
 
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-20">
