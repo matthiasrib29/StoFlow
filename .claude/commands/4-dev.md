@@ -2,7 +2,7 @@ Lance l'environnement de dev 4 (Backend port 8003 + Frontend port 3003).
 
 ## Commande
 
-Exécute : `./dev4.sh`
+Exécute : `./4-dev.sh`
 
 **IMPORTANT pour Claude** : Utiliser `run_in_background: true` dans le Bash tool pour que Claude reste disponible pendant que les serveurs tournent.
 
