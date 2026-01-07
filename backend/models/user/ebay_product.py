@@ -78,6 +78,21 @@ class EbayProduct(Base):
         # Images
         image_urls: JSON des URLs d'images
 
+        # Package details
+        package_weight_value, package_weight_unit: Poids du colis
+        package_length_value, package_length_unit: Longueur
+        package_width_value, package_width_unit: Largeur
+        package_height_value, package_height_unit: Hauteur
+
+        # Offer details
+        merchant_location_key: Emplacement d'inventaire
+        secondary_category_id: Catégorie secondaire si double listing
+        lot_size: Nombre d'items dans un lot
+        quantity_limit_per_buyer: Limite d'achat par acheteur
+        listing_description: Description du listing eBay
+        sold_quantity: Nombre d'unités vendues
+        available_quantity: Quantité disponible pour achat
+
         # Statut
         status: active, sold, inactive, ended
 
@@ -146,9 +161,6 @@ class EbayProduct(Base):
     )
     category_id: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True, comment="ID catégorie eBay"
-    )
-    category_name: Mapped[Optional[str]] = mapped_column(
-        String(255), nullable=True, comment="Nom catégorie eBay"
     )
 
     # Condition
@@ -221,13 +233,46 @@ class EbayProduct(Base):
     package_weight_unit: Mapped[Optional[str]] = mapped_column(
         String(10), nullable=True, comment="Unité de poids (KILOGRAM, POUND)"
     )
-
-    # Location
-    location: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True, comment="Localisation de l'article"
+    package_length_value: Mapped[Optional[float]] = mapped_column(
+        Numeric(10, 2), nullable=True, comment="Longueur du colis"
     )
-    country: Mapped[Optional[str]] = mapped_column(
-        String(2), nullable=True, comment="Code pays (FR, GB, etc.)"
+    package_length_unit: Mapped[Optional[str]] = mapped_column(
+        String(10), nullable=True, comment="Unité de longueur (INCH, CENTIMETER)"
+    )
+    package_width_value: Mapped[Optional[float]] = mapped_column(
+        Numeric(10, 2), nullable=True, comment="Largeur du colis"
+    )
+    package_width_unit: Mapped[Optional[str]] = mapped_column(
+        String(10), nullable=True, comment="Unité de largeur (INCH, CENTIMETER)"
+    )
+    package_height_value: Mapped[Optional[float]] = mapped_column(
+        Numeric(10, 2), nullable=True, comment="Hauteur du colis"
+    )
+    package_height_unit: Mapped[Optional[str]] = mapped_column(
+        String(10), nullable=True, comment="Unité de hauteur (INCH, CENTIMETER)"
+    )
+
+    # Offer details (from eBay Offer API)
+    merchant_location_key: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, comment="Identifiant de l'emplacement d'inventaire"
+    )
+    secondary_category_id: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, comment="ID catégorie secondaire si double listing"
+    )
+    lot_size: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, comment="Nombre d'items dans un lot"
+    )
+    quantity_limit_per_buyer: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, comment="Limite d'achat par acheteur"
+    )
+    listing_description: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True, comment="Description du listing (peut différer de product.description)"
+    )
+    sold_quantity: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, comment="Nombre d'unités vendues"
+    )
+    available_quantity: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, comment="Quantité disponible pour achat"
     )
 
     # Timestamps
