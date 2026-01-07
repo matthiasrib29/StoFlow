@@ -21,7 +21,9 @@
           <div class="flex items-center gap-1 mb-4">
             <i v-for="n in 5" :key="n" class="pi pi-star-fill text-primary-400" />
           </div>
-          <blockquote class="text-secondary-600 mb-6 leading-relaxed" v-html="testimonial.quote" />
+          <blockquote class="text-secondary-600 mb-6 leading-relaxed">
+            {{ testimonial.quote }}
+          </blockquote>
           <div class="flex items-center gap-4">
             <div class="relative">
               <div :class="['w-14 h-14 rounded-full flex items-center justify-center shadow-md', testimonial.avatarGradient]">
@@ -50,7 +52,7 @@ const testimonials = [
     initials: 'ML',
     role: 'Vendeuse Vinted',
     stats: '2 400+ ventes',
-    quote: 'Je gère maintenant <strong class="text-secondary-900">200+ articles</strong> sur 3 plateformes. J\'économise <strong class="text-secondary-900">5h par semaine</strong> grâce à Stoflow. Plus besoin de jongler entre les apps !',
+    quote: 'Je gère maintenant 200+ articles sur 3 plateformes. J\'économise 5h par semaine grâce à Stoflow. Plus besoin de jongler entre les apps !',
     avatarGradient: 'bg-gradient-to-br from-pink-400 to-rose-500',
     platformColor: 'bg-platform-vinted'
   },
@@ -59,7 +61,7 @@ const testimonials = [
     initials: 'TD',
     role: 'Vendeur eBay Pro',
     stats: '500+ articles actifs',
-    quote: 'La génération IA est bluffante. Mes annonces sont plus pro et j\'ai vu mes ventes augmenter de <strong class="text-secondary-900">+35%</strong> le premier mois. ROI immédiat !',
+    quote: 'La génération IA est bluffante. Mes annonces sont plus pro et j\'ai vu mes ventes augmenter de +35% le premier mois. ROI immédiat !',
     avatarGradient: 'bg-gradient-to-br from-blue-400 to-indigo-500',
     platformColor: 'bg-platform-ebay'
   },
@@ -68,7 +70,7 @@ const testimonials = [
     initials: 'SB',
     role: 'Créatrice Etsy',
     stats: '3 boutiques connectées',
-    quote: 'Enfin une solution qui comprend les vendeurs multi-plateformes. Je synchronise <strong class="text-secondary-900">Etsy + Vinted</strong> en un clic. Support au top, mises à jour fréquentes.',
+    quote: 'Enfin une solution qui comprend les vendeurs multi-plateformes. Je synchronise Etsy + Vinted en un clic. Support au top, mises à jour fréquentes.',
     avatarGradient: 'bg-gradient-to-br from-orange-400 to-amber-500',
     platformColor: 'bg-platform-etsy'
   }

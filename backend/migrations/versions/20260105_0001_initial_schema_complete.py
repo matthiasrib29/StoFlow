@@ -448,8 +448,10 @@ def upgrade() -> None:
     if table_exists(connection, 'product_attributes', 'materials'):
         try:
             connection.execute(text("ALTER TABLE product_attributes.materials ADD COLUMN IF NOT EXISTS vinted_id INTEGER"))
-        except Exception:
-            pass
+            print("  + materials.vinted_id column added (or already exists)")
+        except Exception as e:
+            print(f"  ⚠️  Failed to add materials.vinted_id column: {e}")
+            # Column likely already exists - not a critical error
 
     # condition_sups table
     if not table_exists(connection, 'product_attributes', 'condition_sups'):

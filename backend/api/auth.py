@@ -135,6 +135,53 @@ def refresh_token(
     return RefreshResponse(**result)
 
 
+@router.post("/logout", status_code=status.HTTP_200_OK)
+def logout(
+    request: LoginRequest,  # Réutilise le schema avec access_token
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Logout utilisateur en révoquant l'access token.
+
+    Business Rules:
+    - Révoque le token JWT actuel
+    - Rend le token invalide pour toute utilisation future
+    - Supporte la révocation de refresh tokens aussi
+
+    Args:
+        request: Contient le token à révoquer dans le header Authorization (converti en access_token)
+        db: Session SQLAlchemy
+
+    Returns:
+        Message de confirmation
+
+    Raises:
+        HTTPException: 400 si token invalide
+    """
+    # ⚠️ NOTE: Le token est envoyé en header Authorization: Bearer <token>
+    # FastAPI l'extrait automatiquement via le dépendance HTTPBearer
+    # Pour cette implémentation simple, on attend le token dans le body
+
+    # Validation basique du token
+    if not request.access_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token manquant",
+        )
+
+    # Révoquer le token
+    success = AuthService.revoke_token(db, request.access_token)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossible de révoquer le token",
+        )
+
+    logger.info(f"User logged out successfully")
+    return {"message": "Logged out successfully"}
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
     registration: RegisterRequest,

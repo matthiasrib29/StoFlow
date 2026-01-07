@@ -25,6 +25,7 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
 from shared.logging_setup import get_logger
+from shared.timing import timed_operation, measure_operation
 
 logger = get_logger(__name__)
 

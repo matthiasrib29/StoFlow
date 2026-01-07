@@ -38,6 +38,7 @@ from services.product_utils import ProductUtils
 from services.validators import AttributeValidator
 from shared.datetime_utils import utc_now
 from shared.logging_setup import get_logger
+from shared.timing import timed_operation
 
 logger = get_logger(__name__)
 
@@ -46,6 +47,7 @@ class ProductService:
     """Service for product management."""
 
     @staticmethod
+    @timed_operation('product_creation', threshold_ms=1000)
     def create_product(db: Session, product_data: ProductCreate, user_id: int) -> Product:
         """
         Create a new product with all PostEditFlet features.
@@ -70,11 +72,8 @@ class ProductService:
         Raises:
             ValueError: If a FK attribute is invalid (brand, category, condition, etc.)
         """
-        import time
-        start_time = time.time()
-
         logger.info(
-            f"[ProductService] Starting create_product: user_id={user_id}, "
+            f"Creating product: user_id={user_id}, "
             f"title={product_data.title[:50] if product_data.title else 'N/A'}, "
             f"category={product_data.category}, brand={product_data.brand}"
         )
@@ -135,8 +134,10 @@ class ProductService:
         validation_data['size_original'] = size_original  # Use adjusted size
         AttributeValidator.validate_product_attributes(db, validation_data)
 
-        # ===== 6. CREATE PRODUCT WITH DUAL-WRITE (Added 2026-01-07) =====
-        # DUAL-WRITE: Fill old columns for backward compatibility during migration period
+        # ===== 6. CREATE PRODUCT (Phase 1: NO MORE DUAL-WRITE) =====
+        # 2026-01-07: STOPPED writing to deprecated color/material columns
+        # All data now goes to M2M tables only (product_colors, product_materials)
+        # Old columns will be dropped in next migration
         product = Product(
             title=product_data.title,
             description=product_data.description,
@@ -145,9 +146,8 @@ class ProductService:
             brand=product_data.brand,
             condition=product_data.condition,
             size_original=size_original,
-            # DUAL-WRITE: Old columns (DEPRECATED but kept for backward compatibility)
-            color=validated_colors[0] if validated_colors else None,
-            material=validated_materials[0] if validated_materials else None,
+            # ✂️ REMOVED: color=..., material=... (use M2M only)
+            # condition_sup can remain for now (used by API)
             condition_sup=validated_condition_sups if validated_condition_sups else None,
             fit=product_data.fit,
             gender=product_data.gender,
@@ -182,13 +182,6 @@ class ProductService:
         # Commit M2M entries
         db.commit()
         db.refresh(product)
-
-        elapsed = time.time() - start_time
-        logger.info(
-            f"[ProductService] create_product completed: product_id={product.id}, "
-            f"title={product.title[:50] if product.title else 'N/A'}, "
-            f"price={product.price}, duration={elapsed:.2f}s"
-        )
 
         return product
 
@@ -247,6 +240,7 @@ class ProductService:
         )
 
     @staticmethod
+    @timed_operation('product_update', threshold_ms=1000)
     def update_product(
         db: Session, product_id: int, product_data: ProductUpdate
     ) -> Optional[Product]:
@@ -270,10 +264,7 @@ class ProductService:
         Raises:
             ValueError: If a FK attribute is invalid or product is SOLD
         """
-        import time
-        start_time = time.time()
-
-        logger.info(f"[ProductService] Starting update_product: product_id={product_id}")
+        logger.info(f"Updating product: product_id={product_id}")
 
         product = ProductRepository.get_by_id(db, product_id)
         if not product:
@@ -352,14 +343,13 @@ class ProductService:
         validated_condition_sups = None
         if condition_sups_to_update is not None:
             validated_condition_sups = AttributeValidator.validate_condition_sups(db, condition_sups_to_update)
-
-        # ===== DUAL-WRITE: Update old columns if M2M provided (Added 2026-01-07) =====
-        if validated_colors is not None:
-            update_dict['color'] = validated_colors[0] if validated_colors else None
-        if validated_materials is not None:
-            update_dict['material'] = validated_materials[0] if validated_materials else None
-        if validated_condition_sups is not None:
+            # Update the old column for backward compat (will be removed in Phase 4)
             update_dict['condition_sup'] = validated_condition_sups if validated_condition_sups else None
+
+        # ✂️ 2026-01-07: STOPPED updating deprecated color/material columns (Phase 1)
+        # Previously: if validated_colors is not None: update_dict['color'] = ...
+        # Previously: if validated_materials is not None: update_dict['material'] = ...
+        # Now: M2M tables only
 
         AttributeValidator.validate_product_attributes(db, update_dict, partial=True)
 
@@ -386,12 +376,6 @@ class ProductService:
         if any([validated_colors is not None, validated_materials is not None, validated_condition_sups is not None]):
             db.commit()
             db.refresh(product)
-
-        elapsed = time.time() - start_time
-        logger.info(
-            f"[ProductService] update_product completed: product_id={product_id}, "
-            f"fields_updated={len(update_dict)}, duration={elapsed:.2f}s"
-        )
 
         return product
 
