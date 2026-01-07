@@ -3,13 +3,14 @@ Color Model
 
 Table pour les couleurs de produits (schema product_attributes, multilingue).
 
-Business Rules (Updated: 2026-01-05):
+Business Rules (Updated: 2026-01-07):
 - 7 langues supportées: EN, FR, DE, IT, ES, NL, PL
 - hex_code pour représentation visuelle
 - vinted_id pour mapping Vinted
+- parent_color pour hiérarchie de couleurs (ex: Wine → Red, Mocha → Brown)
 """
 
-from sqlalchemy import Integer, String
+from sqlalchemy import ForeignKeyConstraint, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -22,10 +23,20 @@ class Color(Base):
     Attributes:
     - 7 traductions (EN, FR, DE, IT, ES, NL, PL)
     - hex_code: Code couleur hexadécimal
+    - parent_color: Couleur parent pour hiérarchie
     """
 
     __tablename__ = "colors"
-    __table_args__ = {"schema": "product_attributes"}
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["parent_color"],
+            ["product_attributes.colors.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_colors_parent_color",
+        ),
+        {"schema": "product_attributes"},
+    )
 
     # ===== PRIMARY KEY =====
     name_en: Mapped[str] = mapped_column(
@@ -55,6 +66,11 @@ class Color(Base):
     # ===== VISUAL =====
     hex_code: Mapped[str | None] = mapped_column(
         String(7), nullable=True, comment="Code couleur hexadécimal (#RRGGBB)"
+    )
+
+    # ===== HIERARCHY =====
+    parent_color: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="Couleur parent (FK colors.name_en)"
     )
 
     # ===== MARKETPLACE MAPPINGS =====

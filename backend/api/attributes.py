@@ -24,6 +24,7 @@ from models.public.decade import Decade
 from models.public.fit import Fit
 from models.public.gender import Gender
 from models.public.length import Length
+from models.public.lining import Lining
 from models.public.material import Material
 from models.public.neckline import Neckline
 from models.public.origin import Origin
@@ -33,6 +34,7 @@ from models.public.season import Season
 from models.public.size_normalized import SizeNormalized
 from models.public.sleeve_length import SleeveLength
 from models.public.sport import Sport
+from models.public.stretch import Stretch
 from models.public.trend import Trend
 from shared.database import get_db
 
@@ -53,6 +55,7 @@ ATTRIBUTE_MODELS = {
     "sports": Sport,
     "necklines": Neckline,
     "lengths": Length,
+    "linings": Lining,
     "patterns": Pattern,
     "rises": Rise,
     "closures": Closure,
@@ -61,6 +64,7 @@ ATTRIBUTE_MODELS = {
     "origins": Origin,
     "decades": Decade,
     "trends": Trend,
+    "stretches": Stretch,
 }
 
 # Configuration pour chaque type d'attribut
@@ -96,7 +100,7 @@ ATTRIBUTE_CONFIG = {
     "colors": {
         "value_field": "name_en",
         "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
-        "extra_fields": ["hex_code"],
+        "extra_fields": ["hex_code", "parent_color"],
         "supports_search": False,
     },
     "materials": {
@@ -127,6 +131,11 @@ ATTRIBUTE_CONFIG = {
         "supports_search": False,
     },
     "lengths": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "linings": {
         "value_field": "name_en",
         "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
         "supports_search": False,
@@ -163,6 +172,11 @@ ATTRIBUTE_CONFIG = {
         "supports_search": False,
     },
     "trends": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "stretches": {
         "value_field": "name_en",
         "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
         "supports_search": False,
