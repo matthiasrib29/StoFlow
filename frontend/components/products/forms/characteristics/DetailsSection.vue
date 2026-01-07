@@ -1,24 +1,13 @@
 <template>
   <div class="space-y-4">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Location -->
-      <ProductsFormsCharacteristicsAttributeField
-        type="text"
-        label="Emplacement"
-        :model-value="location"
-        placeholder="Ex: Étagère A3, Carton 5..."
-        @update:model-value="$emit('update:location', $event)"
-      />
-
-      <!-- Model Reference -->
-      <ProductsFormsCharacteristicsAttributeField
-        type="text"
-        label="Référence modèle"
-        :model-value="model"
-        placeholder="Ex: 501-0115, Air Max 90..."
-        @update:model-value="$emit('update:model', $event)"
-      />
-    </div>
+    <!-- Location (full width since model moved to required section) -->
+    <ProductsFormsCharacteristicsAttributeField
+      type="text"
+      label="Emplacement"
+      :model-value="location"
+      placeholder="Ex: Étagère A3, Carton 5..."
+      @update:model-value="$emit('update:location', $event)"
+    />
 
     <!-- Condition Details -->
     <ProductsFormsCharacteristicsAttributeField
@@ -54,7 +43,7 @@
 <script setup lang="ts">
 interface Props {
   location: string | null
-  model: string | null
+  // model removed - moved to required section
   conditionSup: string[] | null
   uniqueFeature: string[] | null
   marking: string | null
@@ -64,7 +53,7 @@ defineProps<Props>()
 
 defineEmits<{
   'update:location': [value: string | null]
-  'update:model': [value: string | null]
+  // 'update:model' removed - moved to required section
   'update:conditionSup': [value: string[] | null]
   'update:uniqueFeature': [value: string[] | null]
   'update:marking': [value: string | null]

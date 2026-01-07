@@ -1,4 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+// Detect dev environment based on port
+const devPort = process.env.NUXT_PORT || '3000'
+const getFavicon = () => {
+  if (devPort === '3000') return '/favicon-dev1.svg'
+  if (devPort === '3001') return '/favicon-dev2.svg'
+  if (devPort === '3002') return '/favicon-dev3.svg'
+  return '/favicon.ico'
+}
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
@@ -41,7 +51,8 @@ export default defineNuxtConfig({
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
       ],
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+        { rel: 'icon', type: 'image/svg+xml', href: getFavicon() },
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }, // Fallback
         { rel: 'canonical', href: 'https://stoflow.io' }
       ]
     }
@@ -57,7 +68,9 @@ export default defineNuxtConfig({
   css: [
     'primeicons/primeicons.css',
     '~/assets/css/design-system.css',
-    '~/assets/css/modern-dashboard.css'
+    '~/assets/css/modern-dashboard.css',
+    '~/assets/css/form-tokens.css',
+    '~/assets/css/focus-overrides.css'
   ],
 
   build: {

@@ -1,11 +1,13 @@
 <template>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <UiFormSection :columns="3" variant="flat">
     <!-- Origin -->
     <ProductsFormsCharacteristicsAttributeField
       type="select"
       label="Origine"
       :model-value="origin"
       :options="options.origins"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:origin', $event)"
     />
 
@@ -15,6 +17,8 @@
       label="Décennie"
       :model-value="decade"
       :options="options.decades"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:decade', $event)"
     />
 
@@ -24,9 +28,11 @@
       label="Tendance"
       :model-value="trend"
       :options="options.trends"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:trend', $event)"
     />
-  </div>
+  </UiFormSection>
 </template>
 
 <script setup lang="ts">

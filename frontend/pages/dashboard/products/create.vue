@@ -1,34 +1,48 @@
 <template>
   <div class="pb-24">
-    <div class="p-6">
+    <!-- Page Header outside sticky container -->
+    <div class="px-6 pt-6">
       <PageHeader
         title="Créer un produit"
       />
+    </div>
 
-      <!-- Photo Section Title -->
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-base font-bold text-secondary-900 flex items-center gap-2">
-          <i class="pi pi-images"/>
-          Photos du produit * <span class="font-normal text-sm text-gray-500">(min. 1)</span>
-          <span class="text-sm font-normal text-gray-400">{{ photos.length }}/20</span>
-        </h3>
+    <!-- Sticky Photos Section -->
+    <div
+      ref="photosContainer"
+      class="sticky-photos-container bg-white z-30 transition-all duration-300"
+      :class="{ 'sticky-shrink': isScrolled }"
+    >
+        <!-- Photo Section Title (visible only when not scrolled) -->
+        <div v-if="!isScrolled" class="flex items-center justify-between mb-2">
+          <h3 class="text-base font-bold text-secondary-900 flex items-center gap-2">
+            <i class="pi pi-images"/>
+            Photos du produit * <span class="font-normal text-sm text-gray-500">(min. 1)</span>
+            <span class="text-sm font-normal text-gray-400">{{ photos.length }}/20</span>
+          </h3>
 
-        <Button
-          v-if="photos.length > 0"
-          label="Ajouter"
-          icon="pi pi-plus"
-          class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold"
-          size="small"
-          :disabled="photos.length >= 20"
-          @click="openPhotoSelector"
+          <button
+            v-if="photos.length > 0"
+            type="button"
+            class="flex items-center gap-2 bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold px-3 py-1.5 rounded-md transition-colors"
+            :disabled="photos.length >= 20"
+            @click="openPhotoSelector"
+          >
+            <i class="pi pi-plus" />
+            <span>Ajouter</span>
+          </button>
+        </div>
+
+        <!-- Photos Section -->
+        <ProductsPhotoUploader
+          ref="photoUploader"
+          v-model:photos="photos"
+          :compact="isScrolled"
         />
-      </div>
+    </div>
 
-      <!-- Photos Section -->
-      <div class="mb-4">
-        <ProductsPhotoUploader ref="photoUploader" v-model:photos="photos" />
-      </div>
-
+    <!-- Content with padding -->
+    <div class="px-6">
       <!-- AI Auto-fill Section (visible when photos exist) -->
       <div
         v-if="photos.length > 0"
@@ -57,7 +71,15 @@
       </div>
 
       <!-- Form Section -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <!-- Progress Bar with Navigation -->
+        <ProductsFormProgressBar
+          :form-data="form"
+          :has-photos="photos.length > 0"
+          :sections="formSections"
+          :active-section="activeSection"
+          @navigate="scrollToSection"
+        />
         <ProductsProductForm
           :model-value="form"
           :is-submitting="isSubmitting"
@@ -164,6 +186,18 @@ const photos = ref<Photo[]>([])
 const isSubmitting = ref(false)
 const isAnalyzingImages = ref(false)
 
+// Sticky photos scroll detection
+const photosContainer = ref<HTMLElement | null>(null)
+const isScrolled = ref(false)
+
+// Detect scroll to shrink photos
+const { y: scrollY } = useScroll(window)
+
+watch(scrollY, (newY) => {
+  // Shrink when scrolled more than 100px
+  isScrolled.value = newY > 100
+})
+
 // API composable
 const { post } = useApi()
 
@@ -211,6 +245,54 @@ const formProgress = computed(() => {
 const canSubmit = computed(() => {
   return filledRequiredCount.value === totalRequiredCount && photos.value.length > 0
 })
+
+// Section navigation for progress bar
+const activeSection = ref('info')
+
+const formSections = computed(() => {
+  const infoFields = ['title', 'description', 'price'] as const
+  const charFields = ['category', 'brand', 'condition', 'size_original', 'color', 'gender', 'material'] as const
+  const measuresFields = ['dim1', 'dim2', 'dim3'] as const
+
+  return [
+    {
+      id: 'info',
+      label: 'Infos',
+      filled: infoFields.filter(f => form.value[f]).length,
+      total: 3,
+      isComplete: infoFields.filter(f => ['title', 'description'].includes(f)).every(f => form.value[f])
+    },
+    {
+      id: 'characteristics',
+      label: 'Caractéristiques',
+      filled: charFields.filter(f => form.value[f] !== null && form.value[f] !== undefined && form.value[f] !== '').length,
+      total: charFields.length,
+      isComplete: charFields.every(f => form.value[f] !== null && form.value[f] !== undefined && form.value[f] !== '')
+    },
+    {
+      id: 'measures',
+      label: 'Mesures',
+      filled: measuresFields.filter(f => form.value[f]).length,
+      total: 3,
+      isComplete: false
+    }
+  ]
+})
+
+const scrollToSection = (sectionId: string) => {
+  const element = document.getElementById(`section-${sectionId}`)
+  if (element) {
+    const offset = 80 // Offset pour le header de page
+    const elementPosition = element.getBoundingClientRect().top
+    const offsetPosition = elementPosition + window.pageYOffset - offset
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    })
+    activeSection.value = sectionId
+  }
+}
 
 // Reference to PhotoUploader component
 const photoUploader = ref<{ openFileSelector: () => void } | null>(null)
@@ -533,3 +615,23 @@ onUnmounted(() => {
   })
 })
 </script>
+
+<style scoped>
+.sticky-photos-container {
+  position: sticky;
+  top: 0;
+  padding: 1rem 1.5rem 0.25rem;
+  margin-bottom: 0;
+  border-bottom: 1px solid transparent;
+  transition: all 0.3s ease;
+  z-index: 30;
+}
+
+.sticky-photos-container.sticky-shrink {
+  padding: 0.5rem 1.5rem 0;
+  margin-bottom: 0;
+  border-bottom-color: #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background-color: white;
+}
+</style>

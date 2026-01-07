@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-6">
-    <h3 class="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
-      <i class="pi pi-tag text-xs" />
+  <div class="form-subsection-spacing">
+    <h3 class="form-section-title">
+      <i class="pi pi-tag" />
       Caractéristiques
     </h3>
 
@@ -9,28 +9,27 @@
     <ProductsFormsCharacteristicsRequiredFieldsSection
       :category="category"
       :brand="brand"
-      :gender="gender"
+      :model="model"
       :condition="condition"
       :size-original="sizeOriginal"
       :size-normalized="sizeNormalized"
       :color="color"
       :material="material"
-      :options="{ genders: options.genders, sizes: options.sizes }"
-      :suggestions="suggestions"
+      :options="{ categories: options.categories, genders: options.genders, sizes: options.sizes }"
+      :filtered-options="filteredOptions"
       :loading="loading"
       :validation="validation"
       @update:category="$emit('update:category', $event)"
       @update:brand="$emit('update:brand', $event)"
-      @update:gender="$emit('update:gender', $event)"
+      @update:model="$emit('update:model', $event)"
       @update:condition="$emit('update:condition', $event)"
       @update:size-original="$emit('update:size-original', $event)"
       @update:size-normalized="$emit('update:size-normalized', $event)"
       @update:color="$emit('update:color', $event)"
       @update:material="$emit('update:material', $event)"
-      @search-categories="searchCategories($event.query)"
-      @search-brands="searchBrandsAsync($event.query)"
-      @search-colors="searchColors($event.query)"
-      @search-materials="searchMaterials($event.query)"
+      @filter-brands="filterBrands($event)"
+      @filter-colors="filterColors($event)"
+      @filter-materials="filterMaterials($event)"
     />
 
     <!-- Clothing Attributes Section -->
@@ -39,6 +38,22 @@
       icon="pi-palette"
       :filled-count="clothingFilledCount"
     >
+      <!-- Preview slot -->
+      <template #preview>
+        <span v-if="fit" class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
+          <i class="pi pi-tag text-[10px]" />
+          Coupe: {{ fit }}
+        </span>
+        <span v-if="season" class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
+          <i class="pi pi-sun text-[10px]" />
+          Saison: {{ season }}
+        </span>
+        <span v-if="sport" class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
+          <i class="pi pi-bolt text-[10px]" />
+          Sport: {{ sport }}
+        </span>
+      </template>
+
       <ProductsFormsCharacteristicsClothingAttributesSection
         :fit="fit"
         :season="season"
@@ -87,12 +102,10 @@
     >
       <ProductsFormsCharacteristicsDetailsSection
         :location="location"
-        :model="model"
         :condition-sup="conditionSup"
         :unique-feature="uniqueFeature"
         :marking="marking"
         @update:location="$emit('update:location', $event)"
-        @update:model="$emit('update:model', $event)"
         @update:condition-sup="$emit('update:conditionSup', $event)"
         @update:unique-feature="$emit('update:uniqueFeature', $event)"
         @update:marking="$emit('update:marking', $event)"
@@ -118,7 +131,7 @@ interface Props {
   sizeOriginal: string
   sizeNormalized: string | null
   color: string
-  gender: string
+  // gender removed - auto-extracted from category
   material: string
   // Clothing
   fit: string | null
@@ -155,7 +168,7 @@ defineEmits<{
   'update:size-original': [value: string]
   'update:size-normalized': [value: string | null]
   'update:color': [value: string]
-  'update:gender': [value: string]
+  // 'update:gender' removed - gender is auto-extracted from category
   'update:material': [value: string]
   'update:fit': [value: string | null]
   'update:season': [value: string | null]
@@ -180,12 +193,11 @@ defineEmits<{
 const {
   options,
   loading,
-  suggestions,
+  filteredOptions,
   loadAllAttributes,
-  searchCategories,
-  searchBrandsAsync,
-  searchColors,
-  searchMaterials
+  filterBrands,
+  filterColors,
+  filterMaterials
 } = useProductAttributes()
 
 // Computed options for each section
@@ -224,7 +236,7 @@ const vintageFilledCount = computed(() => {
 
 // Computed: count filled details attributes
 const detailsFilledCount = computed(() => {
-  const detailsFields = [props.location, props.model, props.marking]
+  const detailsFields = [props.location, props.marking]
   let count = detailsFields.filter(v => v !== null && v !== undefined && v !== '').length
   if (props.conditionSup && props.conditionSup.length > 0) count++
   if (props.uniqueFeature && props.uniqueFeature.length > 0) count++
