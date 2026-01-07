@@ -417,6 +417,13 @@ useSeoMeta({
   description: 'CGV de StoFlow : tarifs, paiement, droit de rétractation, résiliation et conditions d\'abonnement.'
 })
 
+// Breadcrumb Schema
+useBreadcrumbSchema([
+  { name: 'Accueil', url: '/' },
+  { name: 'Informations légales', url: '/legal' },
+  { name: 'Conditions générales de vente', url: '/legal/cgv' }
+])
+
 const lastUpdate = computed(() => {
   return new Date().toLocaleDateString('fr-FR', {
     year: 'numeric',
