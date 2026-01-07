@@ -51,6 +51,7 @@ export interface EbayOrder {
   created_at: string
   updated_at: string
   products?: EbayOrderProduct[]
+  items_count?: number
 }
 
 export interface EbayOrderProduct {

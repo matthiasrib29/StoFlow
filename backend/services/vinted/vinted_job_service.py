@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from models.vinted.vinted_action_type import VintedActionType
 from models.user.plugin_task import PluginTask, TaskStatus
-from models.user.vinted_job import JobStatus, VintedJob
+from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.vinted_job_stats import VintedJobStats
 from shared.logging_setup import get_logger
 
@@ -91,7 +91,7 @@ class VintedJobService:
         batch_id: str | None = None,
         priority: int | None = None,
         result_data: dict | None = None,
-    ) -> VintedJob:
+    ) -> MarketplaceJob:
         """
         Create a new Vinted job.
 
@@ -103,7 +103,7 @@ class VintedJobService:
             result_data: Initial data/parameters for the job (optional)
 
         Returns:
-            Created VintedJob
+            Created MarketplaceJob
 
         Raises:
             ValueError: If action_code is invalid
@@ -116,7 +116,7 @@ class VintedJobService:
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(hours=JOB_EXPIRATION_HOURS)
 
-        job = VintedJob(
+        job = MarketplaceJob(
             action_type_id=action_type.id,
             product_id=product_id,
             batch_id=batch_id,
@@ -142,7 +142,7 @@ class VintedJobService:
         action_code: str,
         product_ids: list[int],
         priority: int | None = None,
-    ) -> tuple[str, list[VintedJob]]:
+    ) -> tuple[str, list[MarketplaceJob]]:
         """
         Create multiple jobs for a batch operation.
 
@@ -178,7 +178,7 @@ class VintedJobService:
     # JOB STATUS MANAGEMENT
     # =========================================================================
 
-    def start_job(self, job_id: int) -> VintedJob | None:
+    def start_job(self, job_id: int) -> MarketplaceJob | None:
         """
         Mark a job as running.
 
@@ -186,9 +186,9 @@ class VintedJobService:
             job_id: Job ID
 
         Returns:
-            Updated VintedJob or None if not found
+            Updated MarketplaceJob or None if not found
         """
-        job = self.db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        job = self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job:
             return None
 
@@ -199,7 +199,7 @@ class VintedJobService:
         logger.debug(f"[VintedJobService] Started job #{job_id}")
         return job
 
-    def complete_job(self, job_id: int) -> VintedJob | None:
+    def complete_job(self, job_id: int) -> MarketplaceJob | None:
         """
         Mark a job as completed successfully.
 
@@ -207,9 +207,9 @@ class VintedJobService:
             job_id: Job ID
 
         Returns:
-            Updated VintedJob or None if not found
+            Updated MarketplaceJob or None if not found
         """
-        job = self.db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        job = self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job:
             return None
 
@@ -223,7 +223,7 @@ class VintedJobService:
         logger.info(f"[VintedJobService] Completed job #{job_id}")
         return job
 
-    def fail_job(self, job_id: int, error_message: str) -> VintedJob | None:
+    def fail_job(self, job_id: int, error_message: str) -> MarketplaceJob | None:
         """
         Mark a job as failed.
 
@@ -232,9 +232,9 @@ class VintedJobService:
             error_message: Error description
 
         Returns:
-            Updated VintedJob or None if not found
+            Updated MarketplaceJob or None if not found
         """
-        job = self.db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        job = self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job:
             return None
 
@@ -249,7 +249,7 @@ class VintedJobService:
         logger.warning(f"[VintedJobService] Failed job #{job_id}: {error_message}")
         return job
 
-    def pause_job(self, job_id: int) -> VintedJob | None:
+    def pause_job(self, job_id: int) -> MarketplaceJob | None:
         """
         Pause a running job.
 
@@ -257,9 +257,9 @@ class VintedJobService:
             job_id: Job ID
 
         Returns:
-            Updated VintedJob or None if not found
+            Updated MarketplaceJob or None if not found
         """
-        job = self.db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        job = self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job or job.status not in (JobStatus.PENDING, JobStatus.RUNNING):
             return None
 
@@ -269,7 +269,7 @@ class VintedJobService:
         logger.info(f"[VintedJobService] Paused job #{job_id}")
         return job
 
-    def resume_job(self, job_id: int) -> VintedJob | None:
+    def resume_job(self, job_id: int) -> MarketplaceJob | None:
         """
         Resume a paused job.
 
@@ -277,9 +277,9 @@ class VintedJobService:
             job_id: Job ID
 
         Returns:
-            Updated VintedJob or None if not found
+            Updated MarketplaceJob or None if not found
         """
-        job = self.db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        job = self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job or job.status != JobStatus.PAUSED:
             return None
 
@@ -291,7 +291,7 @@ class VintedJobService:
         logger.info(f"[VintedJobService] Resumed job #{job_id}")
         return job
 
-    def cancel_job(self, job_id: int) -> VintedJob | None:
+    def cancel_job(self, job_id: int) -> MarketplaceJob | None:
         """
         Cancel a job.
 
@@ -299,9 +299,9 @@ class VintedJobService:
             job_id: Job ID
 
         Returns:
-            Updated VintedJob or None if not found
+            Updated MarketplaceJob or None if not found
         """
-        job = self.db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        job = self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job or job.is_terminal:
             return None
 
@@ -315,7 +315,7 @@ class VintedJobService:
         logger.info(f"[VintedJobService] Cancelled job #{job_id}")
         return job
 
-    def increment_retry(self, job_id: int) -> tuple[VintedJob | None, bool]:
+    def increment_retry(self, job_id: int) -> tuple[MarketplaceJob | None, bool]:
         """
         Increment retry count and check if max retries reached.
 
@@ -325,7 +325,7 @@ class VintedJobService:
         Returns:
             Tuple of (job, can_retry)
         """
-        job = self.db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        job = self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job:
             return None, False
 
@@ -348,25 +348,25 @@ class VintedJobService:
     # JOB QUERIES
     # =========================================================================
 
-    def get_job(self, job_id: int) -> VintedJob | None:
+    def get_job(self, job_id: int) -> MarketplaceJob | None:
         """Get job by ID."""
-        return self.db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        return self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
 
-    def get_next_pending_job(self) -> VintedJob | None:
+    def get_next_pending_job(self) -> MarketplaceJob | None:
         """
         Get the next job to process (highest priority, oldest first).
 
         Returns:
-            Next pending VintedJob or None
+            Next pending MarketplaceJob or None
         """
         return (
-            self.db.query(VintedJob)
-            .filter(VintedJob.status == JobStatus.PENDING)
-            .order_by(VintedJob.priority, VintedJob.created_at)
+            self.db.query(MarketplaceJob)
+            .filter(MarketplaceJob.status == JobStatus.PENDING)
+            .order_by(MarketplaceJob.priority, MarketplaceJob.created_at)
             .first()
         )
 
-    def get_pending_jobs(self, limit: int = 10) -> list[VintedJob]:
+    def get_pending_jobs(self, limit: int = 10) -> list[MarketplaceJob]:
         """
         Get pending jobs ordered by priority.
 
@@ -374,17 +374,17 @@ class VintedJobService:
             limit: Maximum number of jobs
 
         Returns:
-            List of pending VintedJob
+            List of pending MarketplaceJob
         """
         return (
-            self.db.query(VintedJob)
-            .filter(VintedJob.status == JobStatus.PENDING)
-            .order_by(VintedJob.priority, VintedJob.created_at)
+            self.db.query(MarketplaceJob)
+            .filter(MarketplaceJob.status == JobStatus.PENDING)
+            .order_by(MarketplaceJob.priority, MarketplaceJob.created_at)
             .limit(limit)
             .all()
         )
 
-    def get_batch_jobs(self, batch_id: str) -> list[VintedJob]:
+    def get_batch_jobs(self, batch_id: str) -> list[MarketplaceJob]:
         """
         Get all jobs in a batch.
 
@@ -392,12 +392,12 @@ class VintedJobService:
             batch_id: Batch ID
 
         Returns:
-            List of VintedJob in the batch
+            List of MarketplaceJob in the batch
         """
         return (
-            self.db.query(VintedJob)
-            .filter(VintedJob.batch_id == batch_id)
-            .order_by(VintedJob.created_at)
+            self.db.query(MarketplaceJob)
+            .filter(MarketplaceJob.batch_id == batch_id)
+            .order_by(MarketplaceJob.created_at)
             .all()
         )
 
@@ -434,22 +434,22 @@ class VintedJobService:
             ),
         }
 
-    def get_interrupted_jobs(self) -> list[VintedJob]:
+    def get_interrupted_jobs(self) -> list[MarketplaceJob]:
         """
         Get jobs that were interrupted (RUNNING but not completed).
 
         These are jobs that need user confirmation to resume.
 
         Returns:
-            List of interrupted VintedJob
+            List of interrupted MarketplaceJob
         """
         return (
-            self.db.query(VintedJob)
+            self.db.query(MarketplaceJob)
             .filter(
-                VintedJob.status.in_([JobStatus.RUNNING, JobStatus.PAUSED]),
-                VintedJob.expires_at > datetime.now(timezone.utc),
+                MarketplaceJob.status.in_([JobStatus.RUNNING, JobStatus.PAUSED]),
+                MarketplaceJob.expires_at > datetime.now(timezone.utc),
             )
-            .order_by(VintedJob.priority, VintedJob.created_at)
+            .order_by(MarketplaceJob.priority, MarketplaceJob.created_at)
             .all()
         )
 
@@ -467,10 +467,10 @@ class VintedJobService:
         now = datetime.now(timezone.utc)
 
         expired_jobs = (
-            self.db.query(VintedJob)
+            self.db.query(MarketplaceJob)
             .filter(
-                VintedJob.status.in_([JobStatus.PENDING, JobStatus.PAUSED]),
-                VintedJob.expires_at < now,
+                MarketplaceJob.status.in_([JobStatus.PENDING, JobStatus.PAUSED]),
+                MarketplaceJob.expires_at < now,
             )
             .all()
         )
@@ -490,12 +490,12 @@ class VintedJobService:
     # STATISTICS
     # =========================================================================
 
-    def _update_job_stats(self, job: VintedJob, success: bool) -> None:
+    def _update_job_stats(self, job: MarketplaceJob, success: bool) -> None:
         """
         Update daily statistics for a completed job.
 
         Args:
-            job: Completed VintedJob
+            job: Completed MarketplaceJob
             success: Whether job succeeded
         """
         today = datetime.now(timezone.utc).date()

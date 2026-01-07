@@ -54,21 +54,23 @@ router = APIRouter()
 
 
 @router.post("/orders/sync", response_model=SyncOrdersResponse)
-def sync_orders(
+async def sync_orders(
     request: SyncOrdersRequest = Body(default=SyncOrdersRequest()),
+    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
     db_user: Tuple[Session, User] = Depends(get_user_db),
 ):
     """
     Synchronize orders from eBay Fulfillment API to local database.
 
     **Workflow:**
-    1. Fetch orders modified in last N hours from eBay API
-    2. Create or update orders in local database
+    1. Create a marketplace job for tracking
+    2. If process_now=True (default), execute immediately
     3. Return statistics (created, updated, errors)
 
     **Default behavior:**
     - Syncs orders modified in the last 24 hours
     - All fulfillment statuses (NOT_STARTED, IN_PROGRESS, FULFILLED)
+    - Executes immediately (process_now=True)
 
     **Request Body:**
     ```json
@@ -78,23 +80,27 @@ def sync_orders(
     }
     ```
 
+    **Query Parameters:**
+    - process_now: bool (default: True) - Execute immediately or queue for later
+
     **Example:**
     ```bash
-    # Sync last 24 hours
-    curl -X POST "http://localhost:8000/api/ebay/orders/sync" \\
+    # Sync last 24 hours (immediate execution)
+    curl -X POST "http://localhost:8000/api/ebay/orders/sync?process_now=true" \\
       -H "Authorization: Bearer YOUR_TOKEN" \\
       -H "Content-Type: application/json" \\
       -d '{}'
 
-    # Sync last 7 days with status filter
-    curl -X POST "http://localhost:8000/api/ebay/orders/sync" \\
+    # Create job without executing (for batch processing)
+    curl -X POST "http://localhost:8000/api/ebay/orders/sync?process_now=false" \\
       -H "Authorization: Bearer YOUR_TOKEN" \\
       -H "Content-Type: application/json" \\
-      -d '{"hours": 168, "status_filter": "NOT_STARTED"}'
+      -d '{"hours": 168}'
     ```
 
     Args:
         request: Sync request with hours and optional status filter
+        process_now: Execute immediately or create job only
         db_user: DB session and authenticated user
 
     Returns:
@@ -108,26 +114,76 @@ def sync_orders(
 
     logger.info(
         f"[POST /orders/sync] user_id={current_user.id}, "
-        f"hours={request.hours}, status_filter={request.status_filter}"
+        f"hours={request.hours}, status_filter={request.status_filter}, "
+        f"process_now={process_now}"
     )
 
     try:
-        # Initialize sync service
-        sync_service = EbayOrderSyncService(db, current_user.id)
+        # Create marketplace job for tracking
+        from services.marketplace.marketplace_job_service import MarketplaceJobService
+        job_service = MarketplaceJobService(db)
 
-        # Perform sync
-        stats = sync_service.sync_orders(
-            modified_since_hours=request.hours,
-            status_filter=request.status_filter,
+        job = job_service.create_job(
+            marketplace="ebay",
+            action_code="sync_orders_ebay",
+            product_id=None,  # Operation-level job (not product-specific)
+            input_data={
+                "hours": request.hours,
+                "status_filter": request.status_filter
+            },
         )
+        db.commit()
 
         logger.info(
-            f"[POST /orders/sync] Completed for user_id={current_user.id}: "
-            f"created={stats['created']}, updated={stats['updated']}, "
-            f"errors={stats['errors']}"
+            f"[POST /orders/sync] Created job #{job.id} for user {current_user.id}"
         )
 
-        return SyncOrdersResponse(**stats)
+        # Execute immediately if requested
+        if process_now:
+            from services.vinted.vinted_job_processor import VintedJobProcessor
+            processor = VintedJobProcessor(db, shop_id=current_user.id)
+            result = await processor._execute_job(job)
+
+            if result.get("success"):
+                job_result = result.get("result", {})
+                stats = {
+                    "created": job_result.get("created", 0),
+                    "updated": job_result.get("updated", 0),
+                    "skipped": job_result.get("skipped", 0),
+                    "errors": job_result.get("errors", 0),
+                    "total_fetched": job_result.get("total_fetched", 0),
+                    "details": job_result.get("details", [])
+                }
+
+                logger.info(
+                    f"[POST /orders/sync] Job #{job.id} completed: "
+                    f"created={stats['created']}, updated={stats['updated']}, "
+                    f"errors={stats['errors']}"
+                )
+
+                return SyncOrdersResponse(**stats)
+            else:
+                error = result.get("error", "Job execution failed")
+                logger.error(
+                    f"[POST /orders/sync] Job #{job.id} failed: {error}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Sync job failed: {error}",
+                )
+        else:
+            # Job created but not executed yet
+            logger.info(
+                f"[POST /orders/sync] Job #{job.id} queued for later processing"
+            )
+            return SyncOrdersResponse(
+                created=0,
+                updated=0,
+                skipped=0,
+                errors=0,
+                total_fetched=0,
+                details=[]
+            )
 
     except ValueError as e:
         logger.error(

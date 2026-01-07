@@ -167,8 +167,8 @@ class MarketplaceTask(Base):
 
     # Note: max_retries is configured at the MarketplaceJob level, not per task
 
-    # Relationship to job
-    job = relationship("MarketplaceJob", back_populates="tasks", lazy="select")
+    # Relationship to job (one-way, MarketplaceJob.tasks points to PluginTask)
+    job = relationship("MarketplaceJob", foreign_keys=[job_id], lazy="select")
 
     def __repr__(self) -> str:
         desc = self.description or f"{self.task_type.value}"
