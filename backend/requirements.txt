@@ -19,9 +19,6 @@ email-validator==2.3.0
 # OpenAI
 openai==1.54.3
 
-# Anthropic Claude
-anthropic==0.39.0
-
 # Google Gemini Vision
 google-genai>=1.0.0
 

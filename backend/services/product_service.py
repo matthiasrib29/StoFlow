@@ -193,6 +193,59 @@ class ProductService:
         return product
 
     @staticmethod
+    def create_draft_for_upload(db: Session, user_id: int) -> Product:
+        """
+        Create a minimal DRAFT product to allow instant image upload.
+
+        This method is called when a user drops images BEFORE filling the form.
+        The product is created with minimal values and will be completed later.
+
+        Business Rules:
+        - Status: DRAFT
+        - Title: "" (empty to identify auto-created drafts for cleanup)
+        - Stock: 1
+        - All other fields: NULL/default
+        - No validation (since fields are empty)
+        - No price calculation
+
+        Args:
+            db: SQLAlchemy Session
+            user_id: User ID (for user_X schema)
+
+        Returns:
+            Product: Created minimal draft product
+        """
+        logger.info(
+            f"[ProductService] Creating draft for upload: user_id={user_id}"
+        )
+
+        # Create minimal product in DRAFT status
+        product = Product(
+            title="",  # Empty to identify auto-created drafts
+            description=None,
+            price=None,
+            category=None,
+            brand=None,
+            condition=None,
+            size_original=None,
+            color=None,
+            material=None,
+            gender=None,
+            stock_quantity=1,  # Default stock
+            status=ProductStatus.DRAFT,
+        )
+
+        ProductRepository.create(db, product)
+        db.commit()
+        db.refresh(product)
+
+        logger.info(
+            f"[ProductService] Draft product created: product_id={product.id}"
+        )
+
+        return product
+
+    @staticmethod
     def get_product_by_id(db: Session, product_id: int) -> Optional[Product]:
         """
         Get a product by ID.

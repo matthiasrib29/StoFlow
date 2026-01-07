@@ -170,11 +170,6 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
             'max_attempts_ip': 5,
             'window_seconds': 3600       # 1 heure
         },
-        # Expensive AI endpoints
-        '/api/products/generate-description': {
-            'max_attempts_ip': 20,       # Coûteux (OpenAI)
-            'window_seconds': 3600       # 1 heure
-        },
         # Stripe payment endpoints
         '/api/stripe/create-checkout-session': {
             'max_attempts_ip': 10,

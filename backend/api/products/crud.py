@@ -90,6 +90,63 @@ def create_product(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+@router.post("/create-draft", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+def create_draft_for_upload(
+    user_db: tuple = Depends(get_user_db),
+) -> ProductResponse:
+    """
+    Crée un produit DRAFT minimal pour permettre l'upload instantané d'images.
+
+    Ce endpoint est utilisé quand l'utilisateur drop des images AVANT de remplir
+    le formulaire. Le produit créé a des valeurs minimales et sera complété plus tard.
+
+    Business Rules:
+    - Authentification requise (JWT token)
+    - Vérifie la limite de produits (max_products) AVANT création
+    - ADMIN: pas de limite (bypass)
+    - Isolation multi-tenant (schema user_X)
+    - Status: DRAFT
+    - Title: "" (vide pour identifier les drafts auto-créés)
+    - Stock: 1
+    - Tous les autres champs: NULL
+
+    Le cleanup automatique supprime les produits DRAFT avec title="" > 7 jours.
+
+    Raises:
+        401 UNAUTHORIZED: Si pas authentifié
+        403 FORBIDDEN: Si limite de produits atteinte ou si SUPPORT
+    """
+    db, current_user = user_db
+
+    logger.info(
+        f"[API:products] create_draft_for_upload: user_id={current_user.id}"
+    )
+
+    try:
+        # SUPPORT ne peut pas créer de produits (lecture seule)
+        ensure_can_modify(current_user, "produit")
+
+        # Vérifier la limite de produits (sauf pour ADMIN)
+        if current_user.role != UserRole.ADMIN:
+            check_product_limit(current_user, db)
+
+        # Créer produit minimal en DRAFT
+        db_product = ProductService.create_draft_for_upload(db, current_user.id)
+
+        logger.info(
+            f"[API:products] create_draft_for_upload success: user_id={current_user.id}, "
+            f"product_id={db_product.id}"
+        )
+
+        return db_product
+    except ValueError as e:
+        logger.error(
+            f"[API:products] create_draft_for_upload failed: user_id={current_user.id}, error={e}",
+            exc_info=True
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
 @router.get("/", response_model=ProductListResponse, status_code=status.HTTP_200_OK)
 def list_products(
     page: int = Query(1, ge=1, description="Numéro de page (1-indexed, défaut: 1)"),

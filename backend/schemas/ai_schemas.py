@@ -10,28 +10,6 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-class AIDescriptionResponse(BaseModel):
-    """Schema pour la réponse de génération de description."""
-
-    description: str = Field(..., description="Description générée par l'IA")
-    model: str = Field(..., description="Modèle IA utilisé")
-    tokens_used: int = Field(..., description="Nombre de tokens utilisés")
-    cost: Decimal = Field(..., description="Coût en USD")
-    cached: bool = Field(False, description="True si la réponse venait du cache")
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "description": "Ce superbe jean Levi's 501 vintage...",
-                "model": "claude-sonnet-4-20250514",
-                "tokens_used": 250,
-                "cost": 0.000750,
-                "cached": False,
-            }
-        }
-    }
-
-
 # =============================================================================
 # GEMINI VISION - Analyse d'images
 # =============================================================================
@@ -39,11 +17,6 @@ class AIDescriptionResponse(BaseModel):
 
 class VisionExtractedAttributes(BaseModel):
     """Attributs extraits des images par Gemini Vision (mapping complet vers Product)."""
-
-    # === CHAMPS PRINCIPAUX ===
-    title: Optional[str] = Field(None, description="Titre suggéré")
-    description: Optional[str] = Field(None, description="Description générée")
-    price: Optional[float] = Field(None, description="Prix suggéré en EUR")
 
     # === ATTRIBUTS PRINCIPAUX ===
     category: Optional[str] = Field(None, description="Catégorie produit")
@@ -81,9 +54,6 @@ class VisionExtractedAttributes(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "title": "T-shirt Nike Vintage Logo - Noir",
-                "description": "T-shirt Nike vintage avec logo brodé...",
-                "price": 25.0,
                 "category": "T-shirts",
                 "brand": "Nike",
                 "condition": 8,
@@ -113,7 +83,6 @@ class AIVisionAnalysisResponse(BaseModel):
         "json_schema_extra": {
             "example": {
                 "attributes": {
-                    "title": "T-shirt Nike Vintage Logo - Noir",
                     "brand": "Nike",
                     "category": "T-shirts",
                     "color": "Noir",
