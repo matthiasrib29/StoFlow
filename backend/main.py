@@ -4,6 +4,7 @@ Stoflow Backend - Application FastAPI
 Point d'entree principal de l'application FastAPI.
 """
 
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement depuis .env
@@ -49,25 +50,23 @@ from shared.logging_setup import setup_logging
 # Configuration du logging
 logger = setup_logging()
 
-# Creation de l'application FastAPI
-app = FastAPI(
-    title=settings.app_name,
-    description="API Backend pour Stoflow - Plateforme SaaS de gestion d'annonces multi-plateformes",
-    version="1.0.0",
-    debug=settings.debug,
-)
 
+# =============================================================================
+# LIFESPAN CONTEXT MANAGER (replaces @app.on_event)
+# =============================================================================
 
-# Startup event: créer répertoire uploads
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """
-    Initialisation au démarrage de l'application.
+    Lifespan context manager for startup and shutdown events.
 
-    Security (2025-12-05):
-    - Valide que les secrets requis sont configurés via .env
+    Startup: Validates configuration and initializes services.
+    Shutdown: Performs cleanup (currently minimal).
     """
-    # ===== SECURITY FIX (2025-12-05): Validate secrets at startup =====
+    # ===== STARTUP =====
+    logger.info("🚀 Starting StoFlow backend...")
+
+    # SECURITY FIX (2025-12-05): Validate secrets at startup
     required_secrets = [
         "jwt_secret_key",
         "database_url",
@@ -113,28 +112,24 @@ async def startup_event():
     # ===== DATADOME SCHEDULER (2025-12-19) =====
     # DISABLED: En stand-by - sera réactivé avec logique basée sur compteur de requêtes
     # TODO: Réactiver quand la logique de ping par nombre de requêtes sera implémentée
-    # try:
-    #     start_datadome_scheduler()
-    #     logger.info("🛡️ DataDome scheduler started")
-    # except Exception as e:
-    #     logger.error(f"Failed to start DataDome scheduler: {e}")
     logger.info("🛡️ DataDome scheduler DISABLED (stand-by)")
 
+    yield  # Application runs here
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """
-    Cleanup on application shutdown.
-    """
-    # Stop DataDome scheduler (DISABLED - stand-by)
-    # try:
-    #     scheduler = get_datadome_scheduler()
-    #     if scheduler:
-    #         stop_datadome_scheduler(scheduler)
-    #         logger.info("🛡️ DataDome scheduler stopped")
-    # except Exception as e:
-    #     logger.error(f"Error stopping DataDome scheduler: {e}")
-    pass
+    # ===== SHUTDOWN =====
+    logger.info("🛑 Shutting down StoFlow backend...")
+    # Note: DataDome scheduler shutdown is currently disabled (stand-by mode)
+
+
+# Creation de l'application FastAPI
+app = FastAPI(
+    title=settings.app_name,
+    description="API Backend pour Stoflow - Plateforme SaaS de gestion d'annonces multi-plateformes",
+    version="1.0.0",
+    debug=settings.debug,
+    lifespan=lifespan,
+)
+
 
 # ===== SECURITY MIDDLEWARE (2025-12-05) =====
 
