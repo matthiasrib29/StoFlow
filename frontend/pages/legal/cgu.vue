@@ -326,6 +326,13 @@ useSeoMeta({
   description: 'CGU de StoFlow : règles d\'utilisation du service, droits et obligations des utilisateurs.'
 })
 
+// Breadcrumb Schema
+useBreadcrumbSchema([
+  { name: 'Accueil', url: '/' },
+  { name: 'Informations légales', url: '/legal' },
+  { name: 'Conditions générales d\'utilisation', url: '/legal/cgu' }
+])
+
 const lastUpdate = computed(() => {
   return new Date().toLocaleDateString('fr-FR', {
     year: 'numeric',

@@ -54,6 +54,17 @@ definePageMeta({
   layout: 'landing'
 })
 
+// SEO Meta Tags
+useSeoHead({
+  title: 'Gérez Vinted, eBay & Etsy',
+  description: 'Centralisez vos ventes sur Vinted, eBay, Etsy. Synchronisation automatique, publication en un clic, gestion des stocks simplifiée. Essai gratuit 14 jours.',
+  ogImage: '/images/og-stoflow.jpg'
+})
+
+// Structured Data (Schema.org JSON-LD)
+useOrganizationSchema()
+useSoftwareApplicationSchema()
+
 // Pricing - Dynamic from API
 const { plans, loading: pricingLoading, fetchPricingPlans, getAnnualPrice, getAnnualSavings } = usePricing()
 

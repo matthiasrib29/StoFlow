@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.9.0",
+    "@nuxt/image": "^2.0.0",
+    "@nuxtjs/sitemap": "^7.5.2",
     "@primevue/nuxt-module": "^4.5.3",
     "@primevue/themes": "^4.5.1",
     "chart.js": "^4.5.1",

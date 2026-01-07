@@ -182,6 +182,13 @@ useSeoMeta({
   description: 'Mentions légales de StoFlow : éditeur, hébergeur, propriété intellectuelle et informations légales obligatoires.'
 })
 
+// Breadcrumb Schema
+useBreadcrumbSchema([
+  { name: 'Accueil', url: '/' },
+  { name: 'Informations légales', url: '/legal' },
+  { name: 'Mentions légales', url: '/legal/mentions' }
+])
+
 const lastUpdate = computed(() => {
   return new Date().toLocaleDateString('fr-FR', {
     year: 'numeric',
