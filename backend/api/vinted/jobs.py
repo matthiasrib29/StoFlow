@@ -23,8 +23,11 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
 from models.user.vinted_job import JobStatus, VintedJob
+from models.user.marketplace_job import MarketplaceJob
 from models.user.product import Product
 from services.vinted.vinted_job_service import VintedJobService
+from services.marketplace.batch_job_service import BatchJobService
+from services.marketplace.marketplace_job_service import MarketplaceJobService
 
 router = APIRouter(prefix="/jobs", tags=["Vinted Jobs"])
 
@@ -268,11 +271,18 @@ async def create_batch_jobs(
     """
     Create multiple jobs for a batch operation.
 
-    Used when publishing multiple products at once.
-    Returns the batch_id and list of created jobs.
+    **UPDATED (2026-01-07):** Now uses BatchJobService for better tracking.
+    Creates a BatchJob parent with N MarketplaceJobs (1 per product).
+
+    **RECOMMENDED:** Use POST /api/batches instead for new code.
+    This endpoint is kept for backward compatibility.
+
+    Returns:
+        batch_id: UUID-like identifier for the batch
+        jobs_created: Number of jobs created
+        jobs: List of created job summaries
     """
     db, current_user = user_db
-    service = VintedJobService(db)
 
     if not request.product_ids:
         raise HTTPException(
@@ -281,24 +291,73 @@ async def create_batch_jobs(
         )
 
     try:
-        batch_id, jobs = service.create_batch_jobs(
+        # Use BatchJobService (creates BatchJob + MarketplaceJobs)
+        batch_service = BatchJobService(db)
+        batch = batch_service.create_batch_job(
+            marketplace="vinted",
             action_code=request.action_code,
             product_ids=request.product_ids,
             priority=request.priority,
+            created_by_user_id=current_user.id,
         )
+
+        # Get child jobs for response
+        jobs = (
+            db.query(MarketplaceJob)
+            .filter(MarketplaceJob.batch_job_id == batch.id)
+            .all()
+        )
+
+        # Build response compatible with old format
+        marketplace_service = MarketplaceJobService(db)
+        job_responses = []
+        for job in jobs:
+            action_type = marketplace_service.get_action_type_by_id(job.action_type_id)
+
+            # Get product title if job has a product_id
+            product_title = None
+            if job.product_id:
+                product = db.query(Product).filter(Product.id == job.product_id).first()
+                if product:
+                    product_title = product.title
+
+            job_responses.append(
+                JobResponse(
+                    id=job.id,
+                    batch_id=batch.batch_id,  # Use BatchJob.batch_id for compatibility
+                    action_type_id=job.action_type_id,
+                    action_code=action_type.code if action_type else None,
+                    action_name=action_type.name if action_type else None,
+                    product_id=job.product_id,
+                    product_title=product_title,
+                    status=job.status.value,
+                    priority=job.priority,
+                    error_message=job.error_message,
+                    retry_count=job.retry_count,
+                    started_at=job.started_at,
+                    completed_at=job.completed_at,
+                    expires_at=job.expires_at,
+                    created_at=job.created_at,
+                    progress=None,  # No progress yet for new jobs
+                )
+            )
+
+        return BatchCreateResponse(
+            batch_id=batch.batch_id,  # Return BatchJob.batch_id (UUID-like string)
+            jobs_created=len(jobs),
+            jobs=job_responses,
+        )
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-
-    job_responses = [build_job_response(job, service, db, include_progress=False) for job in jobs]
-
-    return BatchCreateResponse(
-        batch_id=batch_id,
-        jobs_created=len(jobs),
-        jobs=job_responses,
-    )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create batch: {str(e)}",
+        )
 
 
 @router.post("/cancel")
@@ -371,3 +430,55 @@ async def cancel_jobs(
         "total_jobs": len(jobs),
         "message": f"Cancelled {cancelled_count}/{len(jobs)} jobs in batch",
     }
+
+
+@router.post("/process")
+async def process_pending_jobs(
+    user_db: tuple = Depends(get_user_db),
+    limit: int = Query(10, ge=1, le=50, description="Max jobs à traiter"),
+) -> dict:
+    """
+    Traite les jobs pending (worker endpoint).
+
+    Peut être appelé par :
+    - Frontend (polling automatique)
+    - Cron job
+    - Trigger manuel
+
+    Args:
+        limit: Nombre maximum de jobs à traiter dans cette exécution
+
+    Returns:
+        {
+            "processed": int,
+            "success_count": int,
+            "failed_count": int,
+            "results": list[dict]
+        }
+    """
+    db, current_user = user_db
+
+    try:
+        from services.vinted.vinted_job_processor import VintedJobProcessor
+
+        processor = VintedJobProcessor(db, shop_id=None)
+        results = await processor.process_all_pending_jobs(
+            max_jobs=limit,
+            stop_on_error=False
+        )
+
+        success_count = sum(1 for r in results if r.get("success", False))
+        failed_count = len(results) - success_count
+
+        return {
+            "processed": len(results),
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "results": results
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur traitement jobs: {str(e)}"
+        )

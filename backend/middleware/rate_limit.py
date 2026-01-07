@@ -141,8 +141,8 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
     Returns:
         429 Too Many Requests si limite dépassée
     """
-    # BYPASS en mode TESTING (2025-12-09)
-    if os.getenv("TESTING") == "1":
+    # BYPASS en mode TESTING (2026-01-07: Changed to DISABLE_RATE_LIMIT to avoid conflict with PostgreSQL search_path)
+    if os.getenv("DISABLE_RATE_LIMIT") == "1":
         return await call_next(request)
 
     # Configuration par endpoint (Security 2025-12-23: Extended rate limiting)
