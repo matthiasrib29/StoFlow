@@ -1,0 +1,118 @@
+:root {
+  /* Spacing tokens */
+  --form-spacing-section: 32px;        /* space-y-8 */
+  --form-spacing-group: 20px;          /* space-y-5 */
+  --form-spacing-field: 16px;          /* space-y-4 */
+  --form-spacing-label: 8px;           /* mb-2 */
+
+  /* Typography tokens */
+  --form-label-size: 0.875rem;         /* text-sm (14px) */
+  --form-label-weight: 600;            /* font-semibold */
+  --form-helper-size: 0.75rem;         /* text-xs (12px) */
+  --form-required-size: 1rem;          /* text-base (16px) */
+  --form-checkmark-size: 0.875rem;     /* text-sm (14px) */
+
+  /* Color tokens */
+  --form-label-color: #1a1a1a;         /* text-secondary-900 */
+  --form-error-color: #dc2626;         /* text-error-600 */
+  --form-valid-color: #16a34a;         /* text-success-600 */
+
+  /* Ring tokens (focus/validation) */
+  --form-focus-ring: 0 0 0 3px rgba(250, 204, 21, 0.1);
+  --form-error-ring: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  --form-valid-ring: 0 0 0 2px rgba(34, 197, 94, 0.2);
+
+  /* Border tokens */
+  --form-border-default: 1.5px solid #e4e4e4;
+  --form-border-focus: 1.5px solid #facc15;
+  --form-border-error: 1.5px solid #ef4444;
+  --form-border-valid: 1.5px solid #22c55e;
+
+  /* Radius tokens */
+  --form-radius-field: 12px;
+  --form-radius-section: 16px;
+}
+
+/* Utility classes */
+.form-section-spacing { @apply space-y-8; }
+.form-subsection-spacing { @apply space-y-5; }
+.form-field-spacing { @apply space-y-4; }
+.form-grid-spacing { @apply gap-x-6 gap-y-5; }
+
+.form-label {
+  font-size: var(--form-label-size);
+  font-weight: var(--form-label-weight);
+  color: var(--form-label-color);
+  margin-bottom: var(--form-spacing-label);
+}
+
+.form-section-title {
+  @apply text-sm font-bold text-secondary-900 mb-3 pb-2 border-b-2 border-gray-200
+         flex items-center gap-2 uppercase tracking-wide;
+}
+
+.form-section-title i {
+  @apply text-base text-primary-500;
+}
+
+/* Validation states */
+.form-field-valid {
+  border: var(--form-border-valid);
+  box-shadow: var(--form-valid-ring);
+}
+
+.form-field-error {
+  border: var(--form-border-error);
+  box-shadow: var(--form-error-ring);
+}
+
+/* AI Fill Section styles */
+.ai-fill-section {
+  @apply bg-primary-100 border-2 border-primary-400 rounded-lg p-4 shadow-sm
+         transition-all duration-200 hover:shadow-md;
+}
+
+.ai-fill-icon-container {
+  @apply bg-primary-400 rounded-lg p-2.5 shadow-md;
+}
+
+.ai-fill-icon-container i {
+  @apply text-secondary-900 text-xl;
+}
+
+/* Flash animation for AI-filled fields */
+@keyframes field-flash {
+  0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7); }
+  50% { box-shadow: 0 0 0 6px rgba(250, 204, 21, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+}
+
+.field-flash {
+  animation: field-flash 2s ease-out;
+  border-color: #facc15 !important;
+}
+
+.p-inputtext.field-flash,
+.p-dropdown.field-flash,
+.p-select.field-flash {
+  border-color: #facc15 !important;
+  animation: field-flash 2s ease-out;
+}
+
+/* Collapsible Section styles */
+.collapsible-section {
+  @apply border-2 border-gray-200 rounded-lg p-4 space-y-4
+         transition-all duration-200 hover:border-gray-300;
+}
+
+.collapsible-section[data-open="true"] {
+  @apply border-primary-400 bg-primary-50/20;
+}
+
+.collapsible-section-badge {
+  @apply bg-primary-500 text-white text-xs font-bold px-2 py-1 rounded-full;
+}
+
+.collapsible-preview {
+  @apply text-xs text-gray-600 mt-1 flex flex-wrap gap-2;
+}

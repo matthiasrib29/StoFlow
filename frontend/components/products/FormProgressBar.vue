@@ -1,18 +1,43 @@
 <template>
-  <div class="flex items-center gap-3">
-    <div class="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden">
-      <div
-        class="h-full transition-all duration-500 ease-out rounded-full"
-        :class="progressColorClass"
-        :style="{ width: `${progress}%` }"
-      />
+  <div class="mb-6">
+    <!-- Progress bar minimaliste -->
+    <div class="flex items-center gap-3">
+      <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          class="h-full transition-all duration-500 ease-out"
+          :class="progressColorClass"
+          :style="{ width: `${progress}%` }"
+        />
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs font-medium text-gray-500">{{ progress }}%</span>
+        <i
+          v-if="progress === 100"
+          class="pi pi-check-circle text-success-500 text-xs"
+        />
+      </div>
     </div>
-    <div class="flex items-center gap-2 min-w-[80px]">
-      <span class="text-sm font-semibold" :class="progressTextClass">{{ progress }}%</span>
-      <i
-        v-if="progress === 100"
-        class="pi pi-check-circle text-green-500 text-sm"
-      />
+
+    <!-- Section Navigation compacte -->
+    <div v-if="sections && sections.length > 0" class="flex items-center gap-1.5 mt-3">
+      <button
+        v-for="section in sections"
+        :key="section.id"
+        type="button"
+        class="section-nav-compact"
+        :class="{
+          'active': activeSection === section.id,
+          'complete': section.isComplete
+        }"
+        :title="`${section.label} (${section.filled}/${section.total})`"
+        @click="$emit('navigate', section.id)"
+      >
+        <span class="text-xs">{{ section.label }}</span>
+        <i
+          v-if="section.isComplete"
+          class="pi pi-check text-[10px] text-success-600"
+        />
+      </button>
     </div>
   </div>
 </template>
@@ -20,43 +45,86 @@
 <script setup lang="ts">
 import type { ProductFormData } from '~/types/product'
 
+interface SectionStatus {
+  id: string
+  label: string
+  filled: number
+  total: number
+  isComplete: boolean
+}
+
 interface Props {
   formData: ProductFormData
   hasPhotos?: boolean
+  sections?: SectionStatus[]
+  activeSection?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  hasPhotos: false
+  hasPhotos: false,
+  sections: undefined,
+  activeSection: undefined
 })
 
-// Required fields
-const requiredFields = ['title', 'description', 'category', 'brand', 'condition', 'size_original', 'color', 'gender', 'material'] as const
+defineEmits<{
+  navigate: [sectionId: string]
+}>()
 
-// Calculate progress
+const requiredFields = [
+  'title', 'description', 'category', 'brand', 'condition',
+  'size_original', 'color', 'gender', 'material'
+] as const
+
 const progress = computed(() => {
   const filledCount = requiredFields.filter(field => {
     const value = props.formData[field]
     return value !== null && value !== undefined && value !== ''
   }).length
 
-  // 90% for fields, 10% for photos
   const fieldsProgress = (filledCount / requiredFields.length) * 90
   const photosProgress = props.hasPhotos ? 10 : 0
 
   return Math.round(fieldsProgress + photosProgress)
 })
 
-// Progress bar color based on percentage
 const progressColorClass = computed(() => {
-  if (progress.value < 34) return 'bg-red-400'
-  if (progress.value < 67) return 'bg-orange-400'
-  return 'bg-green-500'
+  if (progress.value < 34) return 'bg-error-400'
+  if (progress.value < 67) return 'bg-warning-400'
+  return 'bg-success-500'
 })
 
-// Text color based on percentage
 const progressTextClass = computed(() => {
-  if (progress.value < 34) return 'text-red-500'
-  if (progress.value < 67) return 'text-orange-500'
-  return 'text-green-600'
+  if (progress.value < 34) return 'text-error-500'
+  if (progress.value < 67) return 'text-warning-500'
+  return 'text-success-600'
 })
 </script>
+
+<style scoped>
+.section-nav-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  transition: all 0.15s ease;
+  font-size: 0.75rem;
+}
+
+.section-nav-compact:hover {
+  background: #f9fafb;
+  color: #374151;
+}
+
+.section-nav-compact.active {
+  background: #fef9c3;
+  color: #854d0e;
+  font-weight: 500;
+}
+
+.section-nav-compact.complete {
+  color: #16a34a;
+}
+</style>

@@ -1,14 +1,39 @@
 <template>
-  <form class="space-y-6" @submit.prevent="handleSubmit">
+  <form class="form-section-spacing" @submit.prevent="handleSubmit">
+    <!-- ===== INDICATEUR AUTO-SAVE ===== -->
+    <div v-if="productId && autoSave" class="flex items-center gap-2 text-xs mb-2">
+      <i
+        v-if="autoSave.isSaving.value"
+        class="pi pi-spin pi-spinner text-primary-500"
+      />
+      <i
+        v-else-if="autoSave.saveError.value"
+        class="pi pi-exclamation-triangle text-error-500"
+      />
+      <i
+        v-else-if="autoSave.lastSaved.value"
+        class="pi pi-check-circle text-success-500"
+      />
+      <span
+        :class="{
+          'text-primary-600': autoSave.isSaving.value,
+          'text-error-600': autoSave.saveError.value,
+          'text-success-600': autoSave.lastSaved.value
+        }"
+      >
+        {{ autoSave.statusText.value }}
+      </span>
+    </div>
+
     <!-- ===== BOUTON REMPLIR AVEC IA ===== -->
     <div
       v-if="productId && hasImages"
-      class="bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-lg p-4"
+      class="ai-fill-section"
     >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="bg-primary-100 rounded-full p-2">
-            <i class="pi pi-sparkles text-primary-600 text-lg" />
+          <div class="ai-fill-icon-container">
+            <i class="pi pi-sparkles" />
           </div>
           <div>
             <h4 class="text-sm font-semibold text-primary-900">Remplissage automatique</h4>
@@ -28,100 +53,100 @@
     </div>
 
     <!-- ===== SECTION 1: INFORMATIONS PRODUIT ===== -->
-    <ProductsFormsProductFormInfo
-      :title="modelValue.title"
-      :description="modelValue.description"
-      :price="modelValue.price"
-      :stock-quantity="modelValue.stock_quantity"
-      :product-id="productId"
-      :is-generating-description="isGeneratingDescription"
-      :validation="validation"
-      @update:title="updateField('title', $event)"
-      @update:description="updateField('description', $event)"
-      @update:price="updateField('price', $event)"
-      @update:stock-quantity="updateField('stock_quantity', $event)"
-      @generate-description="generateDescription"
-    />
+    <div id="section-info">
+      <ProductsFormsProductFormInfo
+        :title="modelValue.title"
+        :description="modelValue.description"
+        :price="modelValue.price"
+        :product-id="productId"
+        :is-generating-description="isGeneratingDescription"
+        :validation="validation"
+        @update:title="updateField('title', $event)"
+        @update:description="updateField('description', $event)"
+        @update:price="updateField('price', $event)"
+        @generate-description="generateDescription"
+      />
+    </div>
 
     <!-- ===== SECTION 2: CARACTÉRISTIQUES ===== -->
-    <ProductsFormsProductFormCharacteristics
-      :category="modelValue.category"
-      :brand="modelValue.brand"
-      :condition="modelValue.condition"
-      :size-original="modelValue.size_original"
-      :size-normalized="modelValue.size_normalized"
-      :color="modelValue.color"
-      :gender="modelValue.gender"
-      :material="modelValue.material"
-      :fit="modelValue.fit"
-      :season="modelValue.season"
-      :sport="modelValue.sport"
-      :neckline="modelValue.neckline"
-      :length="modelValue.length"
-      :pattern="modelValue.pattern"
-      :rise="modelValue.rise"
-      :closure="modelValue.closure"
-      :sleeve-length="modelValue.sleeve_length"
-      :origin="modelValue.origin"
-      :decade="modelValue.decade"
-      :trend="modelValue.trend"
-      :condition-sup="modelValue.condition_sup"
-      :location="modelValue.location"
-      :model="modelValue.model"
-      :unique-feature="modelValue.unique_feature"
-      :marking="modelValue.marking"
-      :validation="validation"
-      @update:category="updateField('category', $event)"
-      @update:brand="updateField('brand', $event)"
-      @update:condition="updateField('condition', $event)"
-      @update:size-original="updateField('size_original', $event)"
-      @update:size-normalized="updateField('size_normalized', $event)"
-      @update:color="updateField('color', $event)"
-      @update:gender="updateField('gender', $event)"
-      @update:material="updateField('material', $event)"
-      @update:fit="updateField('fit', $event)"
-      @update:season="updateField('season', $event)"
-      @update:sport="updateField('sport', $event)"
-      @update:neckline="updateField('neckline', $event)"
-      @update:length="updateField('length', $event)"
-      @update:pattern="updateField('pattern', $event)"
-      @update:rise="updateField('rise', $event)"
-      @update:closure="updateField('closure', $event)"
-      @update:sleeve-length="updateField('sleeve_length', $event)"
-      @update:origin="updateField('origin', $event)"
-      @update:decade="updateField('decade', $event)"
-      @update:trend="updateField('trend', $event)"
-      @update:condition-sup="updateField('condition_sup', $event)"
-      @update:location="updateField('location', $event)"
-      @update:model="updateField('model', $event)"
-      @update:unique-feature="updateField('unique_feature', $event)"
-      @update:marking="updateField('marking', $event)"
-    />
+    <div id="section-characteristics">
+      <ProductsFormsProductFormCharacteristics
+        :category="modelValue.category"
+        :brand="modelValue.brand"
+        :condition="modelValue.condition"
+        :size-original="modelValue.size_original"
+        :size-normalized="modelValue.size_normalized"
+        :color="modelValue.color"
+        :material="modelValue.material"
+        :fit="modelValue.fit"
+        :season="modelValue.season"
+        :sport="modelValue.sport"
+        :neckline="modelValue.neckline"
+        :length="modelValue.length"
+        :pattern="modelValue.pattern"
+        :rise="modelValue.rise"
+        :closure="modelValue.closure"
+        :sleeve-length="modelValue.sleeve_length"
+        :origin="modelValue.origin"
+        :decade="modelValue.decade"
+        :trend="modelValue.trend"
+        :condition-sup="modelValue.condition_sup"
+        :location="modelValue.location"
+        :model="modelValue.model"
+        :unique-feature="modelValue.unique_feature"
+        :marking="modelValue.marking"
+        :validation="validation"
+        @update:category="handleCategoryChange($event)"
+        @update:brand="updateField('brand', $event)"
+        @update:condition="updateField('condition', $event)"
+        @update:size-original="updateField('size_original', $event)"
+        @update:size-normalized="updateField('size_normalized', $event)"
+        @update:color="updateField('color', $event)"
+        @update:material="updateField('material', $event)"
+        @update:fit="updateField('fit', $event)"
+        @update:season="updateField('season', $event)"
+        @update:sport="updateField('sport', $event)"
+        @update:neckline="updateField('neckline', $event)"
+        @update:length="updateField('length', $event)"
+        @update:pattern="updateField('pattern', $event)"
+        @update:rise="updateField('rise', $event)"
+        @update:closure="updateField('closure', $event)"
+        @update:sleeve-length="updateField('sleeve_length', $event)"
+        @update:origin="updateField('origin', $event)"
+        @update:decade="updateField('decade', $event)"
+        @update:trend="updateField('trend', $event)"
+        @update:condition-sup="updateField('condition_sup', $event)"
+        @update:location="updateField('location', $event)"
+        @update:model="updateField('model', $event)"
+        @update:unique-feature="updateField('unique_feature', $event)"
+        @update:marking="updateField('marking', $event)"
+      />
+    </div>
 
     <!-- ===== SECTION 3: MESURES & TARIFICATION ===== -->
-    <ProductsFormsProductFormMeasures
-      :category="modelValue.category"
-      :dim1="modelValue.dim1"
-      :dim2="modelValue.dim2"
-      :dim3="modelValue.dim3"
-      :dim4="modelValue.dim4"
-      :dim5="modelValue.dim5"
-      :dim6="modelValue.dim6"
-      :pricing-rarity="modelValue.pricing_rarity"
-      :pricing-quality="modelValue.pricing_quality"
-      :pricing-style="modelValue.pricing_style"
-      :pricing-details="modelValue.pricing_details"
-      @update:dim1="updateField('dim1', $event)"
-      @update:dim2="updateField('dim2', $event)"
-      @update:dim3="updateField('dim3', $event)"
-      @update:dim4="updateField('dim4', $event)"
-      @update:dim5="updateField('dim5', $event)"
-      @update:dim6="updateField('dim6', $event)"
-      @update:pricing-rarity="updateField('pricing_rarity', $event)"
-      @update:pricing-quality="updateField('pricing_quality', $event)"
-      @update:pricing-style="updateField('pricing_style', $event)"
-      @update:pricing-details="updateField('pricing_details', $event)"
-    />
+    <div id="section-measures">
+      <ProductsFormsProductFormMeasures
+        :category="modelValue.category"
+        :dim1="modelValue.dim1"
+        :dim2="modelValue.dim2"
+        :dim3="modelValue.dim3"
+        :dim4="modelValue.dim4"
+        :dim5="modelValue.dim5"
+        :dim6="modelValue.dim6"
+        :pricing-rarity="modelValue.pricing_rarity"
+        :pricing-quality="modelValue.pricing_quality"
+        :pricing-style="modelValue.pricing_style"
+        @update:dim1="updateField('dim1', $event)"
+        @update:dim2="updateField('dim2', $event)"
+        @update:dim3="updateField('dim3', $event)"
+        @update:dim4="updateField('dim4', $event)"
+        @update:dim5="updateField('dim5', $event)"
+        @update:dim6="updateField('dim6', $event)"
+        @update:pricing-rarity="updateField('pricing_rarity', $event)"
+        @update:pricing-quality="updateField('pricing_quality', $event)"
+        @update:pricing-style="updateField('pricing_style', $event)"
+      />
+    </div>
 
   </form>
 </template>
@@ -156,9 +181,34 @@ const validation = useProductFormValidation()
 const { showWarn, showError, showSuccess } = useAppToast()
 const { post } = useApi()
 
+// Load product attributes to extract gender from category
+const { options: attributeOptions } = useProductAttributes()
+
+// Auto-save (uniquement en mode édition)
+const autoSave = props.productId ? useAutoSave({
+  productId: props.productId,
+  debounceMs: 2000
+}) : null
+
 // États
 const isGeneratingDescription = ref(false)
 const isAnalyzingImages = ref(false)
+
+// Flash animation pour champs remplis par IA
+const aiModifiedFields = ref<Set<string>>(new Set())
+
+const flashField = (fieldName: string) => {
+  aiModifiedFields.value.add(fieldName)
+  setTimeout(() => {
+    aiModifiedFields.value.delete(fieldName)
+  }, 2000)
+}
+
+const isFieldFlashing = (fieldName: string) => {
+  return aiModifiedFields.value.has(fieldName)
+}
+
+provide('isFieldFlashing', isFieldFlashing)
 
 // Local form state to avoid race conditions when multiple fields update simultaneously
 const localForm = ref<ProductFormData>({ ...props.modelValue })
@@ -168,6 +218,13 @@ watch(() => props.modelValue, (newVal) => {
   // Only update if the prop is different (to avoid loops)
   if (JSON.stringify(newVal) !== JSON.stringify(localForm.value)) {
     localForm.value = { ...newVal }
+  }
+}, { deep: true })
+
+// Trigger auto-save when form changes (only in edit mode)
+watch(() => props.modelValue, (newValue) => {
+  if (autoSave && props.productId) {
+    autoSave.triggerSave(newValue)
   }
 }, { deep: true })
 
@@ -185,6 +242,22 @@ const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFo
   // Valider le champ si déjà touché
   if (validation.touched.value.has(field as string)) {
     validation.validateAndSetError(field as string, value)
+  }
+}
+
+// Handle category change and auto-extract gender from category
+const handleCategoryChange = (categoryValue: string) => {
+  // Update category field
+  updateField('category', categoryValue)
+
+  // Auto-extract gender from category
+  if (categoryValue && attributeOptions.categories.length > 0) {
+    const selectedCategory = attributeOptions.categories.find(c => c.value === categoryValue)
+    if (selectedCategory && selectedCategory.genders && selectedCategory.genders.length > 0) {
+      // Get first gender from the category's genders array
+      const genderValue = selectedCategory.genders[0]
+      updateField('gender', genderValue)
+    }
   }
 }
 
@@ -299,6 +372,7 @@ const analyzeAndFillForm = async () => {
         const value = attrs[apiField]
         if (value !== null && value !== undefined) {
           updateField(formField, value as any)
+          flashField(formField)
           fieldsUpdated++
         }
       }
@@ -307,6 +381,7 @@ const analyzeAndFillForm = async () => {
       const sizeValue = (attrs as any).size || (attrs as any).label_size || (attrs as any).size_original
       if (sizeValue) {
         updateField('size_original', sizeValue)
+        flashField('size_original')
         fieldsUpdated++
       }
 

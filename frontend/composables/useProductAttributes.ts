@@ -7,7 +7,7 @@
  * - Vintage: origins, decades, trends
  */
 
-import type { AttributeOption } from '~/composables/useAttributes'
+import type { AttributeOption, CategoryOption } from '~/composables/useAttributes'
 import { useLocaleStore } from '~/stores/locale'
 
 export interface ProductAttributesState {
@@ -28,8 +28,8 @@ export interface ProductAttributesState {
   origins: AttributeOption[]
   decades: AttributeOption[]
   trends: AttributeOption[]
-  // Raw data for autocomplete
-  categories: AttributeOption[]
+  // Raw data for autocomplete/wizard
+  categories: CategoryOption[]
   colors: AttributeOption[]
   materials: AttributeOption[]
 }
@@ -78,12 +78,12 @@ export const useProductAttributes = () => {
     materials: []
   })
 
-  // Suggestions for autocomplete
-  const suggestions = reactive({
-    categories: [] as string[],
-    brands: [] as string[],
-    colors: [] as string[],
-    materials: [] as string[]
+  // Filtered options for searchable select
+  const filteredOptions = reactive({
+    categories: [] as CategoryOption[],
+    brands: [] as AttributeOption[],
+    colors: [] as AttributeOption[],
+    materials: [] as AttributeOption[]
   })
 
   /**
@@ -136,53 +136,81 @@ export const useProductAttributes = () => {
     options.colors = colors
     options.materials = materials
 
+    // Initialize filtered options with top 50 items for better UX
+    filteredOptions.categories = options.categories.slice(0, 50)
+    filteredOptions.colors = options.colors.slice(0, 50)
+    filteredOptions.materials = options.materials.slice(0, 50)
+
+    // Load popular brands on initialization
+    try {
+      filteredOptions.brands = await searchBrands('', 20)
+    } catch (error) {
+      console.error('Failed to load popular brands', error)
+      filteredOptions.brands = []
+    }
+
     loading.sizes = false
   }
 
   /**
-   * Search categories locally
+   * Filter categories locally
+   * NOTE: No longer used - CategoryWizard handles category selection
    */
-  const searchCategories = (query: string) => {
-    const q = query.toLowerCase()
-    suggestions.categories = options.categories
-      .filter(c => c.label.toLowerCase().includes(q))
-      .map(c => c.label)
-      .slice(0, 10)
-  }
+  // const filterCategories = (query: string) => {
+  //   if (!query) {
+  //     filteredOptions.categories = options.categories.slice(0, 50)
+  //     return
+  //   }
+  //   const q = query.toLowerCase()
+  //   filteredOptions.categories = options.categories
+  //     .filter(c => c.label.toLowerCase().includes(q))
+  //     .slice(0, 50)
+  // }
 
   /**
-   * Search brands from API
+   * Filter brands from API (debounced in component)
+   * Shows popular brands when query is empty
    */
-  const searchBrandsAsync = async (query: string) => {
+  const filterBrands = async (query: string) => {
     loading.brands = true
     try {
-      const results = await searchBrands(query)
-      suggestions.brands = results.map(b => b.label)
+      // Load brands even with empty query (API will return popular brands)
+      const results = await searchBrands(query || '', 20)
+      filteredOptions.brands = results
+    } catch (error) {
+      console.error('Brand filter failed', error)
+      filteredOptions.brands = []
     } finally {
       loading.brands = false
     }
   }
 
   /**
-   * Search colors locally
+   * Filter colors locally
    */
-  const searchColors = (query: string) => {
+  const filterColors = (query: string) => {
+    if (!query) {
+      filteredOptions.colors = options.colors.slice(0, 50)
+      return
+    }
     const q = query.toLowerCase()
-    suggestions.colors = options.colors
+    filteredOptions.colors = options.colors
       .filter(c => c.label.toLowerCase().includes(q))
-      .map(c => c.label)
-      .slice(0, 10)
+      .slice(0, 50)
   }
 
   /**
-   * Search materials locally
+   * Filter materials locally
    */
-  const searchMaterials = (query: string) => {
+  const filterMaterials = (query: string) => {
+    if (!query) {
+      filteredOptions.materials = options.materials.slice(0, 50)
+      return
+    }
     const q = query.toLowerCase()
-    suggestions.materials = options.materials
+    filteredOptions.materials = options.materials
       .filter(m => m.label.toLowerCase().includes(q))
-      .map(m => m.label)
-      .slice(0, 10)
+      .slice(0, 50)
   }
 
   // Watch locale changes and reload
@@ -193,11 +221,11 @@ export const useProductAttributes = () => {
   return {
     options,
     loading,
-    suggestions,
+    filteredOptions,
     loadAllAttributes,
-    searchCategories,
-    searchBrandsAsync,
-    searchColors,
-    searchMaterials
+    // filterCategories, // No longer used - CategoryWizard handles this
+    filterBrands,
+    filterColors,
+    filterMaterials
   }
 }
