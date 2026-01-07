@@ -172,6 +172,14 @@ class VintedMapper(BaseMarketplaceMapper):
             created_at=vinted_item.get("created_at_ts"),
         )
 
+        # ===== EXTRACT M2M COLORS (Added 2026-01-07) =====
+        # Vinted provides color and color2 (max 2 colors)
+        colors = []
+        if vinted_item.get("color"):
+            colors.append(vinted_item.get("color"))
+        if vinted_item.get("color2"):
+            colors.append(vinted_item.get("color2"))
+
         return {
             # Basic info
             "title": vinted_item.get("title", ""),
@@ -183,7 +191,10 @@ class VintedMapper(BaseMarketplaceMapper):
             "category": category,
             "condition": condition,
             "size_original": vinted_item.get("size_title"),
-            "color": vinted_item.get("color"),
+            # DEPRECATED: Old single color field (for backward compatibility)
+            "color": colors[0] if colors else None,
+            # NEW M2M: List of colors extracted from color + color2
+            "colors": colors if colors else None,
 
             # Images
             "images": images,
@@ -447,6 +458,15 @@ class VintedMapper(BaseMarketplaceMapper):
         else:
             status_id = self.REVERSE_CONDITION_MAP.get(condition, 3)
 
+        # ===== HANDLE M2M COLORS (Added 2026-01-07) =====
+        # Vinted supports color + color2 (max 2 colors)
+        # Prefer new colors[] list over deprecated color field
+        colors = stoflow_product.get("colors", [])
+        if not colors:
+            # Fallback to deprecated color field
+            color_value = stoflow_product.get("color")
+            colors = [color_value] if color_value else []
+
         result = {
             "title": stoflow_product.get("title", ""),
             "description": stoflow_product.get("description", ""),
@@ -456,7 +476,9 @@ class VintedMapper(BaseMarketplaceMapper):
             "status_id": status_id,
             "brand_title": stoflow_product.get("brand"),
             "size_title": stoflow_product.get("size_original"),
-            "color": stoflow_product.get("color"),
+            # Map colors: first → color, second → color2 (Vinted supports max 2)
+            "color": colors[0] if len(colors) > 0 else None,
+            "color2": colors[1] if len(colors) > 1 else None,
             "is_for_sell": True,
             "is_visible": 1,
         }
