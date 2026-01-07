@@ -1,7 +1,7 @@
 <template>
   <PlatformStatisticsPage
     platform="ebay"
-    :is-connected="ebayStore.isConnected"
+    :is-connected="ebayStore.isConnected ?? false"
     :loading="false"
     :is-empty="true"
     empty-message="Vos statistiques eBay apparaîtront ici"
