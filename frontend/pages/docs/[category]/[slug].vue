@@ -102,7 +102,7 @@
             <!-- Article Body (Markdown rendered) -->
             <div
               class="prose prose-lg max-w-none prose-headings:text-secondary-900 prose-a:text-primary-600 prose-code:bg-gray-100 prose-code:px-1 prose-code:rounded"
-              v-html="renderedContent"
+              v-html="sanitizedContent"
             />
 
             <!-- Article Footer -->
@@ -153,6 +153,8 @@ const {
   fetchArticle
 } = useDocs()
 
+const { sanitizeHtml } = useSanitizeHtml()
+
 // Sidebar loading state
 const sidebarLoading = ref(true)
 
@@ -172,12 +174,15 @@ watch([categorySlug, articleSlug], async ([newCategory, newArticle]) => {
   await fetchArticle(newCategory, newArticle)
 })
 
-// Render Markdown content
+// Render Markdown content and sanitize it
 const renderedContent = computed(() => {
   if (!article.value?.content) return ''
   return marked(article.value.content)
 })
 
+const sanitizedContent = computed(() => {
+  return sanitizeHtml(renderedContent.value)
+})
 
 // SEO
 useSeoMeta({

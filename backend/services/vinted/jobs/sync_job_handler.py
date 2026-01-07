@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import MarketplaceJob
 from .base_job_handler import BaseJobHandler
+from shared.timing import timed_operation, measure_operation
 
 
 class SyncJobHandler(BaseJobHandler):

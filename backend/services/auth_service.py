@@ -14,8 +14,9 @@ Business Rules (Updated: 2026-01-05):
 - Blocage après 5 tentatives de login échouées
 """
 
+import hashlib
 import secrets
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from typing import Optional
 
 import bcrypt
@@ -23,6 +24,7 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from models.public.user import User
+from models.public.revoked_token import RevokedToken
 from repositories.user_repository import UserRepository
 from shared.config import settings
 from shared.datetime_utils import utc_now
@@ -69,18 +71,26 @@ class AuthService:
     @staticmethod
     def create_access_token(user_id: int, role: str) -> str:
         """
-        Crée un access token JWT.
+        Crée un access token JWT (RS256 asymétrique).
 
         La durée de validité est configurée via JWT_ACCESS_TOKEN_EXPIRE_MINUTES
-        (défaut: 1440 minutes = 24 heures).
+        (défaut: 15 minutes).
+
+        Utilise RS256 (asymétrique) pour une meilleure sécurité:
+        - Clé privée (secret) signe les tokens
+        - Clé publique vérifie les tokens
+        - Les attaquants ne peuvent pas créer des tokens sans accès à la clé privée
 
         Args:
             user_id: ID de l'utilisateur
             role: Rôle de l'utilisateur (admin ou user)
 
         Returns:
-            Access token JWT
+            Access token JWT (RS256)
         """
+        if not settings.jwt_private_key_pem:
+            raise ValueError("JWT_PRIVATE_KEY_PEM not configured")
+
         expire = utc_now() + timedelta(minutes=settings.jwt_access_token_expire_minutes)
         payload = {
             "user_id": user_id,
@@ -89,22 +99,27 @@ class AuthService:
             "exp": expire,
             "iat": utc_now(),
         }
-        return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+        return jwt.encode(payload, settings.jwt_private_key_pem, algorithm="RS256")
 
     @staticmethod
     def create_refresh_token(user_id: int) -> str:
         """
-        Crée un refresh token JWT.
+        Crée un refresh token JWT (RS256 asymétrique).
 
         La durée de validité est configurée via JWT_REFRESH_TOKEN_EXPIRE_DAYS
         (défaut: 7 jours).
+
+        Utilise RS256 (asymétrique) comme access token.
 
         Args:
             user_id: ID de l'utilisateur
 
         Returns:
-            Refresh token JWT
+            Refresh token JWT (RS256)
         """
+        if not settings.jwt_private_key_pem:
+            raise ValueError("JWT_PRIVATE_KEY_PEM not configured")
+
         expire = utc_now() + timedelta(days=settings.jwt_refresh_token_expire_days)
         payload = {
             "user_id": user_id,
@@ -112,17 +127,21 @@ class AuthService:
             "exp": expire,
             "iat": utc_now(),
         }
-        return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+        return jwt.encode(payload, settings.jwt_private_key_pem, algorithm="RS256")
 
     @staticmethod
     def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
         """
         Vérifie et décode un token JWT.
 
-        Supporte la rotation de secrets JWT:
-        - Essaie d'abord avec le secret actuel (jwt_secret_key)
-        - Si échec et qu'un ancien secret est configuré (jwt_secret_key_previous),
-          essaie avec l'ancien secret (période de grâce)
+        Stratégie de migration HS256 → RS256:
+        1. Essaie d'abord RS256 (nouveau, asymétrique) avec clé publique
+        2. Si échoue, essaie HS256 (ancien, symétrique) pour fallback 30 jours
+        3. Log les tokens HS256 pour monitoring de la migration
+
+        Supporte aussi la rotation de secrets JWT:
+        - Essaie secret actuel en premier
+        - Si échec et ancien secret configuré, essaie avec ancien (période de grâce)
 
         Args:
             token: Token JWT à vérifier
@@ -131,26 +150,42 @@ class AuthService:
         Returns:
             Payload du token si valide, None sinon
         """
-        # Liste des secrets à essayer (actuel en premier, puis ancien si configuré)
-        secrets_to_try = [settings.jwt_secret_key]
-        if settings.jwt_secret_key_previous:
-            secrets_to_try.append(settings.jwt_secret_key_previous)
-
         last_error = None
-        for i, secret in enumerate(secrets_to_try):
+
+        # ÉTAPE 1: Essayer RS256 (nouveau, asymétrique) avec clé publique
+        if settings.jwt_public_key_pem:
             try:
-                payload = jwt.decode(token, secret, algorithms=[settings.jwt_algorithm])
+                payload = jwt.decode(token, settings.jwt_public_key_pem, algorithms=["RS256"])
 
                 # Vérifier que le type de token correspond
                 if payload.get("type") != token_type:
                     return None
 
-                # Log si token validé avec ancien secret (utile pour monitoring)
-                if i > 0:
-                    logger.debug(
-                        f"Token validé avec ancien secret (rotation en cours). "
-                        f"user_id={payload.get('user_id')}, type={token_type}"
-                    )
+                return payload
+            except JWTError as e:
+                last_error = e
+                # Continuer vers fallback HS256
+
+        # ÉTAPE 2: Fallback HS256 (ancien, symétrique) pour migration en douceur
+        # Essayer avec les anciens secrets (actuel en premier, puis précédent)
+        hs256_secrets_to_try = [settings.jwt_secret_key]
+        if settings.jwt_secret_key_previous:
+            hs256_secrets_to_try.append(settings.jwt_secret_key_previous)
+
+        for i, secret in enumerate(hs256_secrets_to_try):
+            try:
+                payload = jwt.decode(token, secret, algorithms=["HS256"])
+
+                # Vérifier que le type de token correspond
+                if payload.get("type") != token_type:
+                    return None
+
+                # ⚠️ IMPORTANT: Log le fallback HS256 pour monitoring de la migration
+                logger.warning(
+                    f"JWT HS256 fallback used (migration in progress). "
+                    f"user_id={payload.get('user_id')}, token_type={token_type}, "
+                    f"secret_index={i}. Please upgrade to RS256."
+                )
 
                 return payload
             except JWTError as e:
@@ -285,6 +320,9 @@ class AuthService:
         """
         Génère un nouveau access token à partir d'un refresh token.
 
+        ⚠️  DEPRECATED: Utiliser create_tokens() pour les nouvelles sessions.
+        Cette méthode existe pour backward-compatibility.
+
         Args:
             db: Session SQLAlchemy
             refresh_token: Refresh token JWT
@@ -308,6 +346,169 @@ class AuthService:
             return None
 
         # Générer un nouveau access token
+        access_token = AuthService.create_access_token(
+            user_id=user.id,
+            role=user.role.value,
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+        }
+
+    @staticmethod
+    def create_tokens(user: User) -> dict:
+        """
+        Crée une paire access + refresh tokens (stratégie dual token).
+
+        Access token: 15 minutes (court, pour sécurité)
+        Refresh token: 7 jours (long, pour UX)
+
+        Args:
+            user: Utilisateur pour lequel créer les tokens
+
+        Returns:
+            Dict: {
+                "access_token": "...",
+                "refresh_token": "...",
+                "token_type": "bearer",
+                "expires_in": 900  # 15 * 60 secondes
+            }
+        """
+        if not settings.jwt_private_key_pem:
+            raise ValueError("JWT_PRIVATE_KEY_PEM not configured")
+
+        access_token = AuthService.create_access_token(
+            user_id=user.id,
+            role=user.role.value,
+        )
+
+        refresh_token = AuthService.create_refresh_token(user_id=user.id)
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": 15 * 60,  # 15 minutes en secondes
+        }
+
+    @staticmethod
+    def _hash_refresh_token(token: str) -> str:
+        """Hash un refresh token pour stockage sûr."""
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    @staticmethod
+    def is_token_revoked(db: Session, token: str) -> bool:
+        """
+        Vérifie si un token a été révoqué (logout).
+
+        Args:
+            db: Session SQLAlchemy
+            token: Token JWT
+
+        Returns:
+            True si token révoqué, False sinon
+        """
+        token_hash = AuthService._hash_refresh_token(token)
+
+        revoked = db.query(RevokedToken).filter(
+            RevokedToken.token_hash == token_hash
+        ).first()
+
+        return revoked is not None
+
+    @staticmethod
+    def revoke_token(db: Session, token: str) -> bool:
+        """
+        Révoque un token (logout).
+
+        Extrait l'expiration du token et la stocke pour cleanup automatique.
+
+        Args:
+            db: Session SQLAlchemy
+            token: Token JWT à révoquer
+
+        Returns:
+            True si révocation réussie, False sinon
+        """
+        try:
+            # Vérifier et décoder le token
+            payload = AuthService.verify_token(token)
+            if not payload:
+                logger.warning("Cannot revoke token: invalid token")
+                return False
+
+            # Récupérer l'expiration du token
+            exp_timestamp = payload.get("exp")
+            if not exp_timestamp:
+                logger.warning("Cannot revoke token: no exp in payload")
+                return False
+
+            # Convertir en datetime
+            expires_at = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
+
+            # Créer l'enregistrement revoked token
+            token_hash = AuthService._hash_refresh_token(token)
+
+            revoked = RevokedToken(
+                token_hash=token_hash,
+                expires_at=expires_at,
+            )
+
+            db.add(revoked)
+            db.commit()
+
+            logger.info(
+                f"Token revoked (logout): user_id={payload.get('user_id')}, "
+                f"expires_at={expires_at}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Error revoking token: {e}")
+            db.rollback()
+            return False
+
+    @staticmethod
+    def refresh_from_refresh_token(db: Session, refresh_token: str) -> Optional[dict]:
+        """
+        Génère un nouveau access token à partir d'un refresh token.
+
+        Nouvelle implémentation pour stratégie dual token.
+
+        Args:
+            db: Session SQLAlchemy
+            refresh_token: Refresh token JWT
+
+        Returns:
+            Dict avec nouveau access token si valide, None sinon
+            Format: {"access_token": "...", "token_type": "bearer"}
+        """
+        # Vérifier le token
+        payload = AuthService.verify_token(refresh_token, token_type="refresh")
+        if not payload:
+            return None
+
+        # Vérifier que le token n'est pas révoqué
+        if AuthService.is_token_revoked(db, refresh_token):
+            logger.warning(
+                f"Refresh token rejected: revoked. user_id={payload.get('user_id')}"
+            )
+            return None
+
+        user_id = payload.get("user_id")
+        if not user_id:
+            return None
+
+        # Vérifier que l'utilisateur est actif
+        user = UserRepository.get_by_id(db, user_id)
+        if not user or not user.is_active:
+            logger.warning(
+                f"Refresh token rejected: user inactive. user_id={user_id}"
+            )
+            return None
+
+        # Créer un nouveau access token
         access_token = AuthService.create_access_token(
             user_id=user.id,
             role=user.role.value,
