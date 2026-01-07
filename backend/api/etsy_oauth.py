@@ -26,7 +26,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user, get_db
-from models.public.platform_mapping import PlatformMapping
+from models.user.etsy_credentials import EtsyCredentials
 from models.public.user import User
 from shared.config import settings
 from shared.logging_setup import get_logger
@@ -264,51 +264,76 @@ def etsy_oauth_callback(
         access_token_expires_at = now + timedelta(seconds=expires_in)
         refresh_token_expires_at = now + timedelta(days=90)
 
-        # Get shop_id from token (user_id is prefixed to refresh_token)
-        # Format: {shop_id}.{random_string}
-        shop_id = refresh_token.split(".")[0] if "." in refresh_token else None
+        # Extract user_id from token (user_id is prefixed to access_token)
+        # Format: {user_id}.{random_string}
+        user_id_etsy = access_token.split(".")[0] if "." in access_token else None
 
-        # Save or update in DB
-        mapping = (
-            db.query(PlatformMapping)
-            .filter(
-                PlatformMapping.user_id == current_user.id,
-                PlatformMapping.platform == "etsy",
-            )
-            .first()
+        # Get shop info from Etsy getMe endpoint
+        logger.info("Fetching shop info from Etsy getMe endpoint...")
+        me_response = requests.get(
+            "https://api.etsy.com/v3/application/users/me",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-api-key": client_id,
+            },
+            timeout=10,
         )
 
-        if mapping:
+        if me_response.status_code != 200:
+            logger.warning(f"Failed to fetch shop info from getMe: {me_response.text}")
+            shop_id = None
+            shop_name = None
+            email = None
+        else:
+            me_data = me_response.json()
+            shop_id = str(me_data.get("shop_id")) if me_data.get("shop_id") else None
+            shop_name = me_data.get("shop_name")
+            email = me_data.get("primary_email")
+            logger.info(f"Shop info retrieved: shop_id={shop_id}, shop_name={shop_name}")
+
+        # Save or update in DB
+        credentials = db.query(EtsyCredentials).first()
+
+        if credentials:
             # Update existing
-            mapping.access_token = access_token
-            mapping.refresh_token = refresh_token
-            mapping.access_token_expires_at = access_token_expires_at
-            mapping.refresh_token_expires_at = refresh_token_expires_at
-            mapping.shop_id = shop_id
-            mapping.api_key = client_id  # Store client_id for future use
+            credentials.access_token = access_token
+            credentials.refresh_token = refresh_token
+            credentials.access_token_expires_at = access_token_expires_at
+            credentials.refresh_token_expires_at = refresh_token_expires_at
+            credentials.user_id_etsy = user_id_etsy
+            credentials.shop_id = shop_id
+            credentials.shop_name = shop_name
+            credentials.email = email
+            credentials.is_connected = True
+            credentials.last_sync = datetime.now(timezone.utc)
         else:
             # Create new
-            mapping = PlatformMapping(
-                user_id=current_user.id,
-                platform="etsy",
+            credentials = EtsyCredentials(
                 access_token=access_token,
                 refresh_token=refresh_token,
                 access_token_expires_at=access_token_expires_at,
                 refresh_token_expires_at=refresh_token_expires_at,
+                user_id_etsy=user_id_etsy,
                 shop_id=shop_id,
-                api_key=client_id,
+                shop_name=shop_name,
+                email=email,
+                is_connected=True,
+                last_sync=datetime.now(timezone.utc),
             )
-            db.add(mapping)
+            db.add(credentials)
 
         db.commit()
-        db.refresh(mapping)
+        db.refresh(credentials)
 
-        logger.info(f"✅ Etsy account connected for user {current_user.id}, shop_id={shop_id}")
+        logger.info(
+            f"✅ Etsy account connected for user {current_user.id}, "
+            f"shop_id={shop_id}, shop_name={shop_name}"
+        )
 
         return CallbackResponse(
             success=True,
-            shop_id=shop_id,
-            shop_name=mapping.shop_name,
+            shop_id=credentials.shop_id,
+            shop_name=credentials.shop_name,
             access_token_expires_at=access_token_expires_at.isoformat(),
             error=None,
         )
@@ -340,22 +365,15 @@ def disconnect_etsy_account(
     Examples:
         >>> response = await fetch('/api/etsy/oauth/disconnect', {method: 'POST'})
     """
-    mapping = (
-        db.query(PlatformMapping)
-        .filter(
-            PlatformMapping.user_id == current_user.id,
-            PlatformMapping.platform == "etsy",
-        )
-        .first()
-    )
+    credentials = db.query(EtsyCredentials).first()
 
-    if not mapping:
+    if not credentials:
         return DisconnectResponse(
             success=True,
             message="Etsy account was not connected",
         )
 
-    db.delete(mapping)
+    db.delete(credentials)
     db.commit()
 
     logger.info(f"✅ Etsy account disconnected for user {current_user.id}")

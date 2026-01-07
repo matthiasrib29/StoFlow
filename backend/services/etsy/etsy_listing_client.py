@@ -335,40 +335,94 @@ class EtsyListingClient(EtsyBaseClient):
     def upload_listing_image(
         self,
         listing_id: int,
-        image_path: str,
+        image_url: str,
         rank: int = 1,
         overwrite: bool = False,
-        is_watermarked: bool = False,
+        alt_text: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Upload une image pour un listing.
+        Upload une image pour un listing Etsy via multipart/form-data.
 
-        Note: Cette méthode nécessite multipart/form-data.
-        Pour l'instant, utiliser directement requests avec files.
+        Note: Au moins 1 image requise pour publier un listing.
+        Max 10 images par listing (rank 1-10).
 
         Args:
-            listing_id: ID du listing
-            image_path: Chemin vers l'image locale
+            listing_id: ID du listing Etsy
+            image_url: URL de l'image (depuis Cloudflare R2)
             rank: Position de l'image (1-10)
-            overwrite: Remplacer image existante au même rang
-            is_watermarked: Image a un watermark
+            overwrite: Si True, remplace l'image au même rank
+            alt_text: Texte alternatif pour accessibilité
 
         Returns:
-            Image uploadée
+            Image data with listing_image_id, url fields
+
+        Raises:
+            requests.exceptions.HTTPError: Si erreur upload
 
         Examples:
-            >>> # TODO: Implémenter upload avec requests.post et files
-            >>> # image = client.upload_listing_image(
-            >>> #     listing_id=123456789,
-            >>> #     image_path="/path/to/image.jpg",
-            >>> #     rank=1
-            >>> # )
+            >>> image = client.upload_listing_image(
+            ...     listing_id=123456789,
+            ...     image_url="https://r2.example.com/image.jpg",
+            ...     rank=1
+            ... )
+            >>> print(image['listing_image_id'])
+
+        Docs:
+            https://developer.etsy.com/documentation/reference/#operation/uploadListingImage
         """
-        # TODO: Implémenter avec multipart/form-data
-        raise NotImplementedError(
-            "Image upload requires multipart/form-data. "
-            "Use requests directly with files parameter."
-        )
+        import httpx
+
+        # 1. Download image from R2 URL
+        logger.info(f"Downloading image from {image_url}...")
+        try:
+            img_response = httpx.get(image_url, timeout=30.0)
+            img_response.raise_for_status()
+            image_bytes = img_response.content
+            logger.info(f"Image downloaded: {len(image_bytes)} bytes")
+        except Exception as e:
+            logger.error(f"Failed to download image from {image_url}: {e}")
+            raise
+
+        # 2. Upload to Etsy (multipart/form-data)
+        # Note: Ne pas utiliser self.api_call() car multipart nécessite requests direct
+        import requests
+
+        files = {"image": ("image.jpg", image_bytes, "image/jpeg")}
+
+        data = {
+            "rank": rank,
+            "overwrite": str(overwrite).lower(),  # Etsy requires lowercase boolean
+        }
+
+        if alt_text:
+            data["alt_text"] = alt_text
+
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "x-api-key": self.api_key,
+        }
+
+        url = f"{self.BASE_URL}/application/shops/{self.shop_id}/listings/{listing_id}/images"
+
+        logger.info(f"Uploading image to Etsy listing {listing_id} (rank {rank})...")
+
+        try:
+            upload_response = requests.post(
+                url, files=files, data=data, headers=headers, timeout=60.0
+            )
+
+            upload_response.raise_for_status()
+            result = upload_response.json()
+
+            logger.info(
+                f"✅ Image uploaded successfully: image_id={result.get('listing_image_id')}"
+            )
+
+            return result
+
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Etsy image upload failed: {e.response.text}")
+            raise
 
     def get_listing_images(self, listing_id: int) -> List[Dict[str, Any]]:
         """

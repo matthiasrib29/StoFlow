@@ -33,12 +33,14 @@ from typing import List, Dict, Any
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
-from models.public.platform_mapping import PlatformMapping
+from models.public.user import User
+from models.user.etsy_credentials import EtsyCredentials
 from services.etsy.etsy_polling_service import EtsyPollingService
 from shared.config import settings
+from shared.database import set_user_schema
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -62,7 +64,7 @@ LOW_STOCK_THRESHOLD = int(os.getenv("ETSY_POLLING_LOW_STOCK_THRESHOLD", "5"))
 # ========== HELPER FUNCTIONS ==========
 
 
-def get_etsy_connected_users(db: Session) -> List[PlatformMapping]:
+def get_etsy_connected_users(db: Session) -> List[tuple]:
     """
     Récupère tous les utilisateurs connectés à Etsy.
 
@@ -70,22 +72,37 @@ def get_etsy_connected_users(db: Session) -> List[PlatformMapping]:
         db: Session de base de données
 
     Returns:
-        Liste des PlatformMapping pour Etsy avec tokens valides
+        Liste de tuples (user_id, shop_name) pour les users avec Etsy connecté
     """
     now = datetime.now(timezone.utc)
 
-    # Query tous les utilisateurs Etsy avec access token non expiré
-    mappings = (
-        db.query(PlatformMapping)
-        .filter(
-            PlatformMapping.platform == "etsy",
-            PlatformMapping.access_token.isnot(None),
-            PlatformMapping.access_token_expires_at > now,
-        )
-        .all()
-    )
+    # Get all users from public schema
+    users = db.query(User).all()
 
-    return mappings
+    connected_users = []
+
+    for user in users:
+        # Set schema to user's schema
+        set_user_schema(db, user.id)
+
+        # Check if user has Etsy credentials with valid token
+        credentials = (
+            db.query(EtsyCredentials)
+            .filter(
+                EtsyCredentials.access_token.isnot(None),
+                EtsyCredentials.access_token_expires_at > now,
+                EtsyCredentials.is_connected == True,
+            )
+            .first()
+        )
+
+        if credentials:
+            connected_users.append((user.id, credentials.shop_name))
+
+    # Reset to public schema
+    db.execute(text("SET search_path TO public"))
+
+    return connected_users
 
 
 # ========== POLLING TASKS ==========
@@ -106,10 +123,10 @@ def poll_new_orders_for_all_users():
 
         total_new_orders = 0
 
-        for mapping in users:
+        for user_id, shop_name in users:
             try:
                 # Créer service de polling pour cet utilisateur
-                polling_service = EtsyPollingService(db, mapping.user_id)
+                polling_service = EtsyPollingService(db, user_id)
 
                 # Poll new receipts
                 new_orders = polling_service.poll_new_receipts(
@@ -118,7 +135,7 @@ def poll_new_orders_for_all_users():
 
                 if new_orders:
                     logger.info(
-                        f"✅ User {mapping.user_id} (shop: {mapping.shop_name}): "
+                        f"✅ User {user_id} (shop: {shop_name}): "
                         f"{len(new_orders)} new orders"
                     )
                     total_new_orders += len(new_orders)
@@ -130,7 +147,7 @@ def poll_new_orders_for_all_users():
 
             except Exception as e:
                 logger.error(
-                    f"❌ Error polling orders for user {mapping.user_id}: {e}",
+                    f"❌ Error polling orders for user {user_id}: {e}",
                     exc_info=True,
                 )
                 continue
@@ -161,9 +178,9 @@ def poll_updated_listings_for_all_users():
 
         total_updated = 0
 
-        for mapping in users:
+        for user_id, shop_name in users:
             try:
-                polling_service = EtsyPollingService(db, mapping.user_id)
+                polling_service = EtsyPollingService(db, user_id)
 
                 # Poll updated listings
                 updated_listings = polling_service.poll_updated_listings(
@@ -172,7 +189,7 @@ def poll_updated_listings_for_all_users():
 
                 if updated_listings:
                     logger.info(
-                        f"✅ User {mapping.user_id} (shop: {mapping.shop_name}): "
+                        f"✅ User {user_id} (shop: {shop_name}): "
                         f"{len(updated_listings)} updated listings"
                     )
                     total_updated += len(updated_listings)
@@ -184,7 +201,7 @@ def poll_updated_listings_for_all_users():
 
             except Exception as e:
                 logger.error(
-                    f"❌ Error polling listings for user {mapping.user_id}: {e}",
+                    f"❌ Error polling listings for user {user_id}: {e}",
                     exc_info=True,
                 )
                 continue
@@ -215,9 +232,9 @@ def poll_low_stock_for_all_users():
 
         total_low_stock = 0
 
-        for mapping in users:
+        for user_id, shop_name in users:
             try:
-                polling_service = EtsyPollingService(db, mapping.user_id)
+                polling_service = EtsyPollingService(db, user_id)
 
                 # Poll low stock listings
                 low_stock_listings = polling_service.poll_low_stock_listings(
@@ -226,7 +243,7 @@ def poll_low_stock_for_all_users():
 
                 if low_stock_listings:
                     logger.warning(
-                        f"⚠️  User {mapping.user_id} (shop: {mapping.shop_name}): "
+                        f"⚠️  User {user_id} (shop: {shop_name}): "
                         f"{len(low_stock_listings)} low stock listings"
                     )
                     total_low_stock += len(low_stock_listings)
@@ -237,7 +254,7 @@ def poll_low_stock_for_all_users():
 
             except Exception as e:
                 logger.error(
-                    f"❌ Error polling stock for user {mapping.user_id}: {e}",
+                    f"❌ Error polling stock for user {user_id}: {e}",
                     exc_info=True,
                 )
                 continue
