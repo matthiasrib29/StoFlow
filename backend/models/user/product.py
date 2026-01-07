@@ -88,7 +88,6 @@ class Product(Base):
         # Indexes
         Index("idx_product_brand", "brand"),
         Index("idx_product_category", "category"),
-        Index("idx_product_color", "color"),
         Index("idx_product_condition", "condition"),
         Index("idx_product_sport", "sport"),
         Index("idx_product_neckline", "neckline"),
@@ -135,20 +134,8 @@ class Product(Base):
             ondelete="SET NULL",
             name="fk_products_size_original",
         ),
-        ForeignKeyConstraint(
-            ["color"],
-            ["colors.name_en"] if os.getenv('TESTING') else ["product_attributes.colors.name_en"],
-            onupdate="CASCADE",
-            ondelete="SET NULL",
-            name="fk_products_color",
-        ),
-        ForeignKeyConstraint(
-            ["material"],
-            ["materials.name_en"] if os.getenv('TESTING') else ["product_attributes.materials.name_en"],
-            onupdate="CASCADE",
-            ondelete="SET NULL",
-            name="fk_products_material",
-        ),
+        # Removed: fk_products_color (column dropped, replaced by product_colors M2M)
+        # Removed: fk_products_material (column dropped, replaced by product_materials M2M)
         ForeignKeyConstraint(
             ["fit"],
             ["fits.name_en"] if os.getenv('TESTING') else ["product_attributes.fits.name_en"],
@@ -270,12 +257,8 @@ class Product(Base):
     size_original: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Taille originale (FK product_attributes.sizes_original, auto-créée)"
     )
-    color: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, index=True, comment="Couleur (FK public.colors)"
-    )
-    material: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Matière (FK public.materials)"
-    )
+    # Removed: color (column dropped, replaced by product_colors M2M table)
+    # Removed: material (column dropped, replaced by product_materials M2M table)
     fit: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Coupe (FK public.fits)"
     )
@@ -319,9 +302,7 @@ class Product(Base):
     )
 
     # ===== ATTRIBUTS TEXTE LIBRE (SANS FK) =====
-    condition_sup: Mapped[list | None] = mapped_column(
-        JSONB, nullable=True, comment="Détails état supplémentaires (JSONB array ex: ['Tache légère', 'Bouton manquant'])"
-    )
+    # Removed: condition_sup (column dropped, replaced by product_condition_sups M2M table)
     location: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Emplacement physique (texte libre)"
     )
@@ -474,6 +455,55 @@ class Product(Base):
     # season_rel: Mapped["Season | None"] = relationship(
     #     "Season", foreign_keys=[season], viewonly=True
     # )
+
+    # ===== MANY-TO-MANY RELATIONSHIPS (NEW - 2026-01-07) =====
+    product_colors: Mapped[list["ProductColor"]] = relationship(
+        "ProductColor",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="selectinload"
+    )
+    product_materials: Mapped[list["ProductMaterial"]] = relationship(
+        "ProductMaterial",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="selectinload"
+    )
+    product_condition_sups: Mapped[list["ProductConditionSup"]] = relationship(
+        "ProductConditionSup",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="selectinload"
+    )
+
+    # ===== HELPER PROPERTIES FOR BACKWARD COMPATIBILITY =====
+    @property
+    def primary_color(self) -> str | None:
+        """
+        Return primary color or first color for legacy compatibility.
+
+        Business Rule: Primary color is marked with is_primary=TRUE.
+        If no primary, returns first color in list.
+        """
+        if not self.product_colors:
+            return None
+        primary = next((pc.color for pc in self.product_colors if pc.is_primary), None)
+        return primary or self.product_colors[0].color
+
+    @property
+    def color_list(self) -> list[str]:
+        """Return all colors as a list."""
+        return [pc.color for pc in self.product_colors]
+
+    @property
+    def material_list(self) -> list[str]:
+        """Return all materials as a list."""
+        return [pm.material for pm in self.product_materials]
+
+    @property
+    def condition_sup_list(self) -> list[str]:
+        """Return all condition_sups as a list."""
+        return [pcs.condition_sup for pcs in self.product_condition_sups]
 
     def __repr__(self) -> str:
         return f"<Product(id={self.id}, title='{self.title[:30]}...', status={self.status})>"

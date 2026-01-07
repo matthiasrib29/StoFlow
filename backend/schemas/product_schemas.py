@@ -38,6 +38,27 @@ class ProductImageItem(BaseModel):
 # ===== PRODUCT SCHEMAS =====
 
 
+class MaterialDetail(BaseModel):
+    """
+    Schema for material with optional percentage.
+
+    Used when specifying material composition with percentages.
+    Example: [{"material": "Cotton", "percentage": 80}, {"material": "Polyester", "percentage": 20}]
+    """
+
+    material: str = Field(..., max_length=100, description="Material name (FK product_attributes.materials)")
+    percentage: int | None = Field(None, ge=0, le=100, description="Percentage of this material in composition (0-100)")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "material": "Cotton",
+                "percentage": 80
+            }
+        }
+    }
+
+
 class ProductCreate(BaseModel):
     """
     Schema pour créer un produit.
@@ -62,10 +83,18 @@ class ProductCreate(BaseModel):
     brand: str | None = Field(None, max_length=100, description="Marque (FK product_attributes.brands)")
     size_normalized: str | None = Field(None, max_length=100, description="Taille standardisée (FK product_attributes.sizes_normalized)")
     size_original: str | None = Field(None, max_length=100, description="Taille originale (FK product_attributes.sizes_original, auto-créée)")
-    color: str | None = Field(None, max_length=100, description="Couleur (FK product_attributes.colors)")
 
-    # Attributs optionnels avec FK
-    material: str | None = Field(None, max_length=100, description="Matière (FK public.materials)")
+    # DEPRECATED: Use colors (list) instead - Kept for backward compatibility during migration
+    color: str | None = Field(None, max_length=100, description="Couleur (FK product_attributes.colors) - DEPRECATED, use colors")
+    # NEW M2M: Multiple colors support (max 5 colors)
+    colors: list[str] | None = Field(None, max_items=5, description="Liste des couleurs (max 5) - First color = primary")
+
+    # DEPRECATED: Use materials (list) instead - Kept for backward compatibility during migration
+    material: str | None = Field(None, max_length=100, description="Matière (FK public.materials) - DEPRECATED, use materials")
+    # NEW M2M: Multiple materials support (max 3 materials)
+    materials: list[str] | None = Field(None, max_items=3, description="Liste des matériaux (max 3)")
+    # OPTIONAL: Material details with percentages
+    material_details: list[MaterialDetail] | None = Field(None, max_items=3, description="Détails matériaux avec pourcentages optionnels")
     fit: str | None = Field(None, max_length=100, description="Coupe (FK public.fits)")
     gender: str | None = Field(None, max_length=100, description="Genre (FK public.genders)")
     season: str | None = Field(None, max_length=100, description="Saison (FK public.seasons)")
@@ -74,8 +103,11 @@ class ProductCreate(BaseModel):
     length: str | None = Field(None, max_length=100, description="Longueur (FK product_attributes.lengths)")
     pattern: str | None = Field(None, max_length=100, description="Motif (FK product_attributes.patterns)")
 
-    # Attributs supplémentaires (sans FK)
-    condition_sup: list[str] | None = Field(None, description="Détails état supplémentaires (JSONB array ex: ['Tache légère', 'Bouton manquant'])")
+    # Attributs supplémentaires M2M
+    # DEPRECATED: Use condition_sups instead - Kept for backward compatibility
+    condition_sup: list[str] | None = Field(None, description="Détails état supplémentaires - DEPRECATED, use condition_sups")
+    # NEW M2M: Multiple condition supplements (max 10)
+    condition_sups: list[str] | None = Field(None, max_items=10, description="Détails état supplémentaires (ex: ['Tache légère', 'Bouton manquant']) - max 10")
     rise: str | None = Field(None, max_length=100, description="Hauteur de taille (pantalons)")
     closure: str | None = Field(None, max_length=100, description="Type de fermeture")
     sleeve_length: str | None = Field(None, max_length=100, description="Longueur de manches")
@@ -129,7 +161,7 @@ class ProductCreate(BaseModel):
             )
         return value
 
-    @field_validator('condition_sup', 'unique_feature')
+    @field_validator('condition_sup', 'condition_sups', 'unique_feature', 'colors', 'materials')
     @classmethod
     def validate_no_html_in_list(cls, value: list[str] | None) -> list[str] | None:
         """Valide que les éléments d'une liste ne contiennent pas de HTML."""
@@ -139,6 +171,48 @@ class ProductCreate(BaseModel):
                     raise ValueError(
                         "HTML tags are not allowed in list items. Please use plain text only."
                     )
+        return value
+
+    @field_validator('colors')
+    @classmethod
+    def validate_colors_no_duplicates(cls, value: list[str] | None) -> list[str] | None:
+        """Validate that colors list has no duplicates."""
+        if value and len(value) != len(set(value)):
+            raise ValueError("Duplicate colors are not allowed")
+        return value
+
+    @field_validator('materials')
+    @classmethod
+    def validate_materials_no_duplicates(cls, value: list[str] | None) -> list[str] | None:
+        """Validate that materials list has no duplicates."""
+        if value and len(value) != len(set(value)):
+            raise ValueError("Duplicate materials are not allowed")
+        return value
+
+    @field_validator('condition_sups')
+    @classmethod
+    def validate_condition_sups_no_duplicates(cls, value: list[str] | None) -> list[str] | None:
+        """Validate that condition_sups list has no duplicates."""
+        if value and len(value) != len(set(value)):
+            raise ValueError("Duplicate condition supplements are not allowed")
+        return value
+
+    @field_validator('material_details')
+    @classmethod
+    def validate_material_details_sum(cls, value: list[MaterialDetail] | None) -> list[MaterialDetail] | None:
+        """Validate material percentages sum to 100 if provided (warning only)."""
+        if value:
+            # Check for duplicates
+            materials = [md.material for md in value]
+            if len(materials) != len(set(materials)):
+                raise ValueError("Duplicate materials in material_details are not allowed")
+
+            # Check percentages sum (warning only, not enforced)
+            percentages = [md.percentage for md in value if md.percentage is not None]
+            if percentages and sum(percentages) != 100:
+                # Note: This is just for info, not blocking
+                # In production, log a warning instead of raising
+                pass
         return value
 
     model_config = {
@@ -194,8 +268,18 @@ class ProductUpdate(BaseModel):
     brand: str | None = Field(None, max_length=100)
     size_normalized: str | None = Field(None, max_length=100)
     size_original: str | None = Field(None, max_length=100)
-    color: str | None = Field(None, max_length=100)
-    material: str | None = Field(None, max_length=100)
+
+    # DEPRECATED: Use colors (list) instead - Kept for backward compatibility
+    color: str | None = Field(None, max_length=100, description="DEPRECATED, use colors")
+    # NEW M2M: Multiple colors support
+    colors: list[str] | None = Field(None, max_items=5, description="Liste des couleurs (max 5)")
+
+    # DEPRECATED: Use materials (list) instead - Kept for backward compatibility
+    material: str | None = Field(None, max_length=100, description="DEPRECATED, use materials")
+    # NEW M2M: Multiple materials support
+    materials: list[str] | None = Field(None, max_items=3, description="Liste des matériaux (max 3)")
+    material_details: list[MaterialDetail] | None = Field(None, max_items=3)
+
     fit: str | None = Field(None, max_length=100)
     gender: str | None = Field(None, max_length=100)
     season: str | None = Field(None, max_length=100)
@@ -204,7 +288,11 @@ class ProductUpdate(BaseModel):
     length: str | None = Field(None, max_length=100)
     pattern: str | None = Field(None, max_length=100)
 
-    condition_sup: list[str] | None = Field(None)
+    # DEPRECATED: Use condition_sups instead - Kept for backward compatibility
+    condition_sup: list[str] | None = Field(None, description="DEPRECATED, use condition_sups")
+    # NEW M2M: Multiple condition supplements
+    condition_sups: list[str] | None = Field(None, max_items=10)
+
     rise: str | None = Field(None, max_length=100)
     closure: str | None = Field(None, max_length=100)
     sleeve_length: str | None = Field(None, max_length=100)
@@ -245,7 +333,7 @@ class ProductUpdate(BaseModel):
             )
         return value
 
-    @field_validator('condition_sup', 'unique_feature')
+    @field_validator('condition_sup', 'condition_sups', 'unique_feature', 'colors', 'materials')
     @classmethod
     def validate_no_html_in_list(cls, value: list[str] | None) -> list[str] | None:
         """Valide que les éléments d'une liste ne contiennent pas de HTML."""
@@ -255,6 +343,48 @@ class ProductUpdate(BaseModel):
                     raise ValueError(
                         "HTML tags are not allowed in list items. Please use plain text only."
                     )
+        return value
+
+    @field_validator('colors')
+    @classmethod
+    def validate_colors_no_duplicates(cls, value: list[str] | None) -> list[str] | None:
+        """Validate that colors list has no duplicates."""
+        if value and len(value) != len(set(value)):
+            raise ValueError("Duplicate colors are not allowed")
+        return value
+
+    @field_validator('materials')
+    @classmethod
+    def validate_materials_no_duplicates(cls, value: list[str] | None) -> list[str] | None:
+        """Validate that materials list has no duplicates."""
+        if value and len(value) != len(set(value)):
+            raise ValueError("Duplicate materials are not allowed")
+        return value
+
+    @field_validator('condition_sups')
+    @classmethod
+    def validate_condition_sups_no_duplicates(cls, value: list[str] | None) -> list[str] | None:
+        """Validate that condition_sups list has no duplicates."""
+        if value and len(value) != len(set(value)):
+            raise ValueError("Duplicate condition supplements are not allowed")
+        return value
+
+    @field_validator('material_details')
+    @classmethod
+    def validate_material_details_sum(cls, value: list[MaterialDetail] | None) -> list[MaterialDetail] | None:
+        """Validate material percentages sum to 100 if provided (warning only)."""
+        if value:
+            # Check for duplicates
+            materials = [md.material for md in value]
+            if len(materials) != len(set(materials)):
+                raise ValueError("Duplicate materials in material_details are not allowed")
+
+            # Check percentages sum (warning only, not enforced)
+            percentages = [md.percentage for md in value if md.percentage is not None]
+            if percentages and sum(percentages) != 100:
+                # Note: This is just for info, not blocking
+                # In production, log a warning instead of raising
+                pass
         return value
 
 
@@ -276,8 +406,18 @@ class ProductResponse(BaseModel):
     condition: int | None  # Optional for DRAFT products (validated on publish)
     size_normalized: str | None
     size_original: str | None
+
+    # DEPRECATED: Use colors/primary_color instead - Kept for backward compatibility
     color: str | None
+    # NEW M2M: Multiple colors support
+    colors: list[str] = Field(default_factory=list, description="List of all colors")
+    primary_color: str | None = Field(None, description="Primary/dominant color (helper for frontend)")
+
+    # DEPRECATED: Use materials instead - Kept for backward compatibility
     material: str | None
+    # NEW M2M: Multiple materials support
+    materials: list[str] = Field(default_factory=list, description="List of all materials")
+
     fit: str | None
     gender: str | None
     season: str | None
@@ -286,7 +426,11 @@ class ProductResponse(BaseModel):
     length: str | None
     pattern: str | None
 
+    # DEPRECATED: Use condition_sups instead - Kept for backward compatibility
     condition_sup: list[str] | None
+    # NEW M2M: Multiple condition supplements
+    condition_sups: list[str] = Field(default_factory=list, description="List of condition supplements")
+
     rise: str | None
     closure: str | None
     sleeve_length: str | None
