@@ -219,3 +219,60 @@ class EbayFulfillmentClient(EbayBaseClient):
             offset += limit
 
         return all_orders
+
+    def create_shipping_fulfillment(
+        self, order_id: str, payload: dict
+    ) -> Dict[str, Any]:
+        """
+        Create shipping fulfillment (add tracking to order).
+
+        POST /sell/fulfillment/v1/order/{orderId}/shipping_fulfillment
+
+        **Important:**
+        - Tracking number must be alphanumeric only (no spaces, dashes, special chars)
+        - Order must be in PAID status
+        - This marks the order as shipped on eBay
+
+        Args:
+            order_id: eBay order ID (e.g., "12-34567-89012")
+            payload: Fulfillment payload:
+                {
+                    "lineItems": [
+                        {"lineItemId": str, "quantity": int}
+                    ],
+                    "shippedDate": "2024-12-10T10:00:00.000Z",  # ISO 8601
+                    "shippingCarrierCode": "COLISSIMO",  # Carrier code
+                    "trackingNumber": "1234567890"  # Alphanumeric only
+                }
+
+        Returns:
+            Dict with fulfillment ID:
+            {
+                "fulfillmentId": "abc123xyz"
+            }
+
+        Raises:
+            RuntimeError: If API call fails (invalid order, already shipped, etc.)
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> payload = {
+            ...     "lineItems": [{"lineItemId": "123456789012", "quantity": 1}],
+            ...     "shippedDate": "2024-12-10T10:00:00.000Z",
+            ...     "shippingCarrierCode": "COLISSIMO",
+            ...     "trackingNumber": "1234567890"
+            ... }
+            >>> result = client.create_shipping_fulfillment("12-34567-89012", payload)
+            >>> print(result["fulfillmentId"])
+            abc123xyz
+        """
+        scopes = ["sell.fulfillment"]
+
+        result = self.api_call(
+            "POST",
+            f"/sell/fulfillment/v1/order/{order_id}/shipping_fulfillment",
+            json=payload,
+            scopes=scopes,
+        )
+
+        return result or {}
