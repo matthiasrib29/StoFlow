@@ -13,7 +13,7 @@ Date: 2025-12-19
 
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,7 @@ from api.dependencies import get_current_user
 from models.public.user import User
 from models.user.ebay_product import EbayProduct
 from services.ebay.ebay_importer import EbayImporter
-from shared.database import get_db, set_user_schema
+from shared.database import SessionLocal, get_db, set_user_schema
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -147,6 +147,67 @@ class RefreshAspectsResponse(BaseModel):
     remaining: int
 
 
+# ===== BACKGROUND TASKS =====
+
+
+def enrich_products_in_background(user_id: int, marketplace_id: str = "EBAY_FR"):
+    """
+    Enrichit les produits eBay en arrière-plan après l'import.
+
+    Cette fonction est exécutée en arrière-plan par FastAPI BackgroundTasks.
+    Elle crée sa propre session DB pour éviter les conflits.
+
+    Args:
+        user_id: ID de l'utilisateur
+        marketplace_id: Marketplace eBay
+    """
+    db = SessionLocal()
+    try:
+        set_user_schema(db, user_id)
+
+        logger.info(f"Starting background enrichment for user {user_id}")
+
+        importer = EbayImporter(
+            db=db,
+            user_id=user_id,
+            marketplace_id=marketplace_id,
+        )
+
+        # Enrichir tous les produits sans prix (par batches)
+        total_enriched = 0
+        total_errors = 0
+        remaining = 1  # Initial value to start loop
+
+        while remaining > 0:
+            result = importer.enrich_products_batch(
+                limit=50,  # Process 50 products at a time
+                only_without_price=True,
+            )
+
+            total_enriched += result["enriched"]
+            total_errors += result["errors"]
+            remaining = result["remaining"]
+
+            logger.info(
+                f"Background enrichment progress for user {user_id}: "
+                f"enriched={total_enriched}, errors={total_errors}, remaining={remaining}"
+            )
+
+            # If no more products to enrich, break
+            if remaining == 0:
+                break
+
+        logger.info(
+            f"Background enrichment completed for user {user_id}: "
+            f"total_enriched={total_enriched}, total_errors={total_errors}"
+        )
+
+    except Exception as e:
+        logger.error(f"Background enrichment failed for user {user_id}: {e}", exc_info=True)
+    finally:
+        db.close()
+
+
 # ===== ENDPOINTS =====
 
 @router.get("", response_model=EbayProductListResponse)
@@ -242,6 +303,7 @@ async def get_ebay_product(
 
 @router.post("/import", response_model=ImportResponse)
 async def import_ebay_products(
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     request: ImportRequest = Body(default=ImportRequest()),
@@ -250,9 +312,11 @@ async def import_ebay_products(
     Importe les produits depuis eBay Inventory API.
 
     Récupère tous les inventory items de l'utilisateur et les stocke
-    dans la table ebay_products.
+    dans la table ebay_products. Ensuite, lance automatiquement
+    l'enrichissement en arrière-plan pour récupérer les prix.
 
     Args:
+        background_tasks: FastAPI background tasks
         request: Paramètres d'import (marketplace_id)
         db: Session DB
         current_user: Utilisateur authentifié
@@ -276,6 +340,17 @@ async def import_ebay_products(
             f"eBay import for user {current_user.id}: "
             f"imported={result['imported']}, updated={result['updated']}, "
             f"errors={result['errors']}"
+        )
+
+        # Lancer l'enrichissement en arrière-plan pour récupérer les prix
+        background_tasks.add_task(
+            enrich_products_in_background,
+            user_id=current_user.id,
+            marketplace_id=request.marketplace_id,
+        )
+
+        logger.info(
+            f"Background enrichment task scheduled for user {current_user.id}"
         )
 
         return ImportResponse(**result)
