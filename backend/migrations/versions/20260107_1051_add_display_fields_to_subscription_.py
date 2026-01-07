@@ -26,62 +26,85 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add display fields to subscription_quotas table."""
-    # Add price column
-    op.add_column(
-        'subscription_quotas',
-        sa.Column('price', sa.DECIMAL(10, 2), nullable=False, server_default='0.00',
-                  comment='Prix mensuel de l\'abonnement en euros'),
-        schema='public'
-    )
+    """Add display fields to subscription_quotas table (idempotent)."""
+    from sqlalchemy import text
 
-    # Add display_name column
-    op.add_column(
-        'subscription_quotas',
-        sa.Column('display_name', sa.String(50), nullable=False, server_default='',
-                  comment='Display name on pricing page (e.g., \'Gratuit\', \'Pro\')'),
-        schema='public'
-    )
+    conn = op.get_bind()
 
-    # Add description column
-    op.add_column(
-        'subscription_quotas',
-        sa.Column('description', sa.String(200), nullable=True,
-                  comment='Short description (e.g., \'Pour découvrir Stoflow\')'),
-        schema='public'
-    )
+    # Helper to check if column exists
+    def column_exists(table: str, column: str, schema: str = 'public') -> bool:
+        result = conn.execute(text("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = :schema
+                  AND table_name = :table
+                  AND column_name = :column
+            )
+        """), {"schema": schema, "table": table, "column": column})
+        return result.scalar()
 
-    # Add annual_discount_percent column
-    op.add_column(
-        'subscription_quotas',
-        sa.Column('annual_discount_percent', sa.Integer(), nullable=False, server_default='20',
-                  comment='Annual discount percentage (e.g., 20 for -20%)'),
-        schema='public'
-    )
+    # Add price column (if not exists)
+    if not column_exists('subscription_quotas', 'price'):
+        op.add_column(
+            'subscription_quotas',
+            sa.Column('price', sa.DECIMAL(10, 2), nullable=False, server_default='0.00',
+                      comment='Prix mensuel de l\'abonnement en euros'),
+            schema='public'
+        )
 
-    # Add is_popular column
-    op.add_column(
-        'subscription_quotas',
-        sa.Column('is_popular', sa.Boolean(), nullable=False, server_default='false',
-                  comment='Show \'Populaire\' badge'),
-        schema='public'
-    )
+    # Add display_name column (if not exists)
+    if not column_exists('subscription_quotas', 'display_name'):
+        op.add_column(
+            'subscription_quotas',
+            sa.Column('display_name', sa.String(50), nullable=False, server_default='',
+                      comment='Display name on pricing page (e.g., \'Gratuit\', \'Pro\')'),
+            schema='public'
+        )
 
-    # Add cta_text column
-    op.add_column(
-        'subscription_quotas',
-        sa.Column('cta_text', sa.String(100), nullable=True,
-                  comment='Call-to-action button text (e.g., \'Essai gratuit 14 jours\')'),
-        schema='public'
-    )
+    # Add description column (if not exists)
+    if not column_exists('subscription_quotas', 'description'):
+        op.add_column(
+            'subscription_quotas',
+            sa.Column('description', sa.String(200), nullable=True,
+                      comment='Short description (e.g., \'Pour découvrir Stoflow\')'),
+            schema='public'
+        )
 
-    # Add display_order column
-    op.add_column(
-        'subscription_quotas',
-        sa.Column('display_order', sa.Integer(), nullable=False, server_default='0',
-                  comment='Order of display on pricing page (lower = first)'),
-        schema='public'
-    )
+    # Add annual_discount_percent column (if not exists)
+    if not column_exists('subscription_quotas', 'annual_discount_percent'):
+        op.add_column(
+            'subscription_quotas',
+            sa.Column('annual_discount_percent', sa.Integer(), nullable=False, server_default='20',
+                      comment='Annual discount percentage (e.g., 20 for -20%)'),
+            schema='public'
+        )
+
+    # Add is_popular column (if not exists)
+    if not column_exists('subscription_quotas', 'is_popular'):
+        op.add_column(
+            'subscription_quotas',
+            sa.Column('is_popular', sa.Boolean(), nullable=False, server_default='false',
+                      comment='Show \'Populaire\' badge'),
+            schema='public'
+        )
+
+    # Add cta_text column (if not exists)
+    if not column_exists('subscription_quotas', 'cta_text'):
+        op.add_column(
+            'subscription_quotas',
+            sa.Column('cta_text', sa.String(100), nullable=True,
+                      comment='Call-to-action button text (e.g., \'Essai gratuit 14 jours\')'),
+            schema='public'
+        )
+
+    # Add display_order column (if not exists)
+    if not column_exists('subscription_quotas', 'display_order'):
+        op.add_column(
+            'subscription_quotas',
+            sa.Column('display_order', sa.Integer(), nullable=False, server_default='0',
+                      comment='Order of display on pricing page (lower = first)'),
+            schema='public'
+        )
 
 
 def downgrade() -> None:
