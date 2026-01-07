@@ -30,6 +30,14 @@
           <span>Produits {{ label }}</span>
         </NuxtLink>
         <NuxtLink
+          :to="`/dashboard/platforms/${platform}/${platform === 'vinted' ? 'sales' : 'orders'}`"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+          active-class="bg-primary-50 text-secondary-900 font-semibold"
+        >
+          <i class="pi pi-shopping-bag text-sm"/>
+          <span>Commandes</span>
+        </NuxtLink>
+        <NuxtLink
           :to="`/dashboard/platforms/${platform}/statistics`"
           class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
           active-class="bg-primary-50 text-secondary-900 font-semibold"
