@@ -35,11 +35,12 @@ logger = get_logger(__name__)
 class AIVisionService:
     """Service pour analyser les images produits via Gemini Vision."""
 
-    # Pricing Gemini (USD par million tokens) - Jan 2025
+    # Pricing Gemini (USD par million tokens) - Jan 2026
     MODEL_PRICING = {
         "gemini-2.5-flash": {"input": 0.075, "output": 0.30},
         "gemini-2.5-pro": {"input": 1.25, "output": 5.00},
         "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
+        "gemini-3-flash-preview": {"input": 0.075, "output": 0.30},  # Preview model (pricing assumed)
     }
 
     @staticmethod
@@ -89,10 +90,13 @@ class AIVisionService:
         if not image_parts:
             raise AIGenerationError("Impossible de télécharger les images du produit.")
 
-        # 5. Construire le prompt
-        prompt = AIVisionService._build_prompt()
+        # 5. Fetch product attributes from database
+        attributes = AIVisionService._fetch_product_attributes(db)
 
-        # 6. Appeler Gemini Vision API
+        # 6. Construire le prompt
+        prompt = AIVisionService._build_prompt(attributes)
+
+        # 7. Appeler Gemini Vision API
         try:
             client = genai.Client(api_key=settings.gemini_api_key)
 
@@ -113,14 +117,14 @@ class AIVisionService:
             import json
 
             response_data = json.loads(response.text)
-            attributes = VisionExtractedAttributes(**response_data)
+            extracted_attributes = VisionExtractedAttributes(**response_data)
 
-            # 7. Calculer les métriques
+            # 8. Calculer les métriques
             input_tokens = response.usage_metadata.prompt_token_count
             output_tokens = response.usage_metadata.candidates_token_count
             total_tokens = input_tokens + output_tokens
 
-            # 8. Calculer le coût
+            # 9. Calculer le coût
             pricing = AIVisionService.MODEL_PRICING.get(
                 settings.gemini_model, {"input": 0.075, "output": 0.30}
             )
@@ -133,7 +137,7 @@ class AIVisionService:
 
             generation_time_ms = int((time.time() - start_time) * 1000)
 
-            # 9. Logger la génération
+            # 10. Logger la génération
             log = AIGenerationLog(
                 product_id=product.id,
                 model=settings.gemini_model,
@@ -143,10 +147,11 @@ class AIVisionService:
                 total_cost=cost,
                 cached=False,
                 generation_time_ms=generation_time_ms,
+                response_data=response_data,  # Store raw AI response
             )
             db.add(log)
 
-            # 10. Incrémenter les crédits utilisés
+            # 11. Incrémenter les crédits utilisés
             AIVisionService._consume_credit(db, user_id)
 
             db.commit()
@@ -155,18 +160,18 @@ class AIVisionService:
                 f"[AIVisionService] Analyzed images: product_id={product.id}, "
                 f"images={images_analyzed}, tokens={total_tokens}, "
                 f"cost=${cost:.6f}, time={generation_time_ms}ms, "
-                f"confidence={attributes.confidence:.2f}"
+                f"confidence={extracted_attributes.confidence:.2f}"
             )
 
-            return attributes, total_tokens, cost, images_analyzed
+            return extracted_attributes, total_tokens, cost, images_analyzed
 
-        except genai.errors.AuthenticationError as e:
-            logger.error(f"[AIVisionService] Gemini auth error: {e}")
-            raise AIGenerationError("Clé API Gemini invalide ou expirée")
-        except genai.errors.ResourceExhausted as e:
-            logger.error(f"[AIVisionService] Gemini rate limit: {e}")
+        except genai.errors.ClientError as e:
+            logger.error(f"[AIVisionService] Gemini client error: {e}")
+            raise AIGenerationError("Clé API Gemini invalide ou erreur client")
+        except genai.errors.ServerError as e:
+            logger.error(f"[AIVisionService] Gemini server error: {e}")
             raise AIGenerationError(
-                "Limite de requêtes Gemini atteinte. Réessayez dans quelques minutes."
+                "Erreur serveur Gemini. Réessayez dans quelques minutes."
             )
         except genai.errors.APIError as e:
             logger.error(f"[AIVisionService] Gemini API error: {e}")
@@ -253,48 +258,118 @@ class AIVisionService:
         return image_parts
 
     @staticmethod
-    def _build_prompt() -> str:
-        """Construit le prompt d'analyse pour Gemini Vision."""
-        return """Tu es un expert en analyse d'images de produits pour la vente en ligne (vêtements et accessoires).
+    def _fetch_product_attributes(db: Session) -> dict[str, list[str]]:
+        """
+        Fetch all product attributes from database.
 
-Analyse les images suivantes d'un produit et extrait TOUS les attributs visibles.
+        Returns:
+            Dictionary with attribute names as keys and list of valid values as values.
+        """
+        from models.public.brand import Brand
+        from models.public.category import Category
+        from models.public.color import Color
+        from models.public.condition import Condition
+        from models.public.fit import Fit
+        from models.public.gender import Gender
+        from models.public.length import Length
+        from models.public.material import Material
+        from models.public.neckline import Neckline
+        from models.public.pattern import Pattern
+        from models.public.season import Season
+        from models.public.sport import Sport
+        from models.public.closure import Closure
+        from models.public.rise import Rise
+        from models.public.sleeve_length import SleeveLength
 
-RÈGLES IMPORTANTES:
-- Retourne null pour tout attribut NON VISIBLE ou INCERTAIN
-- Ne devine PAS - analyse uniquement ce qui est clairement visible
-- condition: Note de 0 à 10 (10=neuf avec étiquettes, 8=excellent état, 5=bon état, 2=usé)
-- confidence: Ta confiance GLOBALE dans l'analyse (0.0 à 1.0)
-- unique_feature et marking: Sépare les valeurs par des virgules
+        attributes = {}
 
-ATTRIBUTS À EXTRAIRE:
-- title: Titre suggéré (marque + type + caractéristiques clés)
-- description: Description courte et vendeuse (100-150 mots)
-- price: Prix suggéré en EUR basé sur la marque, l'état et le type
-- category: Catégorie du produit
-- brand: Marque visible (logo, étiquette)
-- condition: État du produit (0-10)
-- size/label_size: Taille visible sur l'étiquette
-- color: Couleur principale
-- material: Matière visible ou estimée
-- fit: Coupe (Regular, Slim, Oversize, etc.)
-- gender: Genre (Homme, Femme, Mixte)
-- season: Saison appropriée
-- sport: Sport associé si applicable
-- neckline: Type d'encolure
-- length: Longueur (Court, Standard, Long)
-- pattern: Motif (Uni, Rayé, À carreaux, etc.)
-- condition_sup: Détails sur l'état (défauts visibles, etc.)
-- rise: Hauteur de taille pour pantalons
-- closure: Type de fermeture
-- sleeve_length: Longueur des manches
-- origin: Origine si visible
-- decade: Décennie/époque si vintage
-- trend: Tendance associée
-- model: Référence modèle si visible
-- unique_feature: Caractéristiques uniques (logo brodé, vintage, édition limitée...)
-- marking: Textes/marquages visibles (dates, codes, inscriptions...)
+        # Fetch each attribute type
+        # Note: Brand uses 'name' as PK, others use 'name_en'
+        attributes["brands"] = [b.name for b in db.query(Brand.name).order_by(Brand.name).limit(500).all()]
+        attributes["categories"] = [c.name_en for c in db.query(Category.name_en).order_by(Category.name_en).limit(100).all()]
+        attributes["colors"] = [c.name_en for c in db.query(Color.name_en).order_by(Color.name_en).limit(100).all()]
+        attributes["conditions"] = [str(c.name_en) for c in db.query(Condition.name_en).order_by(Condition.name_en).all()]
+        attributes["fits"] = [f.name_en for f in db.query(Fit.name_en).order_by(Fit.name_en).all()]
+        attributes["genders"] = [g.name_en for g in db.query(Gender.name_en).order_by(Gender.name_en).all()]
+        attributes["lengths"] = [l.name_en for l in db.query(Length.name_en).order_by(Length.name_en).all()]
+        attributes["materials"] = [m.name_en for m in db.query(Material.name_en).order_by(Material.name_en).limit(100).all()]
+        attributes["necklines"] = [n.name_en for n in db.query(Neckline.name_en).order_by(Neckline.name_en).all()]
+        attributes["patterns"] = [p.name_en for p in db.query(Pattern.name_en).order_by(Pattern.name_en).all()]
+        attributes["seasons"] = [s.name_en for s in db.query(Season.name_en).order_by(Season.name_en).all()]
+        attributes["sports"] = [s.name_en for s in db.query(Sport.name_en).order_by(Sport.name_en).all()]
+        attributes["closures"] = [c.name_en for c in db.query(Closure.name_en).order_by(Closure.name_en).all()]
+        attributes["rises"] = [r.name_en for r in db.query(Rise.name_en).order_by(Rise.name_en).all()]
+        attributes["sleeve_lengths"] = [s.name_en for s in db.query(SleeveLength.name_en).order_by(SleeveLength.name_en).all()]
 
-Analyse TOUTES les images fournies pour une extraction complète."""
+        return attributes
+
+    @staticmethod
+    def _build_prompt(attributes: dict[str, list[str]]) -> str:
+        """
+        Build the analysis prompt for Gemini Vision with database attributes.
+
+        Args:
+            attributes: Dictionary of valid attribute values from database
+        """
+        return f"""You are an expert in analyzing product images for online sales (clothing and accessories).
+
+Analyze the following product images and extract ALL visible attributes.
+
+CRITICAL RULES:
+- Return null for any attribute NOT VISIBLE or UNCERTAIN
+- DO NOT GUESS - only analyze what is clearly visible
+- condition: Rating from 0 to 10 (10=new with tags, 8=excellent, 5=good, 2=worn)
+- confidence: Your GLOBAL confidence in the analysis (0.0 to 1.0)
+- For attributes with predefined values, ONLY use values from the provided lists
+- If visible value is not in the list, use the closest match or null
+- unique_feature and marking: Separate multiple values with commas
+
+VALID ATTRIBUTE VALUES (MUST USE THESE):
+
+**Categories:** {', '.join(attributes.get('categories', [])[:50])}
+**Brands:** {', '.join(attributes.get('brands', [])[:100])}
+**Colors:** {', '.join(attributes.get('colors', [])[:50])}
+**Conditions:** {', '.join(attributes.get('conditions', []))}
+**Materials:** {', '.join(attributes.get('materials', [])[:50])}
+**Fits:** {', '.join(attributes.get('fits', []))}
+**Genders:** {', '.join(attributes.get('genders', []))}
+**Seasons:** {', '.join(attributes.get('seasons', []))}
+**Patterns:** {', '.join(attributes.get('patterns', []))}
+**Lengths:** {', '.join(attributes.get('lengths', []))}
+**Necklines:** {', '.join(attributes.get('necklines', []))}
+**Sports:** {', '.join(attributes.get('sports', []))}
+**Closures:** {', '.join(attributes.get('closures', []))}
+**Rises:** {', '.join(attributes.get('rises', []))}
+**Sleeve Lengths:** {', '.join(attributes.get('sleeve_lengths', []))}
+
+ATTRIBUTES TO EXTRACT:
+- price: Suggested price in EUR based on brand, condition, and type
+- category: Product category (use exact name from list above)
+- brand: Visible brand (logo, label) - use exact name from list above
+- condition: Product condition (0-10 scale)
+- size: Size visible on label (exact text)
+- label_size: Size label text (exact as shown)
+- color: Main color (use exact name from list above)
+- material: Visible or estimated material (use exact name from list above)
+- fit: Fit type (use exact name from list above)
+- gender: Gender (use exact name from list above)
+- season: Appropriate season (use exact name from list above)
+- sport: Associated sport if applicable (use exact name from list above)
+- neckline: Neckline type (use exact name from list above)
+- length: Length (use exact name from list above)
+- pattern: Pattern type (use exact name from list above)
+- condition_sup: Condition details (visible defects, wear, etc.)
+- rise: Waist height for pants (use exact name from list above)
+- closure: Closure type (use exact name from list above)
+- sleeve_length: Sleeve length (use exact name from list above)
+- origin: Origin if visible
+- decade: Decade/era if vintage
+- trend: Associated trend
+- model: Model reference if visible
+- unique_feature: Unique characteristics (embroidered logo, vintage, limited edition...)
+- marking: Visible texts/markings (dates, codes, inscriptions...)
+
+Analyze ALL provided images for complete extraction."""
 
     @staticmethod
     async def analyze_images_direct(
@@ -351,10 +426,13 @@ Analyse TOUTES les images fournies pour une extraction complète."""
         if not image_parts:
             raise AIGenerationError("Impossible de traiter les images.")
 
-        # 5. Construire le prompt
-        prompt = AIVisionService._build_prompt()
+        # 5. Fetch product attributes from database
+        attributes = AIVisionService._fetch_product_attributes(db)
 
-        # 6. Appeler Gemini Vision API
+        # 6. Construire le prompt
+        prompt = AIVisionService._build_prompt(attributes)
+
+        # 7. Appeler Gemini Vision API
         try:
             client = genai.Client(api_key=settings.gemini_api_key)
 
@@ -375,14 +453,14 @@ Analyse TOUTES les images fournies pour une extraction complète."""
             import json
 
             response_data = json.loads(response.text)
-            attributes = VisionExtractedAttributes(**response_data)
+            extracted_attributes = VisionExtractedAttributes(**response_data)
 
-            # 7. Calculer les métriques
+            # 8. Calculer les métriques
             input_tokens = response.usage_metadata.prompt_token_count
             output_tokens = response.usage_metadata.candidates_token_count
             total_tokens = input_tokens + output_tokens
 
-            # 8. Calculer le coût
+            # 9. Calculer le coût
             pricing = AIVisionService.MODEL_PRICING.get(
                 settings.gemini_model, {"input": 0.075, "output": 0.30}
             )
@@ -395,7 +473,7 @@ Analyse TOUTES les images fournies pour une extraction complète."""
 
             generation_time_ms = int((time.time() - start_time) * 1000)
 
-            # 9. Logger la génération (sans product_id)
+            # 10. Logger la génération (sans product_id)
             log = AIGenerationLog(
                 product_id=None,  # Pas de produit associé
                 model=settings.gemini_model,
@@ -405,10 +483,11 @@ Analyse TOUTES les images fournies pour une extraction complète."""
                 total_cost=cost,
                 cached=False,
                 generation_time_ms=generation_time_ms,
+                response_data=response_data,  # Store raw AI response
             )
             db.add(log)
 
-            # 10. Incrémenter les crédits utilisés
+            # 11. Incrémenter les crédits utilisés
             AIVisionService._consume_credit(db, user_id)
 
             db.commit()
@@ -417,18 +496,18 @@ Analyse TOUTES les images fournies pour une extraction complète."""
                 f"[AIVisionService] Analyzed images direct: user_id={user_id}, "
                 f"images={images_analyzed}, tokens={total_tokens}, "
                 f"cost=${cost:.6f}, time={generation_time_ms}ms, "
-                f"confidence={attributes.confidence:.2f}"
+                f"confidence={extracted_attributes.confidence:.2f}"
             )
 
-            return attributes, total_tokens, cost, images_analyzed
+            return extracted_attributes, total_tokens, cost, images_analyzed
 
-        except genai.errors.AuthenticationError as e:
-            logger.error(f"[AIVisionService] Gemini auth error: {e}")
-            raise AIGenerationError("Clé API Gemini invalide ou expirée")
-        except genai.errors.ResourceExhausted as e:
-            logger.error(f"[AIVisionService] Gemini rate limit: {e}")
+        except genai.errors.ClientError as e:
+            logger.error(f"[AIVisionService] Gemini client error: {e}")
+            raise AIGenerationError("Clé API Gemini invalide ou erreur client")
+        except genai.errors.ServerError as e:
+            logger.error(f"[AIVisionService] Gemini server error: {e}")
             raise AIGenerationError(
-                "Limite de requêtes Gemini atteinte. Réessayez dans quelques minutes."
+                "Erreur serveur Gemini. Réessayez dans quelques minutes."
             )
         except genai.errors.APIError as e:
             logger.error(f"[AIVisionService] Gemini API error: {e}")
