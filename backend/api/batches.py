@@ -42,7 +42,7 @@ class BatchCreateRequest(BaseModel):
     action_code: str = Field(
         ..., description="Action code (publish, update, delete, link_product, sync)"
     )
-    product_ids: list[int] = Field(..., min_items=1, description="List of product IDs")
+    product_ids: list[int] = Field(..., min_length=1, description="List of product IDs")
     priority: Optional[int] = Field(
         None, ge=1, le=4, description="Priority override (1=CRITICAL, 4=LOW)"
     )
