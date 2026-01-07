@@ -63,16 +63,10 @@ class Settings(BaseSettings):
     ai_cache_ttl_seconds: int = 2592000
     ai_cache_enabled: bool = True
 
-    # Anthropic Claude
-    anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-20250514"
-    anthropic_max_tokens: int = 1024
-    anthropic_temperature: float = 0.7
-
     # Google Gemini Vision
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
-    gemini_max_images: int = 5
+    gemini_model: str = "gemini-3-flash-preview"
+    gemini_max_images: int = 10
 
     # Vinted
     vinted_base_url: str = "https://www.vinted.fr"

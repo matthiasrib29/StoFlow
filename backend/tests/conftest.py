@@ -469,3 +469,48 @@ def seed_attributes(db_session: Session):
     yield
 
     # Cleanup is handled by cleanup_data fixture
+
+
+@pytest.fixture(scope="function")
+def test_product(db_session: Session, test_user):
+    """
+    Fixture to create a test product in the user's schema.
+
+    Args:
+        db_session: Database session
+        test_user: Tuple (User, password_plain)
+
+    Returns:
+        Product: Test product with basic attributes
+    """
+    from models.user.product import Product
+    from sqlalchemy import text
+
+    user, _ = test_user
+
+    # Set search path to user schema
+    db_session.execute(text(f"SET search_path TO user_{user.id}, public"))
+
+    product = Product(
+        title="Test Product",
+        description="Test description",
+        price=25.99,
+        stock_quantity=10,
+        category="T-shirt",
+        brand="Nike",
+        condition="EXCELLENT",
+        size_original="M",
+        color="Blue",
+        material="Cotton",
+        gender="Men",
+        images=[
+            {"url": "https://example.com/img1.jpg", "order": 0},
+            {"url": "https://example.com/img2.jpg", "order": 1}
+        ]
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    return product
