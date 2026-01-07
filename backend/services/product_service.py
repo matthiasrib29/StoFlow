@@ -23,6 +23,11 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from models.user.product import Product, ProductStatus
+from models.user.product_attributes_m2m import (
+    ProductColor,
+    ProductMaterial,
+    ProductConditionSup,
+)
 from repositories.product_attribute_repository import ProductAttributeRepository
 from repositories.product_repository import ProductRepository
 from schemas.product_schemas import ProductCreate, ProductUpdate
@@ -98,12 +103,40 @@ class ProductService:
                 quality=None,
             )
 
-        # ===== 4. VALIDATE ATTRIBUTES (Refactored 2025-12-09) =====
+        # ===== 4. VALIDATE M2M ATTRIBUTES (Added 2026-01-07) =====
+        # Prefer new M2M fields (colors, materials, condition_sups) over deprecated fields
+        # Standardize: None and [] are equivalent for M2M fields
+        colors_to_use = product_data.colors if product_data.colors is not None else (
+            [product_data.color] if product_data.color else []
+        )
+        colors_to_use = colors_to_use or []  # Normalize: None → []
+
+        materials_to_use = product_data.materials if product_data.materials is not None else (
+            [product_data.material] if product_data.material else []
+        )
+        materials_to_use = materials_to_use or []  # Normalize: None → []
+
+        condition_sups_to_use = product_data.condition_sups if product_data.condition_sups is not None else (
+            product_data.condition_sup if product_data.condition_sup else []
+        )
+        condition_sups_to_use = condition_sups_to_use or []  # Normalize: None → []
+
+        # Validate M2M attributes
+        validated_colors = AttributeValidator.validate_colors(db, colors_to_use)
+        validated_materials, material_percentages = AttributeValidator.validate_materials(
+            db,
+            materials_to_use,
+            [md.model_dump() for md in product_data.material_details] if product_data.material_details else None
+        )
+        validated_condition_sups = AttributeValidator.validate_condition_sups(db, condition_sups_to_use)
+
+        # ===== 5. VALIDATE OTHER ATTRIBUTES (Refactored 2025-12-09) =====
         validation_data = product_data.model_dump()
         validation_data['size_original'] = size_original  # Use adjusted size
         AttributeValidator.validate_product_attributes(db, validation_data)
 
-        # ===== 5. CREATE PRODUCT =====
+        # ===== 6. CREATE PRODUCT WITH DUAL-WRITE (Added 2026-01-07) =====
+        # DUAL-WRITE: Fill old columns for backward compatibility during migration period
         product = Product(
             title=product_data.title,
             description=product_data.description,
@@ -112,19 +145,19 @@ class ProductService:
             brand=product_data.brand,
             condition=product_data.condition,
             size_original=size_original,
-            color=product_data.color,
-            material=product_data.material,
+            # DUAL-WRITE: Old columns (DEPRECATED but kept for backward compatibility)
+            color=validated_colors[0] if validated_colors else None,
+            material=validated_materials[0] if validated_materials else None,
+            condition_sup=validated_condition_sups if validated_condition_sups else None,
             fit=product_data.fit,
             gender=product_data.gender,
             season=product_data.season,
-            condition_sup=product_data.condition_sup,
             rise=product_data.rise,
             closure=product_data.closure,
             sleeve_length=product_data.sleeve_length,
             origin=product_data.origin,
             decade=product_data.decade,
             trend=product_data.trend,
-            name_sup=product_data.name_sup,
             location=product_data.location,
             model=product_data.model,
             dim1=product_data.dim1,
@@ -138,6 +171,15 @@ class ProductService:
         )
 
         ProductRepository.create(db, product)
+        db.commit()
+        db.refresh(product)
+
+        # ===== 7. CREATE M2M ENTRIES (Added 2026-01-07) =====
+        ProductService._create_product_colors(db, product.id, validated_colors)
+        ProductService._create_product_materials(db, product.id, validated_materials, material_percentages)
+        ProductService._create_product_condition_sups(db, product.id, validated_condition_sups)
+
+        # Commit M2M entries
         db.commit()
         db.refresh(product)
 
@@ -248,6 +290,37 @@ class ProductService:
         # Partial validation: only modified attributes
         update_dict = product_data.model_dump(exclude_unset=True)
 
+        # ===== EXTRACT M2M FIELDS (Added 2026-01-07) =====
+        # Extract M2M fields from update_dict (they need special handling)
+        # Standardize: None and [] are equivalent for M2M fields (both mean "clear all")
+        colors_provided = 'colors' in update_dict or 'color' in update_dict
+        materials_provided = 'materials' in update_dict or 'material' in update_dict
+        condition_sups_provided = 'condition_sups' in update_dict or 'condition_sup' in update_dict
+
+        # Prefer new M2M fields over deprecated fields
+        colors_to_update = None
+        if 'colors' in update_dict:
+            colors_to_update = update_dict.pop('colors') or []  # Normalize: None → []
+        elif 'color' in update_dict:
+            color_value = update_dict.pop('color')
+            colors_to_update = [color_value] if color_value else []
+
+        materials_to_update = None
+        material_details_to_update = None
+        if 'materials' in update_dict:
+            materials_to_update = update_dict.pop('materials') or []  # Normalize: None → []
+        if 'material_details' in update_dict:
+            material_details_to_update = update_dict.pop('material_details')
+        if materials_to_update is None and 'material' in update_dict:
+            material_value = update_dict.pop('material')
+            materials_to_update = [material_value] if material_value else []
+
+        condition_sups_to_update = None
+        if 'condition_sups' in update_dict:
+            condition_sups_to_update = update_dict.pop('condition_sups') or []  # Normalize: None → []
+        elif 'condition_sup' in update_dict:
+            condition_sups_to_update = update_dict.pop('condition_sup') or []  # Normalize: None → []
+
         # ===== AUTO-CREATE SIZE ORIGINAL IF MODIFIED (Business Rule 2026-01-06) =====
         if 'size_original' in update_dict:
             size_original_value = ProductUtils.adjust_size(
@@ -261,15 +334,58 @@ class ProductService:
                 SizeOriginalRepository.get_or_create(db, size_original_value)
                 update_dict['size_original'] = size_original_value
 
+        # ===== VALIDATE M2M ATTRIBUTES IF PROVIDED (Added 2026-01-07) =====
+        validated_colors = None
+        validated_materials = None
+        material_percentages = {}
+
+        if colors_to_update is not None:
+            validated_colors = AttributeValidator.validate_colors(db, colors_to_update)
+
+        if materials_to_update is not None:
+            validated_materials, material_percentages = AttributeValidator.validate_materials(
+                db,
+                materials_to_update,
+                [md.model_dump() for md in material_details_to_update] if material_details_to_update else None
+            )
+
+        validated_condition_sups = None
+        if condition_sups_to_update is not None:
+            validated_condition_sups = AttributeValidator.validate_condition_sups(db, condition_sups_to_update)
+
+        # ===== DUAL-WRITE: Update old columns if M2M provided (Added 2026-01-07) =====
+        if validated_colors is not None:
+            update_dict['color'] = validated_colors[0] if validated_colors else None
+        if validated_materials is not None:
+            update_dict['material'] = validated_materials[0] if validated_materials else None
+        if validated_condition_sups is not None:
+            update_dict['condition_sup'] = validated_condition_sups if validated_condition_sups else None
+
         AttributeValidator.validate_product_attributes(db, update_dict, partial=True)
 
-        # Apply modifications
+        # Apply modifications to simple columns
         for key, value in update_dict.items():
             setattr(product, key, value)
 
         ProductRepository.update(db, product)
         db.commit()
         db.refresh(product)
+
+        # ===== UPDATE M2M ENTRIES (Added 2026-01-07) =====
+        # REPLACE strategy: if M2M field provided, replace all entries
+        if validated_colors is not None:
+            ProductService._replace_product_colors(db, product.id, validated_colors)
+
+        if validated_materials is not None:
+            ProductService._replace_product_materials(db, product.id, validated_materials, material_percentages)
+
+        if validated_condition_sups is not None:
+            ProductService._replace_product_condition_sups(db, product.id, validated_condition_sups)
+
+        # Commit M2M updates
+        if any([validated_colors is not None, validated_materials is not None, validated_condition_sups is not None]):
+            db.commit()
+            db.refresh(product)
 
         elapsed = time.time() - start_time
         logger.info(
@@ -380,6 +496,167 @@ class ProductService:
             Updated Product or None if not found
         """
         return ProductStatusManager.update_status(db, product_id, new_status)
+
+    # ===== M2M HELPER METHODS (Added 2026-01-07) =====
+
+    @staticmethod
+    def _create_product_colors(
+        db: Session,
+        product_id: int,
+        colors: list[str]
+    ) -> None:
+        """
+        Create ProductColor M2M entries for a product.
+
+        Args:
+            db: SQLAlchemy Session
+            product_id: Product ID
+            colors: List of color names (validated)
+
+        Business Rules:
+            - First color is automatically marked as primary (is_primary=TRUE)
+            - Only one color can be primary per product
+        """
+        if not colors:
+            return
+
+        for idx, color_name in enumerate(colors):
+            product_color = ProductColor(
+                product_id=product_id,
+                color=color_name,
+                is_primary=(idx == 0)  # First color = primary
+            )
+            db.add(product_color)
+
+        logger.debug(f"[ProductService] Created {len(colors)} color entries for product_id={product_id}")
+
+    @staticmethod
+    def _create_product_materials(
+        db: Session,
+        product_id: int,
+        materials: list[str],
+        percentages: dict[str, int | None]
+    ) -> None:
+        """
+        Create ProductMaterial M2M entries for a product.
+
+        Args:
+            db: SQLAlchemy Session
+            product_id: Product ID
+            materials: List of material names (validated)
+            percentages: Dict mapping material_name -> percentage (or None)
+        """
+        if not materials:
+            return
+
+        for material_name in materials:
+            percentage = percentages.get(material_name)
+            product_material = ProductMaterial(
+                product_id=product_id,
+                material=material_name,
+                percentage=percentage
+            )
+            db.add(product_material)
+
+        logger.debug(f"[ProductService] Created {len(materials)} material entries for product_id={product_id}")
+
+    @staticmethod
+    def _create_product_condition_sups(
+        db: Session,
+        product_id: int,
+        condition_sups: list[str]
+    ) -> None:
+        """
+        Create ProductConditionSup M2M entries for a product.
+
+        Args:
+            db: SQLAlchemy Session
+            product_id: Product ID
+            condition_sups: List of condition_sup names (validated)
+        """
+        if not condition_sups:
+            return
+
+        for condition_sup_name in condition_sups:
+            product_condition_sup = ProductConditionSup(
+                product_id=product_id,
+                condition_sup=condition_sup_name
+            )
+            db.add(product_condition_sup)
+
+        logger.debug(f"[ProductService] Created {len(condition_sups)} condition_sup entries for product_id={product_id}")
+
+    @staticmethod
+    def _replace_product_colors(
+        db: Session,
+        product_id: int,
+        new_colors: list[str]
+    ) -> None:
+        """
+        Replace all ProductColor entries for a product (REPLACE strategy).
+
+        Args:
+            db: SQLAlchemy Session
+            product_id: Product ID
+            new_colors: New list of color names (validated)
+
+        Strategy:
+            - Delete all existing color entries
+            - Create new entries (first = primary)
+        """
+        # Delete existing entries
+        db.query(ProductColor).filter(ProductColor.product_id == product_id).delete()
+
+        # Create new entries
+        ProductService._create_product_colors(db, product_id, new_colors)
+
+        logger.debug(f"[ProductService] Replaced colors for product_id={product_id}: {new_colors}")
+
+    @staticmethod
+    def _replace_product_materials(
+        db: Session,
+        product_id: int,
+        new_materials: list[str],
+        percentages: dict[str, int | None]
+    ) -> None:
+        """
+        Replace all ProductMaterial entries for a product (REPLACE strategy).
+
+        Args:
+            db: SQLAlchemy Session
+            product_id: Product ID
+            new_materials: New list of material names (validated)
+            percentages: Dict mapping material_name -> percentage
+        """
+        # Delete existing entries
+        db.query(ProductMaterial).filter(ProductMaterial.product_id == product_id).delete()
+
+        # Create new entries
+        ProductService._create_product_materials(db, product_id, new_materials, percentages)
+
+        logger.debug(f"[ProductService] Replaced materials for product_id={product_id}: {new_materials}")
+
+    @staticmethod
+    def _replace_product_condition_sups(
+        db: Session,
+        product_id: int,
+        new_condition_sups: list[str]
+    ) -> None:
+        """
+        Replace all ProductConditionSup entries for a product (REPLACE strategy).
+
+        Args:
+            db: SQLAlchemy Session
+            product_id: Product ID
+            new_condition_sups: New list of condition_sup names (validated)
+        """
+        # Delete existing entries
+        db.query(ProductConditionSup).filter(ProductConditionSup.product_id == product_id).delete()
+
+        # Create new entries
+        ProductService._create_product_condition_sups(db, product_id, new_condition_sups)
+
+        logger.debug(f"[ProductService] Replaced condition_sups for product_id={product_id}: {new_condition_sups}")
 
 
 __all__ = ["ProductService"]
