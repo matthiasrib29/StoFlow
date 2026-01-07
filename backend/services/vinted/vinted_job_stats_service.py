@@ -17,7 +17,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from models.user.vinted_job import VintedJob
+from models.user.marketplace_job import MarketplaceJob
 from models.user.vinted_job_stats import VintedJobStats
 from models.vinted.vinted_action_type import VintedActionType
 from shared.logging_setup import get_logger
@@ -29,13 +29,13 @@ class VintedJobStatsService:
     """Service for Vinted job statistics."""
 
     @staticmethod
-    def update_job_stats(db: Session, job: VintedJob, success: bool) -> None:
+    def update_job_stats(db: Session, job: MarketplaceJob, success: bool) -> None:
         """
         Update daily statistics for a completed job.
 
         Args:
             db: SQLAlchemy Session
-            job: Completed VintedJob
+            job: Completed MarketplaceJob
             success: Whether job succeeded
         """
         today = datetime.now(timezone.utc).date()

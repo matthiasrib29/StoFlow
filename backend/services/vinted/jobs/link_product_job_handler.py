@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from models.user.product import Product
 from models.user.vinted_product import VintedProduct
-from models.user.vinted_job import VintedJob
+from models.user.marketplace_job import MarketplaceJob
 from services.vinted.vinted_link_service import VintedLinkService
 from services.vinted.vinted_image_downloader import VintedImageDownloader
 from shared.schema_utils import get_current_schema
@@ -37,12 +37,12 @@ class LinkProductJobHandler(BaseJobHandler):
 
     ACTION_CODE = "link_product"
 
-    async def execute(self, job: VintedJob) -> dict[str, Any]:
+    async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Lie un VintedProduct à un nouveau Product et télécharge les images.
 
         Args:
-            job: VintedJob avec product_id = vinted_id dans ce cas
+            job: MarketplaceJob avec product_id = vinted_id dans ce cas
 
         Returns:
             {

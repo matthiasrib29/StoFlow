@@ -11,14 +11,27 @@
   >
     <!-- Header Actions -->
     <template #header-actions>
-      <Button
-        label="Rafraîchir"
-        icon="pi pi-refresh"
-        :loading="refreshing"
-        :disabled="!isConnected"
-        class="bg-platform-ebay hover:bg-blue-700 text-white border-0"
-        @click="fetchOrders"
-      />
+      <div class="flex gap-2">
+        <!-- Sync button -->
+        <Button
+          label="Synchroniser"
+          icon="pi pi-sync"
+          :loading="isSyncing"
+          :disabled="!isConnected"
+          class="bg-platform-ebay hover:bg-blue-700 text-white border-0"
+          @click="triggerSync"
+        />
+
+        <!-- Refresh button -->
+        <Button
+          label="Rafraîchir"
+          icon="pi pi-refresh"
+          :loading="refreshing"
+          :disabled="!isConnected"
+          class="bg-gray-500 hover:bg-gray-600 text-white border-0"
+          @click="fetchOrders"
+        />
+      </div>
     </template>
 
     <!-- Stats Cards -->
@@ -176,9 +189,18 @@
           </template>
         </Column>
 
-        <Column header="Actions" style="width: 120px">
+        <Column header="Actions" style="width: 150px">
           <template #body="{ data }">
             <div class="flex gap-2">
+              <Button
+                icon="pi pi-eye"
+                text
+                rounded
+                size="small"
+                severity="info"
+                title="Voir les détails"
+                @click="viewDetails(data)"
+              />
               <Button
                 icon="pi pi-external-link"
                 text
@@ -218,9 +240,13 @@ definePageMeta({
 // Platform connection
 const { isConnected, fetchStatus } = usePlatformConnection('ebay')
 
+// Toast notifications
+const { showSuccess, showError, showInfo } = useAppToast()
+
 // State
 const loading = ref(false)
 const refreshing = ref(false)
+const isSyncing = ref(false)
 const error = ref<string | null>(null)
 const orders = ref<EbayOrder[]>([])
 const searchQuery = ref('')
@@ -312,6 +338,46 @@ const fetchOrders = async () => {
   }
 }
 
+const triggerSync = async () => {
+  if (!isConnected.value) return
+
+  isSyncing.value = true
+
+  try {
+    const api = useApi()
+
+    // hours: 0 = fetch ALL orders (no date filter)
+    const response = await api.post('/api/ebay/orders/sync', {
+      hours: 0,
+      status_filter: null
+    })
+
+    // Show success toast
+    const created = response.created || 0
+    const updated = response.updated || 0
+    const errors = response.errors || 0
+
+    if (created > 0 || updated > 0) {
+      showSuccess(
+        'Synchronisation terminée',
+        `${created} commande(s) importée(s), ${updated} mise(s) à jour`,
+        4000
+      )
+
+      // Refresh orders list
+      await fetchOrders()
+    } else if (errors > 0) {
+      showError('Erreurs', `${errors} erreur(s) lors de la synchronisation`, 5000)
+    } else {
+      showInfo('Info', 'Aucune nouvelle commande trouvée', 3000)
+    }
+  } catch (e: any) {
+    showError('Erreur', e.message || 'Impossible de synchroniser', 5000)
+  } finally {
+    isSyncing.value = false
+  }
+}
+
 const calculateStats = () => {
   stats.value = {
     total_orders: orders.value.length,
@@ -380,6 +446,11 @@ const getFulfillmentStatusSeverity = (status: string) => {
     [EbayFulfillmentStatus.CANCELLED]: 'danger'
   }
   return severities[status] || 'info'
+}
+
+const viewDetails = (order: EbayOrder) => {
+  // Navigate to order details page
+  navigateTo(`/dashboard/platforms/ebay/orders/${order.id}`)
 }
 
 const openOnEbay = (order: EbayOrder) => {
