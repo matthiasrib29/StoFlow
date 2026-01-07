@@ -64,7 +64,7 @@ class AttributeValidator:
         },
         'condition': {
             'model': Condition,
-            'field': 'name_en',
+            'field': 'note',  # Fixed: Product.condition is Integer (note 0-10), not name_en
             'required': True,
             'display_name': 'Condition'
         },
@@ -280,6 +280,195 @@ class AttributeValidator:
             return True
         except (ValueError, KeyError):
             return False
+
+    @staticmethod
+    def validate_colors(
+        db: Session,
+        colors: list[str] | None
+    ) -> list[str]:
+        """
+        Validate a list of colors for M2M relationship.
+
+        Args:
+            db: SQLAlchemy session
+            colors: List of color names (name_en) to validate
+
+        Returns:
+            list[str]: Validated list of colors (empty list if None)
+
+        Raises:
+            ValueError: If any color is invalid or duplicates exist
+
+        Example:
+            >>> AttributeValidator.validate_colors(db, ["Black", "White", "Red"])
+            ["Black", "White", "Red"]
+
+            >>> AttributeValidator.validate_colors(db, ["InvalidColor"])
+            ValueError: Color 'InvalidColor' does not exist...
+        """
+        # Standardize: None and [] are equivalent (both mean "no colors")
+        if colors is None:
+            colors = []
+
+        if not colors:
+            return []
+
+        # Check for duplicates
+        if len(colors) != len(set(colors)):
+            raise ValueError("Duplicate colors are not allowed")
+
+        # Validate all colors exist (optimized: single query instead of N queries)
+        existing_colors = db.query(Color.name_en).filter(Color.name_en.in_(colors)).all()
+        existing_set = {c[0] for c in existing_colors}
+
+        invalid_colors = set(colors) - existing_set
+        if invalid_colors:
+            raise ValueError(
+                f"Invalid colors: {', '.join(sorted(invalid_colors))}. "
+                f"Use /api/attributes/colors to get valid colors."
+            )
+
+        return colors
+
+    @staticmethod
+    def validate_materials(
+        db: Session,
+        materials: list[str] | None,
+        material_details: list[dict] | None = None
+    ) -> tuple[list[str], dict[str, int | None]]:
+        """
+        Validate a list of materials for M2M relationship.
+
+        Args:
+            db: SQLAlchemy session
+            materials: List of material names (name_en) to validate
+            material_details: Optional list of {"material": str, "percentage": int}
+
+        Returns:
+            tuple: (validated_materials, percentages_dict)
+                - validated_materials: list of material names
+                - percentages_dict: {material_name: percentage or None}
+
+        Raises:
+            ValueError: If any material is invalid, duplicates exist, or percentages invalid
+
+        Example:
+            >>> AttributeValidator.validate_materials(
+            ...     db,
+            ...     ["Cotton", "Polyester"],
+            ...     [{"material": "Cotton", "percentage": 80}, {"material": "Polyester", "percentage": 20}]
+            ... )
+            (["Cotton", "Polyester"], {"Cotton": 80, "Polyester": 20})
+        """
+        # Standardize: None and [] are equivalent (both mean "no materials")
+        if materials is None:
+            materials = []
+        if material_details is None:
+            material_details = []
+
+        if not materials and not material_details:
+            return [], {}
+
+        # If material_details provided, extract materials from there
+        if material_details:
+            materials_from_details = [md["material"] for md in material_details]
+            # Check for duplicates
+            if len(materials_from_details) != len(set(materials_from_details)):
+                raise ValueError("Duplicate materials in material_details are not allowed")
+
+            # Validate each material exists
+            percentages = {}
+            for md in material_details:
+                material_name = md["material"]
+                percentage = md.get("percentage")
+
+                exists = db.query(Material).filter(Material.name_en == material_name).first()
+                if not exists:
+                    raise ValueError(
+                        f"Material '{material_name}' does not exist. "
+                        f"Use /api/attributes/materials to get valid materials."
+                    )
+
+                percentages[material_name] = percentage
+
+            # Warning if percentages don't sum to 100 (not blocking)
+            percentage_values = [p for p in percentages.values() if p is not None]
+            if percentage_values and sum(percentage_values) != 100:
+                # In production, log a warning
+                pass
+
+            return materials_from_details, percentages
+
+        # If only materials list provided (no percentages)
+        if not materials:
+            return [], {}
+
+        # Check for duplicates
+        if len(materials) != len(set(materials)):
+            raise ValueError("Duplicate materials are not allowed")
+
+        # Validate all materials exist (optimized: single query)
+        existing_materials = db.query(Material.name_en).filter(Material.name_en.in_(materials)).all()
+        existing_set = {m[0] for m in existing_materials}
+
+        invalid_materials = set(materials) - existing_set
+        if invalid_materials:
+            raise ValueError(
+                f"Invalid materials: {', '.join(sorted(invalid_materials))}. "
+                f"Use /api/attributes/materials to get valid materials."
+            )
+
+        return materials, {m: None for m in materials}
+
+    @staticmethod
+    def validate_condition_sups(
+        db: Session,
+        condition_sups: list[str] | None
+    ) -> list[str]:
+        """
+        Validate a list of condition supplements for M2M relationship.
+
+        Args:
+            db: SQLAlchemy session
+            condition_sups: List of condition_sup names (name_en) to validate
+
+        Returns:
+            list[str]: Validated list of condition_sups (empty list if None)
+
+        Raises:
+            ValueError: If any condition_sup is invalid or duplicates exist
+
+        Example:
+            >>> AttributeValidator.validate_condition_sups(db, ["Faded", "Small hole"])
+            ["Faded", "Small hole"]
+
+            >>> AttributeValidator.validate_condition_sups(db, ["InvalidCondition"])
+            ValueError: Condition supplement 'InvalidCondition' does not exist...
+        """
+        # Standardize: None and [] are equivalent (both mean "no condition supplements")
+        if condition_sups is None:
+            condition_sups = []
+
+        if not condition_sups:
+            return []
+
+        # Check for duplicates
+        if len(condition_sups) != len(set(condition_sups)):
+            raise ValueError("Duplicate condition supplements are not allowed")
+
+        # Import here to avoid circular imports
+        from models.public.condition_sup import ConditionSup
+
+        # Validate each condition_sup exists
+        for condition_sup in condition_sups:
+            exists = db.query(ConditionSup).filter(ConditionSup.name_en == condition_sup).first()
+            if not exists:
+                raise ValueError(
+                    f"Condition supplement '{condition_sup}' does not exist. "
+                    f"Use /api/attributes/condition_sups to get valid condition supplements."
+                )
+
+        return condition_sups
 
 
 class PluginTaskResultValidator:
