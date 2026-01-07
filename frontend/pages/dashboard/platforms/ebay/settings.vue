@@ -1,7 +1,7 @@
 <template>
   <PlatformSettingsPage
     platform="ebay"
-    :is-connected="ebayStore.isConnected"
+    :is-connected="ebayStore.isConnected ?? false"
     subtitle="Configurez votre integration eBay"
     back-to="/dashboard/platforms/ebay/products"
     :columns="2"
