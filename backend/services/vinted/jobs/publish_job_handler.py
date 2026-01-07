@@ -34,6 +34,7 @@ from services.vinted.vinted_product_helpers import (
 )
 from shared.vinted_constants import VintedProductAPI
 from .base_job_handler import BaseJobHandler
+from shared.timing import timed_operation, measure_operation
 
 
 class PublishJobHandler(BaseJobHandler):

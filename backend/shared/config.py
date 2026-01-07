@@ -2,7 +2,9 @@
 Configuration centralisée de l'application Stoflow.
 Charge les variables d'environnement et fournit un objet Settings.
 """
+import os
 from functools import lru_cache
+from pathlib import Path
 from typing import List, Optional
 
 from pydantic import Field, field_validator
@@ -40,8 +42,18 @@ class Settings(BaseSettings):
         default=None,
         description="Ancien secret JWT pour période de grâce lors de rotation"
     )
-    jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 1440  # 24 heures
+    jwt_algorithm: str = "RS256"  # Migré de HS256 vers RS256 asymétrique
+    jwt_private_key_path: str = Field(default="keys/private_key.pem")
+    jwt_public_key_path: str = Field(default="keys/public_key.pem")
+    jwt_private_key_pem: Optional[str] = Field(
+        default=None,
+        description="Clé privée RSA (chargée depuis fichier ou env)"
+    )
+    jwt_public_key_pem: Optional[str] = Field(
+        default=None,
+        description="Clé publique RSA (chargée depuis fichier ou env)"
+    )
+    jwt_access_token_expire_minutes: int = 15  # Changé de 1440 (24h) à 15 min
     jwt_refresh_token_expire_days: int = 7
     password_hash_rounds: int = 12
 
@@ -134,6 +146,19 @@ class Settings(BaseSettings):
             return self.r2_public_url.rstrip("/")
         # Fallback to local uploads
         return ""
+
+    def model_post_init(self, __context) -> None:
+        """Charger les clés RSA après initialisation (Pydantic v2)."""
+        # Charger les clés depuis les fichiers PEM si pas déjà définies
+        if not self.jwt_private_key_pem:
+            private_key_file = Path(self.jwt_private_key_path)
+            if private_key_file.exists():
+                self.jwt_private_key_pem = private_key_file.read_text()
+
+        if not self.jwt_public_key_pem:
+            public_key_file = Path(self.jwt_public_key_path)
+            if public_key_file.exists():
+                self.jwt_public_key_pem = public_key_file.read_text()
 
     def get_cors_origins_list(self) -> List[str]:
         """Get CORS origins as a list."""
