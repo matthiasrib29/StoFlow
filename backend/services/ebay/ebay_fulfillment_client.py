@@ -189,9 +189,11 @@ class EbayFulfillmentClient(EbayBaseClient):
             ... )
         """
         # Construire filtre date
+        # NOTE: Using lastmodifieddate instead of creationdate to catch all orders
+        # that were updated/modified in the time range (not just newly created ones)
         start_str = start_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
         end_str = end_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-        date_filter = f"creationdate:[{start_str}..{end_str}]"
+        date_filter = f"lastmodifieddate:[{start_str}..{end_str}]"
 
         # Ajouter filtre statut si fourni
         if status:
@@ -204,6 +206,53 @@ class EbayFulfillmentClient(EbayBaseClient):
 
         while True:
             result = self.get_orders(filter=date_filter, limit=limit, offset=offset)
+            orders = result.get("orders", [])
+
+            if not orders:
+                break
+
+            all_orders.extend(orders)
+
+            # Vérifier si plus de résultats
+            total = result.get("total", 0)
+            if offset + len(orders) >= total:
+                break
+
+            offset += limit
+
+        return all_orders
+
+    def get_all_orders(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Récupère TOUTES les commandes eBay (sans filtre de date).
+
+        ATTENTION: Peut retourner beaucoup de données. Utilisé pour la sync initiale.
+
+        Args:
+            status: Statut optionnel (NOT_STARTED, IN_PROGRESS, FULFILLED)
+
+        Returns:
+            Liste de toutes les commandes
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> # Toutes les commandes
+            >>> all_orders = client.get_all_orders()
+            >>> # Toutes les commandes non traitées
+            >>> pending = client.get_all_orders(status="NOT_STARTED")
+        """
+        # Construire filtre (status uniquement, pas de date)
+        filter_str = None
+        if status:
+            filter_str = f"orderfulfillmentstatus:{{{status}}}"
+
+        # Récupérer toutes les pages
+        all_orders = []
+        offset = 0
+        limit = 200  # Max eBay
+
+        while True:
+            result = self.get_orders(filter=filter_str, limit=limit, offset=offset)
             orders = result.get("orders", [])
 
             if not orders:

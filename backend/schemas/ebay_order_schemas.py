@@ -15,7 +15,7 @@ Author: Claude
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 # =============================================================================
@@ -28,15 +28,15 @@ class SyncOrdersRequest(BaseModel):
     Request pour synchroniser les commandes eBay.
 
     Attributes:
-        hours: Nombre d'heures à remonter dans l'historique (1-720, max 30 jours)
+        hours: Nombre d'heures à remonter dans l'historique (0=toutes, 1-720=période spécifique)
         status_filter: Filtre optionnel par statut fulfillment
     """
 
     hours: int = Field(
         default=24,
-        ge=1,
+        ge=0,  # Allow 0 for fetching ALL orders (no date filter)
         le=720,
-        description="Nombre d'heures à remonter (max 30 jours)",
+        description="Nombre d'heures à remonter (0=toutes, 1-720=période spécifique)",
     )
     status_filter: Optional[str] = Field(
         default=None,
@@ -174,6 +174,12 @@ class EbayOrderDetailResponse(BaseModel):
 
     # Nested products (line items)
     products: List[EbayOrderProductResponse] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def items_count(self) -> int:
+        """Total number of line items in the order."""
+        return len(self.products)
 
     model_config = {"from_attributes": True}
 

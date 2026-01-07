@@ -14,7 +14,7 @@ import pytest
 
 from fastapi.testclient import TestClient
 
-from models.user.vinted_job import JobStatus
+from models.user.marketplace_job import JobStatus
 
 
 # =============================================================================

@@ -236,7 +236,7 @@ async def sync_products(
     """
     Synchronise les produits depuis la garde-robe Vinted.
 
-    Crée un VintedJob pour tracer l'opération dans l'UI.
+    Crée un MarketplaceJob pour tracer l'opération dans l'UI.
 
     Args:
         process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
@@ -297,7 +297,7 @@ async def update_product(
     """
     Met à jour un produit Vinted (prix, titre, description).
 
-    Crée un VintedJob pour tracer l'opération dans l'UI.
+    Crée un MarketplaceJob pour tracer l'opération dans l'UI.
 
     Args:
         product_id: ID du produit à mettre à jour

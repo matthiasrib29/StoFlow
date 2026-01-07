@@ -69,25 +69,25 @@ class MarketplaceJobService:
             Action type or None
 
         Note:
-            Currently only Vinted action types are implemented.
-            eBay/Etsy action types will be added when handlers are created.
+            All marketplaces use the same action_types table (vinted.action_types).
+            Action codes are suffixed with marketplace name for non-Vinted actions.
+            Examples: 'publish' (Vinted), 'sync_orders_ebay' (eBay)
         """
         cache_key = (marketplace, action_code)
 
         if cache_key not in self._action_types_cache:
-            # For now, only Vinted action types exist
-            if marketplace == "vinted":
-                action_type = (
-                    self.db.query(VintedActionType)
-                    .filter(VintedActionType.code == action_code)
-                    .first()
-                )
-                if action_type:
-                    self._action_types_cache[cache_key] = action_type
+            # Query action type from vinted.action_types table
+            # All marketplaces share this table with suffixed codes
+            action_type = (
+                self.db.query(VintedActionType)
+                .filter(VintedActionType.code == action_code)
+                .first()
+            )
+            if action_type:
+                self._action_types_cache[cache_key] = action_type
             else:
-                # eBay and Etsy action types will be added later
                 logger.warning(
-                    f"Action types not yet implemented for marketplace: {marketplace}"
+                    f"Action type not found: marketplace={marketplace}, code={action_code}"
                 )
                 return None
 

@@ -62,8 +62,9 @@ class EbayBaseClient:
     COMMERCE_API_BASE_SANDBOX = "https://apiz.sandbox.ebay.com"
     COMMERCE_API_BASE_PRODUCTION = "https://apiz.ebay.com"
 
-    # Token cache (partagé entre instances) - Format: {user_id: {scopes_hash: (token, timestamp)}}
-    _token_cache: Dict[int, Dict[str, tuple[str, float]]] = {}
+    # Token cache (partagé entre instances) - Format: {user_id: (token, timestamp)}
+    # NOTE: Scopes are inherited from refresh token, no need to cache by scope
+    _token_cache: Dict[int, tuple[str, float]] = {}
     _token_max_age: int = 7000  # 1h56min (eBay tokens expirent à 2h)
 
     # OAuth Scopes
@@ -179,15 +180,15 @@ class EbayBaseClient:
                 "Please reconnect your eBay account via /api/ebay/connect"
             )
 
-    def _refresh_access_token(self, scopes: str) -> str:
+    def _refresh_access_token(self) -> str:
         """
         Renouvelle l'access token eBay en utilisant le refresh token.
 
         Cette méthode est appelée automatiquement par get_access_token()
         quand le token en cache expire.
 
-        Args:
-            scopes: Scopes OAuth normalisés (séparés par espace)
+        IMPORTANT: Les scopes ne sont PAS envoyés lors du refresh.
+        Ils sont hérités de l'autorisation initiale et ne peuvent pas être modifiés.
 
         Returns:
             str: Nouveau access token
@@ -202,10 +203,11 @@ class EbayBaseClient:
         auth_str = f"{self.client_id}:{self.client_secret}"
         auth_b64 = base64.b64encode(auth_str.encode()).decode()
 
+        # NOTE: scope parameter is NOT included in refresh token requests
+        # Scopes are inherited from the original authorization
         payload = {
             "grant_type": "refresh_token",
             "refresh_token": self.refresh_token,
-            "scope": scopes,
         }
 
         headers = {
@@ -307,14 +309,17 @@ class EbayBaseClient:
         """
         Récupère un access token OAuth2 avec cache et refresh automatique.
 
-        Cache le token par (user_id, scopes) pour éviter les appels répétés.
+        Cache le token par user_id pour éviter les appels répétés.
         Les tokens eBay expirent après 2h, on les rafraîchit après 1h56.
 
         Si le token en cache expire, cette méthode appelle automatiquement
         _refresh_access_token() pour obtenir un nouveau token.
 
+        NOTE: Le paramètre scopes est conservé pour compatibilité API mais n'est pas utilisé.
+        Les scopes sont hérités du refresh token et ne peuvent pas être modifiés.
+
         Args:
-            scopes: Scopes OAuth requis (défaut: api_scope)
+            scopes: (Ignoré) Scopes OAuth - hérités de l'autorisation initiale
 
         Returns:
             str: Access token valide
@@ -324,27 +329,20 @@ class EbayBaseClient:
 
         Author: Claude
         Date: 2025-12-10
-        Updated: 2025-12-10 - Ajout refresh automatique
+        Updated: 2026-01-07 - Scopes hérités, pas de paramètre scope lors du refresh
         """
-        normalized_scopes = self._normalize_scopes(scopes)
-        scopes_hash = hash(normalized_scopes)
-
-        # Vérifier cache
+        # Vérifier cache (par user_id uniquement, les scopes sont fixes)
         if self.user_id in self._token_cache:
-            user_cache = self._token_cache[self.user_id]
-            if scopes_hash in user_cache:
-                cached_token, timestamp = user_cache[scopes_hash]
-                token_age = time.time() - timestamp
-                if token_age < self._token_max_age:
-                    return cached_token
+            cached_token, timestamp = self._token_cache[self.user_id]
+            token_age = time.time() - timestamp
+            if token_age < self._token_max_age:
+                return cached_token
 
         # Token expiré ou non présent → refresh automatique
-        access_token = self._refresh_access_token(normalized_scopes)
+        access_token = self._refresh_access_token()
 
-        # Mettre en cache
-        if self.user_id not in self._token_cache:
-            self._token_cache[self.user_id] = {}
-        self._token_cache[self.user_id][scopes_hash] = (access_token, time.time())
+        # Mettre en cache (clé simple: user_id)
+        self._token_cache[self.user_id] = (access_token, time.time())
 
         return access_token
 

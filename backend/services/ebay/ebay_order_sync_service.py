@@ -60,14 +60,15 @@ class EbayOrderSyncService:
 
     def sync_orders(
         self,
-        modified_since_hours: int = 24,
+        modified_since_hours: Optional[int] = 24,
         status_filter: Optional[str] = None,
     ) -> dict:
         """
-        Synchronize orders modified in the last N hours.
+        Synchronize orders modified in the last N hours, or ALL orders if hours=0/None.
 
         Args:
-            modified_since_hours: Number of hours to look back (1-720, max 30 days)
+            modified_since_hours: Number of hours to look back (1-720)
+                                 If 0 or None: fetch ALL orders (no date filter)
             status_filter: Optional filter by fulfillment status
                           (NOT_STARTED, IN_PROGRESS, FULFILLED)
 
@@ -93,18 +94,17 @@ class EbayOrderSyncService:
         """
         start_time = datetime.now(timezone.utc)
 
-        # Validate hours range
-        if not 1 <= modified_since_hours <= 720:
-            raise ValueError("modified_since_hours must be between 1 and 720 (30 days)")
+        # Determine if sync all or specific date range
+        sync_all = modified_since_hours is None or modified_since_hours == 0
+
+        # Validate hours range (allow 0/None for "all orders")
+        if not sync_all and not (1 <= modified_since_hours <= 720):
+            raise ValueError("modified_since_hours must be between 1 and 720 (30 days), or 0 for all orders")
 
         logger.info(
             f"[EbayOrderSyncService] Starting sync: user_id={self.user_id}, "
-            f"hours={modified_since_hours}, status_filter={status_filter}"
+            f"hours={modified_since_hours if not sync_all else 'ALL'}, status_filter={status_filter}"
         )
-
-        # Calculate date range
-        end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(hours=modified_since_hours)
 
         # Initialize statistics
         stats = {
@@ -118,16 +118,24 @@ class EbayOrderSyncService:
 
         try:
             # Fetch orders from eBay API
-            logger.debug(
-                f"[EbayOrderSyncService] Fetching orders from {start_date.isoformat()} "
-                f"to {end_date.isoformat()}"
-            )
+            if sync_all:
+                logger.debug("[EbayOrderSyncService] Fetching ALL orders (no date filter)")
+                api_orders = self.fulfillment_client.get_all_orders(status=status_filter)
+            else:
+                # Calculate date range
+                end_date = datetime.now(timezone.utc)
+                start_date = end_date - timedelta(hours=modified_since_hours)
 
-            api_orders = self.fulfillment_client.get_orders_by_date_range(
-                start_date=start_date,
-                end_date=end_date,
-                status=status_filter,
-            )
+                logger.debug(
+                    f"[EbayOrderSyncService] Fetching orders from {start_date.isoformat()} "
+                    f"to {end_date.isoformat()}"
+                )
+
+                api_orders = self.fulfillment_client.get_orders_by_date_range(
+                    start_date=start_date,
+                    end_date=end_date,
+                    status=status_filter,
+                )
 
             stats["total_fetched"] = len(api_orders)
 

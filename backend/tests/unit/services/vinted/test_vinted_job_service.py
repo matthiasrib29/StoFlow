@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch, PropertyMock
 import pytest
 
 from models.vinted.vinted_action_type import VintedActionType
-from models.user.vinted_job import VintedJob, JobStatus
+from models.user.marketplace_job import MarketplaceJob, JobStatus
 from models.user.vinted_job_stats import VintedJobStats
 from models.user.plugin_task import PluginTask, TaskStatus
 
@@ -85,7 +85,7 @@ def mock_action_type_message():
 @pytest.fixture
 def sample_job():
     """Crée un job mock pour les tests."""
-    job = MagicMock(spec=VintedJob)
+    job = MagicMock(spec=MarketplaceJob)
     job.id = 1
     job.batch_id = None
     job.action_type_id = 1
@@ -214,7 +214,7 @@ class TestJobStatusManagement:
 
         def query_side_effect(model):
             mock_query = MagicMock()
-            if model == VintedJob:
+            if model == MarketplaceJob:
                 mock_query.filter.return_value.first.return_value = sample_job
             elif model == VintedJobStats:
                 mock_query.filter.return_value.first.return_value = None
@@ -239,7 +239,7 @@ class TestJobStatusManagement:
 
         def query_side_effect(model):
             mock_query = MagicMock()
-            if model == VintedJob:
+            if model == MarketplaceJob:
                 mock_query.filter.return_value.first.return_value = sample_job
             elif model == VintedJobStats:
                 mock_query.filter.return_value.first.return_value = None
@@ -310,7 +310,7 @@ class TestJobStatusManagement:
 
         def query_side_effect(model):
             mock_query = MagicMock()
-            if model == VintedJob:
+            if model == MarketplaceJob:
                 mock_query.filter.return_value.first.return_value = sample_job
             elif model == PluginTask:
                 mock_query.filter.return_value.all.return_value = []
@@ -342,7 +342,7 @@ class TestRetryLogic:
 
         def query_side_effect(model):
             mock_query = MagicMock()
-            if model == VintedJob:
+            if model == MarketplaceJob:
                 mock_query.filter.return_value.first.return_value = sample_job
             elif model == VintedActionType:
                 mock_query.filter.return_value.first.return_value = mock_action_type_publish
@@ -366,7 +366,7 @@ class TestRetryLogic:
 
         def query_side_effect(model):
             mock_query = MagicMock()
-            if model == VintedJob:
+            if model == MarketplaceJob:
                 mock_query.filter.return_value.first.return_value = sample_job
             elif model == VintedActionType:
                 mock_query.filter.return_value.first.return_value = mock_action_type_publish
@@ -397,12 +397,12 @@ class TestPriority:
         from services.vinted.vinted_job_service import VintedJobService
 
         # Créer des jobs avec différentes priorités
-        job_low = MagicMock(spec=VintedJob)
+        job_low = MagicMock(spec=MarketplaceJob)
         job_low.id = 1
         job_low.priority = 4
         job_low.status = JobStatus.PENDING
 
-        job_high = MagicMock(spec=VintedJob)
+        job_high = MagicMock(spec=MarketplaceJob)
         job_high.id = 2
         job_high.priority = 1
         job_high.status = JobStatus.PENDING
@@ -442,7 +442,7 @@ class TestBatchOperations:
             JobStatus.FAILED,
             JobStatus.PENDING, JobStatus.PENDING
         ]):
-            job = MagicMock(spec=VintedJob)
+            job = MagicMock(spec=MarketplaceJob)
             job.id = i + 1
             job.batch_id = "batch_123"
             job.status = status
@@ -487,7 +487,7 @@ class TestExpiration:
         # Créer des jobs expirés
         expired_jobs = []
         for i in range(3):
-            job = MagicMock(spec=VintedJob)
+            job = MagicMock(spec=MarketplaceJob)
             job.id = i + 1
             job.status = JobStatus.PENDING
             job.expires_at = datetime.now(timezone.utc) - timedelta(hours=2)
@@ -533,7 +533,7 @@ class TestInterruptedJobs:
         # Créer des jobs en cours/pause
         interrupted_jobs = []
         for i, status in enumerate([JobStatus.RUNNING, JobStatus.PAUSED]):
-            job = MagicMock(spec=VintedJob)
+            job = MagicMock(spec=MarketplaceJob)
             job.id = i + 1
             job.status = status
             job.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)

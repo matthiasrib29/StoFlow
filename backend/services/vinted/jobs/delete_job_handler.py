@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from models.user.vinted_product import VintedProduct
 from models.vinted.vinted_deletion import VintedDeletion
-from models.user.vinted_job import VintedJob
+from models.user.marketplace_job import MarketplaceJob
 from services.vinted.vinted_product_helpers import should_delete_product
 from shared.vinted_constants import VintedProductAPI
 from .base_job_handler import BaseJobHandler
@@ -34,12 +34,12 @@ class DeleteJobHandler(BaseJobHandler):
 
     ACTION_CODE = "delete"
 
-    async def execute(self, job: VintedJob) -> dict[str, Any]:
+    async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Supprime un produit sur Vinted.
 
         Args:
-            job: VintedJob contenant product_id
+            job: MarketplaceJob contenant product_id
 
         Returns:
             dict: {"success": bool, "product_id": int, "error": str | None}
