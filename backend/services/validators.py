@@ -26,6 +26,7 @@ from models.public.gender import Gender
 from models.public.material import Material
 from models.public.season import Season
 from models.public.size_normalized import SizeNormalized
+from models.public.stretch import Stretch
 
 
 class AttributeValidator:
@@ -111,6 +112,12 @@ class AttributeValidator:
             'field': 'name_en',
             'required': False,
             'display_name': 'Season'
+        },
+        'stretch': {
+            'model': Stretch,
+            'field': 'name_en',
+            'required': False,
+            'display_name': 'Stretch'
         },
     }
 
