@@ -533,6 +533,13 @@ useSeoMeta({
   description: 'Politique de confidentialité de StoFlow : protection des données personnelles, cookies et droits RGPD.'
 })
 
+// Breadcrumb Schema
+useBreadcrumbSchema([
+  { name: 'Accueil', url: '/' },
+  { name: 'Informations légales', url: '/legal' },
+  { name: 'Politique de confidentialité', url: '/legal/privacy' }
+])
+
 const lastUpdate = computed(() => {
   return new Date().toLocaleDateString('fr-FR', {
     year: 'numeric',

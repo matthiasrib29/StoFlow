@@ -24,7 +24,7 @@
               <div class="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
                 <i :class="['pi', faq.icon, 'text-secondary-700']" />
               </div>
-              <span class="font-bold text-secondary-900">{{ faq.question }}</span>
+              <h3 class="font-bold text-secondary-900">{{ faq.question }}</h3>
             </div>
             <i
               :class="openFaq === index ? 'pi pi-minus' : 'pi pi-plus'"

@@ -1,2 +1,17 @@
-User-Agent: *
-Disallow:
+# Stoflow - robots.txt
+# Configuration des règles d'indexation pour les moteurs de recherche
+
+User-agent: *
+Allow: /
+
+# Bloquer les routes privées (dashboard, auth, admin)
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://stoflow.io/sitemap.xml
+
+# Crawl delay (optionnel, décommenter si nécessaire pour éviter la surcharge)
+# Crawl-delay: 1
