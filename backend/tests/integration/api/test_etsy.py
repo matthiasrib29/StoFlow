@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from models.public.platform_mapping import PlatformMapping
+from models.user.etsy_credentials import EtsyCredentials
 from models.user.product import Product, ProductStatus
 
 
@@ -36,24 +36,23 @@ def mock_etsy_config():
 
 
 @pytest.fixture
-def etsy_platform_mapping(db_session: Session, test_user):
-    """Fixture pour créer un PlatformMapping Etsy."""
+def etsy_credentials(db_session: Session, test_user):
+    """Fixture pour créer des EtsyCredentials."""
     now = datetime.now(timezone.utc)
-    mapping = PlatformMapping(
-        user_id=test_user.id,
-        platform="etsy",
+    credentials = EtsyCredentials(
         access_token="test_access_token",
         refresh_token="12345678.test_refresh_token",
         access_token_expires_at=now + timedelta(hours=1),
         refresh_token_expires_at=now + timedelta(days=90),
         shop_id="12345678",
         shop_name="TestEtsyShop",
-        api_key="test_client_id",
+        user_id_etsy="12345678",
+        is_connected=True,
     )
-    db_session.add(mapping)
+    db_session.add(credentials)
     db_session.commit()
-    db_session.refresh(mapping)
-    return mapping
+    db_session.refresh(credentials)
+    return credentials
 
 
 @pytest.fixture
@@ -141,17 +140,10 @@ class TestEtsyOAuth:
         assert data["shop_id"] == "12345678"
         assert data["access_token_expires_at"] is not None
 
-        # Vérifier que le mapping a été créé en DB
-        mapping = (
-            db_session.query(PlatformMapping)
-            .filter(
-                PlatformMapping.user_id == 1,  # test_user.id
-                PlatformMapping.platform == "etsy",
-            )
-            .first()
-        )
-        assert mapping is not None
-        assert mapping.access_token == "test_access_token_new"
+        # Vérifier que les credentials ont été créés en DB
+        credentials = db_session.query(EtsyCredentials).first()
+        assert credentials is not None
+        assert credentials.access_token == "test_access_token_new"
 
     def test_callback_invalid_state(self, client: TestClient, auth_headers: dict, mock_etsy_config):
         """Test du callback avec state invalide."""
@@ -189,7 +181,7 @@ class TestEtsyOAuth:
         assert "Token exchange failed" in response.json()["detail"]
 
     def test_disconnect_success(
-        self, client: TestClient, auth_headers: dict, etsy_platform_mapping: PlatformMapping
+        self, client: TestClient, auth_headers: dict, etsy_credentials: EtsyCredentials
     ):
         """Test de déconnexion Etsy réussie."""
         response = client.post("/api/etsy/oauth/disconnect", headers=auth_headers)
@@ -218,7 +210,7 @@ class TestEtsyAPI:
     """Tests pour les routes API Etsy."""
 
     def test_connection_status_connected(
-        self, client: TestClient, auth_headers: dict, etsy_platform_mapping: PlatformMapping
+        self, client: TestClient, auth_headers: dict, etsy_credentials: EtsyCredentials
     ):
         """Test du status de connexion (connecté)."""
         response = client.get("/api/etsy/connection/status", headers=auth_headers)
@@ -247,7 +239,7 @@ class TestEtsyAPI:
         mock_publish,
         client: TestClient,
         auth_headers: dict,
-        etsy_platform_mapping: PlatformMapping,
+        etsy_credentials: EtsyCredentials,
         test_product_for_etsy: Product,
     ):
         """Test de publication d'un produit sur Etsy."""
@@ -297,7 +289,7 @@ class TestEtsyAPI:
         mock_get_listings,
         client: TestClient,
         auth_headers: dict,
-        etsy_platform_mapping: PlatformMapping,
+        etsy_credentials: EtsyCredentials,
     ):
         """Test de récupération des listings actifs."""
         # Mock de la réponse
@@ -333,7 +325,7 @@ class TestEtsyAPI:
         mock_get_shop,
         client: TestClient,
         auth_headers: dict,
-        etsy_platform_mapping: PlatformMapping,
+        etsy_credentials: EtsyCredentials,
     ):
         """Test de récupération des infos du shop."""
         # Mock de la réponse
@@ -361,7 +353,7 @@ class TestEtsyAPI:
         mock_get_receipts,
         client: TestClient,
         auth_headers: dict,
-        etsy_platform_mapping: PlatformMapping,
+        etsy_credentials: EtsyCredentials,
     ):
         """Test de récupération des commandes."""
         # Mock de la réponse
@@ -391,7 +383,7 @@ class TestEtsyAPI:
         mock_get_profiles,
         client: TestClient,
         auth_headers: dict,
-        etsy_platform_mapping: PlatformMapping,
+        etsy_credentials: EtsyCredentials,
     ):
         """Test de récupération des shipping profiles."""
         # Mock de la réponse
@@ -420,7 +412,7 @@ class TestEtsyAPI:
         mock_get_nodes,
         client: TestClient,
         auth_headers: dict,
-        etsy_platform_mapping: PlatformMapping,
+        etsy_credentials: EtsyCredentials,
     ):
         """Test de récupération des catégories Etsy."""
         # Mock de la réponse
@@ -449,7 +441,7 @@ class TestEtsyAPI:
         mock_polling,
         client: TestClient,
         auth_headers: dict,
-        etsy_platform_mapping: PlatformMapping,
+        etsy_credentials: EtsyCredentials,
     ):
         """Test du polling Etsy."""
         # Mock de la réponse de polling

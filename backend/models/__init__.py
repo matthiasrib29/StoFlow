@@ -88,6 +88,8 @@ from models.user import (
     EbayPromotedListing,
     EbayOrder,
     EbayOrderProduct,
+    # Etsy
+    EtsyCredentials,
 )
 
 __all__ = [
@@ -160,4 +162,6 @@ __all__ = [
     "EbayPromotedListing",
     "EbayOrder",
     "EbayOrderProduct",
+    # Etsy
+    "EtsyCredentials",
 ]

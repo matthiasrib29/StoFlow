@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user, get_db
-from models.public.platform_mapping import PlatformMapping
+from models.user.etsy_credentials import EtsyCredentials
 from models.public.user import User
 
 from .schemas import EtsyConnectionStatusResponse
@@ -30,30 +30,23 @@ def get_etsy_connection_status(
     Returns:
         Status de connexion avec infos shop si connecte
     """
-    mapping = (
-        db.query(PlatformMapping)
-        .filter(
-            PlatformMapping.user_id == current_user.id,
-            PlatformMapping.platform == "etsy",
-        )
-        .first()
-    )
+    credentials = db.query(EtsyCredentials).first()
 
-    if not mapping or not mapping.access_token:
+    if not credentials or not credentials.access_token:
         return EtsyConnectionStatusResponse(connected=False)
 
     return EtsyConnectionStatusResponse(
         connected=True,
-        shop_id=mapping.shop_id,
-        shop_name=mapping.shop_name,
+        shop_id=credentials.shop_id,
+        shop_name=credentials.shop_name,
         access_token_expires_at=(
-            mapping.access_token_expires_at.isoformat()
-            if mapping.access_token_expires_at
+            credentials.access_token_expires_at.isoformat()
+            if credentials.access_token_expires_at
             else None
         ),
         refresh_token_expires_at=(
-            mapping.refresh_token_expires_at.isoformat()
-            if mapping.refresh_token_expires_at
+            credentials.refresh_token_expires_at.isoformat()
+            if credentials.refresh_token_expires_at
             else None
         ),
     )

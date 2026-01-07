@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 import requests
 from sqlalchemy.orm import Session
 
-from models.public.platform_mapping import PlatformMapping
+from models.user.etsy_credentials import EtsyCredentials
 from shared.exceptions import (
     EtsyAPIError,
     EtsyError,
@@ -85,36 +85,30 @@ class EtsyBaseClient:
 
     def _load_credentials(self) -> None:
         """
-        Charge les credentials Etsy depuis platform_mappings.
+        Charge les credentials Etsy depuis etsy_credentials.
 
         Raises:
             ValueError: Si credentials non trouvés
         """
-        mapping = (
-            self.db.query(PlatformMapping)
-            .filter(
-                PlatformMapping.user_id == self.user_id,
-                PlatformMapping.platform == "etsy",
-            )
-            .first()
-        )
+        credentials = self.db.query(EtsyCredentials).first()
 
-        if not mapping:
+        if not credentials:
             raise ValueError(
                 f"Etsy credentials not found for user {self.user_id}. "
                 "Please connect Etsy account first."
             )
 
         # OAuth2 credentials
-        self.api_key = mapping.api_key  # Client ID Etsy
-        self.api_secret = mapping.api_secret  # Client Secret Etsy
-        self.access_token = mapping.access_token
-        self.refresh_token = mapping.refresh_token
-        self.shop_id = mapping.shop_id  # Etsy shop_id
+        import os
+        self.api_key = os.getenv("ETSY_API_KEY")  # Client ID Etsy
+        self.api_secret = os.getenv("ETSY_API_SECRET")  # Client Secret Etsy
+        self.access_token = credentials.access_token
+        self.refresh_token = credentials.refresh_token
+        self.shop_id = credentials.shop_id  # Etsy shop_id
 
         # Token expiry dates
-        self.access_token_expires_at = mapping.access_token_expires_at
-        self.refresh_token_expires_at = mapping.refresh_token_expires_at
+        self.access_token_expires_at = credentials.access_token_expires_at
+        self.refresh_token_expires_at = credentials.refresh_token_expires_at
 
         logger.info(
             f"Etsy credentials loaded for user {self.user_id}, shop_id={self.shop_id}"
@@ -227,20 +221,13 @@ class EtsyBaseClient:
             access_token_expires_at: Date expiration access token
             refresh_token_expires_at: Date expiration refresh token
         """
-        mapping = (
-            self.db.query(PlatformMapping)
-            .filter(
-                PlatformMapping.user_id == self.user_id,
-                PlatformMapping.platform == "etsy",
-            )
-            .first()
-        )
+        credentials = self.db.query(EtsyCredentials).first()
 
-        if mapping:
-            mapping.access_token = new_access_token
-            mapping.refresh_token = new_refresh_token
-            mapping.access_token_expires_at = access_token_expires_at
-            mapping.refresh_token_expires_at = refresh_token_expires_at
+        if credentials:
+            credentials.access_token = new_access_token
+            credentials.refresh_token = new_refresh_token
+            credentials.access_token_expires_at = access_token_expires_at
+            credentials.refresh_token_expires_at = refresh_token_expires_at
             self.db.commit()
             logger.info(f"Etsy tokens updated in DB for user {self.user_id}")
 
