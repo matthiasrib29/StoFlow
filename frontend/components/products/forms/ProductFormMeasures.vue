@@ -1,12 +1,12 @@
 <template>
-  <div class="space-y-6">
-    <h3 class="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
-      <i class="pi pi-arrows-alt text-xs" />
+  <div class="form-subsection-spacing">
+    <h3 class="form-section-title">
+      <i class="pi pi-arrows-alt" />
       Mesures & Tarification
     </h3>
 
     <!-- ===== DIMENSIONS ===== -->
-    <div class="bg-gray-50 rounded-lg p-4 space-y-4">
+    <div class="bg-gray-50 rounded-lg p-4 form-field-spacing">
       <h4 class="text-xs font-semibold text-gray-600 uppercase flex items-center gap-2">
         <i class="pi pi-rulers text-xs" />
         Dimensions (en cm)
@@ -21,7 +21,7 @@
       </div>
 
       <!-- Grille de dimensions -->
-      <div v-else class="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div v-else class="grid grid-cols-2 md:grid-cols-3 form-grid-spacing">
         <!-- Dim1: Poitrine -->
         <div v-if="visibleDimensions.includes('dim1')">
           <label class="block text-xs font-semibold mb-1 text-secondary-900">
@@ -129,14 +129,14 @@
     </div>
 
     <!-- ===== TARIFICATION ===== -->
-    <div class="border border-gray-200 rounded-lg p-4 space-y-4">
+    <div class="border border-gray-200 rounded-lg p-4 form-field-spacing">
       <h4 class="text-xs font-semibold text-gray-600 uppercase flex items-center gap-2">
         <i class="pi pi-euro text-xs" />
         Tarification
         <span class="text-gray-400 font-normal">(pour calcul automatique du prix)</span>
       </h4>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 form-grid-spacing">
         <!-- Rareté -->
         <div>
           <label class="block text-xs font-semibold mb-1 text-secondary-900">Rareté</label>
@@ -182,17 +182,6 @@
           />
         </div>
       </div>
-
-      <!-- Détails prix -->
-      <div>
-        <label class="block text-xs font-semibold mb-1 text-secondary-900">Détails prix</label>
-        <InputText
-          :model-value="pricingDetails"
-          placeholder="Informations supplémentaires pour le calcul du prix..."
-          class="w-full"
-          @update:model-value="$emit('update:pricingDetails', $event)"
-        />
-      </div>
     </div>
   </div>
 </template>
@@ -220,7 +209,7 @@ interface Props {
   pricingRarity: string | null
   pricingQuality: string | null
   pricingStyle: string | null
-  pricingDetails: string | null
+  // pricingDetails removed - not needed
 }
 
 const props = defineProps<Props>()
@@ -235,7 +224,7 @@ defineEmits<{
   'update:pricingRarity': [value: string | null]
   'update:pricingQuality': [value: string | null]
   'update:pricingStyle': [value: string | null]
-  'update:pricingDetails': [value: string | null]
+  // 'update:pricingDetails' removed - not needed
 }>()
 
 // Détecter le type de catégorie

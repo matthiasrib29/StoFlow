@@ -1,11 +1,13 @@
 <template>
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+  <UiFormSection :columns="4" variant="flat" spacing="tight">
     <!-- Fit -->
     <ProductsFormsCharacteristicsAttributeField
       type="select"
       label="Coupe"
       :model-value="fit"
       :options="options.fits"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:fit', $event)"
     />
 
@@ -15,6 +17,8 @@
       label="Saison"
       :model-value="season"
       :options="options.seasons"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:season', $event)"
     />
 
@@ -24,6 +28,8 @@
       label="Sport"
       :model-value="sport"
       :options="options.sports"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:sport', $event)"
     />
 
@@ -33,6 +39,8 @@
       label="Encolure"
       :model-value="neckline"
       :options="options.necklines"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:neckline', $event)"
     />
 
@@ -42,6 +50,8 @@
       label="Longueur"
       :model-value="length"
       :options="options.lengths"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:length', $event)"
     />
 
@@ -51,6 +61,8 @@
       label="Motif"
       :model-value="pattern"
       :options="options.patterns"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:pattern', $event)"
     />
 
@@ -60,6 +72,8 @@
       label="Hauteur taille"
       :model-value="rise"
       :options="options.rises"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:rise', $event)"
     />
 
@@ -69,6 +83,8 @@
       label="Fermeture"
       :model-value="closure"
       :options="options.closures"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:closure', $event)"
     />
 
@@ -78,9 +94,11 @@
       label="Manches"
       :model-value="sleeveLength"
       :options="options.sleeveLengths"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:sleeveLength', $event)"
     />
-  </div>
+  </UiFormSection>
 </template>
 
 <script setup lang="ts">

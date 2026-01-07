@@ -155,18 +155,15 @@ export const useAttributes = () => {
   /**
    * Recherche des marques pour l'autocomplétion (sans mettre en cache)
    * Retourne directement les résultats sans les stocker dans brands
+   * Si la query est vide, retourne des marques populaires
    */
   const searchBrands = async (query: string, limit: number = 20): Promise<AttributeOption[]> => {
-    if (!query || query.length < 1) {
-      return []
-    }
-
     try {
       const response = await $fetch<AttributeOption[]>(
         `${apiUrl}/api/attributes/brands`,
         {
           params: {
-            search: query,
+            search: query || undefined, // Si vide, l'API retournera des marques populaires
             limit
           }
         }
