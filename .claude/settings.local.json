@@ -280,7 +280,9 @@
       "Bash(DATABASE_URL=\"postgresql://stoflow_test:test_password_123@localhost:5434/stoflow_test\" ./venv/bin/alembic current:*)",
       "Bash(PGPASSWORD=test_password_123 psql:*)",
       "Bash(DATABASE_URL=\"postgresql://stoflow_test:test_password_123@localhost:5434/stoflow_test\" ./venv/bin/alembic upgrade:*)",
-      "Bash(DATABASE_URL=\"postgresql://stoflow_test:test_password_123@localhost:5434/stoflow_test\" ./venv/bin/alembic upgrade head:*)"
+      "Bash(DATABASE_URL=\"postgresql://stoflow_test:test_password_123@localhost:5434/stoflow_test\" ./venv/bin/alembic upgrade head:*)",
+      "mcp__playwright__browser_file_upload",
+      "Bash(./quick-indexation.sh)"
     ]
   },
   "enableAllProjectMcpServers": true,
