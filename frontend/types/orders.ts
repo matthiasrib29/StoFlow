@@ -29,39 +29,42 @@ export interface VintedOrder {
 }
 
 export interface EbayOrder {
+  id: number
   order_id: string
   marketplace_id?: string
-  buyer_username: string
+  buyer_username?: string
   buyer_email?: string
-  total_price: number
-  currency: string
-  shipping_cost?: number
-  order_payment_status: string
-  order_fulfillment_status: string
-  creation_date: string
-  paid_date?: string
-  tracking_number?: string
-  shipping_carrier?: string
   shipping_name?: string
   shipping_address?: string
   shipping_city?: string
   shipping_postal_code?: string
   shipping_country?: string
-  items_count: number
+  total_price?: number
+  currency?: string
+  shipping_cost?: number
+  order_fulfillment_status?: string
+  order_payment_status?: string
+  creation_date?: string
+  paid_date?: string
+  tracking_number?: string
+  shipping_carrier?: string
   created_at: string
   updated_at: string
+  products?: EbayOrderProduct[]
 }
 
 export interface EbayOrderProduct {
   id: number
   order_id: string
-  ebay_item_id: string
-  product_id?: number
-  title: string
-  quantity: number
-  price: number
+  line_item_id?: string
   sku?: string
-  line_item_id: string
+  sku_original?: string
+  title?: string
+  quantity?: number
+  unit_price?: number
+  total_price?: number
+  currency?: string
+  legacy_item_id?: string
 }
 
 export interface EtsyOrder {

@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user, get_db
+from api.ebay import orders
 from models.public.ebay_marketplace_config import MarketplaceConfig
 from models.public.user import User
 from models.user.ebay_product_marketplace import EbayProductMarketplace
@@ -32,6 +33,9 @@ from services.ebay import (
 )
 
 router = APIRouter(prefix="/ebay", tags=["eBay"])
+
+# Include orders router
+router.include_router(orders.router, tags=["eBay Orders"])
 
 
 # ========== PYDANTIC SCHEMAS ==========
@@ -336,171 +340,4 @@ def get_business_policies(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur récupération policies: {str(e)}",
-        )
-
-
-# ========== FULFILLMENT API (ORDERS) ==========
-
-
-class EbayOrderResponse(BaseModel):
-    """Response pour une commande eBay."""
-
-    order_id: str
-    status: str
-    buyer_username: str
-    total_amount: float
-    currency: str
-    marketplace_id: str
-    order_date: str
-    line_items: List[dict]
-
-
-@router.get("/orders", response_model=List[EbayOrderResponse])
-def get_ebay_orders(
-    status_filter: Optional[str] = None,
-    limit: int = 50,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Récupère les commandes eBay du user.
-
-    **Workflow:**
-    1. User se connecte et a un access token eBay valide
-    2. Backend appelle eBay Fulfillment API
-    3. Retourne liste des commandes
-
-    **Filtres disponibles:**
-    - status_filter: "NOT_STARTED", "IN_PROGRESS", "FULFILLED"
-
-    **Exemple:**
-    ```bash
-    curl "http://localhost:8000/api/ebay/orders?status_filter=NOT_STARTED" \\
-      -H "Authorization: Bearer YOUR_TOKEN"
-    ```
-
-    Args:
-        status_filter: Filtre optionnel sur statut
-        limit: Nombre max de résultats (défaut 50, max 200)
-        db: Session DB
-        current_user: User authentifié
-
-    Returns:
-        Liste de commandes eBay
-
-    Author: Claude
-    Date: 2025-12-10
-    """
-    try:
-        # Créer client Fulfillment
-        client = EbayFulfillmentClient(db, user_id=current_user.id)
-
-        # Construire filtre
-        filter_str = None
-        if status_filter:
-            filter_str = f"orderfulfillmentstatus:{{{status_filter}}}"
-
-        # Récupérer commandes
-        result = client.get_orders(filter=filter_str, limit=min(limit, 200))
-        orders = result.get("orders", [])
-
-        # Transformer en response format
-        orders_response = []
-        for order in orders:
-            # Extraire line items
-            line_items = []
-            for item in order.get("lineItems", []):
-                line_items.append({
-                    "line_item_id": item.get("lineItemId"),
-                    "sku": item.get("sku"),
-                    "title": item.get("title"),
-                    "quantity": item.get("quantity", 1),
-                    "price": item.get("lineItemCost", {}).get("value", "0"),
-                })
-
-            # Construire response
-            pricing = order.get("pricingSummary", {})
-            total_obj = pricing.get("total", {})
-
-            orders_response.append(
-                EbayOrderResponse(
-                    order_id=order["orderId"],
-                    status=order.get("orderFulfillmentStatus", "UNKNOWN"),
-                    buyer_username=order.get("buyer", {}).get("username", "unknown"),
-                    total_amount=float(total_obj.get("value", 0)),
-                    currency=total_obj.get("currency", "EUR"),
-                    marketplace_id=order.get("salesRecordReference", "EBAY_FR"),  # May need extraction
-                    order_date=order.get("creationDate", ""),
-                    line_items=line_items,
-                )
-            )
-
-        return orders_response
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"User eBay non configuré: {str(e)}",
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur récupération commandes: {str(e)}",
-        )
-
-
-@router.get("/orders/{order_id}")
-def get_ebay_order_details(
-    order_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Récupère les détails d'une commande eBay spécifique.
-
-    **Exemple:**
-    ```bash
-    curl "http://localhost:8000/api/ebay/orders/12-34567-89012" \\
-      -H "Authorization: Bearer YOUR_TOKEN"
-    ```
-
-    Args:
-        order_id: ID de la commande eBay
-        db: Session DB
-        current_user: User authentifié
-
-    Returns:
-        Détails complets de la commande
-
-    Author: Claude
-    Date: 2025-12-10
-    """
-    try:
-        # Créer client Fulfillment
-        client = EbayFulfillmentClient(db, user_id=current_user.id)
-
-        # Récupérer détails commande
-        order = client.get_order(order_id)
-
-        return order
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"User eBay non configuré: {str(e)}",
-        )
-    except RuntimeError as e:
-        if "404" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Commande {order_id} introuvable",
-            )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur récupération commande: {str(e)}",
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur récupération commande: {str(e)}",
         )
