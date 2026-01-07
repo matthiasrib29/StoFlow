@@ -272,7 +272,7 @@ class VintedMappingService:
             return None
 
         # Try women's size first
-        size = db.query(Size).filter(
+        size = db.query(SizeNormalized).filter(
             SizeNormalized.vinted_women_id == vinted_size_id
         ).first()
 
@@ -280,7 +280,7 @@ class VintedMappingService:
             return size.name_en
 
         # Try men's size
-        size = db.query(Size).filter(
+        size = db.query(SizeNormalized).filter(
             SizeNormalized.vinted_men_id == vinted_size_id
         ).first()
 
@@ -377,7 +377,7 @@ class VintedMappingService:
         if not size_name:
             return None
 
-        size = db.query(Size).filter(Size.name_en == size_name).first()
+        size = db.query(SizeNormalized).filter(SizeNormalized.name_en == size_name).first()
 
         if not size:
             return None
