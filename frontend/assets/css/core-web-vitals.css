@@ -1,0 +1,87 @@
+/**
+ * Core Web Vitals Optimizations
+ *
+ * Ce fichier contient des styles pour améliorer les Core Web Vitals :
+ * - LCP (Largest Contentful Paint)
+ * - CLS (Cumulative Layout Shift)
+ * - FID/INP (First Input Delay / Interaction to Next Paint)
+ */
+
+/* ======================================
+   CLS Optimization
+   Prévient le layout shift lors des animations
+   ====================================== */
+
+/* Containers animés - définir une hauteur minimale */
+.animate-on-scroll {
+  min-height: 100px; /* Empêche le shift lors du chargement */
+}
+
+/* Sections avec contenu lourd */
+.landing-section {
+  min-height: 400px; /* Ajuster selon le contenu moyen */
+}
+
+/* Stats counter - empêche le shift pendant l'animation */
+.stats-counter {
+  min-height: 120px;
+}
+
+/* Images - réserver l'espace avant chargement */
+img[width][height] {
+  /* Nuxt Image gère déjà cela automatiquement */
+  aspect-ratio: attr(width) / attr(height);
+}
+
+/* ======================================
+   LCP Optimization
+   ====================================== */
+
+/* Préchargement des polices critiques */
+@font-face {
+  font-display: swap; /* Affiche le texte de secours pendant le chargement */
+}
+
+/* Hero section - critiquepour LCP */
+.hero-section {
+  /* Éviter les images lourdes en background */
+  background-color: #f9fafb; /* Fallback color */
+}
+
+/* ======================================
+   FID/INP Optimization
+   ====================================== */
+
+/* Réduire la complexité des transitions */
+.smooth-transition {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  /* Limiter les propriétés animées pour meilleures performances */
+}
+
+/* Éviter les animations coûteuses */
+.avoid-expensive-animation {
+  /* Préférer transform/opacity aux animations de width/height */
+  will-change: transform, opacity;
+}
+
+/* ======================================
+   Performance générale
+   ====================================== */
+
+/* Lazy loading natif pour images */
+img[loading="lazy"] {
+  /* Le navigateur gère automatiquement */
+}
+
+/* Containers pour contenu généré dynamiquement */
+.dynamic-content-placeholder {
+  min-height: 200px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

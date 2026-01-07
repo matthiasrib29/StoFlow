@@ -1,5 +1,7 @@
 <template>
-  <Card class="w-full max-w-2xl border-2 border-secondary-900 shadow-xl">
+  <div>
+    <h1 class="sr-only">Créer un compte Stoflow</h1>
+    <Card class="w-full max-w-2xl border-2 border-secondary-900 shadow-xl">
       <template #title>
         <div class="flex items-center gap-2 bg-primary-400 -mx-6 -mt-6 px-6 py-4 mb-4">
           <i class="pi pi-user-plus text-secondary-900 text-2xl"/>
@@ -259,6 +261,7 @@
         </div>
       </template>
   </Card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -266,6 +269,13 @@ import type { RegisterData } from '~/stores/auth'
 
 definePageMeta({
   layout: 'auth'
+})
+
+// SEO Meta Tags
+useSeoHead({
+  title: 'Inscription',
+  description: 'Créez votre compte Stoflow gratuitement et commencez à gérer vos ventes sur Vinted, eBay et Etsy. Essai gratuit 14 jours.',
+  noindex: true // Page privée, pas besoin d'indexation
 })
 
 const authStore = useAuthStore()

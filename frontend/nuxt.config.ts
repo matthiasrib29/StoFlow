@@ -19,7 +19,7 @@ export default defineNuxtConfig({
     pageTransition: false,
     layoutTransition: false,
     head: {
-      title: 'Stoflow - Vendez sur Vinted, eBay et Etsy depuis une seule plateforme',
+      title: 'Stoflow - Gérez Vinted, eBay & Etsy',
       htmlAttrs: {
         lang: 'fr'
       },
@@ -35,13 +35,18 @@ export default defineNuxtConfig({
         // Open Graph
         { property: 'og:type', content: 'website' },
         { property: 'og:site_name', content: 'Stoflow' },
-        { property: 'og:title', content: 'Stoflow - Vendez sur Vinted, eBay et Etsy depuis une seule plateforme' },
+        { property: 'og:title', content: 'Stoflow - Gérez Vinted, eBay & Etsy' },
         { property: 'og:description', content: 'Synchronisez vos stocks, automatisez vos publications et gérez vos ventes multi-marketplace en un clic. Essai gratuit 14 jours.' },
         { property: 'og:image', content: '/images/og-stoflow.jpg' },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:image:alt', content: 'Stoflow - Plateforme de gestion multi-marketplace' },
         { property: 'og:locale', content: 'fr_FR' },
         // Twitter Card
         { name: 'twitter:card', content: 'summary_large_image' },
-        { name: 'twitter:title', content: 'Stoflow - Vendez sur plusieurs marketplaces en un clic' },
+        { name: 'twitter:site', content: '@stoflow' },
+        { name: 'twitter:creator', content: '@stoflow' },
+        { name: 'twitter:title', content: 'Stoflow - Gérez Vinted, eBay & Etsy' },
         { name: 'twitter:description', content: 'Gérez vos produits Vinted, eBay et Etsy depuis une seule plateforme. Essai gratuit 14 jours.' },
         { name: 'twitter:image', content: '/images/og-stoflow.jpg' },
         // Theme color
@@ -52,8 +57,7 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: getFavicon() },
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }, // Fallback
-        { rel: 'canonical', href: 'https://stoflow.io' }
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' } // Fallback
       ]
     }
   },
@@ -62,7 +66,9 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@nuxtjs/tailwindcss',
     '@vueuse/nuxt',
-    '@nuxt/eslint'
+    '@nuxt/eslint',
+    '@nuxtjs/sitemap',
+    '@nuxt/image'
   ],
 
   css: [
@@ -70,8 +76,51 @@ export default defineNuxtConfig({
     '~/assets/css/design-system.css',
     '~/assets/css/modern-dashboard.css',
     '~/assets/css/form-tokens.css',
-    '~/assets/css/focus-overrides.css'
+    '~/assets/css/focus-overrides.css',
+    '~/assets/css/core-web-vitals.css'
   ],
+
+  // SEO - Sitemap configuration
+  sitemap: {
+    hostname: 'https://www.stoflow.io',
+    gzip: true,
+    routes: async () => {
+      // Pages statiques publiques
+      return [
+        '/',
+        '/login',
+        '/register',
+        '/legal/privacy',
+        '/legal/mentions',
+        '/legal/cgu',
+        '/legal/cgv',
+        '/docs',
+      ]
+    },
+    exclude: [
+      '/dashboard/**',      // Pages privées
+      '/auth/**',           // Auth flows
+      '/admin/**',          // Admin
+    ]
+  },
+
+  // Image optimization
+  image: {
+    quality: 80,
+    formats: ['webp', 'jpeg', 'png'],
+    screens: {
+      xs: 320,
+      sm: 640,
+      md: 768,
+      lg: 1024,
+      xl: 1280,
+      '2xl': 1536,
+    },
+    // Enable lazy loading by default
+    loading: 'lazy',
+    // Preload critical images
+    preload: true
+  },
 
   build: {
     transpile: ['primevue']
