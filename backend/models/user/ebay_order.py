@@ -12,12 +12,15 @@ Business Rules:
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.database import Base
+
+if TYPE_CHECKING:
+    from models.user.ebay_order import EbayOrderProduct
 
 
 class EbayOrder(Base):
@@ -106,6 +109,14 @@ class EbayOrder(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+
+    # Relationship to products (line items)
+    products: Mapped[List["EbayOrderProduct"]] = relationship(
+        "EbayOrderProduct",
+        foreign_keys="EbayOrderProduct.order_id",
+        lazy="selectin",  # Auto-load products when fetching order
+        cascade="all, delete-orphan",  # Delete products when order is deleted
     )
 
     def __repr__(self) -> str:

@@ -22,8 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
-from models.user.vinted_job import JobStatus, VintedJob
-from models.user.marketplace_job import MarketplaceJob
+from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.product import Product
 from services.vinted.vinted_job_service import VintedJobService
 from services.marketplace.batch_job_service import BatchJobService
@@ -112,7 +111,7 @@ class BatchSummaryResponse(BaseModel):
 
 
 def build_job_response(
-    job: VintedJob,
+    job: MarketplaceJob,
     service: VintedJobService,
     db: Session,
     include_progress: bool = True
@@ -172,12 +171,12 @@ async def list_jobs(
     service = VintedJobService(db)
 
     # Build query
-    query = db.query(VintedJob)
+    query = db.query(MarketplaceJob)
 
     if status_filter:
         try:
             job_status = JobStatus(status_filter)
-            query = query.filter(VintedJob.status == job_status)
+            query = query.filter(MarketplaceJob.status == job_status)
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -185,18 +184,18 @@ async def list_jobs(
             )
 
     if batch_id:
-        query = query.filter(VintedJob.batch_id == batch_id)
+        query = query.filter(MarketplaceJob.batch_id == batch_id)
 
     # Get counts
     total = query.count()
-    pending = query.filter(VintedJob.status == JobStatus.PENDING).count()
-    running = query.filter(VintedJob.status == JobStatus.RUNNING).count()
-    completed = query.filter(VintedJob.status == JobStatus.COMPLETED).count()
-    failed = query.filter(VintedJob.status == JobStatus.FAILED).count()
+    pending = query.filter(MarketplaceJob.status == JobStatus.PENDING).count()
+    running = query.filter(MarketplaceJob.status == JobStatus.RUNNING).count()
+    completed = query.filter(MarketplaceJob.status == JobStatus.COMPLETED).count()
+    failed = query.filter(MarketplaceJob.status == JobStatus.FAILED).count()
 
     # Get jobs
     jobs = (
-        query.order_by(VintedJob.priority, VintedJob.created_at.desc())
+        query.order_by(MarketplaceJob.priority, MarketplaceJob.created_at.desc())
         .offset(offset)
         .limit(limit)
         .all()

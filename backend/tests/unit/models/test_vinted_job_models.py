@@ -1,5 +1,5 @@
 """
-Tests Unitaires pour les Modèles VintedJob
+Tests Unitaires pour les Modèles MarketplaceJob
 
 Tests de la logique des modèles (propriétés, enums, etc.)
 
@@ -10,7 +10,7 @@ Date: 2025-12-19
 from datetime import datetime, timedelta, timezone
 import pytest
 
-from models.user.vinted_job import VintedJob, JobStatus
+from models.user.marketplace_job import MarketplaceJob, JobStatus
 from models.user.vinted_job_stats import VintedJobStats
 from models.vinted.vinted_action_type import VintedActionType
 
@@ -56,11 +56,11 @@ class TestJobStatusEnum:
 
 
 class TestVintedJobModel:
-    """Tests pour le modèle VintedJob."""
+    """Tests pour le modèle MarketplaceJob."""
 
     def test_is_active_property(self):
         """Test la propriété is_active."""
-        job = VintedJob()
+        job = MarketplaceJob()
 
         # Statuts actifs
         for status in [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.PAUSED]:
@@ -74,7 +74,7 @@ class TestVintedJobModel:
 
     def test_is_terminal_property(self):
         """Test la propriété is_terminal."""
-        job = VintedJob()
+        job = MarketplaceJob()
 
         # Statuts terminaux
         for status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED, JobStatus.EXPIRED]:
@@ -88,14 +88,14 @@ class TestVintedJobModel:
 
     def test_job_repr(self):
         """Test la représentation string d'un job."""
-        job = VintedJob()
+        job = MarketplaceJob()
         job.id = 123
         job.status = JobStatus.RUNNING
         job.product_id = 456
 
         repr_str = repr(job)
 
-        assert "VintedJob" in repr_str
+        assert "MarketplaceJob" in repr_str
         assert "123" in repr_str
         assert "RUNNING" in repr_str or "running" in repr_str
         assert "456" in repr_str
@@ -199,7 +199,7 @@ class TestStatusTransitions:
 
     def test_pending_to_running(self):
         """Test transition PENDING -> RUNNING."""
-        job = VintedJob()
+        job = MarketplaceJob()
         job.status = JobStatus.PENDING
 
         # Transition valide
@@ -208,7 +208,7 @@ class TestStatusTransitions:
 
     def test_pending_to_paused(self):
         """Test transition PENDING -> PAUSED."""
-        job = VintedJob()
+        job = MarketplaceJob()
         job.status = JobStatus.PENDING
 
         job.status = JobStatus.PAUSED
@@ -216,7 +216,7 @@ class TestStatusTransitions:
 
     def test_running_to_completed(self):
         """Test transition RUNNING -> COMPLETED."""
-        job = VintedJob()
+        job = MarketplaceJob()
         job.status = JobStatus.RUNNING
 
         job.status = JobStatus.COMPLETED
@@ -224,7 +224,7 @@ class TestStatusTransitions:
 
     def test_running_to_failed(self):
         """Test transition RUNNING -> FAILED."""
-        job = VintedJob()
+        job = MarketplaceJob()
         job.status = JobStatus.RUNNING
 
         job.status = JobStatus.FAILED
@@ -232,7 +232,7 @@ class TestStatusTransitions:
 
     def test_paused_to_pending(self):
         """Test transition PAUSED -> PENDING (resume)."""
-        job = VintedJob()
+        job = MarketplaceJob()
         job.status = JobStatus.PAUSED
 
         job.status = JobStatus.PENDING
@@ -240,7 +240,7 @@ class TestStatusTransitions:
 
     def test_pending_to_expired(self):
         """Test transition PENDING -> EXPIRED."""
-        job = VintedJob()
+        job = MarketplaceJob()
         job.status = JobStatus.PENDING
 
         job.status = JobStatus.EXPIRED
@@ -249,7 +249,7 @@ class TestStatusTransitions:
     def test_any_active_to_cancelled(self):
         """Test que tout statut actif peut être annulé."""
         for status in [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.PAUSED]:
-            job = VintedJob()
+            job = MarketplaceJob()
             job.status = status
 
             job.status = JobStatus.CANCELLED
@@ -269,7 +269,7 @@ class TestExpirationLogic:
         now = datetime.now(timezone.utc)
         expires = now + timedelta(hours=1)
 
-        job = VintedJob()
+        job = MarketplaceJob()
         job.expires_at = expires
 
         assert job.expires_at is not None
@@ -279,7 +279,7 @@ class TestExpirationLogic:
         """Test vérification si un job est expiré."""
         now = datetime.now(timezone.utc)
 
-        job = VintedJob()
+        job = MarketplaceJob()
         job.status = JobStatus.PENDING
 
         # Non expiré

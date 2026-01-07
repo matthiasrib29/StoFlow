@@ -18,7 +18,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.user.vinted_job import VintedJob
+from models.user.marketplace_job import MarketplaceJob
 from .base_job_handler import BaseJobHandler
 
 
@@ -53,12 +53,12 @@ class MessageJobHandler(BaseJobHandler):
             self._conversation_service = VintedConversationService()
         return self._conversation_service
 
-    async def execute(self, job: VintedJob) -> dict[str, Any]:
+    async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Synchronise les conversations/messages depuis Vinted.
 
         Args:
-            job: VintedJob avec result_data optionnel:
+            job: MarketplaceJob avec result_data optionnel:
                 - {} ou None: sync l'inbox (liste conversations)
                 - {"conversation_id": int}: sync une conversation
                 - {"sync_all": bool}: sync toutes les pages de l'inbox
