@@ -26,7 +26,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.user.vinted_job import JobStatus, VintedJob
+from models.user.marketplace_job import JobStatus, MarketplaceJob
 from services.vinted.vinted_job_service import VintedJobService
 from services.vinted.jobs import HANDLERS
 from shared.logging_setup import get_logger
@@ -163,12 +163,12 @@ class VintedJobProcessor:
     # JOB EXECUTION
     # =========================================================================
 
-    async def _execute_job(self, job: VintedJob) -> dict[str, Any]:
+    async def _execute_job(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Execute a single job by dispatching to the appropriate handler.
 
         Args:
-            job: The VintedJob to execute
+            job: The MarketplaceJob to execute
 
         Returns:
             dict: Execution result
@@ -190,7 +190,13 @@ class VintedJobProcessor:
 
         try:
             # Get handler for this action
-            handler_class = HANDLERS.get(action_code)
+            # Support eBay handlers (action codes ending with _ebay)
+            if action_code.endswith("_ebay"):
+                from services.ebay.jobs import EBAY_HANDLERS
+                handler_class = EBAY_HANDLERS.get(action_code)
+            else:
+                handler_class = HANDLERS.get(action_code)
+
             if not handler_class:
                 raise ValueError(f"Unknown action code: {action_code}")
 
@@ -233,7 +239,7 @@ class VintedJobProcessor:
 
     async def _handle_job_failure(
         self,
-        job: VintedJob,
+        job: MarketplaceJob,
         action_code: str,
         error_msg: str,
         start_time: float

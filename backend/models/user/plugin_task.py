@@ -94,7 +94,7 @@ class PluginTask(Base):
     # Job reference (for job orchestration system)
     job_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("vinted_jobs.id", ondelete="SET NULL"),
+        ForeignKey("marketplace_jobs.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="Parent job for this task"
@@ -154,7 +154,7 @@ class PluginTask(Base):
     )
 
     # Relationship to job
-    job = relationship("VintedJob", back_populates="tasks", lazy="select")
+    job = relationship("MarketplaceJob", back_populates="tasks", lazy="select")
 
     def __repr__(self) -> str:
         method = self.http_method or "?"
