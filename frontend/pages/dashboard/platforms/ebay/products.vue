@@ -1,7 +1,7 @@
 <template>
   <PlatformProductsPage
     platform="ebay"
-    :is-connected="ebayStore.isConnected"
+    :is-connected="ebayStore.isConnected ?? false"
     :loading="loading"
     :error="error"
     :is-empty="products.length === 0"
