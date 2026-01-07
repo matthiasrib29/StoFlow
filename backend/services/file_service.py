@@ -15,7 +15,6 @@ Updated 2026-01-05:
 - Added WebP support for URL imports (Vinted uses WebP images)
 """
 
-import imghdr
 from io import BytesIO
 from typing import Optional, Tuple
 
@@ -73,8 +72,7 @@ class FileService:
         if content[:4] == b'RIFF' and content[8:12] == b'WEBP':
             return "webp"
 
-        # Fallback to imghdr for other formats
-        return imghdr.what(None, content)
+        return None
 
     @staticmethod
     def _optimize_image(content: bytes, original_format: str) -> Tuple[bytes, str]:
@@ -158,7 +156,7 @@ class FileService:
         content = await file.read(512)
         await file.seek(0)
 
-        image_type = imghdr.what(None, content)
+        image_type = FileService._detect_image_format(content)
         if image_type not in ["jpeg", "png"]:
             raise ValueError(
                 f"Invalid image format: {image_type}. File may be corrupted or not a valid image."
