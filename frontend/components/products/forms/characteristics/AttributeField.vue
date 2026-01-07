@@ -36,7 +36,10 @@
       :class="fieldClasses"
       :show-clear="showClear"
       :loading="loading"
+      :filter="filterMode !== 'none'"
+      :filter-placeholder="filterPlaceholder"
       @update:model-value="handleChange"
+      @filter="handleFilter"
       @blur="$emit('blur')"
     />
 
@@ -84,6 +87,7 @@
 
 <script setup lang="ts">
 import type { AttributeOption } from '~/composables/useAttributes'
+import { useDebounceFn } from '@vueuse/core'
 
 type FieldType = 'autocomplete' | 'select' | 'text' | 'chips' | 'textarea'
 
@@ -104,6 +108,9 @@ interface Props {
   suggestions?: string[]
   // For select
   options?: AttributeOption[]
+  // For searchable select
+  filterMode?: 'local' | 'api' | 'none'
+  filterPlaceholder?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -113,16 +120,19 @@ const props = withDefaults(defineProps<Props>(), {
   errorMessage: '',
   isValid: false,
   loading: false,
-  showClear: true,
+  showClear: false,
   helperText: '',
   rows: 2,
   suggestions: () => [],
-  options: () => []
+  options: () => [],
+  filterMode: 'none',
+  filterPlaceholder: 'Rechercher...'
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | string[] | null]
   'search': [event: { query: string }]
+  'filter': [event: string]
   'blur': []
 }>()
 
@@ -145,4 +155,19 @@ const arrayValue = computed(() => {
 const handleChange = (value: string | string[] | null | undefined) => {
   emit('update:modelValue', value ?? null)
 }
+
+// Handle filter events for searchable select
+const handleFilter = (event: any) => {
+  if (props.filterMode === 'api') {
+    // API search (debounced)
+    const query = typeof event === 'string' ? event : event.value || event.query || ''
+    debouncedApiFilter(query)
+  }
+  // Local filtering is handled automatically by PrimeVue
+}
+
+// Debounced API filter (300ms delay)
+const debouncedApiFilter = useDebounceFn((query: string) => {
+  emit('filter', query)
+}, 300)
 </script>

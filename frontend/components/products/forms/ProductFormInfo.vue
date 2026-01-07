@@ -1,11 +1,11 @@
 <template>
-  <div class="space-y-4">
-    <h3 class="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5 uppercase tracking-wide">
-      <i class="pi pi-info-circle text-xs" />
+  <div class="form-subsection-spacing">
+    <h3 class="form-section-title">
+      <i class="pi pi-info-circle" />
       Informations produit
     </h3>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 form-grid-spacing">
       <!-- Titre -->
       <div class="md:col-span-2">
         <label for="title" class="block text-xs font-semibold mb-1 text-secondary-900 flex items-center gap-1">
@@ -91,23 +91,6 @@
           Prix suggéré: {{ suggestedPrice }} EUR
         </p>
       </div>
-
-      <!-- Stock -->
-      <div>
-        <label for="stock" class="block text-xs font-semibold mb-1 text-secondary-900">
-          Quantité en stock
-        </label>
-        <InputNumber
-          id="stock"
-          :model-value="stockQuantity"
-          class="w-full"
-          :min="0"
-          show-buttons
-          button-layout="horizontal"
-          :step="1"
-          @update:model-value="$emit('update:stockQuantity', $event)"
-        />
-      </div>
     </div>
   </div>
 </template>
@@ -117,7 +100,6 @@ interface Props {
   title: string
   description: string
   price: number | null
-  stockQuantity: number
   productId?: number
   isGeneratingDescription?: boolean
   suggestedPrice?: number | null
@@ -135,7 +117,6 @@ const emit = defineEmits<{
   'update:title': [value: string]
   'update:description': [value: string]
   'update:price': [value: number | null]
-  'update:stockQuantity': [value: number]
   'generateDescription': []
 }>()
 

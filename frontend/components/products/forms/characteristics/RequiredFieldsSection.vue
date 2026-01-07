@@ -1,57 +1,55 @@
 <template>
-  <div class="bg-gray-50 rounded-lg p-4 space-y-4">
-    <h4 class="text-xs font-semibold text-gray-600 uppercase">Obligatoires</h4>
+  <div class="form-field-spacing">
+    <!-- First row: Category (Wizard), Brand, Gender -->
+    <div class="form-field-spacing">
+      <!-- Category Wizard -->
+      <div>
+        <label class="block text-xs font-semibold mb-2 text-secondary-900 flex items-center gap-1">
+          Catégorie
+          <span class="text-red-500">*</span>
+          <i
+            v-if="validation?.isFieldValid?.('category')"
+            class="pi pi-check-circle text-green-500 text-xs"
+          />
+        </label>
+        <ProductsFormsCharacteristicsCategoryWizard
+          :categories="options.categories"
+          :genders="options.genders"
+          :model-value="category"
+          @update:model-value="handleCategoryChange"
+        />
+        <small v-if="validation?.hasError('category') && validation?.getError('category')" class="p-error block mt-1">
+          {{ validation?.getError('category') }}
+        </small>
+      </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <!-- Category -->
+      <!-- Brand (full width since gender is now auto-extracted from category) -->
       <ProductsFormsCharacteristicsAttributeField
-        type="autocomplete"
-        label="Catégorie"
-        :model-value="category"
-        :suggestions="suggestions.categories"
-        placeholder="Sélectionner..."
-        :required="true"
-        :has-error="validation?.hasError('category')"
-        :error-message="validation?.getError('category')"
-        :is-valid="validation?.isFieldValid?.('category')"
-        :loading="loading.categories"
-        @update:model-value="handleCategoryChange"
-        @search="$emit('searchCategories', $event)"
-        @blur="validation?.touch('category')"
-      />
-
-      <!-- Brand -->
-      <ProductsFormsCharacteristicsAttributeField
-        type="autocomplete"
+        type="select"
         label="Marque"
         :model-value="brand"
-        :suggestions="suggestions.brands"
+        :options="filteredOptions.brands"
+        filter-mode="api"
+        filter-placeholder="Rechercher une marque..."
         placeholder="Ex: Nike, Levi's..."
         :required="true"
+        :show-clear="false"
         :has-error="validation?.hasError('brand')"
         :error-message="validation?.getError('brand')"
         :is-valid="validation?.isFieldValid?.('brand')"
         :loading="loading.brands"
         @update:model-value="handleBrandChange"
-        @search="$emit('searchBrands', $event)"
+        @filter="$emit('filterBrands', $event)"
         @blur="validation?.touch('brand')"
       />
 
-      <!-- Gender -->
+      <!-- Model Reference -->
       <ProductsFormsCharacteristicsAttributeField
-        type="select"
-        label="Genre"
-        :model-value="gender"
-        :options="options.genders"
-        placeholder="Sélectionner..."
-        :required="true"
-        :has-error="validation?.hasError('gender')"
-        :error-message="validation?.getError('gender')"
-        :is-valid="validation?.isFieldValid?.('gender')"
-        :loading="loading.genders"
-        :show-clear="false"
-        @update:model-value="handleGenderChange"
-        @blur="validation?.touch('gender')"
+        type="text"
+        label="Référence modèle"
+        :model-value="model"
+        placeholder="Ex: 501-0115, Air Max 90..."
+        @update:model-value="$emit('update:model', $event)"
       />
     </div>
 
@@ -63,7 +61,8 @@
       @update:model-value="$emit('update:condition', $event)"
     />
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <!-- Second row: Size, Color, Material -->
+    <UiFormSection :columns="3" variant="flat">
       <!-- Size Original -->
       <ProductsFormsCharacteristicsAttributeField
         type="text"
@@ -80,8 +79,10 @@
       />
 
       <!-- Size Normalized -->
-      <div>
-        <label class="block text-xs font-semibold mb-1 text-secondary-900">Taille standardisée</label>
+      <UiFormField
+        label="Taille standardisée"
+        helper-text="Équivalent standard (S, M, L...)"
+      >
         <Select
           :model-value="sizeNormalized"
           :options="options.sizes"
@@ -89,52 +90,58 @@
           option-value="value"
           placeholder="Sélectionner..."
           class="w-full"
-          show-clear
           :loading="loading.sizes"
+          filter
+          filter-placeholder="Rechercher..."
           @update:model-value="$emit('update:sizeNormalized', $event)"
         />
-        <small class="text-xs text-gray-500">Équivalent standard (S, M, L...)</small>
-      </div>
+      </UiFormField>
 
       <!-- Color -->
       <ProductsFormsCharacteristicsAttributeField
-        type="autocomplete"
+        type="select"
         label="Couleur"
         :model-value="color"
-        :suggestions="suggestions.colors"
+        :options="filteredOptions.colors"
+        filter-mode="local"
+        filter-placeholder="Rechercher une couleur..."
         placeholder="Ex: Bleu, Noir..."
         :required="true"
+        :show-clear="false"
         :has-error="validation?.hasError('color')"
         :error-message="validation?.getError('color')"
         :is-valid="validation?.isFieldValid?.('color')"
         :loading="loading.colors"
         @update:model-value="handleColorChange"
-        @search="$emit('searchColors', $event)"
+        @filter="$emit('filterColors', $event)"
         @blur="validation?.touch('color')"
       />
 
       <!-- Material -->
       <ProductsFormsCharacteristicsAttributeField
-        type="autocomplete"
+        type="select"
         label="Matière"
         :model-value="material"
-        :suggestions="suggestions.materials"
+        :options="filteredOptions.materials"
+        filter-mode="local"
+        filter-placeholder="Rechercher une matière..."
         placeholder="Ex: Coton, Denim..."
         :required="true"
+        :show-clear="false"
         :has-error="validation?.hasError('material')"
         :error-message="validation?.getError('material')"
         :is-valid="validation?.isFieldValid?.('material')"
         :loading="loading.materials"
         @update:model-value="handleMaterialChange"
-        @search="$emit('searchMaterials', $event)"
+        @filter="$emit('filterMaterials', $event)"
         @blur="validation?.touch('material')"
       />
-    </div>
+    </UiFormSection>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { AttributeOption } from '~/composables/useAttributes'
+import type { AttributeOption, CategoryOption } from '~/composables/useAttributes'
 import type { ProductAttributesLoading } from '~/composables/useProductAttributes'
 
 interface ValidationObject {
@@ -149,7 +156,8 @@ interface Props {
   // Values
   category: string
   brand: string
-  gender: string
+  model: string | null
+  // gender is auto-extracted from category, no longer a prop
   condition: number | null
   sizeOriginal: string
   sizeNormalized: string | null
@@ -157,15 +165,15 @@ interface Props {
   material: string
   // Options
   options: {
+    categories: CategoryOption[]
     genders: AttributeOption[]
     sizes: AttributeOption[]
   }
-  // Suggestions
-  suggestions: {
-    categories: string[]
-    brands: string[]
-    colors: string[]
-    materials: string[]
+  // Filtered options for searchable select
+  filteredOptions?: {
+    brands: AttributeOption[]
+    colors: AttributeOption[]
+    materials: AttributeOption[]
   }
   // Loading states
   loading: ProductAttributesLoading
@@ -173,21 +181,27 @@ interface Props {
   validation?: ValidationObject
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  filteredOptions: () => ({
+    brands: [],
+    colors: [],
+    materials: []
+  })
+})
 
 const emit = defineEmits<{
   'update:category': [value: string]
   'update:brand': [value: string]
-  'update:gender': [value: string]
+  'update:model': [value: string | null]
+  // 'update:gender' removed - gender is auto-extracted from category
   'update:condition': [value: number]
   'update:sizeOriginal': [value: string]
   'update:sizeNormalized': [value: string | null]
   'update:color': [value: string]
   'update:material': [value: string]
-  'searchCategories': [event: { query: string }]
-  'searchBrands': [event: { query: string }]
-  'searchColors': [event: { query: string }]
-  'searchMaterials': [event: { query: string }]
+  'filterBrands': [query: string]
+  'filterColors': [query: string]
+  'filterMaterials': [query: string]
 }>()
 
 // Handlers with validation
@@ -203,11 +217,7 @@ const handleBrandChange = (value: string | string[] | null) => {
   props.validation?.validateDebounced?.('brand', val)
 }
 
-const handleGenderChange = (value: string | string[] | null) => {
-  const val = (typeof value === 'string' ? value : '') || ''
-  emit('update:gender', val)
-  props.validation?.validateDebounced?.('gender', val)
-}
+// handleGenderChange removed - gender is auto-extracted from category
 
 const handleSizeOriginalChange = (value: string | string[] | null) => {
   const val = (typeof value === 'string' ? value : '') || ''

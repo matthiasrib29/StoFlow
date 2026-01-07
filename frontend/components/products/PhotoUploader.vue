@@ -1,6 +1,7 @@
 <template>
   <div
-    class="bg-white rounded-lg p-4 relative"
+    class="bg-white rounded-lg relative transition-all duration-300"
+    :class="compact ? 'p-2' : 'p-3'"
     @dragover.prevent="handleDragOver"
     @dragleave.prevent="handleDragLeave"
     @drop.prevent="handleDrop"
@@ -21,7 +22,7 @@
     </transition>
 
     <!-- Photo Preview Horizontal Scroll with Drag & Drop Reorder -->
-    <div v-if="allImages.length > 0" class="relative mb-4">
+    <div v-if="allImages.length > 0" class="relative" :class="compact ? 'mb-1' : 'mb-2'">
       <!-- Navigation Button Left -->
       <button
         v-if="canScrollLeft"
@@ -41,7 +42,8 @@
         <draggable
           v-model="allImages"
           item-key="key"
-          class="flex gap-4 min-w-max px-12"
+          class="flex gap-4 min-w-max"
+          :class="compact ? 'px-2' : 'px-4'"
           ghost-class="opacity-50"
           drag-class="rotate-3"
           :animation="200"
@@ -50,8 +52,8 @@
         >
           <template #item="{ element, index }">
             <div
-              class="relative group rounded-lg overflow-hidden shadow-md flex-shrink-0 hover:shadow-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
-              style="width: 280px; height: 280px;"
+              class="photo-item relative group rounded-lg overflow-hidden shadow-md flex-shrink-0 hover:shadow-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
+              :class="compact ? 'compact-size' : 'normal-size'"
             >
               <img :src="element.preview" class="w-full h-full object-cover select-none" draggable="false">
 
@@ -109,67 +111,90 @@
       >
         <i class="pi pi-chevron-right text-xl font-bold"/>
       </button>
-
-      <!-- Reorder Hint -->
-      <p class="text-xs text-gray-400 text-center mt-2">
-        <i class="pi pi-info-circle mr-1"/>
-        Glissez-déposez pour réorganiser l'ordre des photos
-      </p>
     </div>
+
+    <!-- Hidden file input (always present for programmatic access) -->
+    <input
+      ref="fileInput"
+      type="file"
+      multiple
+      accept="image/*"
+      class="hidden"
+      :disabled="allImages.length >= maxPhotos"
+      @change="handleFileUpload"
+    >
 
     <!-- Upload Zone - Only show when no images at all -->
     <div
       v-if="allImages.length === 0"
-      class="border-2 border-dashed rounded-xl p-8 transition-all duration-300"
+      class="border-2 border-dashed rounded-xl transition-all duration-300"
       :class="{
         'border-primary-400 bg-primary-50 scale-[1.01]': isDraggingFile,
-        'border-gray-300 hover:border-primary-400 hover:bg-gray-50': !isDraggingFile
+        'border-gray-300 hover:border-primary-400 hover:bg-gray-50': !isDraggingFile,
+        'p-3': compact,
+        'p-4': !compact
       }"
     >
-      <div class="flex flex-col items-center justify-center gap-4">
+      <div class="flex flex-col items-center justify-center" :class="compact ? 'gap-2' : 'gap-3'">
         <!-- Icon -->
         <div
-          class="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300"
-          :class="{
-            'bg-primary-400 scale-110': isDraggingFile,
-            'bg-primary-400': !isDraggingFile
-          }"
+          class="rounded-full flex items-center justify-center transition-all duration-300"
+          :class="[
+            compact ? 'w-12 h-12' : 'w-16 h-16',
+            {
+              'bg-primary-400 scale-110': isDraggingFile,
+              'bg-primary-400': !isDraggingFile
+            }
+          ]"
         >
-          <i class="pi pi-cloud-upload text-4xl text-secondary-900" :class="{ 'animate-bounce': isDraggingFile }"/>
+          <i
+            class="pi pi-cloud-upload text-secondary-900"
+            :class="[
+              compact ? 'text-xl' : 'text-3xl',
+              { 'animate-bounce': isDraggingFile }
+            ]"
+          />
         </div>
 
         <!-- Text -->
         <div class="text-center">
-          <p class="text-lg font-bold text-secondary-900 mb-1">
+          <p
+            class="font-bold text-secondary-900"
+            :class="compact ? 'text-xs mb-0' : 'text-base mb-1'"
+          >
             Glissez-déposez vos photos n'importe où
           </p>
-          <p class="text-sm text-secondary-600">
+          <p
+            v-if="!compact"
+            class="text-xs text-secondary-600"
+          >
             ou cliquez sur le bouton ci-dessous
           </p>
-          <p class="text-xs text-primary-600 font-bold mt-2">
+          <p
+            class="text-primary-600 font-bold"
+            :class="compact ? 'text-[10px] mt-0.5' : 'text-xs mt-1'"
+          >
             Au moins 1 photo est obligatoire
           </p>
         </div>
 
         <!-- Upload Button -->
         <label class="cursor-pointer">
-          <input
-            ref="fileInput"
-            type="file"
-            multiple
-            accept="image/*"
-            class="hidden"
-            :disabled="allImages.length >= maxPhotos"
-            @change="handleFileUpload"
+          <div
+            class="flex items-center bg-primary-400 hover:bg-primary-500 text-secondary-900 font-bold rounded-lg transition-all duration-200 hover:scale-105"
+            :class="compact ? 'gap-2 px-4 py-2 text-sm' : 'gap-3 px-6 py-3'"
+            @click="openFileSelector"
           >
-          <div class="flex items-center gap-3 px-6 py-3 bg-primary-400 hover:bg-primary-500 text-secondary-900 font-bold rounded-lg transition-all duration-200 hover:scale-105">
-            <i class="pi pi-upload text-xl"/>
+            <i class="pi pi-upload" :class="compact ? 'text-base' : 'text-xl'"/>
             <span>Sélectionner des photos</span>
           </div>
         </label>
 
         <!-- Info -->
-        <p class="text-xs text-secondary-600 text-center">
+        <p
+          v-if="!compact"
+          class="text-xs text-secondary-600 text-center"
+        >
           Maximum {{ maxPhotos }} photos • Formats : JPG, PNG, WEBP, GIF
         </p>
       </div>
@@ -210,11 +235,13 @@ interface Props {
   photos: Photo[]
   existingImages?: ExistingImage[]
   maxPhotos?: number
+  compact?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   maxPhotos: 20,
-  existingImages: () => []
+  existingImages: () => [],
+  compact: false
 })
 
 const emit = defineEmits<{
@@ -469,5 +496,20 @@ defineExpose({
 /* Drag animation */
 .rotate-3 {
   transform: rotate(3deg);
+}
+
+/* Photo sizes */
+.normal-size {
+  width: 280px;
+  height: 280px;
+}
+
+.compact-size {
+  width: 120px;
+  height: 120px;
+}
+
+.photo-item {
+  transition: width 0.3s ease, height 0.3s ease;
 }
 </style>
