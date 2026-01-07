@@ -114,6 +114,7 @@ class ProductCreate(BaseModel):
     origin: str | None = Field(None, max_length=100, description="Origine/provenance")
     decade: str | None = Field(None, max_length=100, description="Décennie")
     trend: str | None = Field(None, max_length=100, description="Tendance")
+    stretch: str | None = Field(None, max_length=100, description="Stretch/Elasticity level (FK product_attributes.stretches)")
     location: str | None = Field(None, max_length=100, description="Emplacement physique")
     model: str | None = Field(None, max_length=100, description="Référence modèle")
 
@@ -437,6 +438,7 @@ class ProductResponse(BaseModel):
     origin: str | None
     decade: str | None
     trend: str | None
+    stretch: str | None
     location: str | None
     model: str | None
 

@@ -93,6 +93,7 @@ class Product(Base):
         Index("idx_product_neckline", "neckline"),
         Index("idx_product_length", "length"),
         Index("idx_product_pattern", "pattern"),
+        Index("idx_product_stretch", "stretch"),
         Index("idx_product_status", "status"),
         Index("idx_product_created_at", "created_at"),
         Index("idx_product_deleted_at", "deleted_at"),
@@ -227,6 +228,13 @@ class Product(Base):
             ondelete="SET NULL",
             name="fk_products_trend",
         ),
+        ForeignKeyConstraint(
+            ["stretch"],
+            ["stretches.name_en"] if os.getenv('TESTING') else ["product_attributes.stretches.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_stretch",
+        ),
     )
 
     # ===== PRIMARY KEY =====
@@ -299,6 +307,9 @@ class Product(Base):
     )
     trend: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Tendance (FK product_attributes.trends)"
+    )
+    stretch: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="Stretch/Elasticity (FK product_attributes.stretches)"
     )
 
     # ===== ATTRIBUTS TEXTE LIBRE (SANS FK) =====
@@ -461,19 +472,19 @@ class Product(Base):
         "ProductColor",
         back_populates="product",
         cascade="all, delete-orphan",
-        lazy="selectinload"
+        lazy="selectin"
     )
     product_materials: Mapped[list["ProductMaterial"]] = relationship(
         "ProductMaterial",
         back_populates="product",
         cascade="all, delete-orphan",
-        lazy="selectinload"
+        lazy="selectin"
     )
     product_condition_sups: Mapped[list["ProductConditionSup"]] = relationship(
         "ProductConditionSup",
         back_populates="product",
         cascade="all, delete-orphan",
-        lazy="selectinload"
+        lazy="selectin"
     )
 
     # ===== HELPER PROPERTIES FOR BACKWARD COMPATIBILITY =====
