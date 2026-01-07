@@ -35,6 +35,12 @@ if ! docker ps | grep -q stoflow.*postgres; then
     sleep 3
 fi
 
+# Kill any existing processes on our ports (only servers, not clients)
+echo -e "${YELLOW}🧹 Cleaning up ports ${BACKEND_PORT} and ${FRONTEND_PORT}...${NC}"
+lsof -ti:${BACKEND_PORT} -sTCP:LISTEN 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+lsof -ti:${FRONTEND_PORT} -sTCP:LISTEN 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+sleep 1
+
 # PIDs to track
 BACKEND_PID=""
 FRONTEND_PID=""

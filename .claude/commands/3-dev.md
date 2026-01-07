@@ -2,7 +2,7 @@ Lance l'environnement de dev 3 (Backend port 8002 + Frontend port 3002).
 
 ## Commande
 
-Exécute : `./dev3.sh`
+Exécute : `./3-dev.sh`
 
 **IMPORTANT pour Claude** : Utiliser `run_in_background: true` dans le Bash tool pour que Claude reste disponible pendant que les serveurs tournent.
 
