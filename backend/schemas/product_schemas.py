@@ -87,14 +87,14 @@ class ProductCreate(BaseModel):
     # DEPRECATED: Use colors (list) instead - Kept for backward compatibility during migration
     color: str | None = Field(None, max_length=100, description="Couleur (FK product_attributes.colors) - DEPRECATED, use colors")
     # NEW M2M: Multiple colors support (max 5 colors)
-    colors: list[str] | None = Field(None, max_items=5, description="Liste des couleurs (max 5) - First color = primary")
+    colors: list[str] | None = Field(None, max_length=5, description="Liste des couleurs (max 5) - First color = primary")
 
     # DEPRECATED: Use materials (list) instead - Kept for backward compatibility during migration
     material: str | None = Field(None, max_length=100, description="Matière (FK public.materials) - DEPRECATED, use materials")
     # NEW M2M: Multiple materials support (max 3 materials)
-    materials: list[str] | None = Field(None, max_items=3, description="Liste des matériaux (max 3)")
+    materials: list[str] | None = Field(None, max_length=3, description="Liste des matériaux (max 3)")
     # OPTIONAL: Material details with percentages
-    material_details: list[MaterialDetail] | None = Field(None, max_items=3, description="Détails matériaux avec pourcentages optionnels")
+    material_details: list[MaterialDetail] | None = Field(None, max_length=3, description="Détails matériaux avec pourcentages optionnels")
     fit: str | None = Field(None, max_length=100, description="Coupe (FK public.fits)")
     gender: str | None = Field(None, max_length=100, description="Genre (FK public.genders)")
     season: str | None = Field(None, max_length=100, description="Saison (FK public.seasons)")
@@ -107,7 +107,7 @@ class ProductCreate(BaseModel):
     # DEPRECATED: Use condition_sups instead - Kept for backward compatibility
     condition_sup: list[str] | None = Field(None, description="Détails état supplémentaires - DEPRECATED, use condition_sups")
     # NEW M2M: Multiple condition supplements (max 10)
-    condition_sups: list[str] | None = Field(None, max_items=10, description="Détails état supplémentaires (ex: ['Tache légère', 'Bouton manquant']) - max 10")
+    condition_sups: list[str] | None = Field(None, max_length=10, description="Détails état supplémentaires (ex: ['Tache légère', 'Bouton manquant']) - max 10")
     rise: str | None = Field(None, max_length=100, description="Hauteur de taille (pantalons)")
     closure: str | None = Field(None, max_length=100, description="Type de fermeture")
     sleeve_length: str | None = Field(None, max_length=100, description="Longueur de manches")
@@ -272,13 +272,13 @@ class ProductUpdate(BaseModel):
     # DEPRECATED: Use colors (list) instead - Kept for backward compatibility
     color: str | None = Field(None, max_length=100, description="DEPRECATED, use colors")
     # NEW M2M: Multiple colors support
-    colors: list[str] | None = Field(None, max_items=5, description="Liste des couleurs (max 5)")
+    colors: list[str] | None = Field(None, max_length=5, description="Liste des couleurs (max 5)")
 
     # DEPRECATED: Use materials (list) instead - Kept for backward compatibility
     material: str | None = Field(None, max_length=100, description="DEPRECATED, use materials")
     # NEW M2M: Multiple materials support
-    materials: list[str] | None = Field(None, max_items=3, description="Liste des matériaux (max 3)")
-    material_details: list[MaterialDetail] | None = Field(None, max_items=3)
+    materials: list[str] | None = Field(None, max_length=3, description="Liste des matériaux (max 3)")
+    material_details: list[MaterialDetail] | None = Field(None, max_length=3)
 
     fit: str | None = Field(None, max_length=100)
     gender: str | None = Field(None, max_length=100)
@@ -291,7 +291,7 @@ class ProductUpdate(BaseModel):
     # DEPRECATED: Use condition_sups instead - Kept for backward compatibility
     condition_sup: list[str] | None = Field(None, description="DEPRECATED, use condition_sups")
     # NEW M2M: Multiple condition supplements
-    condition_sups: list[str] | None = Field(None, max_items=10)
+    condition_sups: list[str] | None = Field(None, max_length=10)
 
     rise: str | None = Field(None, max_length=100)
     closure: str | None = Field(None, max_length=100)

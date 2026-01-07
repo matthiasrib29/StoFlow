@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
@@ -42,13 +42,13 @@ class BatchCreateRequest(BaseModel):
     action_code: str = Field(
         ..., description="Action code (publish, update, delete, link_product, sync)"
     )
-    product_ids: list[int] = Field(..., min_items=1, description="List of product IDs")
+    product_ids: list[int] = Field(..., min_length=1, description="List of product IDs")
     priority: Optional[int] = Field(
         None, ge=1, le=4, description="Priority override (1=CRITICAL, 4=LOW)"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "marketplace": "vinted",
                 "action_code": "link_product",
@@ -56,6 +56,7 @@ class BatchCreateRequest(BaseModel):
                 "priority": 3,
             }
         }
+    )
 
 
 class BatchCreateResponse(BaseModel):
@@ -70,8 +71,7 @@ class BatchCreateResponse(BaseModel):
     priority: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BatchSummaryResponse(BaseModel):
@@ -93,8 +93,7 @@ class BatchSummaryResponse(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BatchListResponse(BaseModel):
@@ -120,8 +119,7 @@ class JobResponse(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BatchJobsResponse(BaseModel):

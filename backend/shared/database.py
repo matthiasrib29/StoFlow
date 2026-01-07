@@ -8,7 +8,7 @@ from typing import Generator
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import Session, DeclarativeBase, sessionmaker
 
 from shared.logging_setup import get_logger
 
@@ -16,8 +16,11 @@ logger = get_logger(__name__)
 
 from shared.config import settings
 
-# Base pour models SQLAlchemy
-Base = declarative_base()
+
+# Base class for all SQLAlchemy models
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy declarative models."""
+    pass
 
 # Engine PostgreSQL (connexion globale)
 engine = create_engine(
