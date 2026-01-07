@@ -8,7 +8,7 @@ Author: Claude
 Date: 2024-12-24
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class PricingFeatureResponse(BaseModel):
@@ -16,8 +16,7 @@ class PricingFeatureResponse(BaseModel):
     feature_text: str
     display_order: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PricingPlanResponse(BaseModel):
@@ -35,5 +34,4 @@ class PricingPlanResponse(BaseModel):
     ai_credits_monthly: int
     features: list[PricingFeatureResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
