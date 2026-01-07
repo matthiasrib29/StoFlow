@@ -183,6 +183,12 @@ Données partagées gérées via migrations Alembic :
 
 **Naming** : `seed_xxx` ou `populate_xxx`
 
+**Capitalization Rule (IMPORTANT)** :
+- **Default**: **Sentence case** (capitalize first letter only)
+- Examples: "Damaged button", "Vintage wear", "No stretch", "Light discoloration"
+- **Exceptions**: Proper nouns (brand names), sizes, acronyms
+- Rationale: Consistency across all `product_attributes` tables
+
 ---
 
 ## Testing Standards

@@ -33,6 +33,7 @@ from models.public.gender import Gender
 from models.public.material import Material
 from models.public.season import Season
 from models.public.size_normalized import SizeNormalized
+from models.public.stretch import Stretch
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -469,6 +470,42 @@ class ProductAttributeRepository:
             result["season"] = ProductAttributeRepository.get_season_by_name(db, season)
 
         return result
+
+    # =========================================================================
+    # STRETCH
+    # =========================================================================
+
+    @staticmethod
+    def get_stretch_by_name(db: Session, name_en: str) -> Optional[Stretch]:
+        """
+        Récupère un Stretch par son nom anglais.
+
+        Args:
+            db: Session SQLAlchemy
+            name_en: Nom anglais du stretch
+
+        Returns:
+            Stretch si trouvé, None sinon
+        """
+        return db.query(Stretch).filter(Stretch.name_en == name_en).first()
+
+    @staticmethod
+    def list_stretches(db: Session, limit: int = 100) -> List[Stretch]:
+        """
+        Liste tous les stretches.
+
+        Args:
+            db: Session SQLAlchemy
+            limit: Nombre maximum de résultats
+
+        Returns:
+            Liste des Stretch objects
+        """
+        return db.query(Stretch).order_by(Stretch.name_en).limit(limit).all()
+
+    # =========================================================================
+    # UTILITIES
+    # =========================================================================
 
     @staticmethod
     def attribute_exists(db: Session, attr_type: str, value: str) -> bool:

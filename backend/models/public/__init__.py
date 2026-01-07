@@ -38,6 +38,7 @@ from models.public.decade import Decade
 from models.public.fit import Fit
 from models.public.gender import Gender as GenderAttribute
 from models.public.length import Length
+from models.public.lining import Lining
 from models.public.material import Material
 from models.public.neckline import Neckline
 from models.public.origin import Origin
@@ -48,6 +49,7 @@ from models.public.size_normalized import SizeNormalized
 from models.public.size_original import SizeOriginal
 from models.public.sleeve_length import SleeveLength
 from models.public.sport import Sport
+from models.public.stretch import Stretch
 from models.public.trend import Trend
 from models.public.unique_feature import UniqueFeature
 # Vinted schema models (re-exported for compatibility)
@@ -89,6 +91,7 @@ __all__ = [
     "Fit",
     "GenderAttribute",
     "Length",
+    "Lining",
     "Material",
     "Neckline",
     "Origin",
@@ -99,6 +102,7 @@ __all__ = [
     "SizeOriginal",
     "SleeveLength",
     "Sport",
+    "Stretch",
     "Trend",
     "UniqueFeature",
 ]
