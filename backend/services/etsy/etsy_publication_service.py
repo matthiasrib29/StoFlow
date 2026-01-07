@@ -128,11 +128,27 @@ class EtsyPublicationService:
 
             logger.info(f"✅ Draft listing created: {listing_id}")
 
-            # Step 3: Upload images (TODO: requires multipart/form-data)
-            # image_urls = self.converter._get_image_urls(product)
-            # for i, image_url in enumerate(image_urls[:10]):  # Max 10 images
-            #     # TODO: Download image from URL and upload to Etsy
-            #     pass
+            # Step 3: Upload images
+            image_urls = self.converter._get_image_urls(product)
+            if image_urls:
+                logger.info(f"Uploading {len(image_urls[:10])} images to Etsy listing {listing_id}...")
+
+                for idx, image_url in enumerate(image_urls[:10]):  # Max 10 images
+                    try:
+                        result = self.client.upload_listing_image(
+                            listing_id=listing_id,
+                            image_url=image_url,
+                            rank=idx + 1,  # Rank starts at 1
+                        )
+                        logger.info(
+                            f"✅ Image {idx + 1} uploaded: image_id={result.get('listing_image_id')}"
+                        )
+                    except Exception as e:
+                        logger.error(f"❌ Failed to upload image {idx + 1}: {e}")
+                        # Continue with other images
+                        continue
+            else:
+                logger.warning("No images to upload for listing")
 
             # Step 4: Set state (active or draft)
             if state == "active":

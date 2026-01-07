@@ -8,6 +8,7 @@ Ces tables sont isolees par utilisateur et contiennent les donnees specifiques a
 from models.user.ai_generation_log import AIGenerationLog
 from models.user.ebay_credentials import EbayCredentials
 from models.user.ebay_order import EbayOrder, EbayOrderProduct
+from models.user.etsy_credentials import EtsyCredentials
 from models.user.ebay_product import EbayProduct
 from models.user.ebay_product_marketplace import EbayProductMarketplace
 from models.user.ebay_promoted_listing import EbayPromotedListing
@@ -32,6 +33,7 @@ __all__ = [
     "VintedConversation",
     "VintedMessage",
     "EbayCredentials",
+    "EtsyCredentials",
     "EbayProduct",
     "PublicationHistory",
     "PublicationStatus",
