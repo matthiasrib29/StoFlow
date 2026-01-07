@@ -237,7 +237,11 @@ class EbayImporter:
         product = inventory_item.get("product", {})
         availability = inventory_item.get("availability", {})
         ship_to_location = availability.get("shipToLocationAvailability", {})
-        package_weight = inventory_item.get("packageWeightAndSize", {}).get("weight", {})
+
+        # Package details
+        package_weight_and_size = inventory_item.get("packageWeightAndSize", {})
+        package_weight = package_weight_and_size.get("weight", {})
+        package_dimensions = package_weight_and_size.get("dimensions", {})
 
         # Extract aspects (Brand, Color, Size, etc.)
         aspects = product.get("aspects", {})
@@ -276,6 +280,12 @@ class EbayImporter:
             "aspects": aspects_json,
             "package_weight_value": package_weight.get("value"),
             "package_weight_unit": package_weight.get("unit"),
+            "package_length_value": package_dimensions.get("length"),
+            "package_length_unit": package_dimensions.get("unit"),
+            "package_width_value": package_dimensions.get("width"),
+            "package_width_unit": package_dimensions.get("unit"),
+            "package_height_value": package_dimensions.get("height"),
+            "package_height_unit": package_dimensions.get("unit"),
             "status": "active" if quantity > 0 else "inactive",
         }
 
@@ -354,8 +364,12 @@ class EbayImporter:
 
             # Update with offer data
             ebay_product.ebay_offer_id = selected_offer.get("offerId")
-            ebay_product.ebay_listing_id = selected_offer.get("listing", {}).get("listingId")
             ebay_product.marketplace_id = selected_offer.get("marketplaceId", self.marketplace_id)
+
+            # Listing details
+            listing = selected_offer.get("listing", {})
+            ebay_product.ebay_listing_id = listing.get("listingId")
+            ebay_product.sold_quantity = listing.get("soldQuantity")
 
             # Price from offer
             pricing = selected_offer.get("pricingSummary", {})
@@ -364,12 +378,24 @@ class EbayImporter:
                 ebay_product.price = float(price_obj.get("value", 0))
                 ebay_product.currency = price_obj.get("currency", "EUR")
 
-            # Listing details
+            # Listing format and duration
             ebay_product.listing_format = selected_offer.get("format")
             ebay_product.listing_duration = selected_offer.get("listingDuration")
 
-            # Category
+            # Categories
             ebay_product.category_id = selected_offer.get("categoryId")
+            ebay_product.secondary_category_id = selected_offer.get("secondaryCategoryId")
+
+            # Location
+            ebay_product.merchant_location_key = selected_offer.get("merchantLocationKey")
+
+            # Quantity details
+            ebay_product.available_quantity = selected_offer.get("availableQuantity")
+            ebay_product.lot_size = selected_offer.get("lotSize")
+            ebay_product.quantity_limit_per_buyer = selected_offer.get("quantityLimitPerBuyer")
+
+            # Listing description (may differ from product description)
+            ebay_product.listing_description = selected_offer.get("listingDescription")
 
             # Status from offer
             offer_status = selected_offer.get("status")
