@@ -14,7 +14,7 @@ Date: 2025-12-19
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user
@@ -51,8 +51,7 @@ class EbayProductResponse(BaseModel):
     image_urls: Optional[list[str]] = None
     ebay_listing_url: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     @classmethod
     def from_orm_with_parsed_images(cls, obj):
