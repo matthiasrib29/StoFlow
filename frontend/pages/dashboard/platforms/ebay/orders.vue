@@ -290,9 +290,16 @@ const fetchOrders = async () => {
 
   try {
     const api = useApi()
-    const response = await api.get('/api/ebay/orders')
+    // Use new paginated endpoint with large page_size to get all orders
+    const response = await api.get('/api/ebay/orders', {
+      params: {
+        page: 1,
+        page_size: 200 // Max allowed
+      }
+    })
 
-    orders.value = response.orders || []
+    // New format returns { items, total, page, page_size, total_pages }
+    orders.value = response.items || []
 
     // Calculate stats
     calculateStats()
