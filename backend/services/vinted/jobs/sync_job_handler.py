@@ -15,7 +15,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.user.vinted_job import VintedJob
+from models.user.marketplace_job import MarketplaceJob
 from .base_job_handler import BaseJobHandler
 
 
@@ -47,12 +47,12 @@ class SyncJobHandler(BaseJobHandler):
             self._api_sync = VintedApiSyncService(shop_id=self.shop_id)
         return self._api_sync
 
-    async def execute(self, job: VintedJob) -> dict[str, Any]:
+    async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Synchronise les produits depuis l'API Vinted.
 
         Args:
-            job: VintedJob (product_id non utilisé)
+            job: MarketplaceJob (product_id non utilisé)
 
         Returns:
             dict: {

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-from models.user.vinted_job import JobStatus, VintedJob
+from models.user.marketplace_job import JobStatus, MarketplaceJob
 from services.vinted.vinted_job_processor import VintedJobProcessor
 
 
@@ -29,8 +29,8 @@ def mock_db():
 
 @pytest.fixture
 def mock_job():
-    """Mock d'un VintedJob."""
-    job = MagicMock(spec=VintedJob)
+    """Mock d'un MarketplaceJob."""
+    job = MagicMock(spec=MarketplaceJob)
     job.id = 1
     job.product_id = 100
     job.action_type_id = 1
@@ -139,7 +139,7 @@ class TestProcessNextJob:
         mock_handler_class = MagicMock(return_value=mock_handler_instance)
 
         # Mock pour retry
-        updated_job = MagicMock(spec=VintedJob)
+        updated_job = MagicMock(spec=MarketplaceJob)
         updated_job.id = 1
         updated_job.retry_count = 1
         updated_job.status = JobStatus.PENDING
@@ -240,7 +240,7 @@ class TestHandlerDispatch:
         action_type.code = "unknown_action"
 
         # Mock pour l'échec
-        updated_job = MagicMock(spec=VintedJob)
+        updated_job = MagicMock(spec=MarketplaceJob)
         updated_job.id = 1
         updated_job.retry_count = 1
         updated_job.status = JobStatus.PENDING
@@ -281,7 +281,7 @@ class TestProcessBatch:
         # Créer plusieurs jobs mock
         jobs = []
         for i in range(3):
-            job = MagicMock(spec=VintedJob)
+            job = MagicMock(spec=MarketplaceJob)
             job.id = i + 1
             job.product_id = 100 + i
             job.action_type_id = 1
@@ -324,7 +324,7 @@ class TestRetryLogic:
         mock_job.retry_count = 0
 
         # Simuler un échec avec retry possible
-        updated_job = MagicMock(spec=VintedJob)
+        updated_job = MagicMock(spec=MarketplaceJob)
         updated_job.id = 1
         updated_job.retry_count = 1
         updated_job.status = JobStatus.PENDING
@@ -345,7 +345,7 @@ class TestRetryLogic:
         mock_job.retry_count = 3
 
         # Simuler max retries atteint
-        updated_job = MagicMock(spec=VintedJob)
+        updated_job = MagicMock(spec=MarketplaceJob)
         updated_job.id = 1
         updated_job.retry_count = 3
         updated_job.status = JobStatus.FAILED

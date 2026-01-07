@@ -12,7 +12,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.user.vinted_job import VintedJob
+from models.user.marketplace_job import MarketplaceJob
 from services.plugin_task_helper import create_and_wait
 from shared.logging_setup import get_logger
 
@@ -52,12 +52,12 @@ class BaseJobHandler(ABC):
         self.job_id = job_id
 
     @abstractmethod
-    async def execute(self, job: VintedJob) -> dict[str, Any]:
+    async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Execute the action.
 
         Args:
-            job: The VintedJob to execute
+            job: The MarketplaceJob to execute
 
         Returns:
             dict: {"success": bool, ...}

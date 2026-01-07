@@ -19,7 +19,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from models.user.plugin_task import PluginTask, TaskStatus
-from models.user.vinted_job import JobStatus, VintedJob
+from models.user.marketplace_job import JobStatus, MarketplaceJob
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -32,16 +32,16 @@ class VintedJobStatusManager:
     """Service for managing Vinted job status transitions."""
 
     @staticmethod
-    def start_job(db: Session, job: VintedJob) -> VintedJob:
+    def start_job(db: Session, job: MarketplaceJob) -> MarketplaceJob:
         """
         Mark a job as running.
 
         Args:
             db: SQLAlchemy Session
-            job: VintedJob to start
+            job: MarketplaceJob to start
 
         Returns:
-            Updated VintedJob
+            Updated MarketplaceJob
         """
         job.status = JobStatus.RUNNING
         job.started_at = datetime.now(timezone.utc)
@@ -53,19 +53,19 @@ class VintedJobStatusManager:
     @staticmethod
     def complete_job(
         db: Session,
-        job: VintedJob,
+        job: MarketplaceJob,
         on_complete_callback: Optional[callable] = None,
-    ) -> VintedJob:
+    ) -> MarketplaceJob:
         """
         Mark a job as completed successfully.
 
         Args:
             db: SQLAlchemy Session
-            job: VintedJob to complete
+            job: MarketplaceJob to complete
             on_complete_callback: Optional callback for stats update
 
         Returns:
-            Updated VintedJob
+            Updated MarketplaceJob
         """
         job.status = JobStatus.COMPLETED
         job.completed_at = datetime.now(timezone.utc)
@@ -80,21 +80,21 @@ class VintedJobStatusManager:
     @staticmethod
     def fail_job(
         db: Session,
-        job: VintedJob,
+        job: MarketplaceJob,
         error_message: str,
         on_complete_callback: Optional[callable] = None,
-    ) -> VintedJob:
+    ) -> MarketplaceJob:
         """
         Mark a job as failed.
 
         Args:
             db: SQLAlchemy Session
-            job: VintedJob to fail
+            job: MarketplaceJob to fail
             error_message: Error description
             on_complete_callback: Optional callback for stats update
 
         Returns:
-            Updated VintedJob
+            Updated MarketplaceJob
         """
         job.status = JobStatus.FAILED
         job.error_message = error_message
@@ -108,16 +108,16 @@ class VintedJobStatusManager:
         return job
 
     @staticmethod
-    def pause_job(db: Session, job: VintedJob) -> Optional[VintedJob]:
+    def pause_job(db: Session, job: MarketplaceJob) -> Optional[MarketplaceJob]:
         """
         Pause a running or pending job.
 
         Args:
             db: SQLAlchemy Session
-            job: VintedJob to pause
+            job: MarketplaceJob to pause
 
         Returns:
-            Updated VintedJob or None if not pausable
+            Updated MarketplaceJob or None if not pausable
         """
         if job.status not in (JobStatus.PENDING, JobStatus.RUNNING):
             return None
@@ -129,16 +129,16 @@ class VintedJobStatusManager:
         return job
 
     @staticmethod
-    def resume_job(db: Session, job: VintedJob) -> Optional[VintedJob]:
+    def resume_job(db: Session, job: MarketplaceJob) -> Optional[MarketplaceJob]:
         """
         Resume a paused job.
 
         Args:
             db: SQLAlchemy Session
-            job: VintedJob to resume
+            job: MarketplaceJob to resume
 
         Returns:
-            Updated VintedJob or None if not resumable
+            Updated MarketplaceJob or None if not resumable
         """
         if job.status != JobStatus.PAUSED:
             return None
@@ -152,16 +152,16 @@ class VintedJobStatusManager:
         return job
 
     @staticmethod
-    def cancel_job(db: Session, job: VintedJob) -> Optional[VintedJob]:
+    def cancel_job(db: Session, job: MarketplaceJob) -> Optional[MarketplaceJob]:
         """
         Cancel a job and its pending tasks.
 
         Args:
             db: SQLAlchemy Session
-            job: VintedJob to cancel
+            job: MarketplaceJob to cancel
 
         Returns:
-            Updated VintedJob or None if already terminal
+            Updated MarketplaceJob or None if already terminal
         """
         if job.is_terminal:
             return None
@@ -179,16 +179,16 @@ class VintedJobStatusManager:
     @staticmethod
     def increment_retry(
         db: Session,
-        job: VintedJob,
+        job: MarketplaceJob,
         max_retries: int = 3,
         on_max_retries_callback: Optional[callable] = None,
-    ) -> tuple[VintedJob, bool]:
+    ) -> tuple[MarketplaceJob, bool]:
         """
         Increment retry count and check if max retries reached.
 
         Args:
             db: SQLAlchemy Session
-            job: VintedJob to retry
+            job: MarketplaceJob to retry
             max_retries: Maximum retry attempts
             on_max_retries_callback: Optional callback for stats update
 
@@ -223,10 +223,10 @@ class VintedJobStatusManager:
         now = datetime.now(timezone.utc)
 
         expired_jobs = (
-            db.query(VintedJob)
+            db.query(MarketplaceJob)
             .filter(
-                VintedJob.status.in_([JobStatus.PENDING, JobStatus.PAUSED]),
-                VintedJob.expires_at < now,
+                MarketplaceJob.status.in_([JobStatus.PENDING, JobStatus.PAUSED]),
+                MarketplaceJob.expires_at < now,
             )
             .all()
         )

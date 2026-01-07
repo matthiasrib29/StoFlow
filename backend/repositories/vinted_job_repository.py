@@ -1,7 +1,7 @@
 """
 Vinted Job Repository
 
-Repository pour la gestion des VintedJob et VintedActionType.
+Repository pour la gestion des MarketplaceJob et VintedActionType.
 Responsabilité: Accès données pour vinted_jobs (schema user_{id})
 et action_types (schema vinted).
 
@@ -21,7 +21,7 @@ from typing import List, Optional
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
-from models.user.vinted_job import VintedJob, JobStatus
+from models.user.marketplace_job import MarketplaceJob, JobStatus
 from models.vinted.vinted_action_type import VintedActionType
 from shared.logging_setup import get_logger
 
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 
 class VintedJobRepository:
     """
-    Repository pour la gestion des VintedJob.
+    Repository pour la gestion des MarketplaceJob.
 
     Fournit toutes les opérations CRUD et queries spécialisées.
     """
@@ -40,16 +40,16 @@ class VintedJobRepository:
     # =========================================================================
 
     @staticmethod
-    def create(db: Session, job: VintedJob) -> VintedJob:
+    def create(db: Session, job: MarketplaceJob) -> MarketplaceJob:
         """
-        Crée un nouveau VintedJob.
+        Crée un nouveau MarketplaceJob.
 
         Args:
             db: Session SQLAlchemy
-            job: Instance VintedJob à créer
+            job: Instance MarketplaceJob à créer
 
         Returns:
-            VintedJob: Instance créée avec ID assigné
+            MarketplaceJob: Instance créée avec ID assigné
         """
         db.add(job)
         db.commit()
@@ -63,30 +63,30 @@ class VintedJobRepository:
         return job
 
     @staticmethod
-    def get_by_id(db: Session, job_id: int) -> Optional[VintedJob]:
+    def get_by_id(db: Session, job_id: int) -> Optional[MarketplaceJob]:
         """
-        Récupère un VintedJob par son ID.
+        Récupère un MarketplaceJob par son ID.
 
         Args:
             db: Session SQLAlchemy
             job_id: ID du job
 
         Returns:
-            VintedJob si trouvé, None sinon
+            MarketplaceJob si trouvé, None sinon
         """
-        return db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        return db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
 
     @staticmethod
-    def update(db: Session, job: VintedJob) -> VintedJob:
+    def update(db: Session, job: MarketplaceJob) -> MarketplaceJob:
         """
-        Met à jour un VintedJob existant.
+        Met à jour un MarketplaceJob existant.
 
         Args:
             db: Session SQLAlchemy
-            job: Instance VintedJob modifiée
+            job: Instance MarketplaceJob modifiée
 
         Returns:
-            VintedJob: Instance mise à jour
+            MarketplaceJob: Instance mise à jour
         """
         db.commit()
         db.refresh(job)
@@ -95,7 +95,7 @@ class VintedJobRepository:
     @staticmethod
     def delete(db: Session, job_id: int) -> bool:
         """
-        Supprime un VintedJob.
+        Supprime un MarketplaceJob.
 
         Args:
             db: Session SQLAlchemy
@@ -104,7 +104,7 @@ class VintedJobRepository:
         Returns:
             True si supprimé, False si non trouvé
         """
-        job = db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        job = db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job:
             return False
 
@@ -124,7 +124,7 @@ class VintedJobRepository:
         job_id: int,
         status: JobStatus,
         error_message: Optional[str] = None
-    ) -> Optional[VintedJob]:
+    ) -> Optional[MarketplaceJob]:
         """
         Met à jour le status d'un job.
 
@@ -135,9 +135,9 @@ class VintedJobRepository:
             error_message: Message d'erreur (optionnel)
 
         Returns:
-            VintedJob mis à jour ou None si non trouvé
+            MarketplaceJob mis à jour ou None si non trouvé
         """
-        job = db.query(VintedJob).filter(VintedJob.id == job_id).first()
+        job = db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job:
             return None
 
@@ -172,7 +172,7 @@ class VintedJobRepository:
         db: Session,
         limit: int = 10,
         priority_order: bool = True
-    ) -> List[VintedJob]:
+    ) -> List[MarketplaceJob]:
         """
         Récupère les jobs en attente.
 
@@ -182,14 +182,14 @@ class VintedJobRepository:
             priority_order: Trier par priorité (1=highest first)
 
         Returns:
-            Liste de VintedJob pending
+            Liste de MarketplaceJob pending
         """
-        query = db.query(VintedJob).filter(VintedJob.status == JobStatus.PENDING)
+        query = db.query(MarketplaceJob).filter(MarketplaceJob.status == JobStatus.PENDING)
 
         if priority_order:
-            query = query.order_by(VintedJob.priority.asc(), VintedJob.created_at.asc())
+            query = query.order_by(MarketplaceJob.priority.asc(), MarketplaceJob.created_at.asc())
         else:
-            query = query.order_by(VintedJob.created_at.asc())
+            query = query.order_by(MarketplaceJob.created_at.asc())
 
         return query.limit(limit).all()
 
@@ -198,7 +198,7 @@ class VintedJobRepository:
         db: Session,
         status: JobStatus,
         limit: int = 100
-    ) -> List[VintedJob]:
+    ) -> List[MarketplaceJob]:
         """
         Récupère les jobs par status.
 
@@ -208,12 +208,12 @@ class VintedJobRepository:
             limit: Nombre max de résultats
 
         Returns:
-            Liste de VintedJob
+            Liste de MarketplaceJob
         """
         return (
-            db.query(VintedJob)
-            .filter(VintedJob.status == status)
-            .order_by(VintedJob.created_at.desc())
+            db.query(MarketplaceJob)
+            .filter(MarketplaceJob.status == status)
+            .order_by(MarketplaceJob.created_at.desc())
             .limit(limit)
             .all()
         )
@@ -223,7 +223,7 @@ class VintedJobRepository:
         db: Session,
         product_id: int,
         status: Optional[JobStatus] = None
-    ) -> List[VintedJob]:
+    ) -> List[MarketplaceJob]:
         """
         Récupère les jobs pour un produit donné.
 
@@ -233,17 +233,17 @@ class VintedJobRepository:
             status: Filtrer par status (optionnel)
 
         Returns:
-            Liste de VintedJob
+            Liste de MarketplaceJob
         """
-        query = db.query(VintedJob).filter(VintedJob.product_id == product_id)
+        query = db.query(MarketplaceJob).filter(MarketplaceJob.product_id == product_id)
 
         if status:
-            query = query.filter(VintedJob.status == status)
+            query = query.filter(MarketplaceJob.status == status)
 
-        return query.order_by(VintedJob.created_at.desc()).all()
+        return query.order_by(MarketplaceJob.created_at.desc()).all()
 
     @staticmethod
-    def get_by_batch_id(db: Session, batch_id: str) -> List[VintedJob]:
+    def get_by_batch_id(db: Session, batch_id: str) -> List[MarketplaceJob]:
         """
         Récupère les jobs d'un batch.
 
@@ -252,17 +252,17 @@ class VintedJobRepository:
             batch_id: ID du batch
 
         Returns:
-            Liste de VintedJob du batch
+            Liste de MarketplaceJob du batch
         """
         return (
-            db.query(VintedJob)
-            .filter(VintedJob.batch_id == batch_id)
-            .order_by(VintedJob.created_at.asc())
+            db.query(MarketplaceJob)
+            .filter(MarketplaceJob.batch_id == batch_id)
+            .order_by(MarketplaceJob.created_at.asc())
             .all()
         )
 
     @staticmethod
-    def get_active_jobs(db: Session, limit: int = 100) -> List[VintedJob]:
+    def get_active_jobs(db: Session, limit: int = 100) -> List[MarketplaceJob]:
         """
         Récupère les jobs actifs (pending, running, paused).
 
@@ -271,19 +271,19 @@ class VintedJobRepository:
             limit: Nombre max de résultats
 
         Returns:
-            Liste de VintedJob actifs
+            Liste de MarketplaceJob actifs
         """
         active_statuses = [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.PAUSED]
         return (
-            db.query(VintedJob)
-            .filter(VintedJob.status.in_(active_statuses))
-            .order_by(VintedJob.priority.asc(), VintedJob.created_at.asc())
+            db.query(MarketplaceJob)
+            .filter(MarketplaceJob.status.in_(active_statuses))
+            .order_by(MarketplaceJob.priority.asc(), MarketplaceJob.created_at.asc())
             .limit(limit)
             .all()
         )
 
     @staticmethod
-    def get_expired_jobs(db: Session, limit: int = 100) -> List[VintedJob]:
+    def get_expired_jobs(db: Session, limit: int = 100) -> List[MarketplaceJob]:
         """
         Récupère les jobs expirés (pending avec expires_at passé).
 
@@ -292,16 +292,16 @@ class VintedJobRepository:
             limit: Nombre max de résultats
 
         Returns:
-            Liste de VintedJob expirés
+            Liste de MarketplaceJob expirés
         """
         now = datetime.now(timezone.utc)
         return (
-            db.query(VintedJob)
+            db.query(MarketplaceJob)
             .filter(
                 and_(
-                    VintedJob.status == JobStatus.PENDING,
-                    VintedJob.expires_at.isnot(None),
-                    VintedJob.expires_at < now
+                    MarketplaceJob.status == JobStatus.PENDING,
+                    MarketplaceJob.expires_at.isnot(None),
+                    MarketplaceJob.expires_at < now
                 )
             )
             .limit(limit)
@@ -324,8 +324,8 @@ class VintedJobRepository:
         Returns:
             Nombre de jobs avec ce status
         """
-        return db.query(func.count(VintedJob.id)).filter(
-            VintedJob.status == status
+        return db.query(func.count(MarketplaceJob.id)).filter(
+            MarketplaceJob.status == status
         ).scalar() or 0
 
     @staticmethod
@@ -340,8 +340,8 @@ class VintedJobRepository:
         Returns:
             Nombre de jobs
         """
-        return db.query(func.count(VintedJob.id)).filter(
-            VintedJob.action_type_id == action_type_id
+        return db.query(func.count(MarketplaceJob.id)).filter(
+            MarketplaceJob.action_type_id == action_type_id
         ).scalar() or 0
 
     @staticmethod

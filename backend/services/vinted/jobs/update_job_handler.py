@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from models.user.product import Product
 from models.user.vinted_product import VintedProduct
-from models.user.vinted_job import VintedJob
+from models.user.marketplace_job import MarketplaceJob
 from services.vinted.vinted_mapping_service import VintedMappingService
 from services.vinted.vinted_pricing_service import VintedPricingService
 from services.vinted.vinted_product_validator import VintedProductValidator
@@ -53,12 +53,12 @@ class UpdateJobHandler(BaseJobHandler):
         self.title_service = VintedTitleService()
         self.description_service = VintedDescriptionService()
 
-    async def execute(self, job: VintedJob) -> dict[str, Any]:
+    async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Met à jour un produit sur Vinted.
 
         Args:
-            job: VintedJob contenant product_id
+            job: MarketplaceJob contenant product_id
 
         Returns:
             dict: {"success": bool, "product_id": int, "error": str | None}
