@@ -7,8 +7,13 @@ Create Date: 2026-01-06 19:05:55.699675+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -51,7 +56,7 @@ def upgrade() -> None:
                 ALTER TABLE {schema}.vinted_jobs
                 ALTER COLUMN product_id TYPE BIGINT;
             """))
-            print(f"✓ Updated {schema}.vinted_jobs.product_id to BIGINT")
+            logger.info(f"✓ Updated {schema}.vinted_jobs.product_id to BIGINT")
 
 
 def downgrade() -> None:
@@ -88,4 +93,4 @@ def downgrade() -> None:
                 ALTER TABLE {schema}.vinted_jobs
                 ALTER COLUMN product_id TYPE INTEGER;
             """))
-            print(f"✓ Reverted {schema}.vinted_jobs.product_id to INTEGER")
+            logger.info(f"✓ Reverted {schema}.vinted_jobs.product_id to INTEGER")

@@ -7,10 +7,15 @@ Create Date: 2026-01-07 09:20:17.524514+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -93,7 +98,7 @@ def upgrade() -> None:
             COMMENT ON TABLE {schema}.batch_jobs IS 'Groups multiple marketplace jobs into a single batch operation';
         """))
 
-        print(f"✓ Created batch_jobs table in {schema}")
+        logger.info(f"✓ Created batch_jobs table in {schema}")
 
 
 def downgrade() -> None:
@@ -124,4 +129,4 @@ def downgrade() -> None:
             DROP TYPE IF EXISTS {schema}.batch_job_status;
         """))
 
-        print(f"✓ Dropped batch_jobs table from {schema}")
+        logger.info(f"✓ Dropped batch_jobs table from {schema}")

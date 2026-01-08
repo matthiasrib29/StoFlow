@@ -166,6 +166,7 @@
 
 <script setup lang="ts">
 import { useToast } from 'primevue/usetoast'
+import { vintedLogger } from '~/utils/logger'
 
 interface VintedProduct {
   id: number
@@ -242,7 +243,7 @@ async function fetchLinkableProducts() {
     )
     linkableProducts.value = response?.products || []
   } catch (e) {
-    console.error('Error fetching linkable products:', e)
+    vintedLogger.error('Error fetching linkable products:', e)
     linkableProducts.value = []
   } finally {
     loadingProducts.value = false
@@ -269,7 +270,7 @@ async function linkToExisting() {
     emit('linked', props.vintedProduct.vinted_id, selectedProductId.value)
     close()
   } catch (e: any) {
-    console.error('Error linking product:', e)
+    vintedLogger.error('Error linking product:', e)
     toast?.add({
       severity: 'error',
       summary: 'Erreur',
@@ -302,7 +303,7 @@ async function createAndLink() {
     emit('created', props.vintedProduct.vinted_id, response?.product_id || 0)
     close()
   } catch (e: any) {
-    console.error('Error creating product:', e)
+    vintedLogger.error('Error creating product:', e)
     toast?.add({
       severity: 'error',
       summary: 'Erreur',

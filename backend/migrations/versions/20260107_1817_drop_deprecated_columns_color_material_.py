@@ -19,9 +19,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -70,12 +75,12 @@ def upgrade() -> None:
     """Drop deprecated columns color, material, condition_sup."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("⚠️  DROPPING DEPRECATED COLUMNS (IRREVERSIBLE)")
-    print("=" * 70)
-    print("\n⚠️  WARNING: This operation is ONE-WAY and cannot be undone!")
-    print("   Make sure M2M tables are properly populated before proceeding.")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("⚠️  DROPPING DEPRECATED COLUMNS (IRREVERSIBLE)")
+    logger.info("=" * 70)
+    logger.info("\n⚠️  WARNING: This operation is ONE-WAY and cannot be undone!")
+    logger.info("   Make sure M2M tables are properly populated before proceeding.")
+    logger.info("=" * 70 + "\n")
 
     schemas = get_user_schemas(conn)
     columns_to_drop = ['color', 'material', 'condition_sup']
@@ -86,41 +91,41 @@ def upgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"📦 Processing {schema}...")
+        logger.info(f"📦 Processing {schema}...")
 
         for column in columns_to_drop:
             if column_exists(conn, schema, 'products', column):
-                print(f"  🗑️  Dropping column '{column}'...")
+                logger.info(f"  🗑️  Dropping column '{column}'...")
                 conn.execute(text(f"""
                     ALTER TABLE {schema}.products
                     DROP COLUMN IF EXISTS {column} CASCADE;
                 """))
                 total_columns_dropped += 1
-                print(f"     ✅ Dropped")
+                logger.info(f"     ✅ Dropped")
             else:
-                print(f"  ⏭️  Column '{column}' already dropped")
+                logger.info(f"  ⏭️  Column '{column}' already dropped")
 
-    print("\n" + "=" * 70)
-    print("📊 DROP SUMMARY")
-    print("=" * 70)
-    print(f"  Total columns dropped: {total_columns_dropped}")
-    print("=" * 70)
-    print("✅ DROP COMPLETE")
-    print("=" * 70)
-    print("\n💡 Migration from single-value to M2M is now complete!")
-    print("   Use product_colors, product_materials, product_condition_sups tables.")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 DROP SUMMARY")
+    logger.info("=" * 70)
+    logger.info(f"  Total columns dropped: {total_columns_dropped}")
+    logger.info("=" * 70)
+    logger.info("✅ DROP COMPLETE")
+    logger.info("=" * 70)
+    logger.info("\n💡 Migration from single-value to M2M is now complete!")
+    logger.info("   Use product_colors, product_materials, product_condition_sups tables.")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Cannot restore dropped columns (data loss would occur)."""
-    print("\n" + "=" * 70)
-    print("⚠️  DOWNGRADE NOT SUPPORTED")
-    print("=" * 70)
-    print("\nThis migration drops columns permanently.")
-    print("Downgrade would require recreating columns from M2M data,")
-    print("which is complex and may lose information (multiple values → single value).")
-    print("\nTo rollback:")
-    print("  1. Restore database from backup")
-    print("  2. Run: alembic downgrade -1")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("⚠️  DOWNGRADE NOT SUPPORTED")
+    logger.info("=" * 70)
+    logger.info("\nThis migration drops columns permanently.")
+    logger.info("Downgrade would require recreating columns from M2M data,")
+    logger.info("which is complex and may lose information (multiple values → single value).")
+    logger.info("\nTo rollback:")
+    logger.info("  1. Restore database from backup")
+    logger.info("  2. Run: alembic downgrade -1")
+    logger.info("=" * 70)

@@ -14,9 +14,14 @@ Fixes:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -54,7 +59,7 @@ def upgrade() -> None:
 
     # Get all user schemas
     user_schemas = get_user_schemas(conn)
-    print(f"Found {len(user_schemas)} user schemas")
+    logger.info(f"Found {len(user_schemas)} user schemas")
 
     # ===== 1. UPDATE PRODUCTS IN USER SCHEMAS =====
 
@@ -90,7 +95,7 @@ def upgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"Updating products in {schema}...")
+        logger.info(f"Updating products in {schema}...")
 
         # Update materials
         for old_val, new_val in materials_map.items():
@@ -111,7 +116,7 @@ def upgrade() -> None:
     # ===== 2. CLEAN ATTRIBUTE TABLES =====
 
     # 2.1 Materials - Delete lowercase duplicates
-    print("Cleaning materials table...")
+    logger.info("Cleaning materials table...")
     for old_val in materials_map.keys():
         conn.execute(text("""
             DELETE FROM product_attributes.materials
@@ -119,7 +124,7 @@ def upgrade() -> None:
         """), {"old_val": old_val})
 
     # 2.2 Fits - Delete lowercase duplicates
-    print("Cleaning fits table...")
+    logger.info("Cleaning fits table...")
     for old_val in fits_map.keys():
         conn.execute(text("""
             DELETE FROM product_attributes.fits
@@ -127,14 +132,14 @@ def upgrade() -> None:
         """), {"old_val": old_val})
 
     # 2.3 Patterns - Delete embroidered and printed
-    print("Deleting duplicate patterns...")
+    logger.info("Deleting duplicate patterns...")
     conn.execute(text("""
         DELETE FROM product_attributes.patterns
         WHERE name_en IN ('embroidered', 'printed')
     """))
 
     # 2.4 Unique features - Merge selvage denim → selvedge
-    print("Merging unique features...")
+    logger.info("Merging unique features...")
     # Check if 'selvedge' exists
     result = conn.execute(text("""
         SELECT COUNT(*) FROM product_attributes.unique_features
@@ -155,7 +160,7 @@ def upgrade() -> None:
         """))
 
     # 2.5 Decades - Harmonize format
-    print("Harmonizing decades format...")
+    logger.info("Harmonizing decades format...")
     decades_map = {
         '2000s': '00s',
         '2010s': '10s',
@@ -169,13 +174,13 @@ def upgrade() -> None:
         """), {"old_val": old_val, "new_val": new_val})
 
     # 2.6 Categories - Delete dresses-jumpsuits
-    print("Deleting redundant category...")
+    logger.info("Deleting redundant category...")
     conn.execute(text("""
         DELETE FROM product_attributes.categories
         WHERE name_en = 'dresses-jumpsuits'
     """))
 
-    print("✅ Migration completed successfully!")
+    logger.info("✅ Migration completed successfully!")
 
 
 def downgrade() -> None:
@@ -184,12 +189,12 @@ def downgrade() -> None:
 
     # Get all user schemas
     user_schemas = get_user_schemas(conn)
-    print(f"Rolling back changes in {len(user_schemas)} user schemas")
+    logger.info(f"Rolling back changes in {len(user_schemas)} user schemas")
 
     # ===== 1. RESTORE ATTRIBUTE TABLES =====
 
     # 1.1 Restore materials (lowercase)
-    print("Restoring lowercase materials...")
+    logger.info("Restoring lowercase materials...")
     materials_to_restore = [
         'acrylic', 'cashmere', 'cotton', 'denim', 'fleece',
         'leather', 'linen', 'nylon', 'polyester', 'silk',
@@ -203,7 +208,7 @@ def downgrade() -> None:
         """), {"material": material})
 
     # 1.2 Restore fits (lowercase)
-    print("Restoring lowercase fits...")
+    logger.info("Restoring lowercase fits...")
     fits_to_restore = ['loose', 'oversized', 'regular', 'relaxed', 'slim']
     for fit in fits_to_restore:
         conn.execute(text("""
@@ -213,7 +218,7 @@ def downgrade() -> None:
         """), {"fit": fit})
 
     # 1.3 Restore patterns
-    print("Restoring deleted patterns...")
+    logger.info("Restoring deleted patterns...")
     patterns_to_restore = ['embroidered', 'printed']
     for pattern in patterns_to_restore:
         conn.execute(text("""
@@ -223,7 +228,7 @@ def downgrade() -> None:
         """), {"pattern": pattern})
 
     # 1.4 Restore unique features
-    print("Restoring unique features...")
+    logger.info("Restoring unique features...")
     conn.execute(text("""
         INSERT INTO product_attributes.unique_features (name_en)
         VALUES ('selvage denim')
@@ -231,7 +236,7 @@ def downgrade() -> None:
     """))
 
     # 1.5 Restore decades
-    print("Restoring old decades format...")
+    logger.info("Restoring old decades format...")
     decades_to_restore = {'00s': '2000s', '10s': '2010s', '20s': '2020s'}
     for new_val, old_val in decades_to_restore.items():
         conn.execute(text("""
@@ -241,7 +246,7 @@ def downgrade() -> None:
         """), {"old_val": old_val, "new_val": new_val})
 
     # 1.6 Restore category
-    print("Restoring deleted category...")
+    logger.info("Restoring deleted category...")
     conn.execute(text("""
         INSERT INTO product_attributes.categories (name_en)
         VALUES ('dresses-jumpsuits')
@@ -280,7 +285,7 @@ def downgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"Reverting products in {schema}...")
+        logger.info(f"Reverting products in {schema}...")
 
         # Revert materials
         for new_val, old_val in materials_map.items():
@@ -298,4 +303,4 @@ def downgrade() -> None:
                 WHERE fit = :new_val
             """), {"old_val": old_val, "new_val": new_val})
 
-    print("✅ Rollback completed successfully!")
+    logger.info("✅ Rollback completed successfully!")

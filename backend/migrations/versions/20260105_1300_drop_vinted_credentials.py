@@ -10,7 +10,9 @@ All connection info is stored in vinted_connection instead.
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = '20260105_1300'
@@ -49,12 +51,12 @@ def upgrade() -> None:
     for schema in user_schemas:
         if table_exists(connection, schema, 'vinted_credentials'):
             op.drop_table('vinted_credentials', schema=schema)
-            print(f"  - Dropped vinted_credentials from {schema}")
+            logger.info(f"  - Dropped vinted_credentials from {schema}")
 
     # Drop from template_tenant LAST (after dependents are removed)
     if table_exists(connection, 'template_tenant', 'vinted_credentials'):
         op.drop_table('vinted_credentials', schema='template_tenant')
-        print("  - Dropped vinted_credentials from template_tenant")
+        logger.info("  - Dropped vinted_credentials from template_tenant")
 
 
 def downgrade() -> None:

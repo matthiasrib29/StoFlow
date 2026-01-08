@@ -11,6 +11,8 @@
  *   definePageMeta({ middleware: 'admin' })
  */
 
+import { adminLogger } from '~/utils/logger'
+
 export default defineNuxtRouteMiddleware((to) => {
   // Skip on server-side
   if (import.meta.server) {
@@ -27,7 +29,7 @@ export default defineNuxtRouteMiddleware((to) => {
   // Check if user is admin
   if (authStore.user.role !== 'admin') {
     // Redirect non-admin users to dashboard with a message
-    console.warn('[Admin Middleware] Access denied: user is not admin')
+    adminLogger.warn('Access denied: user is not admin')
 
     // Redirect to dashboard (they'll see a permission denied or just the normal dashboard)
     return navigateTo('/dashboard')

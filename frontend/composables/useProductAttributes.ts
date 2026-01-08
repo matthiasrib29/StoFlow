@@ -9,6 +9,7 @@
 
 import type { AttributeOption, CategoryOption } from '~/composables/useAttributes'
 import { useLocaleStore } from '~/stores/locale'
+import { attributeLogger } from '~/utils/logger'
 
 export interface ProductAttributesState {
   // Required field options
@@ -145,7 +146,7 @@ export const useProductAttributes = () => {
     try {
       filteredOptions.brands = await searchBrands('', 20)
     } catch (error) {
-      console.error('Failed to load popular brands', error)
+      attributeLogger.error('Failed to load popular brands', error)
       filteredOptions.brands = []
     }
 
@@ -178,7 +179,7 @@ export const useProductAttributes = () => {
       const results = await searchBrands(query || '', 20)
       filteredOptions.brands = results
     } catch (error) {
-      console.error('Brand filter failed', error)
+      attributeLogger.error('Brand filter failed', error)
       filteredOptions.brands = []
     } finally {
       loading.brands = false

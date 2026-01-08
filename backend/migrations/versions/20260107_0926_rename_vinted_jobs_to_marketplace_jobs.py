@@ -7,9 +7,14 @@ Create Date: 2026-01-07 09:26:17.397009+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -49,7 +54,7 @@ def upgrade() -> None:
         """)).scalar()
 
         if not table_exists:
-            print(f"⚠ Skipping {schema} - vinted_jobs table not found")
+            logger.info(f"⚠ Skipping {schema} - vinted_jobs table not found")
             continue
 
         # 1. Rename table
@@ -156,7 +161,7 @@ def upgrade() -> None:
             END$$;
         """))
 
-        print(f"✓ Renamed vinted_jobs → marketplace_jobs in {schema}")
+        logger.info(f"✓ Renamed vinted_jobs → marketplace_jobs in {schema}")
 
 
 def downgrade() -> None:
@@ -189,7 +194,7 @@ def downgrade() -> None:
         """)).scalar()
 
         if not table_exists:
-            print(f"⚠ Skipping {schema} - marketplace_jobs table not found")
+            logger.info(f"⚠ Skipping {schema} - marketplace_jobs table not found")
             continue
 
         # 1. Drop new columns
@@ -261,4 +266,4 @@ def downgrade() -> None:
             END$$;
         """))
 
-        print(f"✓ Reverted marketplace_jobs → vinted_jobs in {schema}")
+        logger.info(f"✓ Reverted marketplace_jobs → vinted_jobs in {schema}")
