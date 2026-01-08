@@ -18,11 +18,13 @@ Author: Claude
 
 from typing import Optional
 
+from sqlalchemy import update, func
 from sqlalchemy.orm import Session
 
 from models.user.product import Product, ProductStatus
 from repositories.product_repository import ProductRepository
 from shared.datetime_utils import utc_now
+from shared.exceptions import ConcurrentModificationError, OutOfStockError
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -95,23 +97,58 @@ class ProductStatusManager:
         if new_status == ProductStatus.PUBLISHED:
             ProductStatusManager._validate_for_publication(product)
 
-        # Update status
-        product.status = new_status
-
-        # Handle SOLD status (Business Rule 2025-12-05)
+        # Handle SOLD status atomically (Business Rule 2025-12-05)
         if new_status == ProductStatus.SOLD:
-            if not product.sold_at:
-                product.sold_at = utc_now()
-            # Sold product -> stock to zero (unique item)
-            product.stock_quantity = 0
+            # Atomic decrement with stock check
+            result = db.execute(
+                update(Product)
+                .where(
+                    Product.id == product_id,
+                    Product.stock_quantity > 0  # Atomic condition
+                )
+                .values(
+                    status=ProductStatus.SOLD,
+                    stock_quantity=0,
+                    sold_at=func.now(),  # Timestamp on DB side
+                    version_number=Product.version_number + 1  # Increment version
+                )
+                .execution_options(synchronize_session="fetch")
+            )
 
-        db.commit()
-        db.refresh(product)
+            if result.rowcount == 0:
+                # Either product not found OR stock already 0
+                db.refresh(product)
 
-        logger.info(
-            f"[ProductStatusManager] Status updated: product_id={product_id}, "
-            f"{current_status.value} -> {new_status.value}"
-        )
+                if product.stock_quantity == 0:
+                    raise OutOfStockError(
+                        f"Cannot mark product as SOLD: already out of stock.",
+                        details={
+                            "product_id": product_id,
+                            "current_stock": product.stock_quantity
+                        }
+                    )
+                else:
+                    raise ConcurrentModificationError(
+                        f"Product {product_id} was modified by another transaction.",
+                        details={"product_id": product_id}
+                    )
+
+            db.refresh(product)
+
+            logger.info(
+                f"[ProductStatusManager] Product marked as SOLD atomically: "
+                f"product_id={product_id}, stock decremented to 0"
+            )
+        else:
+            # For other status changes, use standard ORM
+            product.status = new_status
+            db.flush()
+            db.refresh(product)
+
+            logger.info(
+                f"[ProductStatusManager] Status updated: product_id={product_id}, "
+                f"{current_status.value} -> {new_status.value}"
+            )
 
         return product
 

@@ -20,6 +20,7 @@ Refactored: 2026-01-06
 
 from typing import Optional
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from models.user.product import Product, ProductStatus
@@ -37,6 +38,7 @@ from services.product_status_manager import ProductStatusManager
 from services.product_utils import ProductUtils
 from services.validators import AttributeValidator
 from shared.datetime_utils import utc_now
+from shared.exceptions import ConcurrentModificationError
 from shared.logging_setup import get_logger
 from shared.timing import timed_operation
 
@@ -171,7 +173,7 @@ class ProductService:
         )
 
         ProductRepository.create(db, product)
-        db.commit()
+        db.flush()  # Obtain ID without committing - let get_db() handle commit
         db.refresh(product)
 
         # ===== 7. CREATE M2M ENTRIES (Added 2026-01-07) =====
@@ -179,8 +181,7 @@ class ProductService:
         ProductService._create_product_materials(db, product.id, validated_materials, material_percentages)
         ProductService._create_product_condition_sups(db, product.id, validated_condition_sups)
 
-        # Commit M2M entries
-        db.commit()
+        # No commit - get_db() will commit automatically on success
         db.refresh(product)
 
         return product
@@ -406,13 +407,30 @@ class ProductService:
 
         AttributeValidator.validate_product_attributes(db, update_dict, partial=True)
 
-        # Apply modifications to simple columns
-        for key, value in update_dict.items():
-            setattr(product, key, value)
+        # Apply modifications with optimistic locking (version check)
+        if update_dict:
+            set_values = {**update_dict, "version_number": Product.version_number + 1}
 
-        ProductRepository.update(db, product)
-        db.commit()
-        db.refresh(product)
+            result = db.execute(
+                update(Product)
+                .where(
+                    Product.id == product_id,
+                    Product.version_number == product.version_number
+                )
+                .values(**set_values)
+                .execution_options(synchronize_session="fetch")
+            )
+
+            if result.rowcount == 0:
+                raise ConcurrentModificationError(
+                    f"Product {product_id} was modified by another user. Please refresh and try again.",
+                    details={
+                        "product_id": product_id,
+                        "expected_version": product.version_number
+                    }
+                )
+
+            db.refresh(product)
 
         # ===== UPDATE M2M ENTRIES (Added 2026-01-07) =====
         # REPLACE strategy: if M2M field provided, replace all entries
@@ -425,9 +443,8 @@ class ProductService:
         if validated_condition_sups is not None:
             ProductService._replace_product_condition_sups(db, product.id, validated_condition_sups)
 
-        # Commit M2M updates
+        # Refresh product to get M2M updates (no commit - handled by get_db())
         if any([validated_colors is not None, validated_materials is not None, validated_condition_sups is not None]):
-            db.commit()
             db.refresh(product)
 
         return product
