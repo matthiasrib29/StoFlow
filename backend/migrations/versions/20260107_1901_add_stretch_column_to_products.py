@@ -14,9 +14,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -51,19 +56,19 @@ def upgrade() -> None:
     """Add stretch column to all user products tables."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("📊 ADDING STRETCH COLUMN TO PRODUCTS")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 ADDING STRETCH COLUMN TO PRODUCTS")
+    logger.info("=" * 70 + "\n")
 
     schemas = get_user_schemas(conn)
-    print(f"Found {len(schemas)} user schemas to process\n")
+    logger.info(f"Found {len(schemas)} user schemas to process\n")
 
     success_count = 0
     skip_count = 0
 
     for schema in schemas:
         if not table_exists(conn, schema, 'products'):
-            print(f"⚠️  Skipping {schema} - products table not found")
+            logger.info(f"⚠️  Skipping {schema} - products table not found")
             skip_count += 1
             continue
 
@@ -89,26 +94,26 @@ def upgrade() -> None:
                 CREATE INDEX idx_products_stretch ON {schema}.products(stretch);
             """))
 
-            print(f"✅ {schema}: Added stretch column with FK and index")
+            logger.info(f"✅ {schema}: Added stretch column with FK and index")
             success_count += 1
 
         except Exception as e:
-            print(f"❌ {schema}: Error - {str(e)}")
+            logger.info(f"❌ {schema}: Error - {str(e)}")
             # Continue with other schemas even if one fails
             continue
 
-    print("\n" + "=" * 70)
-    print(f"✅ STRETCH COLUMN ADDED")
-    print(f"   Success: {success_count} schemas")
-    print(f"   Skipped: {skip_count} schemas")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info(f"✅ STRETCH COLUMN ADDED")
+    logger.info(f"   Success: {success_count} schemas")
+    logger.info(f"   Skipped: {skip_count} schemas")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Remove stretch column from all user products tables."""
     conn = op.get_bind()
 
-    print("\n⚠️  Removing stretch column from products tables...")
+    logger.info("\n⚠️  Removing stretch column from products tables...")
 
     schemas = get_user_schemas(conn)
 
@@ -122,10 +127,10 @@ def downgrade() -> None:
                 ALTER TABLE {schema}.products
                 DROP COLUMN IF EXISTS stretch CASCADE;
             """))
-            print(f"✅ {schema}: Removed stretch column")
+            logger.info(f"✅ {schema}: Removed stretch column")
 
         except Exception as e:
-            print(f"❌ {schema}: Error - {str(e)}")
+            logger.info(f"❌ {schema}: Error - {str(e)}")
             continue
 
-    print("✅ Stretch column removed from all schemas")
+    logger.info("✅ Stretch column removed from all schemas")

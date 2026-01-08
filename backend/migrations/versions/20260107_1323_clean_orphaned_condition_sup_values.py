@@ -11,9 +11,14 @@ Clean orphaned values in products.condition_sup JSONB arrays:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -57,13 +62,13 @@ def upgrade() -> None:
         'very good condition'
     ]
 
-    print("=" * 70)
-    print("🧹 CLEANING ORPHANED CONDITION_SUP VALUES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("🧹 CLEANING ORPHANED CONDITION_SUP VALUES")
+    logger.info("=" * 70)
 
     # Get user schemas
     user_schemas = get_user_schemas(conn)
-    print(f"\nFound {len(user_schemas)} user schemas\n")
+    logger.info(f"\nFound {len(user_schemas)} user schemas\n")
 
     total_cleaned = 0
 
@@ -71,7 +76,7 @@ def upgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"Cleaning products in {schema}...")
+        logger.info(f"Cleaning products in {schema}...")
 
         for orphan in orphaned_values:
             # Remove orphaned value from JSONB array
@@ -94,15 +99,15 @@ def upgrade() -> None:
 
             count = result.rowcount
             if count > 0:
-                print(f"  🗑️  Removed '{orphan}' from {count} products")
+                logger.info(f"  🗑️  Removed '{orphan}' from {count} products")
                 total_cleaned += count
 
-    print("\n" + "=" * 70)
-    print(f"✅ CLEANING COMPLETE: {total_cleaned} product entries cleaned")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info(f"✅ CLEANING COMPLETE: {total_cleaned} product entries cleaned")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Cannot restore orphaned values (data lost)."""
-    print("⚠️  Downgrade not possible: orphaned values cannot be restored")
-    print("   Original data was already inconsistent and has been cleaned")
+    logger.info("⚠️  Downgrade not possible: orphaned values cannot be restored")
+    logger.info("   Original data was already inconsistent and has been cleaned")

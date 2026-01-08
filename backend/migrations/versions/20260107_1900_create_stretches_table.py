@@ -14,9 +14,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -30,9 +35,9 @@ def upgrade() -> None:
     """Create stretches table and seed initial values."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("📊 CREATING STRETCHES TABLE")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 CREATING STRETCHES TABLE")
+    logger.info("=" * 70 + "\n")
 
     # Create table
     conn.execute(text("""
@@ -53,7 +58,7 @@ def upgrade() -> None:
         ON product_attributes.stretches(name_en);
     """))
 
-    print("✅ Created stretches table with 7 languages support")
+    logger.info("✅ Created stretches table with 7 languages support")
 
     # Seed data (Title Case)
     stretches = [
@@ -78,22 +83,22 @@ def upgrade() -> None:
             "name_it": name_it, "name_es": name_es, "name_nl": name_nl, "name_pl": name_pl
         })
 
-    print(f"✅ Seeded {len(stretches)} stretch values")
-    print("\nStretch values added:")
+    logger.info(f"✅ Seeded {len(stretches)} stretch values")
+    logger.info("\nStretch values added:")
     for name_en, name_fr, *_ in stretches:
-        print(f"  - {name_en} / {name_fr}")
+        logger.info(f"  - {name_en} / {name_fr}")
 
-    print("\n" + "=" * 70)
-    print("✅ STRETCHES TABLE CREATED")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("✅ STRETCHES TABLE CREATED")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Drop stretches table."""
     conn = op.get_bind()
 
-    print("\n⚠️  Dropping stretches table...")
+    logger.info("\n⚠️  Dropping stretches table...")
 
     conn.execute(text("DROP TABLE IF EXISTS product_attributes.stretches CASCADE;"))
 
-    print("✅ Stretches table dropped")
+    logger.info("✅ Stretches table dropped")

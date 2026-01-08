@@ -15,9 +15,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -31,9 +36,9 @@ def upgrade() -> None:
     """Add NWT, NWOT, NOS condition supplements."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("📦 ADDING NEW CONDITION SUPPLEMENTS")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("📦 ADDING NEW CONDITION SUPPLEMENTS")
+    logger.info("=" * 70 + "\n")
 
     # New values with French translations
     new_values = [
@@ -42,7 +47,7 @@ def upgrade() -> None:
         ("Deadstock (NOS)", "Stock Mort (NOS)")
     ]
 
-    print(f"Adding {len(new_values)} new condition supplements:\n")
+    logger.info(f"Adding {len(new_values)} new condition supplements:\n")
 
     added_count = 0
     for name_en, name_fr in new_values:
@@ -54,10 +59,10 @@ def upgrade() -> None:
         """), {"name_en": name_en, "name_fr": name_fr})
 
         if result.rowcount > 0:
-            print(f"  ✅ Added: {name_en} / {name_fr}")
+            logger.info(f"  ✅ Added: {name_en} / {name_fr}")
             added_count += 1
         else:
-            print(f"  ⏭️  Skipped (already exists): {name_en}")
+            logger.info(f"  ⏭️  Skipped (already exists): {name_en}")
 
     # Verify insertion
     result = conn.execute(text("""
@@ -71,18 +76,18 @@ def upgrade() -> None:
     """))
 
     count = result.scalar()
-    print(f"\n✅ {count} new condition supplements now available")
+    logger.info(f"\n✅ {count} new condition supplements now available")
 
-    print("\n" + "=" * 70)
-    print("✅ NEW CONDITION SUPPLEMENTS ADDED")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("✅ NEW CONDITION SUPPLEMENTS ADDED")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Remove NWT, NWOT, NOS condition supplements."""
     conn = op.get_bind()
 
-    print("\n⚠️  Removing new condition supplements...")
+    logger.info("\n⚠️  Removing new condition supplements...")
 
     conn.execute(text("""
         DELETE FROM product_attributes.condition_sups
@@ -93,4 +98,4 @@ def downgrade() -> None:
         );
     """))
 
-    print("✅ New condition supplements removed")
+    logger.info("✅ New condition supplements removed")

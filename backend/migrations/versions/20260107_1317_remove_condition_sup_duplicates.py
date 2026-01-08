@@ -13,9 +13,14 @@ Remove duplicates between CONDITIONS and CONDITION_SUP:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -37,16 +42,16 @@ def upgrade() -> None:
         'Very good condition'
     ]
 
-    print(f"Removing {len(duplicates_to_remove)} duplicate condition_sup values...")
+    logger.info(f"Removing {len(duplicates_to_remove)} duplicate condition_sup values...")
 
     for duplicate in duplicates_to_remove:
-        print(f"  🗑️  Deleting: {duplicate}")
+        logger.info(f"  🗑️  Deleting: {duplicate}")
         conn.execute(text("""
             DELETE FROM product_attributes.condition_sup
             WHERE name_en = :duplicate
         """), {"duplicate": duplicate})
 
-    print("✅ Duplicates removed successfully!")
+    logger.info("✅ Duplicates removed successfully!")
 
 
 def downgrade() -> None:
@@ -61,14 +66,14 @@ def downgrade() -> None:
         'Very good condition'
     ]
 
-    print(f"Restoring {len(duplicates_to_restore)} condition_sup values...")
+    logger.info(f"Restoring {len(duplicates_to_restore)} condition_sup values...")
 
     for duplicate in duplicates_to_restore:
-        print(f"  ✏️  Restoring: {duplicate}")
+        logger.info(f"  ✏️  Restoring: {duplicate}")
         conn.execute(text("""
             INSERT INTO product_attributes.condition_sup (name_en)
             VALUES (:duplicate)
             ON CONFLICT (name_en) DO NOTHING
         """), {"duplicate": duplicate})
 
-    print("✅ Duplicates restored successfully!")
+    logger.info("✅ Duplicates restored successfully!")

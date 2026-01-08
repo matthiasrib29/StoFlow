@@ -7,9 +7,14 @@ Create Date: 2026-01-07 09:22:28.979120+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -49,7 +54,7 @@ def upgrade() -> None:
         """)).scalar()
 
         if not table_exists:
-            print(f"⚠ Skipping {schema} - plugin_tasks table not found")
+            logger.info(f"⚠ Skipping {schema} - plugin_tasks table not found")
             continue
 
         # 1. Rename table
@@ -132,7 +137,7 @@ def upgrade() -> None:
             END$$;
         """))
 
-        print(f"✓ Renamed plugin_tasks → marketplace_tasks in {schema}")
+        logger.info(f"✓ Renamed plugin_tasks → marketplace_tasks in {schema}")
 
 
 def downgrade() -> None:
@@ -165,7 +170,7 @@ def downgrade() -> None:
         """)).scalar()
 
         if not table_exists:
-            print(f"⚠ Skipping {schema} - marketplace_tasks table not found")
+            logger.info(f"⚠ Skipping {schema} - marketplace_tasks table not found")
             continue
 
         # 1. Drop new columns
@@ -227,4 +232,4 @@ def downgrade() -> None:
             DROP TYPE IF EXISTS {schema}.marketplace_task_type;
         """))
 
-        print(f"✓ Reverted marketplace_tasks → plugin_tasks in {schema}")
+        logger.info(f"✓ Reverted marketplace_tasks → plugin_tasks in {schema}")

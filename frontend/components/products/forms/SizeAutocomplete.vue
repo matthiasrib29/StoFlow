@@ -50,6 +50,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { productLogger } from '~/utils/logger'
 
 interface Props {
   modelValue: string
@@ -99,7 +100,7 @@ onMounted(async () => {
       allSizes.value = response.sizes.map(s => s.name_en)
     }
   } catch (error) {
-    console.error('Failed to load sizes:', error)
+    productLogger.error('Failed to load sizes:', error)
   }
 })
 

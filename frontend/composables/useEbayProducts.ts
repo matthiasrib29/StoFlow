@@ -2,6 +2,7 @@
  * Composable for eBay products management.
  * Handles loading, importing, enriching products.
  */
+import type { PageState } from 'primevue/paginator'
 import { ebayLogger } from '~/utils/logger'
 
 export function useEbayProducts() {
@@ -57,7 +58,7 @@ export function useEbayProducts() {
   /**
    * Handle page change from DataTable.
    */
-  const onPageChange = (event: any): void => {
+  const onPageChange = (event: PageState): void => {
     const newPage = Math.floor(event.first / event.rows) + 1
     pageSize.value = event.rows
     loadProducts(newPage)

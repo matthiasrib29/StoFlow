@@ -11,9 +11,14 @@ Normalize ALL remaining attributes to Title Case:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -63,10 +68,10 @@ def normalize_table(conn, table_name, schemas=None):
     lowercase_values = [row[0] for row in result]
 
     if not lowercase_values:
-        print(f"  ✅ {table_name}: Already normalized")
+        logger.info(f"  ✅ {table_name}: Already normalized")
         return 0
 
-    print(f"  🔄 {table_name}: Normalizing {len(lowercase_values)} values...")
+    logger.info(f"  🔄 {table_name}: Normalizing {len(lowercase_values)} values...")
 
     # Create mapping
     mappings = {val: val.capitalize() for val in lowercase_values}
@@ -107,13 +112,13 @@ def upgrade() -> None:
     """Normalize all remaining attributes to Title Case."""
     conn = op.get_bind()
 
-    print("=" * 70)
-    print("🔄 NORMALIZING ALL ATTRIBUTES TO TITLE CASE")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("🔄 NORMALIZING ALL ATTRIBUTES TO TITLE CASE")
+    logger.info("=" * 70)
 
     # Get user schemas
     user_schemas = get_user_schemas(conn)
-    print(f"\nFound {len(user_schemas)} user schemas\n")
+    logger.info(f"\nFound {len(user_schemas)} user schemas\n")
 
     # Tables with products FK (need product updates)
     tables_with_fk = [
@@ -142,8 +147,8 @@ def upgrade() -> None:
 
     # ===== 1. NORMALIZE ATTRIBUTE TABLES FIRST (FK constraint) =====
 
-    print("📦 STEP 1: Normalizing attribute tables...")
-    print()
+    logger.info("📦 STEP 1: Normalizing attribute tables...")
+    logger.info()
 
     # Tables with FK
     for table_name, column_name in tables_with_fk:
@@ -157,8 +162,8 @@ def upgrade() -> None:
 
     # ===== 2. UPDATE PRODUCTS =====
 
-    print(f"\n📦 STEP 2: Updating products in {len(user_schemas)} schemas...")
-    print()
+    logger.info(f"\n📦 STEP 2: Updating products in {len(user_schemas)} schemas...")
+    logger.info()
 
     for table_name, column_name in tables_with_fk:
         # Get lowercase values (before normalization)
@@ -175,25 +180,25 @@ def upgrade() -> None:
         # Recreate mapping (capitalized → original lowercase)
         mappings = {val.lower(): val for val in capitalized_values}
 
-        print(f"  🔄 Updating {column_name} column...")
+        logger.info(f"  🔄 Updating {column_name} column...")
         updated = normalize_products_column(conn, user_schemas, column_name, mappings)
         total_products += updated
-        print(f"     Updated {updated} products")
+        logger.info(f"     Updated {updated} products")
 
-    print("\n" + "=" * 70)
-    print(f"✅ NORMALIZATION COMPLETE")
-    print(f"   Attribute values normalized: {total_normalized}")
-    print(f"   Products updated: {total_products}")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info(f"✅ NORMALIZATION COMPLETE")
+    logger.info(f"   Attribute values normalized: {total_normalized}")
+    logger.info(f"   Products updated: {total_products}")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Revert Title Case normalization."""
     conn = op.get_bind()
 
-    print("=" * 70)
-    print("🔙 REVERTING NORMALIZATION")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("🔙 REVERTING NORMALIZATION")
+    logger.info("=" * 70)
 
     # Get user schemas
     user_schemas = get_user_schemas(conn)
@@ -221,7 +226,7 @@ def downgrade() -> None:
         table_name = table_info[0] if isinstance(table_info, tuple) else table_info
         column_name = table_info[1] if isinstance(table_info, tuple) and len(table_info) > 1 else None
 
-        print(f"  🔄 Reverting {table_name}...")
+        logger.info(f"  🔄 Reverting {table_name}...")
 
         # Get all Title Case values
         result = conn.execute(text(f"""
@@ -256,4 +261,4 @@ def downgrade() -> None:
                         WHERE {column_name} = :val
                     """), {"lower_val": lower_val, "val": val})
 
-    print("✅ Normalization reverted successfully!")
+    logger.info("✅ Normalization reverted successfully!")

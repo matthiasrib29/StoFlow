@@ -525,7 +525,6 @@ class AuthService:
     @staticmethod
     def _hash_token(token: str) -> str:
         """Hash a token using SHA-256 for secure storage."""
-        import hashlib
         return hashlib.sha256(token.encode()).hexdigest()
 
     @staticmethod

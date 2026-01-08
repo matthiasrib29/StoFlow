@@ -18,7 +18,9 @@ Tables updated:
 """
 from alembic import op
 from sqlalchemy import text
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = '20260105_1400'
@@ -403,7 +405,7 @@ def upgrade() -> None:
         )
         if result.rowcount > 0:
             brands_updated += result.rowcount
-    print(f"  - Updated {brands_updated} brands with vinted_id")
+    logger.info(f"  - Updated {brands_updated} brands with vinted_id")
 
     # =========================================================================
     # UPDATE COLORS
@@ -421,7 +423,7 @@ def upgrade() -> None:
         )
         if result.rowcount > 0:
             colors_updated += result.rowcount
-    print(f"  - Updated {colors_updated} colors with vinted_id")
+    logger.info(f"  - Updated {colors_updated} colors with vinted_id")
 
     # =========================================================================
     # UPDATE MATERIALS
@@ -439,7 +441,7 @@ def upgrade() -> None:
         )
         if result.rowcount > 0:
             materials_updated += result.rowcount
-    print(f"  - Updated {materials_updated} materials with vinted_id")
+    logger.info(f"  - Updated {materials_updated} materials with vinted_id")
 
     # =========================================================================
     # UPDATE SIZES
@@ -457,7 +459,7 @@ def upgrade() -> None:
         )
         if result.rowcount > 0:
             sizes_updated += result.rowcount
-    print(f"  - Updated {sizes_updated} sizes with vinted_women_id/vinted_men_id")
+    logger.info(f"  - Updated {sizes_updated} sizes with vinted_women_id/vinted_men_id")
 
 
 def downgrade() -> None:
@@ -492,4 +494,4 @@ def downgrade() -> None:
         WHERE vinted_women_id IS NOT NULL OR vinted_men_id IS NOT NULL
     """))
 
-    print("  - Cleared vinted_id from brands, colors, materials, and sizes")
+    logger.info("  - Cleared vinted_id from brands, colors, materials, and sizes")

@@ -15,9 +15,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -53,9 +58,9 @@ def upgrade() -> None:
     """Populate migration_errors with existing invalid data."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("📊 POPULATING MIGRATION_ERRORS WITH EXISTING INVALID DATA")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 POPULATING MIGRATION_ERRORS WITH EXISTING INVALID DATA")
+    logger.info("=" * 70 + "\n")
 
     schemas = get_user_schemas(conn)
     total_errors_logged = 0
@@ -64,7 +69,7 @@ def upgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"📦 Scanning {schema}...")
+        logger.info(f"📦 Scanning {schema}...")
 
         # Log products with invalid colors
         result = conn.execute(text(f"""
@@ -85,7 +90,7 @@ def upgrade() -> None:
         """))
         colors_logged = result.rowcount
         if colors_logged > 0:
-            print(f"  📝 Logged {colors_logged} products with invalid color")
+            logger.info(f"  📝 Logged {colors_logged} products with invalid color")
             total_errors_logged += colors_logged
 
         # Log products with invalid materials
@@ -107,7 +112,7 @@ def upgrade() -> None:
         """))
         materials_logged = result.rowcount
         if materials_logged > 0:
-            print(f"  📝 Logged {materials_logged} products with invalid material")
+            logger.info(f"  📝 Logged {materials_logged} products with invalid material")
             total_errors_logged += materials_logged
 
         # Log products with invalid condition_sups
@@ -131,34 +136,34 @@ def upgrade() -> None:
         """))
         condition_sups_logged = result.rowcount
         if condition_sups_logged > 0:
-            print(f"  📝 Logged {condition_sups_logged} products with invalid condition_sup")
+            logger.info(f"  📝 Logged {condition_sups_logged} products with invalid condition_sup")
             total_errors_logged += condition_sups_logged
 
-    print("\n" + "=" * 70)
-    print("📊 POPULATION SUMMARY")
-    print("=" * 70)
-    print(f"  Total errors logged: {total_errors_logged}")
-    print("=" * 70)
-    print("✅ POPULATION COMPLETE")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 POPULATION SUMMARY")
+    logger.info("=" * 70)
+    logger.info(f"  Total errors logged: {total_errors_logged}")
+    logger.info("=" * 70)
+    logger.info("✅ POPULATION COMPLETE")
+    logger.info("=" * 70)
 
     if total_errors_logged > 0:
-        print(f"\n📝 Data Quality Report:")
-        print(f"   {total_errors_logged} products with invalid data logged to public.migration_errors")
-        print(f"   Query to review:")
-        print(f"   SELECT * FROM public.migration_errors")
-        print(f"   WHERE migration_name = 'add_many_to_many_product_attributes'")
-        print(f"   ORDER BY schema_name, product_id;")
-        print("=" * 70)
+        logger.info(f"\n📝 Data Quality Report:")
+        logger.info(f"   {total_errors_logged} products with invalid data logged to public.migration_errors")
+        logger.info(f"   Query to review:")
+        logger.info(f"   SELECT * FROM public.migration_errors")
+        logger.info(f"   WHERE migration_name = 'add_many_to_many_product_attributes'")
+        logger.info(f"   ORDER BY schema_name, product_id;")
+        logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Remove logged errors from migration_errors table."""
     conn = op.get_bind()
 
-    print("\n⚠️  Removing logged errors from migration_errors...")
+    logger.info("\n⚠️  Removing logged errors from migration_errors...")
     result = conn.execute(text("""
         DELETE FROM public.migration_errors
         WHERE migration_name = 'add_many_to_many_product_attributes';
     """))
-    print(f"✅ Removed {result.rowcount} error logs")
+    logger.info(f"✅ Removed {result.rowcount} error logs")
