@@ -240,6 +240,14 @@ class Product(Base):
     # ===== PRIMARY KEY =====
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
+    # ===== OPTIMISTIC LOCKING =====
+    version_number: Mapped[int] = mapped_column(
+        Integer,
+        default=1,
+        nullable=False,
+        comment="Version number for optimistic locking (incremented on each update)"
+    )
+
     # ===== BUSINESS FIELDS (BASE) =====
     title: Mapped[str] = mapped_column(
         String(500), nullable=False, index=True, comment="Titre du produit"
