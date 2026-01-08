@@ -707,3 +707,75 @@ class TestPermissionAuthorization:
         assert has_permission(support_user, "admin:users:delete", mock_db_support) is False
 
         clear_permissions_cache()
+
+
+# ============================================================================
+# SECURITY AUDIT 2 - SEARCH_PATH MISMATCH TESTS
+# ============================================================================
+
+class TestSearchPathMismatchException:
+    """
+    Tests for Security Audit 2 - Enhanced search_path verification.
+
+    CRITIQUE: These tests verify that search_path mismatch raises a CRITICAL
+    exception instead of just logging a warning, ensuring maximum security.
+    """
+
+    @patch('api.dependencies._validate_schema_name')
+    def test_get_user_db_raises_exception_on_search_path_mismatch(self, mock_validate):
+        """
+        Test that get_user_db raises HTTPException 500 when search_path mismatch is detected.
+
+        Security Audit 2 Fix: Changed from logger.warning() to raising exception.
+        """
+        from api.dependencies import get_user_db
+
+        mock_db = Mock()
+        mock_user = Mock()
+        mock_user.id = 1
+        mock_user.schema_name = "user_1"
+
+        mock_validate.return_value = "user_1"
+
+        # Mock SHOW search_path to return WRONG schema (simulating pollution)
+        mock_result = Mock()
+        mock_result.scalar.return_value = "user_999, public"  # Wrong schema!
+        mock_db.execute.return_value = mock_result
+
+        # Should raise HTTPException 500
+        with pytest.raises(HTTPException) as exc_info:
+            get_user_db(db=mock_db, current_user=mock_user)
+
+        assert exc_info.value.status_code == 500
+        assert "isolation" in exc_info.value.detail.lower()
+
+        # Verify db.close() was called
+        mock_db.close.assert_called_once()
+
+    @patch('api.dependencies._validate_schema_name')
+    def test_get_user_db_succeeds_when_search_path_matches(self, mock_validate):
+        """
+        Test that get_user_db succeeds when search_path matches expected schema.
+        """
+        from api.dependencies import get_user_db
+
+        mock_db = Mock()
+        mock_user = Mock()
+        mock_user.id = 1
+        mock_user.schema_name = "user_1"
+
+        mock_validate.return_value = "user_1"
+
+        # Mock SHOW search_path to return CORRECT schema
+        mock_result = Mock()
+        mock_result.scalar.return_value = "user_1, public"  # Correct!
+        mock_db.execute.return_value = mock_result
+
+        # Should succeed
+        result_db, result_user = get_user_db(db=mock_db, current_user=mock_user)
+
+        assert result_db == mock_db
+        assert result_user == mock_user
+
+        # Verify db.close() was NOT called (no error)
+        mock_db.close.assert_not_called()

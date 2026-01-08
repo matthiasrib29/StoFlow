@@ -97,6 +97,15 @@ class MarketplaceJob(Base):
         comment="Product being processed (if applicable)"
     )
 
+    # Idempotency key (Security Audit 2 - 2026-01-08)
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        unique=True,
+        index=True,
+        comment="Unique key to prevent duplicate publications (format: pub_{product_id}_{uuid})"
+    )
+
     # Status
     status: Mapped[JobStatus] = mapped_column(
         SQLEnum(

@@ -411,11 +411,11 @@ def get_user_db(
     # Passe db pour vérifier que le schema existe réellement
     schema_name = _validate_schema_name(current_user.schema_name, db)
 
-    # Use SET (not SET LOCAL) to ensure search_path persists after commits
-    # SET LOCAL was transaction-scoped and reset after each commit, causing issues
-    # with db.refresh() calls after db.commit() in services
+    # Use SET LOCAL to ensure search_path is transaction-scoped
+    # SET LOCAL automatically resets on COMMIT or ROLLBACK, preventing pool pollution
+    # This is the recommended PostgreSQL practice for multi-tenant isolation
     # Note: schema_name is safe after double validation (regex + existence check)
-    db.execute(text(f"SET search_path TO {schema_name}, public"))
+    db.execute(text(f"SET LOCAL search_path TO {schema_name}, public"))
 
     # Verify search_path was applied
     result = db.execute(text("SHOW search_path"))
@@ -423,11 +423,18 @@ def get_user_db(
 
     logger.debug(f"[get_user_db] User {current_user.id}, schema={schema_name}, search_path={actual_path}")
 
-    # Double-check schema is in path
+    # Double-check schema is in path (CRITICAL SECURITY CHECK)
     if schema_name not in actual_path:
-        logger.warning(f"[get_user_db] search_path mismatch! Expected {schema_name}, got {actual_path}")
-        # Force re-apply
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
+        logger.critical(
+            f"🚨 SEARCH_PATH FAILURE: Expected '{schema_name}' not in actual path '{actual_path}'. "
+            f"User {current_user.id} isolation compromised. Closing connection."
+        )
+        # NE PAS continuer avec mauvais search_path - force client retry
+        db.close()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database isolation error. Please retry your request."
+        )
 
     return db, current_user
 
