@@ -135,7 +135,7 @@ class TestProductCreateM2M:
 
         # Verify helper properties
         assert product.primary_color == "Black"
-        assert product.color_list == ["Black", "Blue", "White"]
+        assert product.colors == ["Black", "Blue", "White"]
 
         # Verify DUAL-WRITE: old column filled
         assert product.color == "Black"
@@ -165,7 +165,7 @@ class TestProductCreateM2M:
             assert pm.percentage is None
 
         # Verify helper property
-        assert set(product.material_list) == {"Cotton", "Polyester"}
+        assert set(product.materials) == {"Cotton", "Polyester"}
 
         # Verify DUAL-WRITE: old column filled
         assert product.material == "Cotton"
@@ -215,7 +215,7 @@ class TestProductCreateM2M:
         assert set(condition_sup_names) == {"Faded", "Small hole"}
 
         # Verify helper property
-        assert set(product.condition_sup_list) == {"Faded", "Small hole"}
+        assert set(product.condition_sups) == {"Faded", "Small hole"}
 
         # Verify DUAL-WRITE: old column filled
         assert set(product.condition_sup) == {"Faded", "Small hole"}
@@ -244,9 +244,9 @@ class TestProductCreateM2M:
 
         # Verify helper properties work
         assert product.primary_color == "Blue"
-        assert len(product.color_list) == 2
-        assert len(product.material_list) == 2
-        assert len(product.condition_sup_list) == 1
+        assert len(product.colors) == 2
+        assert len(product.materials) == 2
+        assert len(product.condition_sups) == 1
 
 
 # ===== TESTS: UPDATE WITH M2M =====
@@ -336,7 +336,7 @@ class TestProductUpdateM2M:
         # Verify all colors removed
         assert len(updated_product.product_colors) == 0
         assert updated_product.primary_color is None
-        assert updated_product.color_list == []
+        assert updated_product.colors == []
 
 
 # ===== TESTS: VALIDATION =====
@@ -462,8 +462,8 @@ class TestProductM2MHelperProperties:
         )
         product = ProductService.create_product(db_session, product_data, test_user.id)
 
-        assert len(product.color_list) == 3
-        assert set(product.color_list) == {"Black", "White", "Red"}
+        assert len(product.colors) == 3
+        assert set(product.colors) == {"Black", "White", "Red"}
 
     def test_material_list_returns_all_materials(self, db_session: Session, test_user, seed_m2m_attributes):
         """material_list should return all materials as a list."""
@@ -479,8 +479,8 @@ class TestProductM2MHelperProperties:
         )
         product = ProductService.create_product(db_session, product_data, test_user.id)
 
-        assert len(product.material_list) == 2
-        assert set(product.material_list) == {"Cotton", "Polyester"}
+        assert len(product.materials) == 2
+        assert set(product.materials) == {"Cotton", "Polyester"}
 
 
 # ===== TESTS: VINTED MAPPER =====

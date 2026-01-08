@@ -408,15 +408,11 @@ class ProductResponse(BaseModel):
     size_normalized: str | None
     size_original: str | None
 
-    # DEPRECATED: Use colors/primary_color instead - Kept for backward compatibility
-    color: str | None
-    # NEW M2M: Multiple colors support
+    # M2M: Multiple colors support
     colors: list[str] = Field(default_factory=list, description="List of all colors")
     primary_color: str | None = Field(None, description="Primary/dominant color (helper for frontend)")
 
-    # DEPRECATED: Use materials instead - Kept for backward compatibility
-    material: str | None
-    # NEW M2M: Multiple materials support
+    # M2M: Multiple materials support
     materials: list[str] = Field(default_factory=list, description="List of all materials")
 
     fit: str | None
@@ -427,9 +423,7 @@ class ProductResponse(BaseModel):
     length: str | None
     pattern: str | None
 
-    # DEPRECATED: Use condition_sups instead - Kept for backward compatibility
-    condition_sup: list[str] | None
-    # NEW M2M: Multiple condition supplements
+    # M2M: Multiple condition supplements
     condition_sups: list[str] = Field(default_factory=list, description="List of condition supplements")
 
     rise: str | None

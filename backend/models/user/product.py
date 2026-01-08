@@ -510,17 +510,17 @@ class Product(Base):
         return primary or self.product_colors[0].color
 
     @property
-    def color_list(self) -> list[str]:
+    def colors(self) -> list[str]:
         """Return all colors as a list."""
         return [pc.color for pc in self.product_colors]
 
     @property
-    def material_list(self) -> list[str]:
+    def materials(self) -> list[str]:
         """Return all materials as a list."""
         return [pm.material for pm in self.product_materials]
 
     @property
-    def condition_sup_list(self) -> list[str]:
+    def condition_sups(self) -> list[str]:
         """Return all condition_sups as a list."""
         return [pcs.condition_sup for pcs in self.product_condition_sups]
 
