@@ -394,6 +394,32 @@ class TaskExecutionError(ServiceError):
     pass
 
 
+class ConcurrentModificationError(ServiceError):
+    """
+    Erreur de modification concurrente détectée (optimistic locking).
+
+    Raised when a version_number mismatch indicates another transaction
+    modified the same resource between read and update.
+
+    Client should:
+    1. Fetch latest version
+    2. Re-apply changes
+    3. Retry operation
+    """
+    pass
+
+
+class OutOfStockError(ServiceError):
+    """
+    Erreur de stock insuffisant pour l'opération demandée.
+
+    Raised when:
+    - Trying to mark as SOLD a product already out of stock
+    - Atomic stock decrement fails due to concurrent sale
+    """
+    pass
+
+
 # ===== AI EXCEPTIONS =====
 
 class AIError(StoflowError):
@@ -475,6 +501,8 @@ __all__ = [
     "ServiceError",
     "SKUGenerationError",
     "TaskExecutionError",
+    "ConcurrentModificationError",
+    "OutOfStockError",
 
     # AI
     "AIError",
