@@ -3,8 +3,8 @@ SizeNormalized Model
 
 Table pour les tailles normalisées de produits (schema product_attributes).
 
-Business Rules (Updated: 2026-01-06):
-- 7 langues supportées: EN, FR, DE, IT, ES, NL, PL
+Business Rules (Updated: 2026-01-08):
+- Pas de traduction nécessaire (codes internationaux: XS, S, M, L, XL, 28, 30, etc.)
 - Mappings marketplace: vinted_women_id, vinted_men_id, ebay_size, etsy_size
 - Vinted a des IDs différents pour femmes vs hommes
 - Table read-only (aucune auto-création)
@@ -18,10 +18,10 @@ from shared.database import Base
 
 class SizeNormalized(Base):
     """
-    Modèle pour les tailles normalisées de produits (multilingue).
+    Modèle pour les tailles normalisées de produits.
 
-    Attributes:
-    - 7 traductions (EN, FR, DE, IT, ES, NL, PL)
+    Business Rules (Updated: 2026-01-08):
+    - Pas de traduction: les codes de tailles sont internationaux
     - vinted_women_id, vinted_men_id: IDs Vinted par genre
     - ebay_size, etsy_size: IDs autres marketplaces
     """
@@ -31,27 +31,7 @@ class SizeNormalized(Base):
 
     # ===== PRIMARY KEY =====
     name_en: Mapped[str] = mapped_column(
-        String(100), primary_key=True, index=True, comment="Code de la taille (EN)"
-    )
-
-    # ===== MULTILINGUAL TRANSLATIONS =====
-    name_fr: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la taille (FR)"
-    )
-    name_de: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la taille (DE)"
-    )
-    name_it: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la taille (IT)"
-    )
-    name_es: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la taille (ES)"
-    )
-    name_nl: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la taille (NL)"
-    )
-    name_pl: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la taille (PL)"
+        String(100), primary_key=True, index=True, comment="Code de la taille"
     )
 
     # ===== MARKETPLACE MAPPINGS =====
