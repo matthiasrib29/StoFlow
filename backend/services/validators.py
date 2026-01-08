@@ -466,14 +466,18 @@ class AttributeValidator:
         # Import here to avoid circular imports
         from models.public.condition_sup import ConditionSup
 
-        # Validate each condition_sup exists
-        for condition_sup in condition_sups:
-            exists = db.query(ConditionSup).filter(ConditionSup.name_en == condition_sup).first()
-            if not exists:
-                raise ValueError(
-                    f"Condition supplement '{condition_sup}' does not exist. "
-                    f"Use /api/attributes/condition_sups to get valid condition supplements."
-                )
+        # Validate all condition_sups exist (optimized: single query)
+        existing_condition_sups = db.query(ConditionSup.name_en).filter(
+            ConditionSup.name_en.in_(condition_sups)
+        ).all()
+        existing_set = {cs[0] for cs in existing_condition_sups}
+
+        invalid_condition_sups = set(condition_sups) - existing_set
+        if invalid_condition_sups:
+            raise ValueError(
+                f"Invalid condition supplements: {', '.join(sorted(invalid_condition_sups))}. "
+                f"Use /api/attributes/condition_sups to get valid condition supplements."
+            )
 
         return condition_sups
 
