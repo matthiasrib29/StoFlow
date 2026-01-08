@@ -17,9 +17,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -33,9 +38,9 @@ def upgrade() -> None:
     """Remove duplicate lowercase condition_sups."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("🧹 DEDUPLICATING CONDITION_SUPS")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("🧹 DEDUPLICATING CONDITION_SUPS")
+    logger.info("=" * 70 + "\n")
 
     # Doublons identifiés (lowercase à supprimer, Title Case à garder)
     duplicates_to_remove = [
@@ -54,7 +59,7 @@ def upgrade() -> None:
         "vintage wear"         # Keep: "Vintage Wear"
     ]
 
-    print(f"Removing {len(duplicates_to_remove)} lowercase duplicates...\n")
+    logger.info(f"Removing {len(duplicates_to_remove)} lowercase duplicates...\n")
 
     removed_count = 0
     for duplicate in duplicates_to_remove:
@@ -64,10 +69,10 @@ def upgrade() -> None:
         """), {"duplicate": duplicate})
 
         if result.rowcount > 0:
-            print(f"  - Deleted: '{duplicate}'")
+            logger.info(f"  - Deleted: '{duplicate}'")
             removed_count += 1
 
-    print(f"\n✅ Removed {removed_count} duplicate condition_sups")
+    logger.info(f"\n✅ Removed {removed_count} duplicate condition_sups")
 
     # Verify no case-insensitive duplicates remain
     result = conn.execute(text("""
@@ -79,18 +84,18 @@ def upgrade() -> None:
 
     remaining_duplicates = result.fetchall()
     if remaining_duplicates:
-        print(f"\n⚠️  WARNING: {len(remaining_duplicates)} case-insensitive duplicates still exist:")
+        logger.info(f"\n⚠️  WARNING: {len(remaining_duplicates)} case-insensitive duplicates still exist:")
         for normalized, count in remaining_duplicates:
-            print(f"  - '{normalized}': {count} variants")
+            logger.info(f"  - '{normalized}': {count} variants")
     else:
-        print("\n✅ No case-insensitive duplicates remain")
+        logger.info("\n✅ No case-insensitive duplicates remain")
 
-    print("\n" + "=" * 70)
-    print("✅ DEDUPLICATION COMPLETE")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("✅ DEDUPLICATION COMPLETE")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Cannot restore deleted data."""
-    print("\n⚠️  WARNING: Downgrade not available - deleted data cannot be restored.")
-    print("    Backup database before running this migration if rollback is required.")
+    logger.info("\n⚠️  WARNING: Downgrade not available - deleted data cannot be restored.")
+    logger.info("    Backup database before running this migration if rollback is required.")

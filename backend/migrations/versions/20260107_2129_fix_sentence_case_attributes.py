@@ -12,9 +12,14 @@ Create Date: 2026-01-07 21:29:54.882038+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -51,7 +56,7 @@ def upgrade() -> None:
     # ========================================================================
     # STEP 1: Update stretches to Sentence case
     # ========================================================================
-    print("Step 1: Updating stretches to Sentence case...")
+    logger.info("Step 1: Updating stretches to Sentence case...")
 
     stretch_updates = [
         ("No Stretch", "No stretch"),
@@ -84,12 +89,12 @@ def upgrade() -> None:
                     WHERE stretch = :old_value;
                 """), {"old_value": old_value, "new_value": new_value})
 
-    print(f"✅ Updated {len(stretch_updates)} stretch values")
+    logger.info(f"✅ Updated {len(stretch_updates)} stretch values")
 
     # ========================================================================
     # STEP 2: Migrate product_condition_sups references (Title → Sentence)
     # ========================================================================
-    print("Step 2: Migrating product_condition_sups references...")
+    logger.info("Step 2: Migrating product_condition_sups references...")
 
     condition_sups_mapping = [
         ("Damaged Button", "Damaged button"),
@@ -120,12 +125,12 @@ def upgrade() -> None:
                 """), {"title_case": title_case, "sentence_case": sentence_case})
                 total_updated += result.rowcount
 
-    print(f"✅ Migrated {total_updated} product_condition_sups references")
+    logger.info(f"✅ Migrated {total_updated} product_condition_sups references")
 
     # ========================================================================
     # STEP 3: Delete Title Case duplicates from condition_sups
     # ========================================================================
-    print("Step 3: Deleting Title Case duplicates from condition_sups...")
+    logger.info("Step 3: Deleting Title Case duplicates from condition_sups...")
 
     title_case_to_delete = [
         "Damaged Button",
@@ -150,8 +155,8 @@ def upgrade() -> None:
             WHERE name_en = :value;
         """), {"value": value})
 
-    print(f"✅ Deleted {len(title_case_to_delete)} Title Case duplicates")
-    print("🎉 Sentence case migration completed!")
+    logger.info(f"✅ Deleted {len(title_case_to_delete)} Title Case duplicates")
+    logger.info("🎉 Sentence case migration completed!")
 
 
 def downgrade() -> None:
@@ -159,4 +164,4 @@ def downgrade() -> None:
     Downgrade not supported - data has been consolidated.
     Cannot restore deleted Title Case values without data loss.
     """
-    print("⚠️  Downgrade not supported - Sentence case consolidation is irreversible")
+    logger.info("⚠️  Downgrade not supported - Sentence case consolidation is irreversible")

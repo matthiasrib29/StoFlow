@@ -17,7 +17,9 @@ Adds new columns from Vinted item_upload API response:
 """
 from alembic import op
 from sqlalchemy import text
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = '20260105_1000'
@@ -64,7 +66,7 @@ def upgrade():
         """)).scalar()
 
         if not table_exists:
-            print(f"vinted_products table doesn't exist in {schema}, skipping")
+            logger.info(f"vinted_products table doesn't exist in {schema}, skipping")
             continue
 
         # Check if color1_id column already exists (first column we add)
@@ -78,10 +80,10 @@ def upgrade():
         """)).scalar()
 
         if column_exists:
-            print(f"Item upload columns already exist in {schema}.vinted_products, skipping")
+            logger.info(f"Item upload columns already exist in {schema}.vinted_products, skipping")
             continue
 
-        print(f"Adding item_upload columns to {schema}.vinted_products")
+        logger.info(f"Adding item_upload columns to {schema}.vinted_products")
 
         # Add all new columns
         for col_name, col_type in NEW_COLUMNS:
@@ -90,7 +92,7 @@ def upgrade():
                 ADD COLUMN {col_name} {col_type}
             """))
 
-        print(f"  -> Added {len(NEW_COLUMNS)} columns to {schema}.vinted_products")
+        logger.info(f"  -> Added {len(NEW_COLUMNS)} columns to {schema}.vinted_products")
 
     # Also update template_tenant if it exists
     template_exists = conn.execute(text("""
@@ -112,13 +114,13 @@ def upgrade():
         """)).scalar()
 
         if not column_exists:
-            print("Adding item_upload columns to template_tenant.vinted_products")
+            logger.info("Adding item_upload columns to template_tenant.vinted_products")
             for col_name, col_type in NEW_COLUMNS:
                 conn.execute(text(f"""
                     ALTER TABLE template_tenant.vinted_products
                     ADD COLUMN {col_name} {col_type}
                 """))
-            print(f"  -> Added {len(NEW_COLUMNS)} columns to template_tenant.vinted_products")
+            logger.info(f"  -> Added {len(NEW_COLUMNS)} columns to template_tenant.vinted_products")
 
 
 def downgrade():
@@ -152,7 +154,7 @@ def downgrade():
                 ALTER TABLE {schema}.vinted_products
                 {drop_columns}
             """))
-            print(f"Removed item_upload columns from {schema}.vinted_products")
+            logger.info(f"Removed item_upload columns from {schema}.vinted_products")
 
     # Also update template_tenant
     template_exists = conn.execute(text("""
@@ -168,4 +170,4 @@ def downgrade():
             ALTER TABLE template_tenant.vinted_products
             {drop_columns}
         """))
-        print("Removed item_upload columns from template_tenant.vinted_products")
+        logger.info("Removed item_upload columns from template_tenant.vinted_products")

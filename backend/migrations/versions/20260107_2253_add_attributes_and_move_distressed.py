@@ -7,9 +7,14 @@ Create Date: 2026-01-07 22:53:59.999808+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -36,16 +41,16 @@ def upgrade() -> None:
     conn = op.get_bind()
 
     # ========== STEP 0: Create parent colors if absent ==========
-    print("STEP 0: Creating parent colors (Blue, Yellow) if absent...")
+    logger.info("STEP 0: Creating parent colors (Blue, Yellow) if absent...")
     conn.execute(text("""
         INSERT INTO product_attributes.colors (name_en, hex_code)
         VALUES ('Blue', '#0000FF'), ('Yellow', '#FFFF00')
         ON CONFLICT (name_en) DO NOTHING;
     """))
-    print("✓ Parent colors ensured")
+    logger.info("✓ Parent colors ensured")
 
     # ========== STEP 1: Add 12 TRENDS ==========
-    print("STEP 1: Adding 12 TRENDS...")
+    logger.info("STEP 1: Adding 12 TRENDS...")
     trends = [
         "Boho revival", "Downtown girl", "Eclectic grandpa", "Glamoratti",
         "Indie sleaze", "Khaki coded", "Mob wife", "Neo deco",
@@ -59,10 +64,10 @@ def upgrade() -> None:
             ON CONFLICT (name_en) DO NOTHING;
         """), {"name_en": trend})
 
-    print(f"✓ Added {len(trends)} trends")
+    logger.info(f"✓ Added {len(trends)} trends")
 
     # ========== STEP 2: Add 2 COLORS (with hex + parent) ==========
-    print("STEP 2: Adding 2 COLORS with hierarchy...")
+    logger.info("STEP 2: Adding 2 COLORS with hierarchy...")
     colors = [
         ("Klein blue", "#002FA7", "Blue"),
         ("Vanilla yellow", "#F3E5AB", "Yellow")
@@ -75,10 +80,10 @@ def upgrade() -> None:
             ON CONFLICT (name_en) DO NOTHING;
         """), {"name_en": name_en, "hex_code": hex_code, "parent_color": parent_color})
 
-    print(f"✓ Added {len(colors)} colors")
+    logger.info(f"✓ Added {len(colors)} colors")
 
     # ========== STEP 3: Add 3 MATERIALS ==========
-    print("STEP 3: Adding 3 MATERIALS...")
+    logger.info("STEP 3: Adding 3 MATERIALS...")
     materials = ["Crochet", "Lace", "Technical fabric"]
 
     for material in materials:
@@ -88,28 +93,28 @@ def upgrade() -> None:
             ON CONFLICT (name_en) DO NOTHING;
         """), {"name_en": material})
 
-    print(f"✓ Added {len(materials)} materials")
+    logger.info(f"✓ Added {len(materials)} materials")
 
     # ========== STEP 4: Add 1 FIT ==========
-    print("STEP 4: Adding 1 FIT...")
+    logger.info("STEP 4: Adding 1 FIT...")
     conn.execute(text("""
         INSERT INTO product_attributes.fits (name_en)
         VALUES ('Balloon')
         ON CONFLICT (name_en) DO NOTHING;
     """))
-    print("✓ Added 1 fit")
+    logger.info("✓ Added 1 fit")
 
     # ========== STEP 5: Add 1 NECKLINE ==========
-    print("STEP 5: Adding 1 NECKLINE...")
+    logger.info("STEP 5: Adding 1 NECKLINE...")
     conn.execute(text("""
         INSERT INTO product_attributes.necklines (name_en)
         VALUES ('Funnel neck')
         ON CONFLICT (name_en) DO NOTHING;
     """))
-    print("✓ Added 1 neckline")
+    logger.info("✓ Added 1 neckline")
 
     # ========== STEP 6: Add 3 UNIQUE_FEATURES ==========
-    print("STEP 6: Adding 3 UNIQUE_FEATURES...")
+    logger.info("STEP 6: Adding 3 UNIQUE_FEATURES...")
     features = ["Cutouts", "Fringe", "Tiered"]
 
     for feature in features:
@@ -119,10 +124,10 @@ def upgrade() -> None:
             ON CONFLICT (name_en) DO NOTHING;
         """), {"name_en": feature})
 
-    print(f"✓ Added {len(features)} unique features")
+    logger.info(f"✓ Added {len(features)} unique features")
 
     # ========== STEP 7: Migrate "Distressed" ==========
-    print("STEP 7: Migrating 'Distressed' from condition_sups to unique_features...")
+    logger.info("STEP 7: Migrating 'Distressed' from condition_sups to unique_features...")
 
     # 7.1 - Add "Distressed" to unique_features
     conn.execute(text("""
@@ -130,7 +135,7 @@ def upgrade() -> None:
         VALUES ('Distressed')
         ON CONFLICT (name_en) DO NOTHING;
     """))
-    print("  ✓ Added 'Distressed' to unique_features")
+    logger.info("  ✓ Added 'Distressed' to unique_features")
 
     # 7.2 - Get all user schemas
     schemas = conn.execute(text("""
@@ -138,7 +143,7 @@ def upgrade() -> None:
         WHERE schema_name LIKE 'user_%' OR schema_name = 'template_tenant';
     """)).fetchall()
 
-    print(f"  ✓ Found {len(schemas)} schemas to migrate")
+    logger.info(f"  ✓ Found {len(schemas)} schemas to migrate")
 
     migrated_products = 0
     for (schema,) in schemas:
@@ -174,7 +179,7 @@ def upgrade() -> None:
 
         affected = result.rowcount if hasattr(result, 'rowcount') else 0
         if affected > 0:
-            print(f"    - {schema}: migrated {affected} products")
+            logger.info(f"    - {schema}: migrated {affected} products")
             migrated_products += affected
 
         # 7.4 - Delete from product_condition_sups
@@ -189,18 +194,18 @@ def upgrade() -> None:
         WHERE name_en = 'Distressed';
     """))
 
-    print(f"  ✓ Migrated {migrated_products} total products")
-    print("  ✓ Removed 'Distressed' from condition_sups")
+    logger.info(f"  ✓ Migrated {migrated_products} total products")
+    logger.info("  ✓ Removed 'Distressed' from condition_sups")
 
-    print("\n=== MIGRATION COMPLETED ===")
-    print(f"Total additions:")
-    print(f"  - 12 trends")
-    print(f"  - 2 colors (with hierarchy)")
-    print(f"  - 3 materials")
-    print(f"  - 1 fit")
-    print(f"  - 1 neckline")
-    print(f"  - 4 unique features (including migrated 'Distressed')")
-    print(f"  - {migrated_products} products migrated")
+    logger.info("\n=== MIGRATION COMPLETED ===")
+    logger.info(f"Total additions:")
+    logger.info(f"  - 12 trends")
+    logger.info(f"  - 2 colors (with hierarchy)")
+    logger.info(f"  - 3 materials")
+    logger.info(f"  - 1 fit")
+    logger.info(f"  - 1 neckline")
+    logger.info(f"  - 4 unique features (including migrated 'Distressed')")
+    logger.info(f"  - {migrated_products} products migrated")
 
 
 def downgrade() -> None:
@@ -219,10 +224,10 @@ def downgrade() -> None:
     """
     conn = op.get_bind()
 
-    print("\n=== STARTING DOWNGRADE ===")
+    logger.info("\n=== STARTING DOWNGRADE ===")
 
     # ========== STEP 7 inverse: Restore "Distressed" to condition_sups ==========
-    print("STEP 7: Restoring 'Distressed' to condition_sups...")
+    logger.info("STEP 7: Restoring 'Distressed' to condition_sups...")
 
     # 7.1 - Add "Distressed" back to condition_sups
     conn.execute(text("""
@@ -230,7 +235,7 @@ def downgrade() -> None:
         VALUES ('Distressed')
         ON CONFLICT (name_en) DO NOTHING;
     """))
-    print("  ✓ Added 'Distressed' back to condition_sups")
+    logger.info("  ✓ Added 'Distressed' back to condition_sups")
 
     # 7.2 - Get all user schemas
     schemas = conn.execute(text("""
@@ -272,7 +277,7 @@ def downgrade() -> None:
 
         affected = result.rowcount if hasattr(result, 'rowcount') else 0
         if affected > 0:
-            print(f"    - {schema}: restored {affected} products")
+            logger.info(f"    - {schema}: restored {affected} products")
             restored_products += affected
 
         # 7.4 - Delete from product_unique_features
@@ -287,51 +292,51 @@ def downgrade() -> None:
         WHERE name_en = 'Distressed';
     """))
 
-    print(f"  ✓ Restored {restored_products} total products")
-    print("  ✓ Removed 'Distressed' from unique_features")
+    logger.info(f"  ✓ Restored {restored_products} total products")
+    logger.info("  ✓ Removed 'Distressed' from unique_features")
 
     # ========== STEP 6 inverse: Remove 3 unique_features ==========
-    print("STEP 6: Removing 3 unique_features...")
+    logger.info("STEP 6: Removing 3 unique_features...")
     conn.execute(text("""
         DELETE FROM product_attributes.unique_features
         WHERE name_en IN ('Cutouts', 'Fringe', 'Tiered');
     """))
-    print("✓ Removed 3 unique features")
+    logger.info("✓ Removed 3 unique features")
 
     # ========== STEP 5 inverse: Remove 1 neckline ==========
-    print("STEP 5: Removing 1 neckline...")
+    logger.info("STEP 5: Removing 1 neckline...")
     conn.execute(text("""
         DELETE FROM product_attributes.necklines
         WHERE name_en = 'Funnel neck';
     """))
-    print("✓ Removed 1 neckline")
+    logger.info("✓ Removed 1 neckline")
 
     # ========== STEP 4 inverse: Remove 1 fit ==========
-    print("STEP 4: Removing 1 fit...")
+    logger.info("STEP 4: Removing 1 fit...")
     conn.execute(text("""
         DELETE FROM product_attributes.fits
         WHERE name_en = 'Balloon';
     """))
-    print("✓ Removed 1 fit")
+    logger.info("✓ Removed 1 fit")
 
     # ========== STEP 3 inverse: Remove 3 materials ==========
-    print("STEP 3: Removing 3 materials...")
+    logger.info("STEP 3: Removing 3 materials...")
     conn.execute(text("""
         DELETE FROM product_attributes.materials
         WHERE name_en IN ('Crochet', 'Lace', 'Technical fabric');
     """))
-    print("✓ Removed 3 materials")
+    logger.info("✓ Removed 3 materials")
 
     # ========== STEP 2 inverse: Remove 2 colors ==========
-    print("STEP 2: Removing 2 colors...")
+    logger.info("STEP 2: Removing 2 colors...")
     conn.execute(text("""
         DELETE FROM product_attributes.colors
         WHERE name_en IN ('Klein blue', 'Vanilla yellow');
     """))
-    print("✓ Removed 2 colors")
+    logger.info("✓ Removed 2 colors")
 
     # ========== STEP 1 inverse: Remove 12 trends ==========
-    print("STEP 1: Removing 12 trends...")
+    logger.info("STEP 1: Removing 12 trends...")
     conn.execute(text("""
         DELETE FROM product_attributes.trends
         WHERE name_en IN (
@@ -340,9 +345,9 @@ def downgrade() -> None:
             'Office siren', 'Poetcore', 'Vamp romance', 'Wilderkind'
         );
     """))
-    print("✓ Removed 12 trends")
+    logger.info("✓ Removed 12 trends")
 
     # STEP 0: Do not remove Blue/Yellow (they may be used elsewhere)
 
-    print("\n=== DOWNGRADE COMPLETED ===")
-    print("All changes have been rolled back")
+    logger.info("\n=== DOWNGRADE COMPLETED ===")
+    logger.info("All changes have been rolled back")

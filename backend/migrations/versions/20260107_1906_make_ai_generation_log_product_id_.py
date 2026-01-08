@@ -7,8 +7,12 @@ Create Date: 2026-01-07 19:06:39.194552+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -55,7 +59,7 @@ def upgrade() -> None:
                 ALTER TABLE {schema}.ai_generation_logs
                 ALTER COLUMN product_id DROP NOT NULL
             """))
-            print(f"✓ Modified ai_generation_logs.product_id in {schema}")
+            logger.info(f"✓ Modified ai_generation_logs.product_id in {schema}")
 
 
 def downgrade() -> None:
@@ -95,4 +99,4 @@ def downgrade() -> None:
                 ALTER TABLE {schema}.ai_generation_logs
                 ALTER COLUMN product_id SET NOT NULL
             """))
-            print(f"✓ Reverted ai_generation_logs.product_id in {schema}")
+            logger.info(f"✓ Reverted ai_generation_logs.product_id in {schema}")

@@ -7,9 +7,14 @@ Create Date: 2026-01-06 14:10:00.000000+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -53,7 +58,7 @@ def upgrade() -> None:
         ON product_attributes.sizes_original (name);
     """))
 
-    print("✅ Created table product_attributes.sizes_original")
+    logger.info("✅ Created table product_attributes.sizes_original")
 
     # Step 2: Migrate existing size_original data from all user schemas
     user_schemas = get_user_schemas(conn)
@@ -74,7 +79,7 @@ def upgrade() -> None:
         """), {"schema": schema}).scalar()
 
         if not table_exists:
-            print(f"⚠️  Skipping {schema} (products table does not exist)")
+            logger.info(f"⚠️  Skipping {schema} (products table does not exist)")
             continue
 
         # Insert distinct size_original values
@@ -94,9 +99,9 @@ def upgrade() -> None:
         total_migrated += migrated_count
 
         if migrated_count > 0:
-            print(f"✅ Migrated {migrated_count} sizes from {schema}.products")
+            logger.info(f"✅ Migrated {migrated_count} sizes from {schema}.products")
 
-    print(f"✅ Total migrated: {total_migrated} distinct size_original values")
+    logger.info(f"✅ Total migrated: {total_migrated} distinct size_original values")
 
 
 def downgrade() -> None:
@@ -113,4 +118,4 @@ def downgrade() -> None:
     # Drop table
     op.drop_table('sizes_original', schema='product_attributes')
 
-    print("✅ Dropped table product_attributes.sizes_original")
+    logger.info("✅ Dropped table product_attributes.sizes_original")

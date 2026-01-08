@@ -14,9 +14,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -30,9 +35,9 @@ def upgrade() -> None:
     """Seed condition_sups table with valid values."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("📊 SEEDING CONDITION_SUPS TABLE")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 SEEDING CONDITION_SUPS TABLE")
+    logger.info("=" * 70 + "\n")
 
     # List of condition supplements found in existing data
     # Format: (name_en, name_fr) - Title Case for consistency
@@ -66,21 +71,21 @@ def upgrade() -> None:
             ON CONFLICT (name_en) DO NOTHING;
         """), {"name_en": name_en, "name_fr": name_fr})
 
-    print(f"✅ Inserted {len(condition_sups)} condition supplements")
-    print("\nCondition supplements added:")
+    logger.info(f"✅ Inserted {len(condition_sups)} condition supplements")
+    logger.info("\nCondition supplements added:")
     for name_en, name_fr in condition_sups:
-        print(f"  - {name_en} / {name_fr}")
+        logger.info(f"  - {name_en} / {name_fr}")
 
-    print("\n" + "=" * 70)
-    print("✅ SEEDING COMPLETE")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("✅ SEEDING COMPLETE")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Remove seeded condition supplements."""
     conn = op.get_bind()
 
-    print("\n⚠️  Removing seeded condition supplements...")
+    logger.info("\n⚠️  Removing seeded condition supplements...")
 
     # List of English names to delete
     names_to_delete = [
@@ -96,4 +101,4 @@ def downgrade() -> None:
             WHERE name_en = :name_en;
         """), {"name_en": name_en})
 
-    print(f"✅ Removed {len(names_to_delete)} condition supplements")
+    logger.info(f"✅ Removed {len(names_to_delete)} condition supplements")

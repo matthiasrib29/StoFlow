@@ -206,6 +206,7 @@
 
 <script setup lang="ts">
 import type { VintedOrder, OrderStats } from '~/types/orders'
+import { vintedLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -280,7 +281,7 @@ const fetchOrders = async () => {
     calculateStats()
   } catch (e: any) {
     error.value = e.message || 'Erreur lors du chargement des commandes'
-    console.error('Failed to fetch Vinted orders:', e)
+    vintedLogger.error('Failed to fetch Vinted orders:', e)
   } finally {
     loading.value = false
   }
@@ -303,7 +304,7 @@ const syncOrders = async () => {
     await fetchOrders()
   } catch (e: any) {
     error.value = e.message || 'Erreur lors de la synchronisation'
-    console.error('Failed to sync Vinted orders:', e)
+    vintedLogger.error('Failed to sync Vinted orders:', e)
   } finally {
     syncing.value = false
   }

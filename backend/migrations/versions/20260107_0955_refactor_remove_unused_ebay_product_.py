@@ -12,9 +12,14 @@ Changes:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -72,21 +77,21 @@ def upgrade() -> None:
     schemas = get_user_schemas(conn)
 
     if not schemas:
-        print("No user schemas found, skipping migration")
+        logger.info("No user schemas found, skipping migration")
         return
 
     for schema in schemas:
         if not table_exists(conn, schema, 'ebay_products'):
-            print(f"Table ebay_products does not exist in {schema}, skipping")
+            logger.info(f"Table ebay_products does not exist in {schema}, skipping")
             continue
 
-        print(f"Migrating {schema}.ebay_products...")
+        logger.info(f"Migrating {schema}.ebay_products...")
 
         # Remove unused columns
         for column in ['location', 'country', 'category_name']:
             if column_exists(conn, schema, 'ebay_products', column):
                 op.drop_column('ebay_products', column, schema=schema)
-                print(f"  - Removed column: {column}")
+                logger.info(f"  - Removed column: {column}")
 
         # Add package dimensions (from Inventory API)
         dimensions = [
@@ -105,7 +110,7 @@ def upgrade() -> None:
                     sa.Column(col_name, col_type, nullable=True),
                     schema=schema
                 )
-                print(f"  + Added column: {col_name}")
+                logger.info(f"  + Added column: {col_name}")
 
         # Add offer details (from Offer API)
         offer_columns = [
@@ -125,17 +130,17 @@ def upgrade() -> None:
                     sa.Column(col_name, col_type, nullable=True, comment=comment),
                     schema=schema
                 )
-                print(f"  + Added column: {col_name}")
+                logger.info(f"  + Added column: {col_name}")
 
     # Also update template_tenant schema if it exists
     if table_exists(conn, 'template_tenant', 'ebay_products'):
-        print("Migrating template_tenant.ebay_products...")
+        logger.info("Migrating template_tenant.ebay_products...")
 
         # Remove unused columns
         for column in ['location', 'country', 'category_name']:
             if column_exists(conn, 'template_tenant', 'ebay_products', column):
                 op.drop_column('ebay_products', column, schema='template_tenant')
-                print(f"  - Removed column: {column}")
+                logger.info(f"  - Removed column: {column}")
 
         # Add all new columns
         for col_name, col_type in dimensions:
@@ -154,7 +159,7 @@ def upgrade() -> None:
                     schema='template_tenant'
                 )
 
-    print("Migration completed successfully")
+    logger.info("Migration completed successfully")
 
 
 def downgrade() -> None:
@@ -165,7 +170,7 @@ def downgrade() -> None:
         if not table_exists(conn, schema, 'ebay_products'):
             continue
 
-        print(f"Rolling back {schema}.ebay_products...")
+        logger.info(f"Rolling back {schema}.ebay_products...")
 
         # Remove added columns
         new_columns = [
@@ -196,4 +201,4 @@ def downgrade() -> None:
         op.add_column('ebay_products', sa.Column('country', sa.String(2), nullable=True), schema='template_tenant')
         op.add_column('ebay_products', sa.Column('category_name', sa.String(255), nullable=True), schema='template_tenant')
 
-    print("Rollback completed successfully")
+    logger.info("Rollback completed successfully")
