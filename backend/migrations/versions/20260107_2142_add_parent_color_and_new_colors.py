@@ -10,9 +10,14 @@ Create Date: 2026-01-07 21:42:10.924161+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -28,7 +33,7 @@ def upgrade() -> None:
     # ========================================================================
     # STEP 1: Add parent_color column
     # ========================================================================
-    print("Step 1: Adding parent_color column to colors table...")
+    logger.info("Step 1: Adding parent_color column to colors table...")
 
     conn.execute(text("""
         ALTER TABLE product_attributes.colors
@@ -51,12 +56,12 @@ def upgrade() -> None:
         ON product_attributes.colors(parent_color);
     """))
 
-    print("✅ parent_color column added")
+    logger.info("✅ parent_color column added")
 
     # ========================================================================
     # STEP 2: Convert existing colors to Sentence case
     # ========================================================================
-    print("Step 2: Converting existing colors to Sentence case...")
+    logger.info("Step 2: Converting existing colors to Sentence case...")
 
     # All existing colors are already in proper case except these need fixing
     # (Most are already correct, but let's be explicit)
@@ -94,12 +99,12 @@ def upgrade() -> None:
             WHERE name_en = :color;
         """), {"color": color, "parent": parent})
 
-    print(f"✅ Updated {len(existing_parents)} parent relationships")
+    logger.info(f"✅ Updated {len(existing_parents)} parent relationships")
 
     # ========================================================================
     # STEP 3: Insert Metallic parent color
     # ========================================================================
-    print("Step 3: Adding Metallic parent color...")
+    logger.info("Step 3: Adding Metallic parent color...")
 
     conn.execute(text("""
         INSERT INTO product_attributes.colors (
@@ -112,12 +117,12 @@ def upgrade() -> None:
         ON CONFLICT (name_en) DO NOTHING;
     """))
 
-    print("✅ Metallic parent color added")
+    logger.info("✅ Metallic parent color added")
 
     # ========================================================================
     # STEP 4: Insert 31 new colors (Sentence case)
     # ========================================================================
-    print("Step 4: Inserting 31 new colors...")
+    logger.info("Step 4: Inserting 31 new colors...")
 
     new_colors = [
         # WHITE family
@@ -198,8 +203,8 @@ def upgrade() -> None:
             "parent": parent,
         })
 
-    print(f"✅ Inserted {len(new_colors)} new colors")
-    print("🎉 Color expansion completed!")
+    logger.info(f"✅ Inserted {len(new_colors)} new colors")
+    logger.info("🎉 Color expansion completed!")
 
 
 def downgrade() -> None:
@@ -230,4 +235,4 @@ def downgrade() -> None:
         ALTER TABLE product_attributes.colors DROP COLUMN IF EXISTS parent_color CASCADE;
     """))
 
-    print("⚠️  Downgrade completed - parent_color removed and new colors deleted")
+    logger.info("⚠️  Downgrade completed - parent_color removed and new colors deleted")

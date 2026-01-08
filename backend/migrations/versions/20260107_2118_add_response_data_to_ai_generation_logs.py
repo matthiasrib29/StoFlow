@@ -7,9 +7,13 @@ Create Date: 2026-01-07 21:18:49.968422+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -63,7 +67,7 @@ def upgrade() -> None:
                 'Raw AI response JSON for debugging, audit, and re-parsing'
             """))
 
-            print(f"✓ Added response_data column to {schema}.ai_generation_logs")
+            logger.info(f"✓ Added response_data column to {schema}.ai_generation_logs")
 
 
 def downgrade() -> None:
@@ -102,4 +106,4 @@ def downgrade() -> None:
                 ALTER TABLE {schema}.ai_generation_logs
                 DROP COLUMN IF EXISTS response_data
             """))
-            print(f"✓ Removed response_data column from {schema}.ai_generation_logs")
+            logger.info(f"✓ Removed response_data column from {schema}.ai_generation_logs")

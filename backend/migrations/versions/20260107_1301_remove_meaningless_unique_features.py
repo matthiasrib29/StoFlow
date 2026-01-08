@@ -11,9 +11,14 @@ Remove unique features that are meaningless (present on 100% of items in categor
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -29,16 +34,16 @@ def upgrade() -> None:
 
     features_to_remove = ['waistband', 'fly', 'yoke']
 
-    print(f"Removing {len(features_to_remove)} meaningless unique features...")
+    logger.info(f"Removing {len(features_to_remove)} meaningless unique features...")
 
     for feature in features_to_remove:
-        print(f"  🗑️  Deleting: {feature}")
+        logger.info(f"  🗑️  Deleting: {feature}")
         conn.execute(text("""
             DELETE FROM product_attributes.unique_features
             WHERE name_en = :feature
         """), {"feature": feature})
 
-    print("✅ Meaningless features removed successfully!")
+    logger.info("✅ Meaningless features removed successfully!")
 
 
 def downgrade() -> None:
@@ -47,14 +52,14 @@ def downgrade() -> None:
 
     features_to_restore = ['waistband', 'fly', 'yoke']
 
-    print(f"Restoring {len(features_to_restore)} unique features...")
+    logger.info(f"Restoring {len(features_to_restore)} unique features...")
 
     for feature in features_to_restore:
-        print(f"  ✏️  Restoring: {feature}")
+        logger.info(f"  ✏️  Restoring: {feature}")
         conn.execute(text("""
             INSERT INTO product_attributes.unique_features (name_en)
             VALUES (:feature)
             ON CONFLICT (name_en) DO NOTHING
         """), {"feature": feature})
 
-    print("✅ Features restored successfully!")
+    logger.info("✅ Features restored successfully!")

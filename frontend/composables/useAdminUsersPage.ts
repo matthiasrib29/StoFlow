@@ -1,6 +1,6 @@
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { useAdminUsers, type AdminUser } from '~/composables/useAdminUsers'
+import { useAdminUsers, type AdminUser, type AdminUserUpdate } from '~/composables/useAdminUsers'
 
 export interface UserForm {
   email: string
@@ -101,12 +101,12 @@ export function useAdminUsersPage() {
   const saveUser = async (form: UserForm) => {
     try {
       if (isEditing.value && editingUserId.value) {
-        const updateData: any = {
+        const updateData: AdminUserUpdate = {
           email: form.email,
           full_name: form.full_name,
           role: form.role,
           subscription_tier: form.subscription_tier,
-          business_name: form.business_name || null,
+          business_name: form.business_name || undefined,
           is_active: form.is_active,
         }
 

@@ -11,9 +11,14 @@ Create Date: 2026-01-06 14:50:51.913672+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -37,10 +42,10 @@ def upgrade() -> None:
     """))
     user_schemas = [row[0] for row in result]
 
-    print(f"Creating pending_instructions table in {len(user_schemas)} user schemas...")
+    logger.info(f"Creating pending_instructions table in {len(user_schemas)} user schemas...")
 
     for schema in user_schemas:
-        print(f"  - {schema}")
+        logger.info(f"  - {schema}")
         op.execute(f'SET search_path TO {schema}, public')
 
         op.create_table(
@@ -88,7 +93,7 @@ def upgrade() -> None:
         schema='template_tenant'
     )
 
-    print(f"✓ pending_instructions table created successfully")
+    logger.info(f"✓ pending_instructions table created successfully")
 
 
 def downgrade() -> None:
@@ -105,10 +110,10 @@ def downgrade() -> None:
     """))
     user_schemas = [row[0] for row in result]
 
-    print(f"Dropping pending_instructions table from {len(user_schemas)} user schemas...")
+    logger.info(f"Dropping pending_instructions table from {len(user_schemas)} user schemas...")
 
     for schema in user_schemas:
-        print(f"  - {schema}")
+        logger.info(f"  - {schema}")
         op.drop_index(f'idx_pending_instructions_user_status', 'pending_instructions', schema=schema)
         op.drop_table('pending_instructions', schema=schema)
 
@@ -116,4 +121,4 @@ def downgrade() -> None:
     op.drop_index('idx_pending_instructions_user_status', 'pending_instructions', schema='template_tenant')
     op.drop_table('pending_instructions', schema='template_tenant')
 
-    print(f"✓ pending_instructions table dropped successfully")
+    logger.info(f"✓ pending_instructions table dropped successfully")

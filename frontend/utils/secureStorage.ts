@@ -21,6 +21,8 @@
  * This is a defense-in-depth measure, not a complete solution.
  */
 
+import { authLogger } from '~/utils/logger'
+
 // Storage keys
 const TOKEN_KEY = 'token'
 const REFRESH_TOKEN_KEY = 'refresh_token'
@@ -82,7 +84,7 @@ const setupInactivityCheck = (): void => {
       if (inactiveFor > config.inactivityTimeout) {
         // Clear tokens due to inactivity
         clearTokens()
-        console.warn('[SecureStorage] Tokens cleared due to inactivity')
+        authLogger.warn('Tokens cleared due to inactivity')
       }
     }
   }, 60000)

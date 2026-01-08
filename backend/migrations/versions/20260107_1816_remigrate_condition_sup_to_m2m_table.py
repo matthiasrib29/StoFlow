@@ -18,9 +18,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -56,9 +61,9 @@ def upgrade() -> None:
     """Re-migrate condition_sup from JSONB to M2M table."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("📊 RE-MIGRATING CONDITION_SUP TO M2M TABLE")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 RE-MIGRATING CONDITION_SUP TO M2M TABLE")
+    logger.info("=" * 70 + "\n")
 
     schemas = get_user_schemas(conn)
     total_migrated = 0
@@ -68,7 +73,7 @@ def upgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"📦 Processing {schema}...")
+        logger.info(f"📦 Processing {schema}...")
 
         # Step 1: Clear existing entries in product_condition_sups for this schema
         result = conn.execute(text(f"""
@@ -76,7 +81,7 @@ def upgrade() -> None:
         """))
         cleared = result.rowcount
         if cleared > 0:
-            print(f"  🧹 Cleared {cleared} old entries from product_condition_sups")
+            logger.info(f"  🧹 Cleared {cleared} old entries from product_condition_sups")
             total_cleared += cleared
 
         # Step 2: Re-migrate with corrected Title Case values
@@ -93,36 +98,36 @@ def upgrade() -> None:
         """))
         migrated = result.rowcount
         if migrated > 0:
-            print(f"  ✅ Migrated {migrated} condition_sup entries to M2M table")
+            logger.info(f"  ✅ Migrated {migrated} condition_sup entries to M2M table")
             total_migrated += migrated
 
-    print("\n" + "=" * 70)
-    print("📊 RE-MIGRATION SUMMARY")
-    print("=" * 70)
-    print(f"  Old entries cleared: {total_cleared}")
-    print(f"  New entries migrated: {total_migrated}")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 RE-MIGRATION SUMMARY")
+    logger.info("=" * 70)
+    logger.info(f"  Old entries cleared: {total_cleared}")
+    logger.info(f"  New entries migrated: {total_migrated}")
+    logger.info("=" * 70)
 
     # Step 3: Clear migration_errors for condition_sup (issues now fixed)
-    print("\n🧹 Clearing migration_errors for condition_sup...")
+    logger.info("\n🧹 Clearing migration_errors for condition_sup...")
     result = conn.execute(text("""
         DELETE FROM public.migration_errors
         WHERE migration_name = 'add_many_to_many_product_attributes'
         AND error_type = 'invalid_condition_sup';
     """))
     errors_cleared = result.rowcount
-    print(f"  ✅ Cleared {errors_cleared} error logs (issues resolved)")
+    logger.info(f"  ✅ Cleared {errors_cleared} error logs (issues resolved)")
 
-    print("\n" + "=" * 70)
-    print("✅ RE-MIGRATION COMPLETE")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("✅ RE-MIGRATION COMPLETE")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Clear M2M table (revert to JSONB only)."""
     conn = op.get_bind()
 
-    print("\n⚠️  Clearing product_condition_sups M2M table...")
+    logger.info("\n⚠️  Clearing product_condition_sups M2M table...")
 
     schemas = get_user_schemas(conn)
     total_cleared = 0
@@ -136,4 +141,4 @@ def downgrade() -> None:
         """))
         total_cleared += result.rowcount
 
-    print(f"✅ Cleared {total_cleared} M2M entries (reverted to JSONB only)")
+    logger.info(f"✅ Cleared {total_cleared} M2M entries (reverted to JSONB only)")

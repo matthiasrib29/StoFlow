@@ -19,9 +19,14 @@ They will be dropped in a future migration after validation period.
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -58,20 +63,20 @@ def upgrade() -> None:
     """Create M2M junction tables and migrate existing data."""
     conn = op.get_bind()
 
-    print("=" * 70)
-    print("🚀 CREATING MANY-TO-MANY JUNCTION TABLES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("🚀 CREATING MANY-TO-MANY JUNCTION TABLES")
+    logger.info("=" * 70)
 
     schemas = get_user_schemas(conn)
-    print(f"\n✅ Found {len(schemas)} schemas to process\n")
+    logger.info(f"\n✅ Found {len(schemas)} schemas to process\n")
 
     for schema in schemas:
         # Verify products table exists
         if not table_exists(conn, schema, 'products'):
-            print(f"⚠️  Skipping {schema} - products table not found")
+            logger.info(f"⚠️  Skipping {schema} - products table not found")
             continue
 
-        print(f"📦 Processing {schema}...")
+        logger.info(f"📦 Processing {schema}...")
 
         # ===== 1. CREATE PRODUCT_COLORS TABLE =====
         conn.execute(text(f"""
@@ -163,12 +168,12 @@ def upgrade() -> None:
             ON {schema}.product_condition_sups(condition_sup);
         """))
 
-        print(f"  ✅ Created 3 junction tables in {schema}")
+        logger.info(f"  ✅ Created 3 junction tables in {schema}")
 
     # ===== MIGRATE EXISTING DATA =====
-    print("\n" + "=" * 70)
-    print("📊 MIGRATING EXISTING DATA")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 MIGRATING EXISTING DATA")
+    logger.info("=" * 70 + "\n")
 
     total_colors_migrated = 0
     total_materials_migrated = 0
@@ -181,7 +186,7 @@ def upgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"📦 Migrating data in {schema}...")
+        logger.info(f"📦 Migrating data in {schema}...")
 
         # Migrate colors (String → product_colors with is_primary=TRUE)
         result = conn.execute(text(f"""
@@ -197,7 +202,7 @@ def upgrade() -> None:
         colors_count = result.rowcount
         total_colors_migrated += colors_count
         if colors_count > 0:
-            print(f"  ✅ Migrated {colors_count} colors")
+            logger.info(f"  ✅ Migrated {colors_count} colors")
 
         # Count skipped (invalid colors)
         result = conn.execute(text(f"""
@@ -210,7 +215,7 @@ def upgrade() -> None:
         colors_skipped = result.scalar()
         total_colors_skipped += colors_skipped
         if colors_skipped > 0:
-            print(f"  ⚠️  Skipped {colors_skipped} products with invalid color")
+            logger.info(f"  ⚠️  Skipped {colors_skipped} products with invalid color")
 
             # Log skipped products to migration_errors table
             conn.execute(text(f"""
@@ -229,7 +234,7 @@ def upgrade() -> None:
                 AND deleted_at IS NULL
                 ON CONFLICT (schema_name, product_id, migration_name, error_type) DO NOTHING;
             """))
-            print(f"     📝 Logged {colors_skipped} invalid colors to migration_errors table")
+            logger.info(f"     📝 Logged {colors_skipped} invalid colors to migration_errors table")
 
         # Migrate materials (String → product_materials, no percentage)
         result = conn.execute(text(f"""
@@ -245,7 +250,7 @@ def upgrade() -> None:
         materials_count = result.rowcount
         total_materials_migrated += materials_count
         if materials_count > 0:
-            print(f"  ✅ Migrated {materials_count} materials")
+            logger.info(f"  ✅ Migrated {materials_count} materials")
 
         # Count skipped (invalid materials)
         result = conn.execute(text(f"""
@@ -258,7 +263,7 @@ def upgrade() -> None:
         materials_skipped = result.scalar()
         total_materials_skipped += materials_skipped
         if materials_skipped > 0:
-            print(f"  ⚠️  Skipped {materials_skipped} products with invalid material")
+            logger.info(f"  ⚠️  Skipped {materials_skipped} products with invalid material")
 
             # Log skipped products to migration_errors table
             conn.execute(text(f"""
@@ -277,7 +282,7 @@ def upgrade() -> None:
                 AND deleted_at IS NULL
                 ON CONFLICT (schema_name, product_id, migration_name, error_type) DO NOTHING;
             """))
-            print(f"     📝 Logged {materials_skipped} invalid materials to migration_errors table")
+            logger.info(f"     📝 Logged {materials_skipped} invalid materials to migration_errors table")
 
         # Migrate condition_sup (JSONB array → product_condition_sups)
         # Use jsonb_array_elements_text to explode the array
@@ -295,7 +300,7 @@ def upgrade() -> None:
         condition_sups_count = result.rowcount
         total_condition_sups_migrated += condition_sups_count
         if condition_sups_count > 0:
-            print(f"  ✅ Migrated {condition_sups_count} condition_sup entries")
+            logger.info(f"  ✅ Migrated {condition_sups_count} condition_sup entries")
 
         # Count skipped (invalid condition_sups)
         result = conn.execute(text(f"""
@@ -309,7 +314,7 @@ def upgrade() -> None:
         condition_sups_skipped = result.scalar()
         total_condition_sups_skipped += condition_sups_skipped
         if condition_sups_skipped > 0:
-            print(f"  ⚠️  Skipped {condition_sups_skipped} products with invalid condition_sup values")
+            logger.info(f"  ⚠️  Skipped {condition_sups_skipped} products with invalid condition_sup values")
 
             # Log skipped products to migration_errors table
             # Aggregate all invalid values per product into a comma-separated list
@@ -331,40 +336,40 @@ def upgrade() -> None:
                 GROUP BY p.id
                 ON CONFLICT (schema_name, product_id, migration_name, error_type) DO NOTHING;
             """))
-            print(f"     📝 Logged {condition_sups_skipped} invalid condition_sups to migration_errors table")
+            logger.info(f"     📝 Logged {condition_sups_skipped} invalid condition_sups to migration_errors table")
 
-    print("\n" + "=" * 70)
-    print("📊 MIGRATION SUMMARY")
-    print("=" * 70)
-    print(f"  Colors migrated: {total_colors_migrated}")
-    print(f"  Colors skipped (invalid): {total_colors_skipped}")
-    print(f"  Materials migrated: {total_materials_migrated}")
-    print(f"  Materials skipped (invalid): {total_materials_skipped}")
-    print(f"  Condition_sups migrated: {total_condition_sups_migrated}")
-    print(f"  Condition_sups skipped (invalid): {total_condition_sups_skipped}")
-    print("=" * 70)
-    print("✅ MIGRATION COMPLETE")
-    print("=" * 70)
-    print("\n⚠️  NOTE: Old columns (color, material, condition_sup) are kept")
-    print("   They will be dropped in a future migration after validation.")
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 MIGRATION SUMMARY")
+    logger.info("=" * 70)
+    logger.info(f"  Colors migrated: {total_colors_migrated}")
+    logger.info(f"  Colors skipped (invalid): {total_colors_skipped}")
+    logger.info(f"  Materials migrated: {total_materials_migrated}")
+    logger.info(f"  Materials skipped (invalid): {total_materials_skipped}")
+    logger.info(f"  Condition_sups migrated: {total_condition_sups_migrated}")
+    logger.info(f"  Condition_sups skipped (invalid): {total_condition_sups_skipped}")
+    logger.info("=" * 70)
+    logger.info("✅ MIGRATION COMPLETE")
+    logger.info("=" * 70)
+    logger.info("\n⚠️  NOTE: Old columns (color, material, condition_sup) are kept")
+    logger.info("   They will be dropped in a future migration after validation.")
 
     # Summary of skipped products logged to migration_errors
     total_skipped = total_colors_skipped + total_materials_skipped + total_condition_sups_skipped
     if total_skipped > 0:
-        print(f"\n📝 Data Quality Report:")
-        print(f"   {total_skipped} products with invalid data logged to public.migration_errors")
-        print(f"   Query to review: SELECT * FROM public.migration_errors")
-        print(f"   WHERE migration_name = 'add_many_to_many_product_attributes';")
-        print("=" * 70)
+        logger.info(f"\n📝 Data Quality Report:")
+        logger.info(f"   {total_skipped} products with invalid data logged to public.migration_errors")
+        logger.info(f"   Query to review: SELECT * FROM public.migration_errors")
+        logger.info(f"   WHERE migration_name = 'add_many_to_many_product_attributes';")
+        logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Drop M2M junction tables."""
     conn = op.get_bind()
 
-    print("=" * 70)
-    print("🔙 ROLLING BACK MANY-TO-MANY JUNCTION TABLES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("🔙 ROLLING BACK MANY-TO-MANY JUNCTION TABLES")
+    logger.info("=" * 70)
 
     schemas = get_user_schemas(conn)
 
@@ -372,15 +377,15 @@ def downgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"📦 Dropping tables in {schema}...")
+        logger.info(f"📦 Dropping tables in {schema}...")
 
         # Drop tables (CASCADE to remove FKs)
         conn.execute(text(f"DROP TABLE IF EXISTS {schema}.product_colors CASCADE;"))
         conn.execute(text(f"DROP TABLE IF EXISTS {schema}.product_materials CASCADE;"))
         conn.execute(text(f"DROP TABLE IF EXISTS {schema}.product_condition_sups CASCADE;"))
 
-        print(f"  ✅ Dropped junction tables in {schema}")
+        logger.info(f"  ✅ Dropped junction tables in {schema}")
 
-    print("=" * 70)
-    print("✅ ROLLBACK COMPLETE")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("✅ ROLLBACK COMPLETE")
+    logger.info("=" * 70)

@@ -18,9 +18,14 @@ Create Date: 2026-01-07 21:54:XX
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -57,7 +62,7 @@ def upgrade() -> None:
     # ========================================================================
     # STEP 0: Fix FK constraints to use ON UPDATE CASCADE
     # ========================================================================
-    print("Step 0: Updating FK constraints to ON UPDATE CASCADE...")
+    logger.info("Step 0: Updating FK constraints to ON UPDATE CASCADE...")
 
     # Fix vinted.mapping FK
     conn.execute(text("""
@@ -87,12 +92,12 @@ def upgrade() -> None:
         ON DELETE SET NULL;
     """))
 
-    print("✅ FK constraints updated with ON UPDATE CASCADE")
+    logger.info("✅ FK constraints updated with ON UPDATE CASCADE")
 
     # ========================================================================
     # STEP 1: Harmonize CATEGORIES format (add spaces)
     # ========================================================================
-    print("Step 1: Harmonizing category names with spaces...")
+    logger.info("Step 1: Harmonizing category names with spaces...")
 
     category_renames = [
         ("swimsuit", "swim suit"),
@@ -109,12 +114,12 @@ def upgrade() -> None:
             WHERE name_en = :old_name;
         """), {"old_name": old_name, "new_name": new_name})
 
-    print(f"✅ Renamed {len(category_renames)} categories to space format")
+    logger.info(f"✅ Renamed {len(category_renames)} categories to space format")
 
     # ========================================================================
     # STEP 2: Rename specific categories
     # ========================================================================
-    print("Step 2: Renaming specific categories...")
+    logger.info("Step 2: Renaming specific categories...")
 
     specific_renames = [
         ("suit-vest", "waistcoat"),
@@ -129,12 +134,12 @@ def upgrade() -> None:
             WHERE name_en = :old_name;
         """), {"old_name": old_name, "new_name": new_name})
 
-    print(f"✅ Renamed {len(specific_renames)} specific categories")
+    logger.info(f"✅ Renamed {len(specific_renames)} specific categories")
 
     # ========================================================================
     # STEP 3: Delete womens-suit category
     # ========================================================================
-    print("Step 3: Deleting womens-suit category...")
+    logger.info("Step 3: Deleting womens-suit category...")
 
     # Delete vinted.mapping entries for womens-suit (suit already exists)
     conn.execute(text("""
@@ -160,12 +165,12 @@ def upgrade() -> None:
         WHERE name_en = 'womens-suit';
     """))
 
-    print(f"✅ Migrated {migrated_count} products and deleted womens-suit")
+    logger.info(f"✅ Migrated {migrated_count} products and deleted womens-suit")
 
     # ========================================================================
     # STEP 4: Remove Modern/Vintage from DECADES
     # ========================================================================
-    print("Step 4: Removing Modern/Vintage from DECADES...")
+    logger.info("Step 4: Removing Modern/Vintage from DECADES...")
 
     # These values exist in TRENDS, so remove from DECADES
     to_remove_decades = ['Modern', 'Vintage']
@@ -176,12 +181,12 @@ def upgrade() -> None:
             WHERE name_en = :decade;
         """), {"decade": decade})
 
-    print(f"✅ Removed {len(to_remove_decades)} duplicates from DECADES")
+    logger.info(f"✅ Removed {len(to_remove_decades)} duplicates from DECADES")
 
     # ========================================================================
     # STEP 5: Clarify DECADES (00s → 2000s, etc.)
     # ========================================================================
-    print("Step 5: Clarifying decade names...")
+    logger.info("Step 5: Clarifying decade names...")
 
     decade_clarifications = [
         ("00s", "2000s"),
@@ -196,12 +201,12 @@ def upgrade() -> None:
             WHERE name_en = :old_name;
         """), {"old_name": old_name, "new_name": new_name})
 
-    print(f"✅ Clarified {len(decade_clarifications)} decade names")
+    logger.info(f"✅ Clarified {len(decade_clarifications)} decade names")
 
     # ========================================================================
     # STEP 6: Add 2025 trends
     # ========================================================================
-    print("Step 6: Adding 2025 trends...")
+    logger.info("Step 6: Adding 2025 trends...")
 
     new_trends = [
         ("Old money", "Vieille richesse", "Altes Geld", "Vecchio denaro", "Viejo dinero", "Oud geld", "Stare pieniądze"),
@@ -223,12 +228,12 @@ def upgrade() -> None:
             "name_it": name_it, "name_es": name_es, "name_nl": name_nl, "name_pl": name_pl
         })
 
-    print(f"✅ Added {len(new_trends)} new trends for 2025")
+    logger.info(f"✅ Added {len(new_trends)} new trends for 2025")
 
     # ========================================================================
     # STEP 7: Add missing CONDITION_SUP
     # ========================================================================
-    print("Step 7: Adding missing condition supplements...")
+    logger.info("Step 7: Adding missing condition supplements...")
 
     new_condition_sups = [
         ("Color bleeding", "Dégorgement de couleur"),
@@ -246,12 +251,12 @@ def upgrade() -> None:
             ON CONFLICT (name_en) DO NOTHING;
         """), {"name_en": name_en, "name_fr": name_fr})
 
-    print(f"✅ Added {len(new_condition_sups)} new condition supplements")
+    logger.info(f"✅ Added {len(new_condition_sups)} new condition supplements")
 
     # ========================================================================
     # STEP 8: Add missing CLOSURES
     # ========================================================================
-    print("Step 8: Adding missing closures...")
+    logger.info("Step 8: Adding missing closures...")
 
     new_closures = [
         ("Hook and eye", "Agrafes", "Haken und Öse", "Gancio e occhiello", "Corchete", "Haak en oog", "Haczyk i oczko"),
@@ -271,12 +276,12 @@ def upgrade() -> None:
             "name_it": name_it, "name_es": name_es, "name_nl": name_nl, "name_pl": name_pl
         })
 
-    print(f"✅ Added {len(new_closures)} new closures")
+    logger.info(f"✅ Added {len(new_closures)} new closures")
 
     # ========================================================================
     # STEP 9: Create LININGS table
     # ========================================================================
-    print("Step 9: Creating linings table...")
+    logger.info("Step 9: Creating linings table...")
 
     conn.execute(text("""
         CREATE TABLE product_attributes.linings (
@@ -308,8 +313,8 @@ def upgrade() -> None:
             "name_it": name_it, "name_es": name_es, "name_nl": name_nl, "name_pl": name_pl
         })
 
-    print(f"✅ Created linings table with {len(linings)} options")
-    print("🎉 Medium priority improvements completed!")
+    logger.info(f"✅ Created linings table with {len(linings)} options")
+    logger.info("🎉 Medium priority improvements completed!")
 
 
 def downgrade() -> None:
@@ -348,4 +353,4 @@ def downgrade() -> None:
     conn.execute(text("UPDATE product_attributes.categories SET name_en = 'waistcoat' WHERE name_en = 'suit-vest';"))
     conn.execute(text("UPDATE product_attributes.categories SET name_en = 'fleece jacket' WHERE name_en = 'fleece';"))
 
-    print("⚠️  Downgrade completed - some data migrations are irreversible")
+    logger.info("⚠️  Downgrade completed - some data migrations are irreversible")

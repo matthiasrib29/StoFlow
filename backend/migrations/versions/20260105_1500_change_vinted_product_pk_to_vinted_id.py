@@ -18,7 +18,9 @@ Note: This migration cannot be easily rolled back. Make a backup before running.
 """
 from alembic import op
 from sqlalchemy import text
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = '20260105_1500'
@@ -49,10 +51,10 @@ def upgrade():
         schemas.append('template_tenant')
 
     if not schemas:
-        print("No schemas found, skipping migration")
+        logger.info("No schemas found, skipping migration")
         return
 
-    print(f"Found {len(schemas)} schemas to migrate")
+    logger.info(f"Found {len(schemas)} schemas to migrate")
 
     for schema in schemas:
         # Check if table exists in this schema
@@ -64,7 +66,7 @@ def upgrade():
         """), {"schema": schema}).scalar()
 
         if not table_exists:
-            print(f"  {schema}: vinted_products table not found, skipping")
+            logger.info(f"  {schema}: vinted_products table not found, skipping")
             continue
 
         # Check for NULL vinted_id values (should not exist, but verify)
@@ -74,7 +76,7 @@ def upgrade():
         """)).scalar()
 
         if null_count > 0:
-            print(f"  {schema}: WARNING - Found {null_count} rows with NULL vinted_id, deleting them")
+            logger.info(f"  {schema}: WARNING - Found {null_count} rows with NULL vinted_id, deleting them")
             conn.execute(text(f"""
                 DELETE FROM {schema}.vinted_products WHERE vinted_id IS NULL
             """))
@@ -90,10 +92,10 @@ def upgrade():
         """), {"schema": schema}).scalar()
 
         if not id_exists:
-            print(f"  {schema}: id column already removed, skipping")
+            logger.info(f"  {schema}: id column already removed, skipping")
             continue
 
-        print(f"  {schema}: Changing PK from id to vinted_id...")
+        logger.info(f"  {schema}: Changing PK from id to vinted_id...")
 
         # Step 1: Drop existing primary key constraint
         # Get the actual PK constraint name
@@ -110,7 +112,7 @@ def upgrade():
                 ALTER TABLE {schema}.vinted_products
                 DROP CONSTRAINT {pk_name}
             """))
-            print(f"    Dropped PK constraint: {pk_name}")
+            logger.info(f"    Dropped PK constraint: {pk_name}")
 
         # Step 2: Drop unique constraint on vinted_id (if exists)
         unique_constraints = conn.execute(text("""
@@ -135,7 +137,7 @@ def upgrade():
                     ALTER TABLE {schema}.vinted_products
                     DROP CONSTRAINT {constraint_name}
                 """))
-                print(f"    Dropped UNIQUE constraint on vinted_id: {constraint_name}")
+                logger.info(f"    Dropped UNIQUE constraint on vinted_id: {constraint_name}")
 
         # Step 3: Drop index on vinted_id (will be replaced by PK index)
         vinted_id_indexes = conn.execute(text("""
@@ -151,14 +153,14 @@ def upgrade():
             conn.execute(text(f"""
                 DROP INDEX IF EXISTS {schema}.{index_name}
             """))
-            print(f"    Dropped index: {index_name}")
+            logger.info(f"    Dropped index: {index_name}")
 
         # Step 4: Create new primary key on vinted_id
         conn.execute(text(f"""
             ALTER TABLE {schema}.vinted_products
             ADD PRIMARY KEY (vinted_id)
         """))
-        print(f"    Created new PK on vinted_id")
+        logger.info(f"    Created new PK on vinted_id")
 
         # Step 5: Drop DEFAULT on id column (breaks sequence dependency)
         # This is critical for multi-tenant: user schemas inherit DEFAULT from template_tenant
@@ -167,18 +169,18 @@ def upgrade():
             ALTER TABLE {schema}.vinted_products
             ALTER COLUMN id DROP DEFAULT
         """))
-        print(f"    Dropped DEFAULT on id column")
+        logger.info(f"    Dropped DEFAULT on id column")
 
         # Step 6: Drop the old id column
         conn.execute(text(f"""
             ALTER TABLE {schema}.vinted_products
             DROP COLUMN id
         """))
-        print(f"    Dropped id column")
+        logger.info(f"    Dropped id column")
 
-        print(f"  {schema}: Migration completed")
+        logger.info(f"  {schema}: Migration completed")
 
-    print("Migration completed successfully")
+    logger.info("Migration completed successfully")
 
 
 def downgrade():
@@ -224,10 +226,10 @@ def downgrade():
         """), {"schema": schema}).scalar()
 
         if id_exists:
-            print(f"  {schema}: id column already exists, skipping")
+            logger.info(f"  {schema}: id column already exists, skipping")
             continue
 
-        print(f"  {schema}: Restoring id as PK...")
+        logger.info(f"  {schema}: Restoring id as PK...")
 
         # Step 1: Drop current PK on vinted_id
         pk_name = conn.execute(text("""
@@ -268,4 +270,4 @@ def downgrade():
             ON {schema}.vinted_products (vinted_id)
         """))
 
-        print(f"  {schema}: Downgrade completed (new id values generated)")
+        logger.info(f"  {schema}: Downgrade completed (new id values generated)")

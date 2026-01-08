@@ -75,7 +75,7 @@ class ProductRepository:
         query = db.query(Product).filter(Product.id == product_id)
 
         if not include_deleted:
-            query = query.filter(Product.deleted_at == None)  # noqa: E711
+            query = query.filter(Product.deleted_at.is_(None))
 
         return query.first()
 
@@ -107,7 +107,7 @@ class ProductRepository:
         query = db.query(Product)
 
         if not include_deleted:
-            query = query.filter(Product.deleted_at == None)  # noqa: E711
+            query = query.filter(Product.deleted_at.is_(None))
 
         if status:
             query = query.filter(Product.status == status)
@@ -195,7 +195,7 @@ class ProductRepository:
         """
         return (
             db.query(Product)
-            .filter(Product.status == status, Product.deleted_at == None)  # noqa: E711
+            .filter(Product.status == status, Product.deleted_at.is_(None))
             .order_by(Product.created_at.desc())
             .limit(limit)
             .all()
@@ -246,7 +246,7 @@ class ProductRepository:
         query = db.query(func.count(Product.id))
 
         if not include_deleted:
-            query = query.filter(Product.deleted_at == None)  # noqa: E711
+            query = query.filter(Product.deleted_at.is_(None))
 
         return query.scalar() or 0
 
@@ -264,7 +264,7 @@ class ProductRepository:
         """
         return (
             db.query(func.count(Product.id))
-            .filter(Product.status == status, Product.deleted_at == None)  # noqa: E711
+            .filter(Product.status == status, Product.deleted_at.is_(None))
             .scalar()
             or 0
         )
@@ -283,7 +283,7 @@ class ProductRepository:
         """
         return (
             db.query(func.count(Product.id))
-            .filter(Product.id == product_id, Product.deleted_at == None)  # noqa: E711
+            .filter(Product.id == product_id, Product.deleted_at.is_(None))
             .scalar()
             or 0
         ) > 0
@@ -307,7 +307,7 @@ class ProductRepository:
 
         return (
             db.query(Product)
-            .filter(Product.created_at >= cutoff, Product.deleted_at == None)  # noqa: E711
+            .filter(Product.created_at >= cutoff, Product.deleted_at.is_(None))
             .order_by(Product.created_at.desc())
             .limit(limit)
             .all()
@@ -333,7 +333,7 @@ class ProductRepository:
         return (
             db.query(Product)
             .filter(
-                Product.deleted_at == None,  # noqa: E711
+                Product.deleted_at.is_(None),
                 (Product.title.ilike(search_pattern))
                 | (Product.description.ilike(search_pattern)),
             )

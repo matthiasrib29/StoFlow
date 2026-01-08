@@ -23,6 +23,10 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 from sqlalchemy import text
 
+from logging import getLogger
+
+logger = getLogger(__name__)
+
 # Revision identifiers
 revision: str = '20260105_0001'
 down_revision: Union[str, None] = None
@@ -65,14 +69,14 @@ def upgrade() -> None:
     """Create the complete database schema."""
     connection = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("SQUASHED MIGRATION: Creating complete StoFlow schema")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("SQUASHED MIGRATION: Creating complete StoFlow schema")
+    logger.info("=" * 70)
 
     # =========================================================================
     # PART 1: CREATE ENUMS
     # =========================================================================
-    print("\n[1/9] Creating ENUMs...")
+    logger.info("\n[1/9] Creating ENUMs...")
 
     enums = [
         ("user_role", "('ADMIN', 'USER', 'SUPPORT')"),
@@ -92,28 +96,28 @@ def upgrade() -> None:
     for enum_name, enum_values in enums:
         if not enum_exists(connection, enum_name):
             connection.execute(text(f"CREATE TYPE {enum_name} AS ENUM {enum_values}"))
-            print(f"  + Created ENUM: {enum_name}")
+            logger.info(f"  + Created ENUM: {enum_name}")
         else:
-            print(f"  - ENUM exists: {enum_name}")
+            logger.info(f"  - ENUM exists: {enum_name}")
 
-    print("  Done.")
+    logger.info("  Done.")
 
     # =========================================================================
     # PART 2: CREATE SCHEMAS
     # =========================================================================
-    print("\n[2/9] Creating schemas...")
+    logger.info("\n[2/9] Creating schemas...")
 
     schemas = ['product_attributes', 'ebay', 'vinted', 'template_tenant']
     for schema in schemas:
         connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
-        print(f"  + Schema: {schema}")
+        logger.info(f"  + Schema: {schema}")
 
-    print("  Done.")
+    logger.info("  Done.")
 
     # =========================================================================
     # PART 3: PUBLIC SCHEMA TABLES
     # =========================================================================
-    print("\n[3/9] Creating public schema tables...")
+    logger.info("\n[3/9] Creating public schema tables...")
 
     # 3.1 subscription_quotas
     if not table_exists(connection, 'public', 'subscription_quotas'):
@@ -128,7 +132,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('tier', name='uq_subscription_quotas_tier'),
             schema='public'
         )
-        print("  + subscription_quotas")
+        logger.info("  + subscription_quotas")
 
     # 3.2 users
     if not table_exists(connection, 'public', 'users'):
@@ -168,7 +172,7 @@ def upgrade() -> None:
             schema='public'
         )
         op.create_index('ix_public_users_email', 'users', ['email'], unique=True, schema='public')
-        print("  + users")
+        logger.info("  + users")
 
     # 3.3 ai_credits
     if not table_exists(connection, 'public', 'ai_credits'):
@@ -186,7 +190,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('user_id'),
             schema='public'
         )
-        print("  + ai_credits")
+        logger.info("  + ai_credits")
 
     # 3.4 clothing_prices
     if not table_exists(connection, 'public', 'clothing_prices'):
@@ -200,7 +204,7 @@ def upgrade() -> None:
             sa.CheckConstraint('base_price >= 0', name='check_base_price_positive'),
             schema='public'
         )
-        print("  + clothing_prices")
+        logger.info("  + clothing_prices")
 
     # 3.5 permissions
     if not table_exists(connection, 'public', 'permissions'):
@@ -216,7 +220,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('code'),
             schema='public'
         )
-        print("  + permissions")
+        logger.info("  + permissions")
 
     # 3.6 role_permissions
     if not table_exists(connection, 'public', 'role_permissions'):
@@ -231,7 +235,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('role', 'permission_id', name='uq_role_permission'),
             schema='public'
         )
-        print("  + role_permissions")
+        logger.info("  + role_permissions")
 
     # 3.7 admin_audit_logs
     if not table_exists(connection, 'public', 'admin_audit_logs'):
@@ -253,7 +257,7 @@ def upgrade() -> None:
         op.create_index('ix_public_admin_audit_logs_action', 'admin_audit_logs', ['action'], schema='public')
         op.create_index('ix_public_admin_audit_logs_admin_id', 'admin_audit_logs', ['admin_id'], schema='public')
         op.create_index('ix_public_admin_audit_logs_resource_type', 'admin_audit_logs', ['resource_type'], schema='public')
-        print("  + admin_audit_logs")
+        logger.info("  + admin_audit_logs")
 
     # 3.8 doc_categories
     if not table_exists(connection, 'public', 'doc_categories'):
@@ -272,7 +276,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('slug'),
             schema='public'
         )
-        print("  + doc_categories")
+        logger.info("  + doc_categories")
 
     # 3.9 doc_articles
     if not table_exists(connection, 'public', 'doc_articles'):
@@ -293,14 +297,14 @@ def upgrade() -> None:
             sa.UniqueConstraint('slug'),
             schema='public'
         )
-        print("  + doc_articles")
+        logger.info("  + doc_articles")
 
-    print("  Done.")
+    logger.info("  Done.")
 
     # =========================================================================
     # PART 4: PRODUCT_ATTRIBUTES SCHEMA TABLES
     # =========================================================================
-    print("\n[4/9] Creating product_attributes tables...")
+    logger.info("\n[4/9] Creating product_attributes tables...")
 
     # Define all attribute tables with their specific columns
     attribute_tables = [
@@ -373,7 +377,7 @@ def upgrade() -> None:
                 schema='product_attributes'
             )
             op.create_index(f'ix_product_attributes_{table_name}_name_en', table_name, ['name_en'], schema='product_attributes')
-            print(f"  + {table_name}")
+            logger.info(f"  + {table_name}")
 
     # Create special tables
     for table_name, columns, pk_column in attribute_tables:
@@ -384,7 +388,7 @@ def upgrade() -> None:
                 sa.PrimaryKeyConstraint(pk_column),
                 schema='product_attributes'
             )
-            print(f"  + {table_name}")
+            logger.info(f"  + {table_name}")
 
     # Add FK for categories parent (only if not exists)
     if table_exists(connection, 'product_attributes', 'categories'):
@@ -423,7 +427,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('name_en'),
             schema='product_attributes'
         )
-        print("  + sizes")
+        logger.info("  + sizes")
 
     # Genders table
     if not table_exists(connection, 'product_attributes', 'genders'):
@@ -442,15 +446,15 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('name_en'),
             schema='product_attributes'
         )
-        print("  + genders")
+        logger.info("  + genders")
 
     # Materials table with vinted_id
     if table_exists(connection, 'product_attributes', 'materials'):
         try:
             connection.execute(text("ALTER TABLE product_attributes.materials ADD COLUMN IF NOT EXISTS vinted_id INTEGER"))
-            print("  + materials.vinted_id column added (or already exists)")
+            logger.info("  + materials.vinted_id column added (or already exists)")
         except Exception as e:
-            print(f"  ⚠️  Failed to add materials.vinted_id column: {e}")
+            logger.info(f"  ⚠️  Failed to add materials.vinted_id column: {e}")
             # Column likely already exists - not a critical error
 
     # condition_sups table
@@ -467,7 +471,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('name_en'),
             schema='product_attributes'
         )
-        print("  + condition_sups")
+        logger.info("  + condition_sups")
 
     # unique_features table
     if not table_exists(connection, 'product_attributes', 'unique_features'):
@@ -483,7 +487,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('name_en'),
             schema='product_attributes'
         )
-        print("  + unique_features")
+        logger.info("  + unique_features")
 
     # Dimension tables (dim1-dim6) for product measurements
     dimension_configs = {
@@ -511,7 +515,7 @@ def upgrade() -> None:
                 connection.execute(text(f"""
                     INSERT INTO product_attributes.{dim_name} (value) VALUES {values_str}
                 """))
-            print(f"  + {dim_name} ({config['min']}-{config['max']} cm)")
+            logger.info(f"  + {dim_name} ({config['min']}-{config['max']} cm)")
 
     # Create dimension info view (drop first to avoid column conflict)
     connection.execute(text("DROP VIEW IF EXISTS product_attributes.vw_dimension_info"))
@@ -524,14 +528,14 @@ def upgrade() -> None:
         UNION ALL SELECT 'dim5', 'Hips', 'Tour de hanches', 'cm', 30, 80
         UNION ALL SELECT 'dim6', 'Inseam', 'Entrejambe', 'cm', 20, 100
     """))
-    print("  + vw_dimension_info view")
+    logger.info("  + vw_dimension_info view")
 
-    print("  Done.")
+    logger.info("  Done.")
 
     # =========================================================================
     # PART 5: EBAY SCHEMA TABLES
     # =========================================================================
-    print("\n[5/9] Creating ebay schema tables...")
+    logger.info("\n[5/9] Creating ebay schema tables...")
 
     if not table_exists(connection, 'ebay', 'marketplace_config'):
         op.create_table(
@@ -548,7 +552,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('marketplace_id'),
             schema='ebay'
         )
-        print("  + marketplace_config")
+        logger.info("  + marketplace_config")
 
     if not table_exists(connection, 'ebay', 'aspect_name_mapping'):
         op.create_table(
@@ -567,7 +571,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('aspect_key'),
             schema='ebay'
         )
-        print("  + aspect_name_mapping")
+        logger.info("  + aspect_name_mapping")
 
     if not table_exists(connection, 'ebay', 'exchange_rate'):
         op.create_table(
@@ -580,7 +584,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('currency'),
             schema='ebay'
         )
-        print("  + exchange_rate")
+        logger.info("  + exchange_rate")
 
     if not table_exists(connection, 'ebay', 'category_mapping'):
         op.create_table(
@@ -595,7 +599,7 @@ def upgrade() -> None:
             schema='ebay'
         )
         op.create_index('idx_ebay_category_lookup', 'category_mapping', ['my_category', 'my_gender'], schema='ebay')
-        print("  + category_mapping")
+        logger.info("  + category_mapping")
 
     # Create all 16 aspect value tables for eBay multilingual support
     aspect_tables = [
@@ -620,14 +624,14 @@ def upgrade() -> None:
                 sa.PrimaryKeyConstraint('ebay_gb'),
                 schema='ebay'
             )
-            print(f"  + {aspect_table}")
+            logger.info(f"  + {aspect_table}")
 
-    print("  Done.")
+    logger.info("  Done.")
 
     # =========================================================================
     # PART 6: VINTED SCHEMA TABLES
     # =========================================================================
-    print("\n[6/9] Creating vinted schema tables...")
+    logger.info("\n[6/9] Creating vinted schema tables...")
 
     # vinted_action_types
     if not table_exists(connection, 'vinted', 'action_types'):
@@ -647,7 +651,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('code'),
             schema='vinted'
         )
-        print("  + action_types")
+        logger.info("  + action_types")
 
     # vinted_categories
     if not table_exists(connection, 'vinted', 'categories'):
@@ -667,7 +671,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('id'),
             schema='vinted'
         )
-        print("  + categories")
+        logger.info("  + categories")
 
     # vinted_mapping
     if not table_exists(connection, 'vinted', 'mapping'):
@@ -696,7 +700,7 @@ def upgrade() -> None:
         op.create_index('idx_vinted_mapping_vinted', 'mapping', ['vinted_id'], schema='vinted')
         op.create_index('idx_vinted_mapping_my', 'mapping', ['my_category', 'my_gender'], schema='vinted')
         op.create_index('idx_vinted_mapping_default', 'mapping', ['my_category', 'my_gender', 'is_default'], schema='vinted')
-        print("  + mapping")
+        logger.info("  + mapping")
 
     # vinted_orders
     if not table_exists(connection, 'vinted', 'orders'):
@@ -720,7 +724,7 @@ def upgrade() -> None:
         )
         op.create_index('idx_orders_buyer_id', 'orders', ['buyer_id'], schema='vinted')
         op.create_index('idx_orders_status', 'orders', ['status'], schema='vinted')
-        print("  + orders")
+        logger.info("  + orders")
 
     # vinted_order_products
     if not table_exists(connection, 'vinted', 'order_products'):
@@ -739,7 +743,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('id'),
             schema='vinted'
         )
-        print("  + order_products")
+        logger.info("  + order_products")
 
     # vinted_deletions
     if not table_exists(connection, 'vinted', 'deletions'):
@@ -762,14 +766,14 @@ def upgrade() -> None:
         op.create_index('idx_deletions_id_site', 'deletions', ['id_site'], schema='vinted')
         op.create_index('idx_deletions_id_vinted', 'deletions', ['id_vinted'], schema='vinted')
         op.create_index('idx_deletions_date_deleted', 'deletions', ['date_deleted'], schema='vinted')
-        print("  + deletions")
+        logger.info("  + deletions")
 
-    print("  Done.")
+    logger.info("  Done.")
 
     # =========================================================================
     # PART 7: TEMPLATE_TENANT SCHEMA TABLES
     # =========================================================================
-    print("\n[7/9] Creating template_tenant tables...")
+    logger.info("\n[7/9] Creating template_tenant tables...")
 
     # products
     if not table_exists(connection, 'template_tenant', 'products'):
@@ -827,7 +831,7 @@ def upgrade() -> None:
         )
         op.create_index('ix_template_tenant_products_id', 'products', ['id'], schema='template_tenant')
         op.create_index('ix_template_tenant_products_status', 'products', ['status'], schema='template_tenant')
-        print("  + products")
+        logger.info("  + products")
 
     # vinted_products
     if not table_exists(connection, 'template_tenant', 'vinted_products'):
@@ -860,7 +864,7 @@ def upgrade() -> None:
             schema='template_tenant'
         )
         op.create_index('ix_template_tenant_vinted_products_status', 'vinted_products', ['status'], schema='template_tenant')
-        print("  + vinted_products")
+        logger.info("  + vinted_products")
 
     # publication_history
     if not table_exists(connection, 'template_tenant', 'publication_history'):
@@ -878,7 +882,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('id'),
             schema='template_tenant'
         )
-        print("  + publication_history")
+        logger.info("  + publication_history")
 
     # ai_generation_logs
     if not table_exists(connection, 'template_tenant', 'ai_generation_logs'):
@@ -899,7 +903,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('id'),
             schema='template_tenant'
         )
-        print("  + ai_generation_logs")
+        logger.info("  + ai_generation_logs")
 
     # vinted_connection
     if not table_exists(connection, 'template_tenant', 'vinted_connection'):
@@ -935,7 +939,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('user_id'),
             schema='template_tenant'
         )
-        print("  + vinted_connection")
+        logger.info("  + vinted_connection")
 
     # vinted_conversations
     if not table_exists(connection, 'template_tenant', 'vinted_conversations'):
@@ -960,7 +964,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('conversation_id'),
             schema='template_tenant'
         )
-        print("  + vinted_conversations")
+        logger.info("  + vinted_conversations")
 
     # vinted_messages
     if not table_exists(connection, 'template_tenant', 'vinted_messages'):
@@ -984,7 +988,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('id'),
             schema='template_tenant'
         )
-        print("  + vinted_messages")
+        logger.info("  + vinted_messages")
 
     # vinted_jobs
     if not table_exists(connection, 'template_tenant', 'vinted_jobs'):
@@ -1011,7 +1015,7 @@ def upgrade() -> None:
         )
         op.create_index('ix_templatetenant_vinted_jobs_status', 'vinted_jobs', ['status'], schema='template_tenant')
         op.create_index('ix_templatetenant_vinted_jobs_batch_id', 'vinted_jobs', ['batch_id'], schema='template_tenant')
-        print("  + vinted_jobs")
+        logger.info("  + vinted_jobs")
 
     # vinted_job_stats
     if not table_exists(connection, 'template_tenant', 'vinted_job_stats'):
@@ -1030,7 +1034,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('action_type_id', 'date'),
             schema='template_tenant'
         )
-        print("  + vinted_job_stats")
+        logger.info("  + vinted_job_stats")
 
     # plugin_tasks
     if not table_exists(connection, 'template_tenant', 'plugin_tasks'):
@@ -1059,7 +1063,7 @@ def upgrade() -> None:
         )
         op.create_index('ix_template_tenant_plugin_tasks_status', 'plugin_tasks', ['status'], schema='template_tenant')
         op.create_index('ix_template_tenant_plugin_tasks_job_id', 'plugin_tasks', ['job_id'], schema='template_tenant')
-        print("  + plugin_tasks")
+        logger.info("  + plugin_tasks")
 
     # ebay_credentials
     if not table_exists(connection, 'template_tenant', 'ebay_credentials'):
@@ -1084,7 +1088,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('user_id'),
             schema='template_tenant'
         )
-        print("  + ebay_credentials")
+        logger.info("  + ebay_credentials")
 
     # ebay_products
     if not table_exists(connection, 'template_tenant', 'ebay_products'):
@@ -1128,7 +1132,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('ebay_sku'),
             schema='template_tenant'
         )
-        print("  + ebay_products")
+        logger.info("  + ebay_products")
 
     # ebay_products_marketplace
     if not table_exists(connection, 'template_tenant', 'ebay_products_marketplace'):
@@ -1150,7 +1154,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('sku_derived'),
             schema='template_tenant'
         )
-        print("  + ebay_products_marketplace")
+        logger.info("  + ebay_products_marketplace")
 
     # ebay_promoted_listings
     if not table_exists(connection, 'template_tenant', 'ebay_promoted_listings'):
@@ -1178,7 +1182,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('ad_id'),
             schema='template_tenant'
         )
-        print("  + ebay_promoted_listings")
+        logger.info("  + ebay_promoted_listings")
 
     # ebay_orders
     if not table_exists(connection, 'template_tenant', 'ebay_orders'):
@@ -1209,7 +1213,7 @@ def upgrade() -> None:
             sa.UniqueConstraint('order_id'),
             schema='template_tenant'
         )
-        print("  + ebay_orders")
+        logger.info("  + ebay_orders")
 
     # ebay_orders_products
     if not table_exists(connection, 'template_tenant', 'ebay_orders_products'):
@@ -1231,7 +1235,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('id'),
             schema='template_tenant'
         )
-        print("  + ebay_orders_products")
+        logger.info("  + ebay_orders_products")
 
     # vinted_credentials - Vinted account credentials and profile info
     if not table_exists(connection, 'template_tenant', 'vinted_credentials'):
@@ -1270,7 +1274,7 @@ def upgrade() -> None:
             schema='template_tenant'
         )
         op.create_index('ix_template_tenant_vinted_credentials_vinted_user_id', 'vinted_credentials', ['vinted_user_id'], unique=True, schema='template_tenant')
-        print("  + vinted_credentials")
+        logger.info("  + vinted_credentials")
 
     # vinted_error_logs - Track errors during Vinted operations
     if not table_exists(connection, 'template_tenant', 'vinted_error_logs'):
@@ -1290,7 +1294,7 @@ def upgrade() -> None:
         op.create_index('idx_vinted_error_logs_product_id', 'vinted_error_logs', ['product_id'], schema='template_tenant')
         op.create_index('idx_vinted_error_logs_error_type', 'vinted_error_logs', ['error_type'], schema='template_tenant')
         op.create_index('idx_vinted_error_logs_created_at', 'vinted_error_logs', ['created_at'], schema='template_tenant')
-        print("  + vinted_error_logs")
+        logger.info("  + vinted_error_logs")
 
     # product_images - Legacy table for product images (now migrated to JSONB)
     if not table_exists(connection, 'template_tenant', 'product_images'):
@@ -1307,14 +1311,14 @@ def upgrade() -> None:
         )
         op.create_index('ix_template_tenant_product_images_product_id', 'product_images', ['product_id'], schema='template_tenant')
         op.create_index('idx_product_image_product_id_order', 'product_images', ['product_id', 'display_order'], schema='template_tenant')
-        print("  + product_images")
+        logger.info("  + product_images")
 
-    print("  Done.")
+    logger.info("  Done.")
 
     # =========================================================================
     # PART 8: SEED DATA (only for new databases)
     # =========================================================================
-    print("\n[8/9] Seeding reference data...")
+    logger.info("\n[8/9] Seeding reference data...")
 
     # Helper to check if table has data
     def table_has_data(schema: str, table: str) -> bool:
@@ -1334,9 +1338,9 @@ def upgrade() -> None:
                 (4, 'ENTERPRISE', 999999, 999999, 999999)
             ON CONFLICT (tier) DO NOTHING
         """))
-        print("  + subscription_quotas seeded")
+        logger.info("  + subscription_quotas seeded")
     else:
-        print("  - subscription_quotas already has data, skipping")
+        logger.info("  - subscription_quotas already has data, skipping")
 
     # Seed vinted action_types (only if empty)
     if not table_has_data('vinted', 'action_types'):
@@ -1351,9 +1355,9 @@ def upgrade() -> None:
                 (6, 'sync', 'Sync products', 'Synchronize all products with Vinted', 4, true, 1500, 3, 300)
             ON CONFLICT (code) DO NOTHING
         """))
-        print("  + vinted.action_types seeded")
+        logger.info("  + vinted.action_types seeded")
     else:
-        print("  - vinted.action_types already has data, skipping")
+        logger.info("  - vinted.action_types already has data, skipping")
 
     # Seed ebay marketplace_config (only if empty - uses country_code for existing DBs)
     if not table_has_data('ebay', 'marketplace_config'):
@@ -1394,9 +1398,9 @@ def upgrade() -> None:
                     ('EBAY_PL', 'PL', 212, 'PLN', true)
                 ON CONFLICT (marketplace_id) DO NOTHING
             """))
-        print("  + ebay.marketplace_config seeded")
+        logger.info("  + ebay.marketplace_config seeded")
     else:
-        print("  - ebay.marketplace_config already has data, skipping")
+        logger.info("  - ebay.marketplace_config already has data, skipping")
 
     # Seed basic genders (only if empty)
     if not table_has_data('product_attributes', 'genders'):
@@ -1408,9 +1412,9 @@ def upgrade() -> None:
                 ('Unisex', 'Unisexe', NULL)
             ON CONFLICT (name_en) DO NOTHING
         """))
-        print("  + product_attributes.genders seeded")
+        logger.info("  + product_attributes.genders seeded")
     else:
-        print("  - product_attributes.genders already has data, skipping")
+        logger.info("  - product_attributes.genders already has data, skipping")
 
     # Seed basic conditions (only if empty)
     if not table_has_data('product_attributes', 'conditions'):
@@ -1424,9 +1428,9 @@ def upgrade() -> None:
                 (1, 'Satisfactory', 'Satisfaisant', 4)
             ON CONFLICT (note) DO NOTHING
         """))
-        print("  + product_attributes.conditions seeded")
+        logger.info("  + product_attributes.conditions seeded")
     else:
-        print("  - product_attributes.conditions already has data, skipping")
+        logger.info("  - product_attributes.conditions already has data, skipping")
 
     # Seed basic sizes (only if empty)
     if not table_has_data('product_attributes', 'sizes'):
@@ -1437,9 +1441,9 @@ def upgrade() -> None:
                 ('One size', 'Taille unique')
             ON CONFLICT (name_en) DO NOTHING
         """))
-        print("  + product_attributes.sizes seeded")
+        logger.info("  + product_attributes.sizes seeded")
     else:
-        print("  - product_attributes.sizes already has data, skipping")
+        logger.info("  - product_attributes.sizes already has data, skipping")
 
     # Seed basic seasons (only if empty)
     if not table_has_data('product_attributes', 'seasons'):
@@ -1450,9 +1454,9 @@ def upgrade() -> None:
                 ('Winter', 'Hiver'), ('All seasons', 'Toutes saisons')
             ON CONFLICT (name_en) DO NOTHING
         """))
-        print("  + product_attributes.seasons seeded")
+        logger.info("  + product_attributes.seasons seeded")
     else:
-        print("  - product_attributes.seasons already has data, skipping")
+        logger.info("  - product_attributes.seasons already has data, skipping")
 
     # Seed basic fits (only if empty)
     if not table_has_data('product_attributes', 'fits'):
@@ -1465,16 +1469,16 @@ def upgrade() -> None:
                 ('cropped', 'Cropped'), ('bootcut', 'Bootcut'), ('flared', 'Flared')
             ON CONFLICT (name_en) DO NOTHING
         """))
-        print("  + product_attributes.fits seeded")
+        logger.info("  + product_attributes.fits seeded")
     else:
-        print("  - product_attributes.fits already has data, skipping")
+        logger.info("  - product_attributes.fits already has data, skipping")
 
-    print("  Done.")
+    logger.info("  Done.")
 
     # =========================================================================
     # PART 9: CREATE VIEWS AND FUNCTIONS
     # =========================================================================
-    print("\n[9/9] Creating views and functions...")
+    logger.info("\n[9/9] Creating views and functions...")
 
     # Create get_vinted_category function
     connection.execute(text("""
@@ -1530,28 +1534,28 @@ def upgrade() -> None:
         END;
         $$ LANGUAGE plpgsql;
     """))
-    print("  + vinted.get_vinted_category() function created")
+    logger.info("  + vinted.get_vinted_category() function created")
 
-    print("  Done.")
+    logger.info("  Done.")
 
-    print("\n" + "=" * 70)
-    print("SQUASHED MIGRATION COMPLETE!")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("SQUASHED MIGRATION COMPLETE!")
+    logger.info("=" * 70 + "\n")
 
 
 def downgrade() -> None:
     """Drop all tables and schemas in reverse order."""
     connection = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("DOWNGRADE: Dropping all schemas and tables")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("DOWNGRADE: Dropping all schemas and tables")
+    logger.info("=" * 70)
 
     # Drop schemas with CASCADE (will drop all contained objects)
     schemas_to_drop = ['template_tenant', 'vinted', 'ebay', 'product_attributes']
     for schema in schemas_to_drop:
         connection.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
-        print(f"  - Dropped schema: {schema}")
+        logger.info(f"  - Dropped schema: {schema}")
 
     # Drop public tables
     public_tables = [
@@ -1561,7 +1565,7 @@ def downgrade() -> None:
     ]
     for table in public_tables:
         connection.execute(text(f"DROP TABLE IF EXISTS public.{table} CASCADE"))
-        print(f"  - Dropped table: public.{table}")
+        logger.info(f"  - Dropped table: public.{table}")
 
     # Drop ENUMs
     enums = [
@@ -1572,6 +1576,6 @@ def downgrade() -> None:
     ]
     for enum in enums:
         connection.execute(text(f"DROP TYPE IF EXISTS {enum} CASCADE"))
-        print(f"  - Dropped ENUM: {enum}")
+        logger.info(f"  - Dropped ENUM: {enum}")
 
-    print("\nDOWNGRADE COMPLETE!\n")
+    logger.info("\nDOWNGRADE COMPLETE!\n")

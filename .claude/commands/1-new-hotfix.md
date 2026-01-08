@@ -8,9 +8,9 @@ Cree un nouveau worktree pour un hotfix urgent avec env dev 1 (ports 8000/3000).
    - Bash: cd ~/StoFlow && git checkout develop && git pull origin develop
    - Bash: git worktree add ~/StoFlow-[nom] -b hotfix/[nom]
    - Bash: cp ~/StoFlow/backend/.env ~/StoFlow-[nom]/backend/.env && cp ~/StoFlow/frontend/.env ~/StoFlow-[nom]/frontend/.env
-   - Bash: ln -s ~/StoFlow/backend/venv ~/StoFlow-[nom]/backend/venv && mkdir -p ~/StoFlow-[nom]/logs
+   - Bash: ln -s ~/StoFlow/backend/.venv ~/StoFlow-[nom]/backend/venv && mkdir -p ~/StoFlow-[nom]/logs
    - Bash: cd ~/StoFlow-[nom]/frontend && npm install (timeout 120000)
-   - Bash: cd ~/StoFlow-[nom] && ./dev1.sh (run_in_background: true)
+   - Bash: cd ~/StoFlow-[nom] && ./1-dev.sh (run_in_background: true)
 
 3. Affiche ce message :
 

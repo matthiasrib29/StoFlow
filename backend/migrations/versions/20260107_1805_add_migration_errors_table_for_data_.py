@@ -14,9 +14,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -30,9 +35,9 @@ def upgrade() -> None:
     """Create migration_errors table in public schema."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("📊 CREATING MIGRATION_ERRORS TABLE")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 CREATING MIGRATION_ERRORS TABLE")
+    logger.info("=" * 70 + "\n")
 
     # Create migration_errors table in public schema
     conn.execute(text("""
@@ -67,22 +72,22 @@ def upgrade() -> None:
             ON public.migration_errors(migrated_at DESC);
     """))
 
-    print("✅ Created migration_errors table in public schema")
-    print("=" * 70)
-    print("\nTable Structure:")
-    print("  - schema_name: Schema where the error occurred (user_X)")
-    print("  - product_id: ID of the affected product")
-    print("  - migration_name: Name of the migration that detected the error")
-    print("  - error_type: Type of error (e.g., 'invalid_color', 'invalid_material')")
-    print("  - error_details: Details about the invalid value")
-    print("  - migrated_at: Timestamp when the error was logged")
-    print("=" * 70 + "\n")
+    logger.info("✅ Created migration_errors table in public schema")
+    logger.info("=" * 70)
+    logger.info("\nTable Structure:")
+    logger.info("  - schema_name: Schema where the error occurred (user_X)")
+    logger.info("  - product_id: ID of the affected product")
+    logger.info("  - migration_name: Name of the migration that detected the error")
+    logger.info("  - error_type: Type of error (e.g., 'invalid_color', 'invalid_material')")
+    logger.info("  - error_details: Details about the invalid value")
+    logger.info("  - migrated_at: Timestamp when the error was logged")
+    logger.info("=" * 70 + "\n")
 
 
 def downgrade() -> None:
     """Drop migration_errors table."""
     conn = op.get_bind()
 
-    print("\n⚠️  Dropping migration_errors table...")
+    logger.info("\n⚠️  Dropping migration_errors table...")
     conn.execute(text("DROP TABLE IF EXISTS public.migration_errors CASCADE;"))
-    print("✅ Dropped migration_errors table")
+    logger.info("✅ Dropped migration_errors table")

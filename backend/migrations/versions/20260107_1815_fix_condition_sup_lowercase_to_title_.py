@@ -13,9 +13,14 @@ Purpose:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -51,9 +56,9 @@ def upgrade() -> None:
     """Fix lowercase → Title Case in condition_sup JSONB arrays."""
     conn = op.get_bind()
 
-    print("\n" + "=" * 70)
-    print("📊 FIXING CONDITION_SUP CASE (lowercase → Title Case)")
-    print("=" * 70 + "\n")
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 FIXING CONDITION_SUP CASE (lowercase → Title Case)")
+    logger.info("=" * 70 + "\n")
 
     # Mapping: lowercase → Title Case
     case_mapping = {
@@ -85,7 +90,7 @@ def upgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"📦 Processing {schema}...")
+        logger.info(f"📦 Processing {schema}...")
 
         # For each mapping, replace values in JSONB array
         products_updated_in_schema = 0
@@ -109,18 +114,18 @@ def upgrade() -> None:
             products_updated_in_schema += result.rowcount
 
         if products_updated_in_schema > 0:
-            print(f"  ✅ Updated {products_updated_in_schema} products")
+            logger.info(f"  ✅ Updated {products_updated_in_schema} products")
             total_products_updated += products_updated_in_schema
 
-    print("\n" + "=" * 70)
-    print("📊 CASE FIX SUMMARY")
-    print("=" * 70)
-    print(f"  Total products updated: {total_products_updated}")
-    print("=" * 70)
-    print("✅ CASE FIX COMPLETE")
-    print("=" * 70)
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 CASE FIX SUMMARY")
+    logger.info("=" * 70)
+    logger.info(f"  Total products updated: {total_products_updated}")
+    logger.info("=" * 70)
+    logger.info("✅ CASE FIX COMPLETE")
+    logger.info("=" * 70)
 
 
 def downgrade() -> None:
     """Revert Title Case → lowercase (not recommended)."""
-    print("\n⚠️  Downgrade not implemented (would revert valid Title Case to lowercase)")
+    logger.info("\n⚠️  Downgrade not implemented (would revert valid Title Case to lowercase)")

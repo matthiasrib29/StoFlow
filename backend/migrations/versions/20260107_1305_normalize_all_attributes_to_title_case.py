@@ -10,9 +10,14 @@ Normalize all attribute values to Title Case for consistency:
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -74,7 +79,7 @@ def upgrade() -> None:
     # ===== 1. NORMALIZE ATTRIBUTE TABLES FIRST (FK constraint) =====
 
     # 1.1 Materials - Rename lowercase to Title Case
-    print("Normalizing materials table...")
+    logger.info("Normalizing materials table...")
     for old_val, new_val in materials_map.items():
         conn.execute(text("""
             UPDATE product_attributes.materials
@@ -83,7 +88,7 @@ def upgrade() -> None:
         """), {"old_val": old_val, "new_val": new_val})
 
     # 1.2 Fits - Rename lowercase to Title Case
-    print("Normalizing fits table...")
+    logger.info("Normalizing fits table...")
     for old_val, new_val in fits_map.items():
         conn.execute(text("""
             UPDATE product_attributes.fits
@@ -95,13 +100,13 @@ def upgrade() -> None:
 
     # Get all user schemas
     user_schemas = get_user_schemas(conn)
-    print(f"Found {len(user_schemas)} user schemas")
+    logger.info(f"Found {len(user_schemas)} user schemas")
 
     for schema in user_schemas:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"Normalizing products in {schema}...")
+        logger.info(f"Normalizing products in {schema}...")
 
         # Update materials
         for old_val, new_val in materials_map.items():
@@ -119,7 +124,7 @@ def upgrade() -> None:
                 WHERE fit = :old_val
             """), {"old_val": old_val, "new_val": new_val})
 
-    print("✅ All attributes normalized to Title Case!")
+    logger.info("✅ All attributes normalized to Title Case!")
 
 
 def downgrade() -> None:
@@ -128,12 +133,12 @@ def downgrade() -> None:
 
     # Get all user schemas
     user_schemas = get_user_schemas(conn)
-    print(f"Reverting normalization in {len(user_schemas)} user schemas")
+    logger.info(f"Reverting normalization in {len(user_schemas)} user schemas")
 
     # ===== 1. REVERT ATTRIBUTE TABLES =====
 
     # 1.1 Materials - Revert to lowercase
-    print("Reverting materials table...")
+    logger.info("Reverting materials table...")
     materials_map = {
         'Corduroy': 'corduroy',
         'Elastane': 'elastane',
@@ -154,7 +159,7 @@ def downgrade() -> None:
         """), {"old_val": old_val, "new_val": new_val})
 
     # 1.2 Fits - Revert to lowercase
-    print("Reverting fits table...")
+    logger.info("Reverting fits table...")
     fits_map = {
         'Athletic': 'athletic',
         'Baggy': 'baggy',
@@ -177,7 +182,7 @@ def downgrade() -> None:
         if not table_exists(conn, schema, 'products'):
             continue
 
-        print(f"Reverting products in {schema}...")
+        logger.info(f"Reverting products in {schema}...")
 
         # Revert materials
         for new_val, old_val in materials_map.items():
@@ -195,4 +200,4 @@ def downgrade() -> None:
                 WHERE fit = :new_val
             """), {"old_val": old_val, "new_val": new_val})
 
-    print("✅ Normalization reverted successfully!")
+    logger.info("✅ Normalization reverted successfully!")

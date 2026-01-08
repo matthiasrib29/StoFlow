@@ -7,8 +7,13 @@ Create Date: 2026-01-06 14:00:00.000000+01:00
 """
 from typing import Sequence, Union
 
+
 from alembic import op
 from sqlalchemy import text
+
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
@@ -42,7 +47,7 @@ def upgrade() -> None:
         RENAME TO ix_sizes_normalized_name_en;
     """))
 
-    print("✅ Renamed sizes → sizes_normalized in product_attributes schema")
+    logger.info("✅ Renamed sizes → sizes_normalized in product_attributes schema")
 
 
 def downgrade() -> None:
@@ -69,4 +74,4 @@ def downgrade() -> None:
         RENAME TO sizes;
     """))
 
-    print("✅ Rolled back: sizes_normalized → sizes")
+    logger.info("✅ Rolled back: sizes_normalized → sizes")

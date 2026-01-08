@@ -232,6 +232,7 @@
 <script setup lang="ts">
 import type { EbayOrder, OrderStats } from '~/types/orders'
 import { EbayFulfillmentStatus, EbayPaymentStatus } from '~/types/orders'
+import { ebayLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -331,7 +332,7 @@ const fetchOrders = async () => {
     calculateStats()
   } catch (e: any) {
     error.value = e.message || 'Erreur lors du chargement des commandes'
-    console.error('Failed to fetch eBay orders:', e)
+    ebayLogger.error('Failed to fetch eBay orders:', e)
   } finally {
     loading.value = false
     refreshing.value = false

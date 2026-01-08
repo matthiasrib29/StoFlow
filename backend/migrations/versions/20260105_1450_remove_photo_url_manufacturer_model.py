@@ -11,7 +11,9 @@ Removes deprecated columns:
 """
 from alembic import op
 from sqlalchemy import text
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = '20260105_1450'
@@ -42,10 +44,10 @@ def upgrade():
     schemas = [row[0] for row in result]
 
     if not schemas:
-        print("No schemas found, skipping migration")
+        logger.info("No schemas found, skipping migration")
         return
 
-    print(f"Found {len(schemas)} schemas to migrate")
+    logger.info(f"Found {len(schemas)} schemas to migrate")
 
     for schema in schemas:
         # Check if table exists in this schema
@@ -57,7 +59,7 @@ def upgrade():
         """), {"schema": schema}).scalar()
 
         if not table_exists:
-            print(f"  {schema}: vinted_products table not found, skipping")
+            logger.info(f"  {schema}: vinted_products table not found, skipping")
             continue
 
         # Drop each column if it exists
@@ -76,9 +78,9 @@ def upgrade():
                     ALTER TABLE {schema}.vinted_products
                     DROP COLUMN IF EXISTS {column}
                 """))
-                print(f"  {schema}: dropped column {column}")
+                logger.info(f"  {schema}: dropped column {column}")
 
-    print("Migration completed successfully")
+    logger.info("Migration completed successfully")
 
 
 def downgrade():
@@ -131,4 +133,4 @@ def downgrade():
                     ALTER TABLE {schema}.vinted_products
                     ADD COLUMN {column_name} {column_type}
                 """))
-                print(f"  {schema}: added column {column_name}")
+                logger.info(f"  {schema}: added column {column_name}")

@@ -9,7 +9,9 @@ which uses color1/color2 naming convention.
 """
 from alembic import op
 from sqlalchemy import text
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = '20260105_1200'
@@ -32,10 +34,10 @@ def upgrade():
     user_schemas = [row[0] for row in result]
 
     if not user_schemas:
-        print("No user schemas found, skipping migration")
+        logger.info("No user schemas found, skipping migration")
         return
 
-    print(f"Found {len(user_schemas)} user schemas to migrate")
+    logger.info(f"Found {len(user_schemas)} user schemas to migrate")
 
     for schema in user_schemas:
         # Check if table exists in this schema
@@ -47,7 +49,7 @@ def upgrade():
         """), {"schema": schema}).scalar()
 
         if not table_exists:
-            print(f"  {schema}: vinted_products table not found, skipping")
+            logger.info(f"  {schema}: vinted_products table not found, skipping")
             continue
 
         # Check if 'color' column exists (old name)
@@ -65,7 +67,7 @@ def upgrade():
                 ALTER TABLE {schema}.vinted_products
                 RENAME COLUMN color TO color1
             """))
-            print(f"  {schema}: renamed color -> color1")
+            logger.info(f"  {schema}: renamed color -> color1")
         else:
             # Check if color1 already exists
             color1_exists = conn.execute(text("""
@@ -78,11 +80,11 @@ def upgrade():
             """), {"schema": schema}).scalar()
 
             if color1_exists:
-                print(f"  {schema}: color1 already exists, skipping")
+                logger.info(f"  {schema}: color1 already exists, skipping")
             else:
-                print(f"  {schema}: neither color nor color1 found, skipping")
+                logger.info(f"  {schema}: neither color nor color1 found, skipping")
 
-    print("Migration completed successfully")
+    logger.info("Migration completed successfully")
 
 
 def downgrade():
