@@ -1,12 +1,12 @@
 """
 Decade Model
 
-Table pour les décennies (schema public, multilingue).
+Table pour les décennies (schema product_attributes).
 
-Business Rules (Updated: 2025-12-08):
-- 7 langues supportées: EN, FR, DE, IT, ES, NL, PL
-- Ex: 1950s, 1960s, 1970s, 1980s, 1990s, 2000s, 2010s, 2020s
-- Compatibilité pythonApiWOO
+Business Rules (Updated: 2026-01-08):
+- Pas de traduction nécessaire (codes internationaux: 1950s, 1960s, 1970s, etc.)
+- Les décennies sont des codes universels utilisés dans tous les pays
+- Table read-only (aucune auto-création)
 """
 
 import os
@@ -18,10 +18,10 @@ from shared.database import Base
 
 class Decade(Base):
     """
-    Modèle pour les décennies de style vestimentaire (multilingue).
+    Modèle pour les décennies de style vestimentaire.
 
-    Extended Attributes (2025-12-08):
-    - 7 traductions (EN, FR, DE, IT, ES, NL, PL)
+    Business Rules (Updated: 2026-01-08):
+    - Pas de traduction: les codes de décennies sont internationaux
     - Utilisé pour caractériser l'époque/style du vêtement
     """
 
@@ -30,28 +30,13 @@ class Decade(Base):
 
     # ===== PRIMARY KEY =====
     name_en: Mapped[str] = mapped_column(
-        String(100), primary_key=True, index=True, comment="Nom de la décennie (EN)"
+        String(100), primary_key=True, index=True, comment="Code de la décennie"
     )
 
-    # ===== MULTILINGUAL TRANSLATIONS =====
-    name_fr: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la décennie (FR)"
-    )
-    name_de: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la décennie (DE)"
-    )
-    name_it: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la décennie (IT)"
-    )
-    name_es: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la décennie (ES)"
-    )
-    name_nl: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la décennie (NL)"
-    )
-    name_pl: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la décennie (PL)"
-    )
+    @property
+    def name(self) -> str:
+        """Alias pour compatibilité: name_en → name"""
+        return self.name_en
 
     def __repr__(self) -> str:
-        return f"<Decade(name_en='{self.name_en}', name_fr='{self.name_fr}')>"
+        return f"<Decade(name_en='{self.name_en}')>"
