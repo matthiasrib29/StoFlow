@@ -45,7 +45,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models.user.vinted_product import VintedProduct
-from services.plugin_task_helper import create_and_wait
+# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
 from services.vinted.vinted_data_extractor import VintedDataExtractor
 from services.vinted.vinted_product_enricher import VintedProductEnricher
 from shared.schema_utils import restore_search_path_after_rollback, commit_and_restore_path

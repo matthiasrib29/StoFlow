@@ -16,7 +16,7 @@ from dateutil.parser import parse as parse_datetime
 from sqlalchemy.orm import Session
 
 from repositories.vinted_conversation_repository import VintedConversationRepository
-from services.plugin_task_helper import create_and_wait
+# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
 from shared.schema_utils import SchemaManager
 from shared.vinted_constants import VintedConversationAPI, VintedReferers
 from shared.logging_setup import get_logger

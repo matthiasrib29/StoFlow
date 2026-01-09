@@ -18,7 +18,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from models.user.plugin_task import PluginTask, TaskStatus
+# from models.user.plugin_task import  # REMOVED (2026-01-09): WebSocket architecture PluginTask, TaskStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from shared.logging_setup import get_logger
 
@@ -245,6 +245,8 @@ class VintedJobStatusManager:
     @staticmethod
     def _cancel_job_tasks(db: Session, job_id: int) -> int:
         """
+        DEPRECATED (2026-01-09): WebSocket architecture, no granular tasks in DB.
+
         Cancel all pending tasks for a job.
 
         Args:
@@ -252,26 +254,10 @@ class VintedJobStatusManager:
             job_id: Job ID
 
         Returns:
-            Number of tasks cancelled
+            Number of tasks cancelled (always 0 now)
         """
-        pending_tasks = (
-            db.query(PluginTask)
-            .filter(
-                PluginTask.job_id == job_id,
-                PluginTask.status == TaskStatus.PENDING,
-            )
-            .all()
-        )
-
-        for task in pending_tasks:
-            task.status = TaskStatus.CANCELLED
-            task.error_message = "Parent job cancelled"
-            task.completed_at = datetime.now(timezone.utc)
-
-        if pending_tasks:
-            db.commit()
-
-        return len(pending_tasks)
+        # WebSocket architecture: no PluginTask in DB, cancellation handled real-time
+        return 0
 
 
 __all__ = ["VintedJobStatusManager", "JOB_EXPIRATION_HOURS"]

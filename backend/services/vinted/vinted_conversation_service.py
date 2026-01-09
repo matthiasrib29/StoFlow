@@ -27,7 +27,7 @@ from repositories.vinted_conversation_repository import (
     VintedConversationRepository,
     VintedMessageRepository,
 )
-from services.plugin_task_helper import create_and_wait
+# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
 from services.vinted.vinted_inbox_sync_service import VintedInboxSyncService
 from shared.schema_utils import SchemaManager, commit_and_restore_path
 from shared.vinted_constants import VintedConversationAPI, VintedReferers

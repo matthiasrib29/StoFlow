@@ -16,7 +16,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
-from services.plugin_task_helper import create_and_wait
+# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
 from services.vinted.vinted_data_extractor import VintedDataExtractor
 from shared.schema_utils import SchemaManager, commit_and_restore_path
 from shared.vinted_constants import VintedOrderAPI, VintedConversationAPI
