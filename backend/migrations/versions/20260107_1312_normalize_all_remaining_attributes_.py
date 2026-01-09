@@ -6,7 +6,7 @@ Create Date: 2026-01-07 13:12:40.783308+01:00
 
 Normalize ALL remaining attributes to Title Case:
 - colors, genders, closures, origins, rises, sleeve_lengths, necklines, lengths
-- condition_sup, decades, trends, unique_features, sports, patterns
+- condition_sups, decades, trends, unique_features, sports, patterns
 - Total: ~8628 products affected
 """
 from typing import Sequence, Union
@@ -59,6 +59,11 @@ def normalize_table(conn, table_name, schemas=None):
         table_name: Name of the attribute table
         schemas: List of user schemas (for product updates)
     """
+    # Check if table exists first (idempotent)
+    if not table_exists(conn, 'product_attributes', table_name):
+        logger.info(f"  ⏭️  {table_name}: Table does not exist, skipping")
+        return 0
+
     # Get all lowercase values
     result = conn.execute(text(f"""
         SELECT name_en FROM product_attributes.{table_name}
@@ -134,7 +139,7 @@ def upgrade() -> None:
 
     # Tables without products FK (just attribute normalization)
     tables_no_fk = [
-        'condition_sup',
+        'condition_sups',
         'decades',
         'trends',
         'unique_features',
@@ -148,7 +153,6 @@ def upgrade() -> None:
     # ===== 1. NORMALIZE ATTRIBUTE TABLES FIRST (FK constraint) =====
 
     logger.info("📦 STEP 1: Normalizing attribute tables...")
-    logger.info()
 
     # Tables with FK
     for table_name, column_name in tables_with_fk:
@@ -163,9 +167,12 @@ def upgrade() -> None:
     # ===== 2. UPDATE PRODUCTS =====
 
     logger.info(f"\n📦 STEP 2: Updating products in {len(user_schemas)} schemas...")
-    logger.info()
 
     for table_name, column_name in tables_with_fk:
+        # Skip if table doesn't exist
+        if not table_exists(conn, 'product_attributes', table_name):
+            continue
+
         # Get lowercase values (before normalization)
         result = conn.execute(text(f"""
             SELECT name_en FROM product_attributes.{table_name}
@@ -213,7 +220,7 @@ def downgrade() -> None:
         ('sleeve_lengths', 'sleeve_length'),
         ('necklines', 'neckline'),
         ('lengths', 'length'),
-        ('condition_sup', None),
+        ('condition_sups', None),
         ('decades', None),
         ('trends', None),
         ('unique_features', None),

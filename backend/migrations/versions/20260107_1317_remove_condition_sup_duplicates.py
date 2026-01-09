@@ -30,9 +30,25 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def table_exists(conn, schema, table):
+    """Check if a table exists."""
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = :schema AND table_name = :table
+        )
+    """), {"schema": schema, "table": table})
+    return result.scalar()
+
+
 def upgrade() -> None:
-    """Remove duplicate condition_sup values."""
+    """Remove duplicate condition_sups values."""
     conn = op.get_bind()
+
+    # Check if table exists (idempotent)
+    if not table_exists(conn, 'product_attributes', 'condition_sups'):
+        logger.info("⏭️  condition_sups table does not exist, skipping")
+        return
 
     duplicates_to_remove = [
         'Acceptable condition',
@@ -42,12 +58,12 @@ def upgrade() -> None:
         'Very good condition'
     ]
 
-    logger.info(f"Removing {len(duplicates_to_remove)} duplicate condition_sup values...")
+    logger.info(f"Removing {len(duplicates_to_remove)} duplicate condition_sups values...")
 
     for duplicate in duplicates_to_remove:
         logger.info(f"  🗑️  Deleting: {duplicate}")
         conn.execute(text("""
-            DELETE FROM product_attributes.condition_sup
+            DELETE FROM product_attributes.condition_sups
             WHERE name_en = :duplicate
         """), {"duplicate": duplicate})
 
@@ -55,8 +71,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Restore removed condition_sup duplicates."""
+    """Restore removed condition_sups duplicates."""
     conn = op.get_bind()
+
+    # Check if table exists (idempotent)
+    if not table_exists(conn, 'product_attributes', 'condition_sups'):
+        logger.info("⏭️  condition_sups table does not exist, skipping")
+        return
 
     duplicates_to_restore = [
         'Acceptable condition',
@@ -66,12 +87,12 @@ def downgrade() -> None:
         'Very good condition'
     ]
 
-    logger.info(f"Restoring {len(duplicates_to_restore)} condition_sup values...")
+    logger.info(f"Restoring {len(duplicates_to_restore)} condition_sups values...")
 
     for duplicate in duplicates_to_restore:
         logger.info(f"  ✏️  Restoring: {duplicate}")
         conn.execute(text("""
-            INSERT INTO product_attributes.condition_sup (name_en)
+            INSERT INTO product_attributes.condition_sups (name_en)
             VALUES (:duplicate)
             ON CONFLICT (name_en) DO NOTHING
         """), {"duplicate": duplicate})

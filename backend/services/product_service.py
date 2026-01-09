@@ -148,9 +148,8 @@ class ProductService:
             brand=product_data.brand,
             condition=product_data.condition,
             size_original=size_original,
-            # ✂️ REMOVED: color=..., material=... (use M2M only)
-            # condition_sup can remain for now (used by API)
-            condition_sup=validated_condition_sups if validated_condition_sups else None,
+            # ✂️ REMOVED: color=..., material=..., condition_sup=... (use M2M only)
+            # All M2M data goes via product_colors, product_materials, product_condition_sups tables
             fit=product_data.fit,
             gender=product_data.gender,
             season=product_data.season,
@@ -214,6 +213,7 @@ class ProductService:
         )
 
         # Create minimal product in DRAFT status
+        # ✂️ REMOVED: color=..., material=... (deprecated columns, use M2M only)
         product = Product(
             title="",  # Empty to identify auto-created drafts
             description=None,
@@ -222,8 +222,6 @@ class ProductService:
             brand=None,
             condition=None,
             size_original=None,
-            color=None,
-            material=None,
             gender=None,
             stock_quantity=1,  # Default stock
             status=ProductStatus.DRAFT,
@@ -397,10 +395,9 @@ class ProductService:
         validated_condition_sups = None
         if condition_sups_to_update is not None:
             validated_condition_sups = AttributeValidator.validate_condition_sups(db, condition_sups_to_update)
-            # Update the old column for backward compat (will be removed in Phase 4)
-            update_dict['condition_sup'] = validated_condition_sups if validated_condition_sups else None
+            # ✂️ REMOVED: condition_sup column (M2M table only)
 
-        # ✂️ 2026-01-07: STOPPED updating deprecated color/material columns (Phase 1)
+        # ✂️ 2026-01-07: STOPPED updating deprecated color/material/condition_sup columns (Phase 1)
         # Previously: if validated_colors is not None: update_dict['color'] = ...
         # Previously: if validated_materials is not None: update_dict['material'] = ...
         # Now: M2M tables only
