@@ -92,9 +92,9 @@ def upgrade() -> None:
     logger.info(f"✅ Updated {len(stretch_updates)} stretch values")
 
     # ========================================================================
-    # STEP 2: Migrate product_condition_sups references (Title → Sentence)
+    # STEP 2a: Insert Sentence case values into condition_sups table FIRST
     # ========================================================================
-    logger.info("Step 2: Migrating product_condition_sups references...")
+    logger.info("Step 2a: Creating Sentence case values in condition_sups...")
 
     condition_sups_mapping = [
         ("Damaged Button", "Damaged button"),
@@ -112,6 +112,27 @@ def upgrade() -> None:
         ("Vintage Patina", "Vintage patina"),
         ("Vintage Wear", "Vintage wear"),
     ]
+
+    # Insert Sentence case values (copy translations from Title case)
+    for title_case, sentence_case in condition_sups_mapping:
+        conn.execute(text("""
+            INSERT INTO product_attributes.condition_sups (
+                name_en, name_fr, name_de, name_it, name_es, name_nl, name_pl
+            )
+            SELECT
+                :sentence_case,
+                name_fr, name_de, name_it, name_es, name_nl, name_pl
+            FROM product_attributes.condition_sups
+            WHERE name_en = :title_case
+            ON CONFLICT (name_en) DO NOTHING;
+        """), {"title_case": title_case, "sentence_case": sentence_case})
+
+    logger.info(f"✅ Created {len(condition_sups_mapping)} Sentence case values")
+
+    # ========================================================================
+    # STEP 2b: Migrate product_condition_sups references (Title → Sentence)
+    # ========================================================================
+    logger.info("Step 2b: Migrating product_condition_sups references...")
 
     total_updated = 0
     schemas = get_user_schemas(conn)
