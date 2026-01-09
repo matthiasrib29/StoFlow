@@ -7,7 +7,7 @@ which has been replaced by WebSocket real-time communication.
 Note: marketplace_tasks was renamed to marketplace_tasks on 2026-01-07.
 
 Revision ID: 20260109_0100
-Revises: 20260108_1922
+Revises: 53a8b38c9737
 Create Date: 2026-01-09
 
 """
@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 # revision identifiers, used by Alembic.
 revision = "20260109_0100"
-down_revision = "20260108_1922"
+down_revision = "53a8b38c9737"
 branch_labels = None
 depends_on = None
 
