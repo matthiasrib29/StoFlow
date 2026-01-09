@@ -3,19 +3,79 @@ Ownership Checker
 
 Helper pour vérifier que l'utilisateur a le droit d'accéder à une ressource.
 
-Business Rules (2025-12-08):
+Business Rules (Updated: 2026-01-08):
 - USER: Isolation stricte, ne peut accéder qu'à ses propres données
 - ADMIN: Accès à toutes les ressources
 - SUPPORT: Lecture seule sur toutes les ressources
+- Defense-in-depth: Vérifie l'isolation par schema PostgreSQL
 
 Author: Claude
 Date: 2025-12-08
+Updated: 2026-01-08 - Added schema isolation verification
 """
 
 from fastapi import HTTPException, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.public.user import User, UserRole
+from shared.logging_setup import get_logger
+
+logger = get_logger(__name__)
+
+
+def verify_schema_isolation(db: Session, expected_user_id: int) -> bool:
+    """
+    Verify that the database session is using the correct user schema.
+
+    Defense-in-depth check: Ensures that the session's search_path
+    matches the expected user schema. This is an optional paranoid check
+    on top of the get_user_db() dependency.
+
+    Args:
+        db: SQLAlchemy session
+        expected_user_id: User ID that should own this session
+
+    Returns:
+        True if schema isolation is correct
+
+    Raises:
+        HTTPException: 500 if schema mismatch detected (security violation)
+
+    Usage:
+        # Optional paranoid check on sensitive endpoints
+        db, current_user = user_db
+        verify_schema_isolation(db, current_user.id)
+    """
+    try:
+        # Get current search_path
+        result = db.execute(text("SHOW search_path")).fetchone()
+        current_path = result[0] if result else ""
+
+        expected_schema = f"user_{expected_user_id}"
+
+        # Check if user schema is first in search_path
+        if not current_path.startswith(expected_schema):
+            logger.error(
+                f"[SecurityViolation] Schema mismatch detected! "
+                f"Expected: {expected_schema}, Got: {current_path}, "
+                f"User ID: {expected_user_id}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Security violation detected"
+            )
+
+        return True
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[SecurityCheck] Failed to verify schema: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Security check failed"
+        )
 
 
 def check_resource_ownership(
@@ -181,6 +241,7 @@ def can_view_resource(user: User, resource_user_id: int) -> bool:
 
 
 __all__ = [
+    "verify_schema_isolation",
     "check_resource_ownership",
     "ensure_user_owns_resource",
     "ensure_can_modify",

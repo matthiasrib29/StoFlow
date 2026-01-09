@@ -66,7 +66,7 @@ Chaque utilisateur a son propre schema PostgreSQL isolé :
 |--------|---------|
 | `public` | Tables partagées (users, subscription_quotas) |
 | `product_attributes` | Attributs partagés (brands, colors, conditions, materials, sizes, categories) |
-| `user_X` | Données utilisateur (products, vinted_products, plugin_tasks, vinted_jobs) |
+| `user_X` | Données utilisateur (products, vinted_products, vinted_jobs) |
 | `template_tenant` | Template cloné pour nouveaux users |
 
 Isolation via `SET search_path TO user_{id}, public` dans `shared/database.py:set_user_schema()`.
@@ -89,20 +89,43 @@ Isolation via `SET search_path TO user_{id}, public` dans `shared/database.py:se
 ### Marketplace Integrations
 
 ```
-Backend → API Bridge → Plugin (Firefox) → Vinted API
+Backend → WebSocket → Frontend → Plugin (Firefox) → Vinted API
 Backend → Direct OAuth2 → eBay API
 Backend → Direct OAuth2 → Etsy API
 ```
 
+### Plugin Communication Architecture (2026-01-09)
+
+**WebSocket-based Real-Time Communication**
+
+```
+Backend (VintedJob) → WebSocket → Frontend → Plugin (Browser Extension)
+                    ← WebSocket ← Frontend ← Plugin (Browser Extension)
+```
+
+**Architecture Components:**
+
+| Component | Role | Key Files |
+|-----------|------|-----------|
+| **Backend** | Sends plugin commands via WebSocket | `services/websocket_service.py`<br/>`services/plugin_websocket_helper.py` |
+| **Frontend** | Relays commands between backend & plugin | `composables/useWebSocket.ts`<br/>`composables/useVintedBridge.ts` |
+| **Plugin** | Executes Vinted API calls in browser context | Browser extension (Firefox/Chrome) |
+
+**Key Features:**
+- ✅ Real-time bidirectional communication (no polling)
+- ✅ VintedJob orchestration preserved (retry, batch, monitoring)
+- ✅ Frontend as transparent relay
+- ✅ Automatic reconnection on disconnect
+
 ### Vinted Job System
 
-Orchestration à deux niveaux :
+High-level orchestration system (unchanged):
 
 ```
 VintedJob (opération business)
-├── PluginTask #1 (requête HTTP via plugin)
-├── PluginTask #2
-└── PluginTask #N
+├── WebSocket Command #1 → Plugin
+├── WebSocket Command #2 → Plugin
+└── WebSocket Command #N → Plugin
 ```
 
 #### VintedJob (High-level)
@@ -119,17 +142,141 @@ VintedJob (opération business)
 | `orders` | `OrdersJobHandler` | Récupérer ventes |
 | `message` | `MessageJobHandler` | Sync messages |
 
-#### PluginTask (Low-level)
-- **Table** : `user_X.plugin_tasks`
-- **Status** : pending → processing → completed/failed/timeout
-- **Lié à** : VintedJob via `job_id` FK
+#### WebSocket Communication (Low-level)
+- **Protocol** : Socket.IO over WebSocket
+- **Flow** : Backend → Frontend → Plugin → Frontend → Backend
+- **Timeout** : 60s par défaut (configurable)
+- **Reconnection** : Automatique avec backoff (1-5s)
 
 #### Key Files
 - `models/user/vinted_job.py` - VintedJob model
-- `models/user/plugin_task.py` - PluginTask model
+- `models/user/marketplace_job.py` - MarketplaceJob base model
+- `services/websocket_service.py` - SocketIO server & event handlers
+- `services/plugin_websocket_helper.py` - Helper for plugin calls
 - `services/vinted/vinted_job_service.py` - Job CRUD
-- `services/vinted/vinted_job_processor.py` - Job orchestrator
+- `services/vinted/vinted_job_processor.py` - Job orchestrator (sets user_id) **DEPRECATED**
+- `services/vinted/jobs/base_job_handler.py` - Base handler (uses WebSocket)
 - `services/vinted/jobs/` - Handler implementations
+
+---
+
+## Unified Job System (2026-01-09)
+
+**MarketplaceJobProcessor** - Unified orchestrator for all marketplaces (Vinted, eBay, Etsy).
+
+### Architecture Overview
+
+```
+MarketplaceJobProcessor (Unified)
+├── Dispatch → VINTED_HANDLERS (7 handlers, WebSocket)
+├── Dispatch → EBAY_HANDLERS (5 handlers, Direct HTTP)
+└── Dispatch → ETSY_HANDLERS (5 handlers, Direct HTTP)
+
+BaseJobHandler (Extended)
+├── call_websocket() → For Vinted (Plugin via WebSocket)
+└── call_http() → For eBay/Etsy (Direct OAuth2 HTTP)
+
+Action Types (Unified)
+└── public.marketplace_action_types (1 table, marketplace column)
+```
+
+### Communication Patterns
+
+| Marketplace | Pattern | Method |
+|-------------|---------|--------|
+| **Vinted** | WebSocket → Frontend → Plugin | `handler.call_websocket()` |
+| **eBay** | Direct HTTP OAuth 2.0 | `handler.call_http()` |
+| **Etsy** | Direct HTTP OAuth 2.0 | `handler.call_http()` |
+
+### Creating a Job
+
+```python
+from services.marketplace import MarketplaceJobService
+
+service = MarketplaceJobService(db)
+
+# Vinted job
+job = service.create_job(
+    marketplace="vinted",
+    action_code="publish",
+    product_id=123,
+    priority=2
+)
+
+# eBay job
+job = service.create_job(
+    marketplace="ebay",
+    action_code="publish",
+    product_id=123
+)
+
+# Etsy job
+job = service.create_job(
+    marketplace="etsy",
+    action_code="publish",
+    product_id=123
+)
+```
+
+### Processing Jobs
+
+```python
+from services.marketplace import MarketplaceJobProcessor
+
+# Process Vinted jobs
+processor = MarketplaceJobProcessor(db, user_id=1, shop_id=123, marketplace="vinted")
+result = await processor.process_next_job()
+
+# Process eBay jobs
+processor = MarketplaceJobProcessor(db, user_id=1, marketplace="ebay")
+result = await processor.process_next_job()
+
+# Process Etsy jobs
+processor = MarketplaceJobProcessor(db, user_id=1, marketplace="etsy")
+result = await processor.process_next_job()
+
+# Process all marketplaces (highest priority first)
+processor = MarketplaceJobProcessor(db, user_id=1)
+result = await processor.process_next_job()
+```
+
+### Handler Pattern
+
+Each marketplace has handlers in `services/{marketplace}/jobs/`:
+
+**Handler Registry Format**: `{action_code}_{marketplace}` → Handler class
+
+Examples:
+- `publish_vinted` → `VintedPublishJobHandler`
+- `publish_ebay` → `EbayPublishJobHandler`
+- `sync_etsy` → `EtsySyncJobHandler`
+
+### Available Handlers
+
+| Marketplace | Handlers |
+|-------------|----------|
+| **Vinted** | publish, update, delete, sync, orders, message, link |
+| **eBay** | publish, update, delete, sync, sync_orders |
+| **Etsy** | publish, update, delete, sync, sync_orders |
+
+### Key Files (Unified System)
+
+- `models/public/marketplace_action_type.py` - Unified action types model
+- `services/marketplace/marketplace_job_processor.py` - Unified processor
+- `services/marketplace/marketplace_job_service.py` - Unified service
+- `services/marketplace_http_helper.py` - HTTP helper for direct API calls
+- `services/vinted/jobs/base_job_handler.py` - Base handler (WebSocket + HTTP)
+- `services/ebay/jobs/` - eBay handler implementations
+- `services/etsy/jobs/` - Etsy handler implementations
+- `migrations/versions/20260109_*.py` - Unification migrations
+
+### Migration Guide
+
+See `MIGRATION_JOB_UNIFICATION.md` for complete migration guide.
+
+**Deprecation Notice**: `VintedJobProcessor` is deprecated as of 2026-01-09 and will be removed in February 2026. Use `MarketplaceJobProcessor` instead.
+
+---
 
 ### Product Business Rules
 - Cannot publish with `stock_quantity = 0`
@@ -339,6 +486,27 @@ Données partagées gérées via migrations Alembic :
 - Service Layer obligatoire : routes délèguent la logique aux services
 - Dependency Injection pour DB session, auth, configuration
 - Response models Pydantic pour typer les retours
+
+**REST API Design (CRITICAL)**
+- **Endpoints Spécifiques > Endpoints Génériques** : Toujours préférer `/products/{id}/publish` à `/products/{id}/actions?action=publish`
+- **Ressources + Verbes HTTP** : GET (liste/détail), POST (créer), PUT (remplacer), PATCH (modifier), DELETE (supprimer)
+- **Actions non-CRUD = Sous-ressources** : POST `/products/{id}/publish`, POST `/products/{id}/duplicate`, POST `/products/{id}/archive`
+- **1 Endpoint = 1 Action** : Éviter les giant if/elif sur un paramètre "action" dans le body
+- **Validation forte par endpoint** : Chaque endpoint a son propre schema Pydantic (CreateRequest, UpdateRequest, PublishRequest)
+- **Response models différenciés** : PublishResponse, ArchiveResponse, DuplicateResponse (pas de dict générique)
+
+**Pourquoi endpoints spécifiques:**
+- ✅ Documentation OpenAPI complète et claire
+- ✅ Rate limiting granulaire par action
+- ✅ Monitoring/logs précis par action
+- ✅ Permissions RBAC par endpoint
+- ✅ Cache HTTP différencié
+- ✅ Découvrabilité (voir toutes les actions possibles)
+
+**Exception: Endpoint générique autorisé UNIQUEMENT pour:**
+- Batch operations (plusieurs actions différentes en 1 requête)
+- Webhooks externes (format imposé par provider comme Stripe)
+- RPC-style assumé (GraphQL, gRPC, mais pas REST)
 
 **Async/Sync**
 - `def` (sync) pour routes avec SQLAlchemy sync - FastAPI exécute dans threadpool

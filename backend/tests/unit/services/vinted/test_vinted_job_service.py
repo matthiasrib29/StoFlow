@@ -15,7 +15,8 @@ import pytest
 from models.vinted.vinted_action_type import VintedActionType
 from models.user.marketplace_job import MarketplaceJob, JobStatus
 from models.user.vinted_job_stats import VintedJobStats
-from models.user.plugin_task import PluginTask, TaskStatus
+# REMOVED (2026-01-09): PluginTask system replaced by WebSocket communication
+# from models.user.plugin_task import PluginTask, TaskStatus
 
 
 # =============================================================================
@@ -548,62 +549,17 @@ class TestInterruptedJobs:
 
 
 # =============================================================================
-# TESTS - TASK MANAGEMENT
+# TESTS - TASK MANAGEMENT (REMOVED 2026-01-09)
 # =============================================================================
 
-
-class TestTaskManagement:
-    """Tests pour la gestion des tâches liées aux jobs."""
-
-    def test_cancel_job_tasks(self, mock_db, sample_job):
-        """Test annulation des tâches d'un job via StatusManager."""
-        from services.vinted.vinted_job_status_manager import VintedJobStatusManager
-
-        # Créer des tâches mockées
-        tasks = []
-        for i in range(3):
-            task = MagicMock(spec=PluginTask)
-            task.id = i + 1
-            task.job_id = 1
-            task.status = TaskStatus.PENDING
-            tasks.append(task)
-
-        mock_db.query.return_value.filter.return_value.all.return_value = tasks
-
-        count = VintedJobStatusManager._cancel_job_tasks(mock_db, job_id=1)
-
-        assert count == 3
-        for task in tasks:
-            assert task.status == TaskStatus.CANCELLED
-            assert task.error_message == "Parent job cancelled"
-
-    def test_get_job_progress(self, mock_db):
-        """Test récupération de la progression d'un job."""
-        from services.vinted.vinted_job_service import VintedJobService
-
-        # Créer des tâches avec différents statuts
-        tasks = []
-        for i, status in enumerate([
-            TaskStatus.SUCCESS, TaskStatus.SUCCESS,
-            TaskStatus.FAILED,
-            TaskStatus.PENDING
-        ]):
-            task = MagicMock(spec=PluginTask)
-            task.id = i + 1
-            task.job_id = 1
-            task.status = status
-            tasks.append(task)
-
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = tasks
-
-        service = VintedJobService(mock_db)
-        progress = service.get_job_progress(job_id=1)
-
-        assert progress["total"] == 4
-        assert progress["completed"] == 2
-        assert progress["failed"] == 1
-        assert progress["pending"] == 1
-        assert progress["progress_percent"] == 50.0
+# REMOVED (2026-01-09): TestTaskManagement class
+# This class tested the PluginTask system which has been replaced by WebSocket communication.
+# Tests included:
+# - test_cancel_job_tasks: Tested cancelling plugin tasks when a job is cancelled
+# - test_get_job_progress: Tested getting job progress from plugin tasks
+#
+# These tests are no longer relevant as VintedJob now communicates directly via WebSocket
+# without creating intermediate PluginTask records in the database.
 
 
 # =============================================================================

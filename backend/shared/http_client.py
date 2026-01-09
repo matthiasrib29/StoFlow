@@ -1,61 +1,59 @@
 """
-Base HTTP Client for OAuth-authenticated APIs.
+Centralized HTTP Client
 
-Ce module fournit une classe de base pour les clients HTTP OAuth
-utilisés par les intégrations marketplace (eBay, Etsy, etc.).
+Provides configured HTTP client with:
+- Consistent timeout configuration
+- Retry logic with exponential backoff
+- Error handling
+- Resource management
+- Rate limiting (RateLimiter class for backwards compatibility)
 
-Features:
-- Gestion automatique des headers d'authentification
-- Rate limiting configurable
-- Retry avec backoff exponentiel
-- Gestion unifiée des erreurs
-- Logging standardisé
-
+Created: 2026-01-08
 Author: Claude
-Date: 2025-12-12
 """
 
+import asyncio
 import random
 import time
-from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
-import requests
+import httpx
+from httpx import Response, TimeoutException, ConnectError, ReadError
 
-from shared.exceptions import (
-    MarketplaceAuthError,
-    MarketplaceError,
-    MarketplaceRateLimitError,
-)
+from shared.config import get_settings
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
+settings = get_settings()
 
 
 class RateLimiter:
     """
-    Rate limiter simple avec délai configurable.
+    Simple rate limiter with configurable delay.
+
+    Used by eBay and Etsy clients for backwards compatibility.
+    For new code, prefer using HTTPClient with retry logic.
 
     Attributes:
-        min_delay: Délai minimum entre requêtes (secondes)
-        max_delay: Délai maximum entre requêtes (secondes)
-        last_request_time: Timestamp de la dernière requête
+        min_delay: Minimum delay between requests (seconds)
+        max_delay: Maximum delay between requests (seconds)
+        last_request_time: Timestamp of last request
     """
 
     def __init__(self, min_delay: float = 0.3, max_delay: float = 0.8):
         """
-        Initialise le rate limiter.
+        Initialize the rate limiter.
 
         Args:
-            min_delay: Délai minimum entre requêtes (défaut: 0.3s)
-            max_delay: Délai maximum entre requêtes (défaut: 0.8s)
+            min_delay: Minimum delay between requests (default: 0.3s)
+            max_delay: Maximum delay between requests (default: 0.8s)
         """
         self.min_delay = min_delay
         self.max_delay = max_delay
         self.last_request_time = 0.0
 
     def wait(self) -> None:
-        """Attend le délai nécessaire avant la prochaine requête."""
+        """Wait for the necessary delay before the next request."""
         now = time.time()
         elapsed = now - self.last_request_time
 
@@ -66,277 +64,348 @@ class RateLimiter:
         self.last_request_time = time.time()
 
 
-class BaseOAuthHttpClient(ABC):
+class HTTPClient:
     """
-    Classe de base pour les clients HTTP OAuth.
+    Centralized HTTP client with timeout and retry configuration.
 
-    Cette classe fournit la logique commune pour :
-    - Construction des headers avec token OAuth
-    - Rate limiting
-    - Retry avec backoff
-    - Gestion des erreurs HTTP
+    Usage:
+        async with HTTPClient() as client:
+            response = await client.get("https://example.com")
+            data = response.json()
 
-    Les sous-classes doivent implémenter:
-    - get_access_token(): Récupère le token OAuth valide
-    - PLATFORM_NAME: Nom de la plateforme pour les logs/erreurs
-
-    Example:
-        >>> class EbayClient(BaseOAuthHttpClient):
-        ...     PLATFORM_NAME = "ebay"
-        ...
-        ...     def get_access_token(self) -> str:
-        ...         return self._load_token_from_db()
-        ...
-        >>> client = EbayClient(base_url="https://api.ebay.com")
-        >>> result = client.api_call("GET", "/sell/inventory/v1/item/SKU-123")
+    Or with retry:
+        async with HTTPClient() as client:
+            response = await client.get_with_retry("https://example.com", max_retries=3)
     """
-
-    PLATFORM_NAME: str = "unknown"
 
     def __init__(
         self,
-        base_url: str,
-        timeout: int = 30,
-        max_retries: int = 3,
-        rate_limiter: Optional[RateLimiter] = None,
+        timeout_connect: Optional[float] = None,
+        timeout_read: Optional[float] = None,
+        timeout_write: Optional[float] = None,
+        timeout_pool: Optional[float] = None,
+        max_retries: Optional[int] = None,
+        backoff_factor: Optional[float] = None,
     ):
         """
-        Initialise le client HTTP.
+        Initialize HTTP client with timeout configuration.
 
         Args:
-            base_url: URL de base de l'API (ex: "https://api.ebay.com")
-            timeout: Timeout en secondes pour les requêtes (défaut: 30)
-            max_retries: Nombre maximum de retries (défaut: 3)
-            rate_limiter: Rate limiter custom (optionnel)
+            timeout_connect: Connection timeout (default from settings)
+            timeout_read: Read timeout (default from settings)
+            timeout_write: Write timeout (default from settings)
+            timeout_pool: Pool timeout (default from settings)
+            max_retries: Maximum retry attempts (default from settings)
+            backoff_factor: Exponential backoff factor (default from settings)
         """
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
-        self.max_retries = max_retries
-        self.rate_limiter = rate_limiter or RateLimiter()
+        self.timeout_connect = timeout_connect or settings.http_timeout_connect
+        self.timeout_read = timeout_read or settings.http_timeout_read
+        self.timeout_write = timeout_write or settings.http_timeout_write
+        self.timeout_pool = timeout_pool or settings.http_timeout_pool
+        self.max_retries = max_retries or settings.http_max_retries
+        self.backoff_factor = backoff_factor or settings.http_retry_backoff_factor
 
-    @abstractmethod
-    def get_access_token(self) -> str:
-        """
-        Récupère le token OAuth valide.
-
-        Cette méthode doit être implémentée par les sous-classes.
-        Elle devrait:
-        - Retourner un token valide depuis le cache
-        - Ou refresh le token si expiré
-        - Ou lever une exception si impossible
-
-        Returns:
-            str: Token OAuth valide
-
-        Raises:
-            MarketplaceAuthError: Si impossible d'obtenir un token
-        """
-        pass
-
-    def _build_headers(
-        self,
-        access_token: str,
-        content_type: str = "application/json",
-        extra_headers: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, str]:
-        """
-        Construit les headers HTTP standard.
-
-        Args:
-            access_token: Token OAuth
-            content_type: Content-Type header (défaut: application/json)
-            extra_headers: Headers supplémentaires à fusionner
-
-        Returns:
-            Dict des headers
-        """
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": content_type,
-        }
-
-        if extra_headers:
-            headers.update(extra_headers)
-
-        return headers
-
-    def _handle_error_response(
-        self,
-        response: requests.Response,
-        method: str,
-        path: str,
-    ) -> None:
-        """
-        Gère les réponses d'erreur HTTP.
-
-        Args:
-            response: Réponse HTTP
-            method: Méthode HTTP utilisée
-            path: Chemin de l'endpoint
-
-        Raises:
-            MarketplaceRateLimitError: Si 429 Too Many Requests
-            MarketplaceAuthError: Si 401/403
-            MarketplaceAPIError: Pour les autres erreurs
-        """
-        status_code = response.status_code
-
-        # Essayer de parser le body d'erreur
-        error_body = None
-        try:
-            error_body = response.json()
-        except (ValueError, requests.exceptions.JSONDecodeError):
-            error_body = {"raw_text": response.text[:500] if response.text else None}
-
-        # Rate limit
-        if status_code == 429:
-            retry_after = response.headers.get("Retry-After")
-            raise MarketplaceRateLimitError(
-                platform=self.PLATFORM_NAME,
-                retry_after=int(retry_after) if retry_after else None,
-                operation=method.lower(),
-            )
-
-        # Auth errors
-        if status_code in (401, 403):
-            raise MarketplaceAuthError(
-                platform=self.PLATFORM_NAME,
-                message=f"Authentification {self.PLATFORM_NAME} échouée ({status_code})",
-                status_code=status_code,
-                response_body=error_body,
-            )
-
-        # Other errors
-        error_message = f"Erreur {self.PLATFORM_NAME} {status_code} sur {method} {path}"
-        if error_body and isinstance(error_body, dict):
-            # Extraire message d'erreur de la réponse si disponible
-            api_message = error_body.get("message") or error_body.get("error") or error_body.get("errors")
-            if api_message:
-                error_message = f"{error_message}: {api_message}"
-
-        raise MarketplaceError(
-            message=error_message,
-            platform=self.PLATFORM_NAME,
-            operation=method.lower(),
-            status_code=status_code,
-            response_body=error_body,
+        # Create timeout configuration
+        self.timeout = httpx.Timeout(
+            connect=self.timeout_connect,
+            read=self.timeout_read,
+            write=self.timeout_write,
+            pool=self.timeout_pool,
         )
 
-    def api_call(
-        self,
-        method: str,
-        path: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
-        skip_rate_limit: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def __aenter__(self):
+        """Async context manager entry."""
+        self._client = httpx.AsyncClient(timeout=self.timeout)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+
+    async def get(self, url: str, **kwargs) -> Response:
         """
-        Effectue un appel API avec gestion automatique des erreurs.
+        Perform GET request.
 
         Args:
-            method: Méthode HTTP (GET, POST, PUT, DELETE, PATCH)
-            path: Chemin de l'endpoint (ex: "/sell/inventory/v1/item")
-            params: Query parameters (optionnel)
-            json_data: Corps JSON de la requête (optionnel)
-            extra_headers: Headers supplémentaires (optionnel)
-            skip_rate_limit: Ignorer le rate limiting (défaut: False)
+            url: Request URL
+            **kwargs: Additional arguments passed to httpx.get()
 
         Returns:
-            Dict: Réponse JSON désérialisée, ou None pour 204 No Content
+            httpx.Response object
 
         Raises:
-            MarketplaceRateLimitError: Si rate limit atteint
-            MarketplaceAuthError: Si erreur d'authentification
-            MarketplaceAPIError: Si erreur API
-            RuntimeError: Si erreur réseau/timeout après retries
+            httpx.HTTPError: On HTTP errors
         """
-        # Rate limiting
-        if not skip_rate_limit:
-            self.rate_limiter.wait()
+        if not self._client:
+            raise RuntimeError("HTTPClient must be used as async context manager")
+        return await self._client.get(url, **kwargs)
 
-        # Build URL
-        url = f"{self.base_url}{path}"
+    async def post(self, url: str, **kwargs) -> Response:
+        """
+        Perform POST request.
 
-        # Get token
-        access_token = self.get_access_token()
+        Args:
+            url: Request URL
+            **kwargs: Additional arguments passed to httpx.post()
 
-        # Build headers
-        headers = self._build_headers(access_token, extra_headers=extra_headers)
+        Returns:
+            httpx.Response object
 
-        # Log request
-        logger.debug(f"{self.PLATFORM_NAME} API {method} {path}")
+        Raises:
+            httpx.HTTPError: On HTTP errors
+        """
+        if not self._client:
+            raise RuntimeError("HTTPClient must be used as async context manager")
+        return await self._client.post(url, **kwargs)
 
-        # Make request with retry
+    async def put(self, url: str, **kwargs) -> Response:
+        """
+        Perform PUT request.
+
+        Args:
+            url: Request URL
+            **kwargs: Additional arguments passed to httpx.put()
+
+        Returns:
+            httpx.Response object
+
+        Raises:
+            httpx.HTTPError: On HTTP errors
+        """
+        if not self._client:
+            raise RuntimeError("HTTPClient must be used as async context manager")
+        return await self._client.put(url, **kwargs)
+
+    async def delete(self, url: str, **kwargs) -> Response:
+        """
+        Perform DELETE request.
+
+        Args:
+            url: Request URL
+            **kwargs: Additional arguments passed to httpx.delete()
+
+        Returns:
+            httpx.Response object
+
+        Raises:
+            httpx.HTTPError: On HTTP errors
+        """
+        if not self._client:
+            raise RuntimeError("HTTPClient must be used as async context manager")
+        return await self._client.delete(url, **kwargs)
+
+    async def request(self, method: str, url: str, **kwargs) -> Response:
+        """
+        Perform generic HTTP request.
+
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE, etc.)
+            url: Request URL
+            **kwargs: Additional arguments passed to httpx.request()
+
+        Returns:
+            httpx.Response object
+
+        Raises:
+            httpx.HTTPError: On HTTP errors
+        """
+        if not self._client:
+            raise RuntimeError("HTTPClient must be used as async context manager")
+        return await self._client.request(method, url, **kwargs)
+
+    async def get_with_retry(
+        self,
+        url: str,
+        max_retries: Optional[int] = None,
+        backoff_factor: Optional[float] = None,
+        **kwargs
+    ) -> Response:
+        """
+        Perform GET request with exponential backoff retry.
+
+        Args:
+            url: Request URL
+            max_retries: Maximum retry attempts (overrides default)
+            backoff_factor: Exponential backoff factor (overrides default)
+            **kwargs: Additional arguments passed to httpx.get()
+
+        Returns:
+            httpx.Response object
+
+        Raises:
+            httpx.HTTPError: After all retries exhausted
+        """
+        return await self._request_with_retry(
+            "GET", url, max_retries, backoff_factor, **kwargs
+        )
+
+    async def post_with_retry(
+        self,
+        url: str,
+        max_retries: Optional[int] = None,
+        backoff_factor: Optional[float] = None,
+        **kwargs
+    ) -> Response:
+        """
+        Perform POST request with exponential backoff retry.
+
+        Args:
+            url: Request URL
+            max_retries: Maximum retry attempts (overrides default)
+            backoff_factor: Exponential backoff factor (overrides default)
+            **kwargs: Additional arguments passed to httpx.post()
+
+        Returns:
+            httpx.Response object
+
+        Raises:
+            httpx.HTTPError: After all retries exhausted
+        """
+        return await self._request_with_retry(
+            "POST", url, max_retries, backoff_factor, **kwargs
+        )
+
+    async def _request_with_retry(
+        self,
+        method: str,
+        url: str,
+        max_retries: Optional[int] = None,
+        backoff_factor: Optional[float] = None,
+        **kwargs
+    ) -> Response:
+        """
+        Perform HTTP request with exponential backoff retry.
+
+        Args:
+            method: HTTP method
+            url: Request URL
+            max_retries: Maximum retry attempts (overrides default)
+            backoff_factor: Exponential backoff factor (overrides default)
+            **kwargs: Additional arguments passed to httpx.request()
+
+        Returns:
+            httpx.Response object
+
+        Raises:
+            httpx.HTTPError: After all retries exhausted
+        """
+        retries = max_retries if max_retries is not None else self.max_retries
+        backoff = backoff_factor if backoff_factor is not None else self.backoff_factor
+
         last_exception = None
 
-        for attempt in range(self.max_retries):
+        for attempt in range(retries):
             try:
-                response = requests.request(
-                    method=method.upper(),
-                    url=url,
-                    headers=headers,
-                    params=params,
-                    json=json_data,
-                    timeout=self.timeout,
-                )
+                response = await self.request(method, url, **kwargs)
+                response.raise_for_status()
+                return response
 
-                # Handle errors
-                if not response.ok:
-                    self._handle_error_response(response, method, path)
-
-                # Success - No Content
-                if response.status_code == 204:
-                    return None
-
-                # Success - With Content
-                if response.status_code in (200, 201):
-                    try:
-                        return response.json()
-                    except (ValueError, requests.exceptions.JSONDecodeError):
-                        # Si parse JSON échoue mais status 2xx, retourner None
-                        return None
-
-                return None
-
-            except MarketplaceRateLimitError:
-                # Ne pas retry les rate limits, propager directement
-                raise
-
-            except MarketplaceAuthError:
-                # Ne pas retry les erreurs d'auth, propager directement
-                raise
-
-            except MarketplaceError:
-                # Ne pas retry les erreurs API (4xx), propager directement
-                raise
-
-            except requests.exceptions.Timeout as e:
+            except (TimeoutException, ConnectError, ReadError) as e:
                 last_exception = e
-                logger.warning(
-                    f"{self.PLATFORM_NAME} timeout on {method} {path} "
-                    f"(attempt {attempt + 1}/{self.max_retries})"
-                )
-                if attempt < self.max_retries - 1:
-                    # Backoff exponentiel
-                    time.sleep(2 ** attempt)
 
-            except requests.exceptions.RequestException as e:
+                if attempt < retries - 1:
+                    delay = backoff * (2 ** attempt)  # Exponential backoff
+                    logger.warning(
+                        f"[HTTPClient] Request failed (attempt {attempt+1}/{retries}): "
+                        f"{type(e).__name__}: {e}. Retrying in {delay}s..."
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(
+                        f"[HTTPClient] Request failed after {retries} attempts: "
+                        f"{type(e).__name__}: {e}"
+                    )
+
+            except httpx.HTTPStatusError as e:
+                # Don't retry on 4xx client errors (except 429 rate limit)
+                if 400 <= e.response.status_code < 500 and e.response.status_code != 429:
+                    logger.error(
+                        f"[HTTPClient] Client error {e.response.status_code}: {e}"
+                    )
+                    raise
+
                 last_exception = e
-                logger.warning(
-                    f"{self.PLATFORM_NAME} network error on {method} {path}: {e} "
-                    f"(attempt {attempt + 1}/{self.max_retries})"
-                )
-                if attempt < self.max_retries - 1:
-                    time.sleep(2 ** attempt)
+
+                if attempt < retries - 1:
+                    delay = backoff * (2 ** attempt)
+                    logger.warning(
+                        f"[HTTPClient] Request failed with status {e.response.status_code} "
+                        f"(attempt {attempt+1}/{retries}). Retrying in {delay}s..."
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(
+                        f"[HTTPClient] Request failed after {retries} attempts: "
+                        f"Status {e.response.status_code}"
+                    )
 
         # All retries exhausted
-        raise RuntimeError(
-            f"Erreur réseau sur {method} {path} après {self.max_retries} tentatives: {last_exception}"
-        ) from last_exception
+        if last_exception:
+            raise last_exception
+
+        raise RuntimeError("Request failed without exception (should not happen)")
+
+
+# Convenience function for one-off requests
+async def fetch(
+    url: str,
+    method: str = "GET",
+    with_retry: bool = False,
+    max_retries: Optional[int] = None,
+    timeout: Optional[float] = None,
+    **kwargs
+) -> Response:
+    """
+    Perform one-off HTTP request without context manager.
+
+    Args:
+        url: Request URL
+        method: HTTP method (default GET)
+        with_retry: Enable retry logic (default False)
+        max_retries: Maximum retry attempts (only if with_retry=True)
+        timeout: Custom timeout (overrides all timeouts)
+        **kwargs: Additional arguments passed to httpx.request()
+
+    Returns:
+        httpx.Response object
+
+    Raises:
+        httpx.HTTPError: On HTTP errors
+
+    Usage:
+        response = await fetch("https://example.com/api/data")
+        data = response.json()
+
+        # With retry
+        response = await fetch(
+            "https://example.com/api/data",
+            with_retry=True,
+            max_retries=5
+        )
+    """
+    timeout_config = None
+    if timeout is not None:
+        # Use same timeout for all operations
+        timeout_config = httpx.Timeout(timeout)
+
+    async with HTTPClient() as client:
+        if timeout_config:
+            client._client._timeout = timeout_config
+
+        if with_retry:
+            return await client._request_with_retry(
+                method, url, max_retries, **kwargs
+            )
+        else:
+            return await client.request(method, url, **kwargs)
 
 
 __all__ = [
-    "BaseOAuthHttpClient",
     "RateLimiter",
+    "HTTPClient",
+    "fetch",
 ]

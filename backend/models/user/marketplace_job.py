@@ -186,7 +186,8 @@ class MarketplaceJob(Base):
     # Relationships
     batch_job = relationship("BatchJob", back_populates="jobs", lazy="select")
     product = relationship("Product", foreign_keys=[product_id], lazy="select")
-    tasks = relationship("PluginTask", back_populates="job", lazy="select")
+    # NOTE (2026-01-09): tasks relationship removed - MarketplaceTask not used (Option A: simple)
+    # Handlers call WebSocket/HTTP directly without creating granular tasks in DB
 
     def __repr__(self) -> str:
         return f"<MarketplaceJob(id={self.id}, marketplace={self.marketplace}, status={self.status}, product_id={self.product_id})>"

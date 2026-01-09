@@ -26,7 +26,7 @@ from typing import Any
 from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session
 
-from models.vinted.vinted_action_type import VintedActionType
+from models.public.marketplace_action_type import MarketplaceActionType
 from models.user.marketplace_task import MarketplaceTask, TaskStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.vinted_job_stats import VintedJobStats
@@ -57,7 +57,7 @@ class MarketplaceJobService:
 
     def get_action_type(
         self, marketplace: str, action_code: str
-    ) -> VintedActionType | None:
+    ) -> MarketplaceActionType | None:
         """
         Get action type by marketplace and code (with caching).
 
@@ -67,20 +67,17 @@ class MarketplaceJobService:
 
         Returns:
             Action type or None
-
-        Note:
-            All marketplaces use the same action_types table (vinted.action_types).
-            Action codes are suffixed with marketplace name for non-Vinted actions.
-            Examples: 'publish' (Vinted), 'sync_orders_ebay' (eBay)
         """
         cache_key = (marketplace, action_code)
 
         if cache_key not in self._action_types_cache:
-            # Query action type from vinted.action_types table
-            # All marketplaces share this table with suffixed codes
+            # Query action type from public.marketplace_action_types table
             action_type = (
-                self.db.query(VintedActionType)
-                .filter(VintedActionType.code == action_code)
+                self.db.query(MarketplaceActionType)
+                .filter(
+                    MarketplaceActionType.marketplace == marketplace,
+                    MarketplaceActionType.code == action_code
+                )
                 .first()
             )
             if action_type:
@@ -93,11 +90,11 @@ class MarketplaceJobService:
 
         return self._action_types_cache.get(cache_key)
 
-    def get_action_type_by_id(self, action_type_id: int) -> VintedActionType | None:
+    def get_action_type_by_id(self, action_type_id: int) -> MarketplaceActionType | None:
         """Get action type by ID."""
         return (
-            self.db.query(VintedActionType)
-            .filter(VintedActionType.id == action_type_id)
+            self.db.query(MarketplaceActionType)
+            .filter(MarketplaceActionType.id == action_type_id)
             .first()
         )
 
@@ -570,23 +567,27 @@ class MarketplaceJobService:
     # EXPIRATION
     # =========================================================================
 
-    def expire_old_jobs(self) -> int:
+    def expire_old_jobs(self, marketplace: str | None = None) -> int:
         """
         Mark expired pending jobs as EXPIRED.
+
+        Args:
+            marketplace: Filter by marketplace (optional)
 
         Returns:
             Number of jobs expired
         """
         now = datetime.now(timezone.utc)
 
-        expired_jobs = (
-            self.db.query(MarketplaceJob)
-            .filter(
-                MarketplaceJob.status.in_([JobStatus.PENDING, JobStatus.PAUSED]),
-                MarketplaceJob.expires_at < now,
-            )
-            .all()
+        query = self.db.query(MarketplaceJob).filter(
+            MarketplaceJob.status.in_([JobStatus.PENDING, JobStatus.PAUSED]),
+            MarketplaceJob.expires_at < now,
         )
+
+        if marketplace:
+            query = query.filter(MarketplaceJob.marketplace == marketplace)
+
+        expired_jobs = query.all()
 
         for job in expired_jobs:
             job.status = JobStatus.EXPIRED
