@@ -152,7 +152,7 @@ VintedJob (opération business)
 | Toujours `downgrade()` | Permet le rollback |
 | Migrations idempotentes | `IF NOT EXISTS`, `ON CONFLICT DO NOTHING` |
 | Ne jamais modifier | Une migration déjà déployée |
-| Squash à 30+ | Proposer un squash, recommander fortement à 50+ |
+| Squash à 200+ | Proposer un squash quand le nombre de migrations dépasse 200 |
 
 ### Multi-Tenant Migrations
 
@@ -168,6 +168,134 @@ def table_exists(conn, schema, table):
     """), {"schema": schema, "table": table})
     return result.scalar()
 ```
+
+### Migration Squashing Standards
+
+Lorsque le nombre de migrations dépasse 200, un squash est fortement recommandé.
+
+**RÈGLE CRITIQUE** : Les migrations squashées doivent TOUJOURS suivre le pattern Python pur avec données embedded.
+
+#### ✅ Pattern Obligatoire : Python Pur avec Bulk Insert
+
+```python
+"""initial_schema_squashed
+
+Squashed migration combining N previous migrations into a single base.
+Self-contained, type-safe, production-ready.
+"""
+
+# Translation data embedded in Python (no external SQL file dependency)
+TRANSLATIONS_DATA = {
+    'categories': {
+        'columns': ['name_en', 'name_de', 'name_it', 'name_es', 'name_nl', 'name_pl'],
+        'pk': 'name_en',
+        'rows': [
+            ('t-shirt', 'T-Shirt', 'T-shirt', 'Camiseta', 'T-shirt', 'T-shirt'),
+            ('jeans', 'Jeans', 'Jeans', 'Vaqueros', 'Jeans', 'Jeansy'),
+            # ... all rows
+        ]
+    },
+    'colors': {
+        'columns': ['name_en', 'name_de', 'name_it', 'name_es', 'name_nl', 'name_pl', 'hex_code'],
+        'pk': 'name_en',
+        'rows': [
+            ('black', 'Schwarz', 'Nero', 'Negro', 'Zwart', 'Czarny', '#000000'),
+            # ... all rows
+        ]
+    },
+    # ... autres tables
+}
+
+def upgrade() -> None:
+    conn = op.get_bind()
+
+    # 1. Create schemas and tables if needed
+    if not schema_exists(conn):
+        _create_schemas(conn)
+        _create_tables(conn)
+
+    # 2. Populate data with bulk insert (idempotent)
+    _populate_translations(conn)
+
+def _populate_translations(conn):
+    """Bulk insert with ON CONFLICT - fast and idempotent."""
+    for table_name, config in TRANSLATIONS_DATA.items():
+        _bulk_populate_table(conn, table_name, config)
+
+def _bulk_populate_table(conn, table_name, config):
+    columns = config['columns']
+    pk_col = config['pk']
+    rows = config['rows']
+
+    # Convert to list of dicts
+    data = [dict(zip(columns, row)) for row in rows]
+
+    # Bulk insert with ON CONFLICT
+    placeholders = ', '.join([f':{col}' for col in columns])
+    update_set = ', '.join([f'{col} = EXCLUDED.{col}'
+                            for col in columns if col != pk_col])
+
+    stmt = text(f"""
+        INSERT INTO product_attributes.{table_name} ({', '.join(columns)})
+        VALUES ({placeholders})
+        ON CONFLICT ({pk_col}) DO UPDATE SET {update_set}
+    """)
+
+    # Execute in bulk (much faster than row-by-row)
+    conn.execute(stmt, data)
+```
+
+#### ✅ Avantages de ce Pattern
+
+| Critère | Bénéfice |
+|---------|----------|
+| **Fiabilité** | Type-safe, pas de parsing SQL fragile |
+| **Performance** | Bulk insert = 10-50x plus rapide que row-by-row |
+| **Maintenabilité** | Code clair, facile à comprendre et modifier |
+| **Portabilité** | Fonctionne avec tous les DB drivers (psycopg2, asyncpg, etc.) |
+| **Production-ready** | Self-contained, aucune dépendance externe (pas de fichier .sql) |
+| **Testabilité** | Peut être testé unitairement, données visibles dans le code |
+| **Idempotence** | ON CONFLICT DO UPDATE garantit la sécurité |
+
+#### ❌ À Éviter Absolument
+
+**Ne JAMAIS faire** :
+- Parser des fichiers SQL externes avec regex
+- Utiliser `cursor.execute()` avec fichiers SQL (COPY statements)
+- Row-by-row inserts (lent pour >100 lignes)
+- Dépendances sur fichiers externes (.sql, .csv)
+- Accès direct à `conn.connection.connection` (psycopg2-specific)
+
+**Pourquoi ?**
+- Fragile : regex peut casser, fichiers peuvent être corrompus
+- Lent : 472 queries séparées vs 1 bulk insert
+- Non-portable : psycopg2-specific ne marche pas avec asyncpg
+- Difficile à maintenir : parsing complexe, débogage difficile
+
+#### 📋 Checklist Migration Squashée
+
+Avant de finaliser une migration squashée :
+
+- [ ] Données embedded en Python (dictionnaires/tuples)
+- [ ] Bulk insert avec ON CONFLICT DO UPDATE
+- [ ] Aucune dépendance externe (pas de fichier .sql)
+- [ ] Fonction `_create_schemas()` pour DDL
+- [ ] Fonction `_create_tables()` pour tables
+- [ ] Fonction `_populate_translations()` pour DML
+- [ ] Idempotente (safe à rejouer)
+- [ ] Testée sur base vierge ET base existante
+- [ ] Documentation claire dans le docstring
+- [ ] Downgrade() implémenté
+
+#### 📏 Taille de Fichier Acceptable
+
+Une migration squashée peut faire **2000-5000 lignes** - c'est normal et acceptable car :
+- Contient toutes les données de seed
+- Plus maintenable qu'un fichier SQL externe
+- Self-contained = plus fiable
+
+**Exemple** : 17 tables × ~50 lignes/table × 7 langues = ~3000 lignes de données
+→ Fichier final : ~3500-4000 lignes total
 
 ### Seed Data
 
@@ -359,12 +487,12 @@ Données partagées gérées via migrations Alembic :
 - Oublier `downgrade()` → impossible de rollback
 - Migrations non-idempotentes → échouent si rejouées
 - Locks longs sur tables volumineuses → downtime
-- Plus de 50 fichiers → proposer un squash
+- Plus de 200 fichiers → proposer un squash
 
 ### 📚 Contexte StoFlow
 
 - Migrations dans `migrations/versions/`
-- Squash automatique proposé à 30+ migrations
+- Squash automatique proposé à 200+ migrations
 - Seed data via migrations (`seed_xxx` naming)
 - Template tenant cloné pour nouveaux utilisateurs
 
