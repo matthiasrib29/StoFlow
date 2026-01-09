@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from models.user.product import Product
 from models.user.vinted_product import VintedProduct
-from services.plugin_task_helper import create_and_wait
+# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
 from services.vinted.vinted_product_converter import VintedProductConverter
 from shared.vinted_constants import VintedImageAPI
 from shared.logging_setup import get_logger
