@@ -114,7 +114,8 @@ def setup_test_database():
                 'ai_generation_logs',
                 'batch_jobs',  # Phase 6.2: Added for batch job tests
                 'marketplace_jobs',  # Phase 6.2: Renamed from vinted_jobs
-                'marketplace_tasks'  # Phase 6.2: Renamed from plugin_tasks
+                # REMOVED (2026-01-09): marketplace_tasks (formerly plugin_tasks)
+                # Polling-based plugin communication replaced by WebSocket
             ]
             for table_name in tables:
                 conn.execute(text(f"""

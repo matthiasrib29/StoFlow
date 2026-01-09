@@ -17,7 +17,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Qu
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
-from api.dependencies import get_current_user
+from api.dependencies import get_current_user, get_user_db
 from models.public.user import User
 from models.user.ebay_product import EbayProduct
 from services.ebay.ebay_importer import EbayImporter
@@ -216,8 +216,7 @@ async def list_ebay_products(
     status: Optional[str] = Query(None, description="Filter by status"),
     marketplace_id: Optional[str] = Query(None, description="Filter by marketplace"),
     search: Optional[str] = Query(None, description="Search in title"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Liste les produits eBay importés.
@@ -228,14 +227,12 @@ async def list_ebay_products(
         status: Filtre par statut (active, inactive, sold, ended)
         marketplace_id: Filtre par marketplace (EBAY_FR, EBAY_GB, etc.)
         search: Recherche dans le titre
-        db: Session DB
-        current_user: Utilisateur authentifié
+        user_db: (Session DB, User) avec schema isolé
 
     Returns:
         EbayProductListResponse: Liste paginée des produits
     """
-    # Set user schema
-    set_user_schema(db, current_user.id)
+    db, current_user = user_db
 
     # Build query
     query = db.query(EbayProduct)
@@ -272,22 +269,19 @@ async def list_ebay_products(
 @router.get("/{product_id}", response_model=EbayProductResponse)
 async def get_ebay_product(
     product_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Récupère un produit eBay par ID.
 
     Args:
         product_id: ID du produit eBay
-        db: Session DB
-        current_user: Utilisateur authentifié
+        user_db: (Session DB, User) avec schema isolé
 
     Returns:
         EbayProductResponse: Détails du produit
     """
-    # Set user schema
-    set_user_schema(db, current_user.id)
+    db, current_user = user_db
 
     product = db.query(EbayProduct).filter(EbayProduct.id == product_id).first()
 
@@ -303,9 +297,8 @@ async def get_ebay_product(
 @router.post("/import", response_model=ImportResponse)
 async def import_ebay_products(
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
     request: ImportRequest = Body(default=ImportRequest()),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Importe les produits depuis eBay Inventory API.
@@ -317,14 +310,12 @@ async def import_ebay_products(
     Args:
         background_tasks: FastAPI background tasks
         request: Paramètres d'import (marketplace_id)
-        db: Session DB
-        current_user: Utilisateur authentifié
+        user_db: (Session DB, User) avec schema isolé
 
     Returns:
         ImportResponse: Résultat de l'import
     """
-    # Set user schema
-    set_user_schema(db, current_user.id)
+    db, current_user = user_db
 
     try:
         importer = EbayImporter(
@@ -364,9 +355,8 @@ async def import_ebay_products(
 
 @router.post("/enrich", response_model=EnrichResponse)
 async def enrich_ebay_products(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
     request: EnrichRequest = Body(default=EnrichRequest()),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Enrichit les produits eBay avec les données des offers (prix, listing, etc.).
@@ -376,14 +366,12 @@ async def enrich_ebay_products(
 
     Args:
         request: Paramètres d'enrichissement (batch_size, only_without_price)
-        db: Session DB
-        current_user: Utilisateur authentifié
+        user_db: (Session DB, User) avec schema isolé
 
     Returns:
         EnrichResponse: Résultat de l'enrichissement
     """
-    # Set user schema
-    set_user_schema(db, current_user.id)
+    db, current_user = user_db
 
     try:
         importer = EbayImporter(
@@ -415,8 +403,7 @@ async def enrich_ebay_products(
 @router.post("/refresh-aspects", response_model=RefreshAspectsResponse)
 async def refresh_ebay_aspects(
     batch_size: int = Query(100, ge=1, le=1000, description="Batch size"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Met à jour les aspects (brand, color, size, material) des produits existants.
@@ -426,13 +413,12 @@ async def refresh_ebay_aspects(
 
     Args:
         batch_size: Nombre de produits à traiter (max 1000)
-        db: Session DB
-        current_user: Utilisateur authentifié
+        user_db: (Session DB, User) avec schema isolé
 
     Returns:
         RefreshAspectsResponse: Résultat de la mise à jour
     """
-    set_user_schema(db, current_user.id)
+    db, current_user = user_db
 
     try:
         importer = EbayImporter(
@@ -462,8 +448,7 @@ async def refresh_ebay_aspects(
 async def sync_ebay_product(
     sku: str,
     marketplace_id: str = Query("EBAY_FR", description="Marketplace ID"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Synchronise un seul produit eBay par SKU.
@@ -471,14 +456,12 @@ async def sync_ebay_product(
     Args:
         sku: SKU eBay du produit
         marketplace_id: Marketplace ID
-        db: Session DB
-        current_user: Utilisateur authentifié
+        user_db: (Session DB, User) avec schema isolé
 
     Returns:
         SyncResponse: Résultat de la synchronisation
     """
-    # Set user schema
-    set_user_schema(db, current_user.id)
+    db, current_user = user_db
 
     try:
         importer = EbayImporter(
@@ -511,8 +494,7 @@ async def sync_ebay_product(
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_ebay_product(
     product_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Supprime un produit eBay de la base Stoflow.
@@ -521,11 +503,9 @@ async def delete_ebay_product(
 
     Args:
         product_id: ID du produit eBay
-        db: Session DB
-        current_user: Utilisateur authentifié
+        user_db: (Session DB, User) avec schema isolé
     """
-    # Set user schema
-    set_user_schema(db, current_user.id)
+    db, current_user = user_db
 
     product = db.query(EbayProduct).filter(EbayProduct.id == product_id).first()
 
@@ -541,17 +521,18 @@ async def delete_ebay_product(
 
 @router.get("/stats/summary")
 async def get_ebay_stats(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Récupère les statistiques des produits eBay.
 
+    Args:
+        user_db: (Session DB, User) avec schema isolé
+
     Returns:
         dict: Statistiques (total, par status, par marketplace)
     """
-    # Set user schema
-    set_user_schema(db, current_user.id)
+    db, current_user = user_db
 
     # Total products
     total = db.query(EbayProduct).count()

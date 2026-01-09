@@ -144,7 +144,7 @@ async def sync_orders(
             response["month"] = f"{year}-{month:02d}"
 
         if process_now:
-            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
             result = await processor._execute_job(job)
             response["result"] = result.get("result", result)
             response["status"] = "completed" if result.get("success") else "failed"

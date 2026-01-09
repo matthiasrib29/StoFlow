@@ -46,14 +46,7 @@ class PublishProductResponse(BaseModel):
 class UpdateListingRequest(BaseModel):
     """Request pour mettre a jour un listing Etsy."""
 
-    listing_id: int = Field(..., description="ID du listing Etsy")
     product_id: int = Field(..., description="ID du produit Stoflow")
-
-
-class DeleteListingRequest(BaseModel):
-    """Request pour supprimer un listing Etsy."""
-
-    listing_id: int = Field(..., description="ID du listing Etsy")
 
 
 class ListingResponse(BaseModel):

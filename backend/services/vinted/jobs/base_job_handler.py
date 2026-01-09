@@ -5,15 +5,16 @@ Fournit l'interface commune et les utilitaires partagés.
 
 Author: Claude
 Date: 2025-12-19
+Updated: 2026-01-08 - Migrated to WebSocket communication
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import MarketplaceJob
-from services.plugin_task_helper import create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -50,6 +51,7 @@ class BaseJobHandler(ABC):
         self.db = db
         self.shop_id = shop_id
         self.job_id = job_id
+        self.user_id: Optional[int] = None  # Must be set before execute()
 
     @abstractmethod
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
@@ -68,35 +70,99 @@ class BaseJobHandler(ABC):
         self,
         http_method: str,
         path: str,
-        payload: dict,
+        payload: dict | None = None,
+        params: dict | None = None,
         product_id: int | None = None,
         timeout: int = 60,
         description: str = ""
     ) -> dict[str, Any]:
         """
-        Helper pour appeler le plugin.
+        Helper pour appeler le plugin via WebSocket (Vinted uniquement).
 
         Args:
             http_method: GET, POST, PUT, DELETE
             path: API path (e.g., /api/v2/items)
             payload: Request body
+            params: Query parameters
             product_id: Product ID for tracking
             timeout: Timeout in seconds
             description: Description for logs
 
         Returns:
             dict: Plugin response
+
+        Raises:
+            RuntimeError: If user_id not set
         """
-        return await create_and_wait(
-            self.db,
+        if not self.user_id:
+            raise RuntimeError("user_id must be set before calling plugin")
+
+        return await PluginWebSocketHelper.call_plugin_http(
+            db=self.db,
+            user_id=self.user_id,
             http_method=http_method,
             path=path,
             payload=payload,
-            platform="vinted",
-            product_id=product_id,
-            job_id=self.job_id,
+            params=params,
             timeout=timeout,
-            description=description
+            description=description or f"{self.ACTION_CODE} - {http_method} {path}"
+        )
+
+    async def call_http(
+        self,
+        base_url: str,
+        http_method: str,
+        path: str,
+        headers: dict,
+        payload: Optional[dict] = None,
+        params: Optional[dict] = None,
+        timeout: int = 60,
+        description: Optional[str] = None
+    ) -> dict[str, Any]:
+        """
+        Helper pour appeler API marketplace directement (eBay, Etsy).
+
+        This method makes direct HTTP requests to marketplace APIs using OAuth tokens.
+        Used by eBay and Etsy handlers (not Vinted, which uses WebSocket via plugin).
+
+        Args:
+            base_url: API base URL (e.g., 'https://api.ebay.com')
+            http_method: GET, POST, PUT, DELETE
+            path: API path (e.g., '/sell/inventory/v1/inventory_item')
+            headers: HTTP headers (Authorization, Content-Type, etc.)
+            payload: Request body (will be serialized to JSON)
+            params: Query parameters
+            timeout: Timeout in seconds
+            description: Description for logs
+
+        Returns:
+            dict: API response (parsed JSON)
+
+        Raises:
+            httpx.HTTPStatusError: If request fails (4xx, 5xx)
+            httpx.TimeoutException: If request times out
+            httpx.RequestError: If request cannot be sent
+
+        Example:
+            result = await self.call_http(
+                base_url="https://api.ebay.com",
+                http_method="POST",
+                path="/sell/inventory/v1/inventory_item/SKU123",
+                headers={"Authorization": f"Bearer {token}"},
+                payload={"availability": {"shipToLocationAvailability": {...}}}
+            )
+        """
+        from services.marketplace_http_helper import MarketplaceHttpHelper
+
+        return await MarketplaceHttpHelper.call_api(
+            base_url=base_url,
+            http_method=http_method,
+            path=path,
+            headers=headers,
+            payload=payload,
+            params=params,
+            timeout=timeout,
+            description=description or f"{self.ACTION_CODE} - {http_method} {path}"
         )
 
     def log_start(self, message: str):

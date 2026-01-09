@@ -80,6 +80,14 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3-flash-preview"
     gemini_max_images: int = 10
 
+    # HTTP Client (Centralized timeouts)
+    http_timeout_connect: float = 10.0  # Connection timeout in seconds
+    http_timeout_read: float = 30.0  # Read timeout in seconds
+    http_timeout_write: float = 30.0  # Write timeout in seconds
+    http_timeout_pool: float = 10.0  # Pool timeout in seconds
+    http_max_retries: int = 3  # Max retries for failed requests
+    http_retry_backoff_factor: float = 1.0  # Backoff factor (1s, 2s, 4s)
+
     # Vinted
     vinted_base_url: str = "https://www.vinted.fr"
     vinted_api_url: str = "https://www.vinted.fr/api/v2"
