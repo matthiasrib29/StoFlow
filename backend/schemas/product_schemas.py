@@ -72,7 +72,7 @@ class ProductCreate(BaseModel):
     """
 
     title: str = Field(..., min_length=1, max_length=500, description="Titre du produit")
-    description: str = Field(..., min_length=1, description="Description complète du produit")
+    description: str = Field(..., min_length=1, max_length=5000, description="Description complète du produit")
     price: Decimal | None = Field(None, gt=0, description="Prix de vente (calculé automatiquement si absent)")
 
     # Attributs obligatoires (category, condition)
@@ -261,7 +261,7 @@ class ProductUpdate(BaseModel):
     """
 
     title: str | None = Field(None, min_length=1, max_length=500)
-    description: str | None = Field(None, min_length=1)
+    description: str | None = Field(None, min_length=1, max_length=5000)
     price: Decimal | None = Field(None, gt=0)
 
     category: str | None = Field(None, max_length=255)

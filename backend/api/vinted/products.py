@@ -33,10 +33,22 @@ from pydantic import BaseModel
 
 from api.dependencies import get_user_db
 from models.user.vinted_product import VintedProduct
+from schemas.vinted_schemas import (
+    VintedStatsResponse,
+    VintedProductsListResponse,
+    VintedProductDetailResponse,
+    VintedJobResponse,
+    VintedDeleteResponse,
+    VintedLinkResponse,
+    VintedUnlinkResponse,
+)
+from shared.error_handling import not_found, bad_request
 from services.file_service import FileService
 from services.product_service import ProductService
 from services.vinted import VintedSyncService, VintedJobService, VintedJobProcessor
 from services.vinted.vinted_link_service import VintedLinkService
+from services.vinted.vinted_stats_service import VintedStatsService
+from services.vinted.vinted_image_sync_service import VintedImageSyncService
 from shared.logging_setup import get_logger
 from .shared import get_active_vinted_connection
 
@@ -64,120 +76,93 @@ class LinkProductRequest(BaseModel):
 router = APIRouter()
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=VintedStatsResponse)
 async def get_vinted_stats(
     user_db: tuple = Depends(get_user_db),
-) -> dict:
+):
     """
     Récupère les statistiques agrégées Vinted.
 
     Returns:
-        {
-            "activePublications": int,
-            "totalViews": int,
-            "totalFavourites": int,
-            "potentialRevenue": float,
-            "totalProducts": int
-        }
+        VintedStatsResponse: Statistiques (publications actives, vues, favoris, revenu, total)
     """
     db, current_user = user_db
 
     try:
-        active_count = db.query(func.count(VintedProduct.vinted_id)).filter(
-            VintedProduct.status == 'published'
-        ).scalar() or 0
-
-        total_views = db.query(func.sum(VintedProduct.view_count)).scalar() or 0
-        total_favourites = db.query(func.sum(VintedProduct.favourite_count)).scalar() or 0
-
-        potential_revenue = db.query(func.sum(VintedProduct.price)).filter(
-            VintedProduct.status == 'published'
-        ).scalar() or Decimal('0')
-
-        total_products = db.query(func.count(VintedProduct.vinted_id)).scalar() or 0
-
-        return {
-            "activePublications": active_count,
-            "totalViews": int(total_views),
-            "totalFavourites": int(total_favourites),
-            "potentialRevenue": float(potential_revenue),
-            "totalProducts": total_products
-        }
+        stats_service = VintedStatsService(db)
+        return stats_service.get_publication_stats()
 
     except Exception as e:
+        logger.error(f"Failed to get Vinted stats: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur stats: {str(e)}"
         )
 
 
-@router.get("/products")
+@router.get("/products", response_model=VintedProductsListResponse)
 async def list_products(
     user_db: tuple = Depends(get_user_db),
     status_filter: Optional[str] = Query(None, description="Filter: published, sold, pending"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-) -> dict:
+):
     """
     Liste les produits Vinted en BDD.
 
     Returns:
-        {"products": list, "total": int}
+        VintedProductsListResponse: Liste paginée avec offset/limit
     """
     db, current_user = user_db
 
-    try:
-        query = db.query(VintedProduct)
+    query = db.query(VintedProduct)
 
-        if status_filter:
-            query = query.filter(VintedProduct.status == status_filter)
+    if status_filter:
+        query = query.filter(VintedProduct.status == status_filter)
 
-        total = query.count()
-        products = query.order_by(VintedProduct.published_at.desc().nullslast()).offset(offset).limit(limit).all()
+    total = query.count()
+    products = query.order_by(VintedProduct.published_at.desc().nullslast()).offset(offset).limit(limit).all()
 
-        products_data = []
-        for vp in products:
-            products_data.append({
-                "vinted_id": vp.vinted_id,
-                "product_id": vp.product_id,  # Link to Stoflow Product
-                "title": vp.title,
-                "description": vp.description,
-                "price": float(vp.price) if vp.price else None,
-                "currency": vp.currency,
-                "url": vp.url,
-                "status": vp.status,
-                "condition": vp.condition,
-                "view_count": vp.view_count,
-                "favourite_count": vp.favourite_count,
-                "brand": vp.brand,
-                "brand_id": vp.brand_id,
-                "size": vp.size,
-                "size_id": vp.size_id,
-                "color1": vp.color1,
-                "catalog_id": vp.catalog_id,
-                "image_url": vp.primary_photo_url,
-                "is_draft": vp.is_draft,
-                "is_closed": vp.is_closed,
-                "is_reserved": vp.is_reserved,
-                "published_at": vp.published_at.isoformat() if vp.published_at else None,
-            })
+    products_data = []
+    for vp in products:
+        products_data.append({
+            "vinted_id": vp.vinted_id,
+            "product_id": vp.product_id,  # Link to Stoflow Product
+            "title": vp.title,
+            "description": vp.description,
+            "price": float(vp.price) if vp.price else None,
+            "currency": vp.currency,
+            "url": vp.url,
+            "status": vp.status,
+            "condition": vp.condition,
+            "view_count": vp.view_count,
+            "favourite_count": vp.favourite_count,
+            "brand": vp.brand,
+            "brand_id": vp.brand_id,
+            "size": vp.size,
+            "size_id": vp.size_id,
+            "color1": vp.color1,
+            "catalog_id": vp.catalog_id,
+            "image_url": vp.primary_photo_url,
+            "is_draft": vp.is_draft,
+            "is_closed": vp.is_closed,
+            "is_reserved": vp.is_reserved,
+            "published_at": vp.published_at.isoformat() if vp.published_at else None,
+        })
 
-        return {"products": products_data, "total": total, "limit": limit, "offset": offset}
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur liste produits: {str(e)}"
-        )
+    return {"products": products_data, "total": total, "limit": limit, "offset": offset}
 
 
-@router.get("/products/{vinted_id}")
+@router.get("/products/{vinted_id}", response_model=VintedProductDetailResponse)
 async def get_product(
     vinted_id: int,
     user_db: tuple = Depends(get_user_db),
-) -> dict:
+):
     """
     Récupère un produit Vinted par son ID Vinted.
+
+    Returns:
+        VintedProductDetailResponse: Détails complets du produit
     """
     db, current_user = user_db
 
@@ -186,10 +171,7 @@ async def get_product(
     ).first()
 
     if not vinted_product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Produit Vinted #{vinted_id} non trouvé"
-        )
+        raise not_found("Produit Vinted", vinted_id)
 
     return {
         "vinted_id": vinted_product.vinted_id,
@@ -228,11 +210,11 @@ async def get_product(
     }
 
 
-@router.post("/products/sync")
+@router.post("/products/sync", response_model=VintedJobResponse)
 async def sync_products(
     user_db: tuple = Depends(get_user_db),
     process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
-) -> dict:
+):
     """
     Synchronise les produits depuis la garde-robe Vinted.
 
@@ -242,58 +224,45 @@ async def sync_products(
         process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
 
     Returns:
-        {
-            "job_id": int,
-            "status": str,
-            "result": dict | None (si process_now=True)
-        }
+        VintedJobResponse: Job info avec statut et résultat optionnel
     """
     db, current_user = user_db
 
     connection = get_active_vinted_connection(db, current_user.id)
 
-    try:
-        job_service = VintedJobService(db)
+    job_service = VintedJobService(db)
 
-        # Create sync job (product_id=None for sync operations)
-        job = job_service.create_job(
-            action_code="sync",
-            product_id=None
-        )
-        db.commit()
+    # Create sync job (product_id=None for sync operations)
+    job = job_service.create_job(
+        action_code="sync",
+        product_id=None
+    )
+    db.commit()
 
-        response = {
-            "job_id": job.id,
-            "status": job.status.value,
-        }
+    response = {
+        "job_id": job.id,
+        "status": job.status.value,
+    }
 
-        # Execute immediately if requested
-        if process_now:
-            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
-            result = await processor._execute_job(job)
-            response["result"] = result
-            response["status"] = "completed" if result.get("success") else "failed"
+    # Execute immediately if requested
+    if process_now:
+        processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
+        result = await processor._execute_job(job)
+        response["result"] = result
+        response["status"] = "completed" if result.get("success") else "failed"
 
-        return response
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur sync: {str(e)}"
-        )
+    return response
 
 
 # Note: POST /products/{product_id}/publish is in publishing.py (uses job system)
 
 
-@router.put("/products/{product_id}")
+@router.put("/products/{product_id}", response_model=VintedJobResponse)
 async def update_product(
     product_id: int,
     user_db: tuple = Depends(get_user_db),
     process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
-) -> dict:
+):
     """
     Met à jour un produit Vinted (prix, titre, description).
 
@@ -304,6 +273,9 @@ async def update_product(
         process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
 
     Returns:
+        VintedJobResponse: Job info avec statut et résultat optionnel
+
+    Old returns:
         {
             "job_id": int,
             "status": str,
@@ -332,7 +304,7 @@ async def update_product(
 
         # Execute immediately if requested
         if process_now:
-            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
             result = await processor._execute_job(job)
             response["result"] = result
             response["status"] = "completed" if result.get("success") else "failed"
@@ -340,69 +312,52 @@ async def update_product(
         return response
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur mise à jour: {str(e)}"
-        )
+        # Business logic error from service
+        raise bad_request(str(e))
 
 
-@router.delete("/products/{vinted_id}")
+@router.delete("/products/{vinted_id}", response_model=VintedDeleteResponse)
 async def delete_product(
     vinted_id: int,
     user_db: tuple = Depends(get_user_db),
-) -> dict:
+):
     """
     Supprime un produit Vinted de la BDD locale.
 
     Note: Ne supprime PAS le listing sur Vinted (nécessite plugin browser).
 
     Returns:
-        {"success": bool, "vinted_id": int}
+        VintedDeleteResponse: Confirmation de suppression avec vinted_id
     """
     db, current_user = user_db
 
+    vinted_product = db.query(VintedProduct).filter(
+        VintedProduct.vinted_id == vinted_id
+    ).first()
+
+    if not vinted_product:
+        raise not_found("Produit Vinted", vinted_id)
+
     try:
-        vinted_product = db.query(VintedProduct).filter(
-            VintedProduct.vinted_id == vinted_id
-        ).first()
-
-        if not vinted_product:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Produit Vinted #{vinted_id} non trouvé"
-            )
-
         db.delete(vinted_product)
         db.commit()
-
-        return {"success": True, "vinted_id": vinted_id}
-
-    except HTTPException:
-        raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur suppression: {str(e)}"
-        )
+        logger.error(f"Failed to delete Vinted product {vinted_id}: {e}", exc_info=True)
+        raise
+
+    return {"success": True, "vinted_id": vinted_id}
 
 
 # ===== LINK ENDPOINTS =====
 
 
-@router.post("/products/{vinted_id}/link")
+@router.post("/products/{vinted_id}/link", response_model=VintedLinkResponse)
 async def link_product(
     vinted_id: int,
     request: LinkProductRequest = None,
     user_db: tuple = Depends(get_user_db),
-) -> dict:
+):
     """
     Lie un produit Vinted à un produit Stoflow.
 
@@ -415,8 +370,7 @@ async def link_product(
         request.title/description/...: Overrides pour création (optionnel)
 
     Returns:
-        - Link existing: {"success": bool, "vinted_id": int, "product_id": int, "created": false}
-        - Create new: {"success": bool, "vinted_id": int, "product_id": int, "created": true, "images_copied": int, "product": dict}
+        VintedLinkResponse: Résultat liaison/création avec images_copied si créé
 
     Note: When creating new Product, images are downloaded from Vinted and uploaded to R2.
           If any image fails, the entire operation is rolled back.
@@ -460,111 +414,13 @@ async def link_product(
             override_data=override_data if override_data else None
         )
 
-        # ===== COPY IMAGES FROM VINTED TO R2 (2026-01-05) =====
-        images_copied = 0
-        images_failed = 0
-
-        if vinted_product.photos_data:
-            try:
-                photos = json.loads(vinted_product.photos_data)
-            except json.JSONDecodeError as e:
-                logger.error(f"[create_and_link] Failed to parse photos_data: {e}")
-                photos = []
-
-            # Diagnostic logging
-            logger.info(
-                f"[create_and_link] photos_data: count={len(photos)}, "
-                f"raw_length={len(vinted_product.photos_data)}"
-            )
-
-            # Log all available photos for debugging
-            for idx, p in enumerate(photos):
-                if isinstance(p, dict):
-                    photo_url = p.get("full_size_url") or p.get("url")
-                    logger.info(
-                        f"[create_and_link] Photo {idx}: "
-                        f"url={photo_url[:80] if photo_url else 'None'}..."
-                    )
-                else:
-                    logger.warning(f"[create_and_link] Photo {idx} is not a dict: {type(p)}")
-
-            if photos:
-                logger.info(
-                    f"[create_and_link] Starting download of {len(photos)} images "
-                    f"from Vinted to R2 for product {product.id}"
-                )
-
-                for i, photo in enumerate(photos):
-                    # Add delay between downloads to avoid rate limiting (except first)
-                    if i > 0:
-                        await asyncio.sleep(0.5)
-
-                    # Use full_size_url for original quality (not f800 resized)
-                    photo_url = photo.get("full_size_url") or photo.get("url")
-                    if not photo_url:
-                        logger.warning(
-                            f"[create_and_link] Photo {i} has no URL, "
-                            f"keys present: {list(photo.keys()) if isinstance(photo, dict) else 'N/A'}"
-                        )
-                        continue
-
-                    logger.info(
-                        f"[create_and_link] Downloading image {i+1}/{len(photos)}: "
-                        f"{photo_url[:100]}..."
-                    )
-
-                    # Retry logic with exponential backoff
-                    max_retries = 3
-                    r2_url = None
-
-                    for attempt in range(max_retries):
-                        try:
-                            r2_url = await FileService.download_and_upload_from_url(
-                                user_id=current_user.id,
-                                product_id=product.id,
-                                image_url=photo_url,
-                                timeout=45.0  # Increased timeout
-                            )
-                            break  # Success, exit retry loop
-                        except Exception as retry_error:
-                            if attempt < max_retries - 1:
-                                delay = 1.0 * (2 ** attempt)  # 1s, 2s, 4s
-                                logger.warning(
-                                    f"[create_and_link] Image {i+1} attempt {attempt+1} failed: "
-                                    f"{type(retry_error).__name__}: {retry_error}. "
-                                    f"Retrying in {delay}s..."
-                                )
-                                await asyncio.sleep(delay)
-                            else:
-                                logger.error(
-                                    f"[create_and_link] Image {i+1} FAILED after {max_retries} attempts: "
-                                    f"{type(retry_error).__name__}: {retry_error}"
-                                )
-                                images_failed += 1
-
-                    if r2_url:
-                        # Add image to product (JSONB)
-                        ProductService.add_image(
-                            db=db,
-                            product_id=product.id,
-                            image_url=r2_url,
-                            display_order=images_copied
-                        )
-                        images_copied += 1
-                        logger.info(
-                            f"[create_and_link] Image {i+1} uploaded successfully: {r2_url}"
-                        )
-
-                if images_failed > 0:
-                    logger.warning(
-                        f"[create_and_link] {images_failed}/{len(photos)} images "
-                        f"failed to copy for product {product.id}"
-                    )
-
-                logger.info(
-                    f"[create_and_link] Completed: {images_copied} images copied, "
-                    f"{images_failed} failed for product {product.id}"
-                )
+        # ===== COPY IMAGES FROM VINTED TO R2 (2026-01-08 - Refactored) =====
+        images_copied, images_failed = await VintedImageSyncService.sync_images_to_product(
+            db=db,
+            vinted_product=vinted_product,
+            product=product,
+            user_id=current_user.id
+        )
 
         db.commit()
 
@@ -590,24 +446,19 @@ async def link_product(
 
     except ValueError as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        # Business logic error from service
+        raise bad_request(str(e))
     except Exception as e:
         db.rollback()
-        logger.error(f"[create_and_link] Error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur liaison: {str(e)}"
-        )
+        logger.error(f"Failed to link Vinted product {vinted_id}: {e}", exc_info=True)
+        raise
 
 
-@router.delete("/products/{vinted_id}/link")
+@router.delete("/products/{vinted_id}/link", response_model=VintedUnlinkResponse)
 async def unlink_product(
     vinted_id: int,
     user_db: tuple = Depends(get_user_db),
-) -> dict:
+):
     """
     Délie un produit Vinted de son produit Stoflow.
 
@@ -615,7 +466,7 @@ async def unlink_product(
         vinted_id: ID Vinted du produit
 
     Returns:
-        {"success": bool, "vinted_id": int}
+        VintedUnlinkResponse: Confirmation de déliaison
     """
     db, current_user = user_db
 
@@ -630,15 +481,11 @@ async def unlink_product(
         }
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        # Business logic error from service
+        raise bad_request(str(e))
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur déliaison: {str(e)}"
-        )
+        logger.error(f"Failed to unlink Vinted product {vinted_id}: {e}", exc_info=True)
+        raise
 
 

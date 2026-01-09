@@ -8,6 +8,7 @@ import asyncio
 import random
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from models.public.user import User, UserRole, SubscriptionTier, AccountType, BusinessType, EstimatedProducts
@@ -22,6 +23,7 @@ from shared.security_utils import redact_email, redact_password
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+security = HTTPBearer()
 
 
 @router.post("/login", response_model=TokenResponse, status_code=status.HTTP_200_OK)
@@ -137,19 +139,19 @@ def refresh_token(
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 def logout(
-    request: LoginRequest,  # Réutilise le schema avec access_token
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> dict:
     """
     Logout utilisateur en révoquant l'access token.
 
     Business Rules:
-    - Révoque le token JWT actuel
+    - Révoque le token JWT actuel via Authorization header
     - Rend le token invalide pour toute utilisation future
     - Supporte la révocation de refresh tokens aussi
 
     Args:
-        request: Contient le token à révoquer dans le header Authorization (converti en access_token)
+        credentials: Token extrait du header Authorization: Bearer <token>
         db: Session SQLAlchemy
 
     Returns:
@@ -157,20 +159,20 @@ def logout(
 
     Raises:
         HTTPException: 400 si token invalide
+        HTTPException: 401 si token manquant (géré par HTTPBearer)
     """
-    # ⚠️ NOTE: Le token est envoyé en header Authorization: Bearer <token>
-    # FastAPI l'extrait automatiquement via le dépendance HTTPBearer
-    # Pour cette implémentation simple, on attend le token dans le body
+    # Extraire le token du header Authorization
+    token = credentials.credentials
 
     # Validation basique du token
-    if not request.access_token:
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Token manquant",
         )
 
     # Révoquer le token
-    success = AuthService.revoke_token(db, request.access_token)
+    success = AuthService.revoke_token(db, token)
 
     if not success:
         raise HTTPException(
@@ -178,7 +180,7 @@ def logout(
             detail="Impossible de révoquer le token",
         )
 
-    logger.info(f"User logged out successfully")
+    logger.info("User logged out successfully")
     return {"message": "Logged out successfully"}
 
 

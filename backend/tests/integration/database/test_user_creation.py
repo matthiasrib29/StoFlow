@@ -24,9 +24,9 @@ from services.user_schema_service import UserSchemaService
 
 
 # Tables attendues dans chaque schema user_X
+# Note (2026-01-09): plugin_tasks removed - replaced by WebSocket communication
 EXPECTED_USER_TABLES = [
     "ai_generation_logs",
-    "plugin_tasks",
     "product_images",
     "products",
     "publication_history",
@@ -107,11 +107,12 @@ class TestUserCreation:
 
         Tables attendues:
         - ai_generation_logs
-        - plugin_tasks
         - product_images
         - products
         - publication_history
         - vinted_products
+
+        Note: plugin_tasks removed (2026-01-09) - replaced by WebSocket
         """
         db = next(get_db())
 
@@ -149,9 +150,9 @@ class TestUserCreation:
                 assert table in actual_tables, \
                     f"Table {table} manquante dans schema {expected_schema}. Tables trouvées: {actual_tables}"
 
-            # Vérifier qu'on a exactement 6 tables
-            assert len(actual_tables) == 6, \
-                f"Devrait avoir 6 tables, trouvé {len(actual_tables)}: {actual_tables}"
+            # Vérifier qu'on a exactement 5 tables
+            assert len(actual_tables) == 5, \
+                f"Devrait avoir 5 tables, trouvé {len(actual_tables)}: {actual_tables}"
 
         finally:
             # Cleanup
@@ -220,57 +221,9 @@ class TestUserCreation:
             db_connection.execute(text(f"DROP SCHEMA IF EXISTS {expected_schema} CASCADE"))
             db_connection.commit()
 
-    def test_plugin_tasks_table_exists(self, test_user_email, db_connection):
-        """
-        Test: La table plugin_tasks doit exister et avoir les bonnes colonnes.
-        """
-        db = next(get_db())
-
-        # Créer le user
-        user = User(
-            email=test_user_email,
-            hashed_password=AuthService.hash_password("Test123456!"),
-            full_name="Test Plugin Tasks",
-            role=UserRole.USER,
-            account_type=AccountType.INDIVIDUAL
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-        user_id = user.id
-        expected_schema = f"user_{user_id}"
-
-        # Créer le schema pour ce user
-        UserSchemaService.create_user_schema(db, user_id)
-
-        try:
-            # Vérifier les colonnes de plugin_tasks
-            result = db_connection.execute(text(f"""
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = '{expected_schema}'
-                AND table_name = 'plugin_tasks'
-                ORDER BY ordinal_position
-            """))
-
-            columns = [row[0] for row in result.fetchall()]
-
-            required_columns = [
-                'id', 'task_type', 'status', 'payload',
-                'created_at', 'retry_count', 'max_retries'
-            ]
-
-            for col in required_columns:
-                assert col in columns, \
-                    f"Colonne {col} manquante dans plugin_tasks. Colonnes trouvées: {columns}"
-
-        finally:
-            # Cleanup
-            db.delete(user)
-            db.commit()
-            db_connection.execute(text(f"DROP SCHEMA IF EXISTS {expected_schema} CASCADE"))
-            db_connection.commit()
+    # REMOVED (2026-01-09): test_plugin_tasks_table_exists
+    # plugin_tasks table no longer exists - replaced by WebSocket communication
+    # Old test verified plugin_tasks table structure, now obsolete
 
     def test_user_schema_isolation(self, db_connection):
         """

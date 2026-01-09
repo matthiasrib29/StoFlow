@@ -10,9 +10,12 @@ from dotenv import load_dotenv
 # Charger les variables d'environnement depuis .env
 load_dotenv()
 
+import socketio
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.admin import router as admin_router
 from api.admin_attributes import router as admin_attributes_router
@@ -30,11 +33,18 @@ from api.ebay_webhook import router as ebay_webhook_router
 # TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)
 # from api.etsy import router as etsy_router
 # from api.etsy_oauth import router as etsy_oauth_router
-from api.plugin import router as plugin_router
+# REMOVED (2026-01-09): Plugin now communicates via WebSocket (no HTTP endpoints needed)
+# from api.plugin import router as plugin_router
 from api.products import router as products_router
 from api.stripe_routes import router as stripe_router
 from api.subscription import router as subscription_router
 from api.vinted import router as vinted_router  # Now from api/vinted/__init__.py
+from middleware.error_handler import (
+    stoflow_error_handler,
+    validation_error_handler,
+    http_exception_handler,
+    generic_exception_handler,
+)
 from middleware.rate_limit import rate_limit_middleware
 from middleware.security_headers import SecurityHeadersMiddleware
 from services.r2_service import r2_service
@@ -43,7 +53,9 @@ from services.datadome_scheduler import (
     stop_datadome_scheduler,
     get_datadome_scheduler
 )
+from services.websocket_service import sio
 from shared.config import settings
+from shared.exceptions import StoflowError
 # Note: SessionLocal removed - no longer needed after plugin tasks cleanup removal
 from shared.logging_setup import setup_logging
 
@@ -130,6 +142,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ===== WEBSOCKET INTEGRATION (2026-01-08) =====
+# Wrap FastAPI app with SocketIO for real-time plugin communication
+socket_app = socketio.ASGIApp(
+    sio,
+    other_asgi_app=app,
+    socketio_path="/socket.io",
+)
+logger.info("🔌 WebSocket server enabled at /socket.io")
+
+
+# ===== EXCEPTION HANDLERS (2026-01-08) =====
+# Global error sanitization to prevent information disclosure (OWASP A05:2021)
+# Order matters: more specific handlers first, generic handler last
+app.add_exception_handler(StoflowError, stoflow_error_handler)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
+
 
 # ===== SECURITY MIDDLEWARE (2025-12-05) =====
 
@@ -206,7 +236,8 @@ app.include_router(docs_router, prefix="/api")  # Public documentation (no auth 
 app.include_router(admin_docs_router, prefix="/api")  # Admin documentation CRUD (admin only)
 app.include_router(attributes_router, prefix="/api")
 app.include_router(products_router, prefix="/api")
-app.include_router(plugin_router, prefix="/api")
+# REMOVED (2026-01-09): Plugin communication via WebSocket only
+# app.include_router(plugin_router, prefix="/api")
 app.include_router(stripe_router, prefix="/api")
 app.include_router(subscription_router, prefix="/api")
 app.include_router(vinted_router, prefix="/api")
@@ -262,7 +293,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "main:app",
+        "main:socket_app",  # Use socket_app instead of app for WebSocket support
         host="0.0.0.0",
         port=8000,
         reload=settings.debug,
