@@ -301,7 +301,8 @@
       "Bash(coverage report:*)",
       "Bash(paste:*)",
       "Bash(for file in /home/maribeiro/StoFlow-unit-tests/backend/services/*.py)",
-      "Bash(do wc -l \"$file\")"
+      "Bash(do wc -l \"$file\")",
+      "Bash(PGPASSWORD='Ribeiro2002!' psql:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
