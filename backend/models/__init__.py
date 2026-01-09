@@ -69,9 +69,9 @@ from models.user import (
     PublicationStatus,
     # AI
     AIGenerationLog,
-    # Plugin
-    PluginTask,
-    TaskStatus,
+    # Plugin removed (2026-01-09): Replaced by WebSocket communication
+    # PluginTask,
+    # TaskStatus,
     # Vinted
     VintedProduct,
     VintedConnection,
@@ -143,9 +143,9 @@ __all__ = [
     "PublicationStatus",
     # AI
     "AIGenerationLog",
-    # Plugin
-    "PluginTask",
-    "TaskStatus",
+    # Plugin removed (2026-01-09): Replaced by WebSocket communication
+    # "PluginTask",
+    # "TaskStatus",
     # Vinted
     "VintedProduct",
     "VintedConnection",
