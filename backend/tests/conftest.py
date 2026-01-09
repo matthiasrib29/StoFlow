@@ -85,9 +85,8 @@ def setup_test_database():
         # - Schema public (users, subscription_quotas, clothing_prices)
         # - Schema product_attributes (brands, categories, colors, conditions, etc.)
         # - Schema template_tenant (products, product_images, vinted_products, etc.)
-        # NOTE: Temporarily commented - DB already at correct version
-        # command.upgrade(alembic_cfg, "head")
-        print("✅ Alembic migrations skipped (DB already up-to-date)")
+        command.upgrade(alembic_cfg, "head")
+        print("✅ Alembic migrations applied")
     except Exception as e:
         print(f"⚠️  Error applying migrations: {e}")
         raise
@@ -101,8 +100,10 @@ def setup_test_database():
             schema_name = f"user_{user_id}"
             print(f"   Creating {schema_name}...")
 
-            # Créer le schema
-            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
+            # DROP et recréer le schema pour garantir la structure à jour
+            # (les migrations peuvent avoir modifié template_tenant)
+            conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
+            conn.execute(text(f"CREATE SCHEMA {schema_name}"))
 
             # Cloner chaque table depuis template_tenant
             # LIKE ... INCLUDING ALL copie la structure + indexes + constraints + defaults
@@ -118,7 +119,7 @@ def setup_test_database():
             ]
             for table_name in tables:
                 conn.execute(text(f"""
-                    CREATE TABLE IF NOT EXISTS {schema_name}.{table_name}
+                    CREATE TABLE {schema_name}.{table_name}
                     (LIKE template_tenant.{table_name} INCLUDING ALL)
                 """))
 
@@ -163,98 +164,105 @@ def db_session():
         session.close()
 
 
+def _run_cleanup():
+    """
+    Fonction de cleanup partagée pour nettoyer les données de test.
+
+    Supprime toutes les données des tables en respectant l'ordre des FK.
+    """
+    # CRITICAL: Créer une NOUVELLE session indépendante pour le cleanup
+    # Cela évite les conflits avec la session du test en cours
+    cleanup_session = TestingSessionLocal()
+
+    try:
+        # IMPORTANT: L'ordre est crucial pour respecter les Foreign Keys
+
+        # 1. Supprimer d'abord les données dans les schemas user (jobs, tasks, produits, images)
+        # NOTE: Les schemas user_X peuvent ne pas exister pour les tests qui ne les utilisent pas
+        for user_id in [1, 2, 3]:
+            schema = f"user_{user_id}"
+            try:
+                # Order: tasks → jobs → batch_jobs → products → images
+                # (respecter les FK: tasks dépend de jobs, jobs dépend de batch_jobs)
+                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.marketplace_tasks RESTART IDENTITY CASCADE"))
+                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.marketplace_jobs RESTART IDENTITY CASCADE"))
+                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.batch_jobs RESTART IDENTITY CASCADE"))
+                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.vinted_products RESTART IDENTITY CASCADE"))
+                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.products RESTART IDENTITY CASCADE"))
+                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.product_images RESTART IDENTITY CASCADE"))
+                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.ai_generation_logs RESTART IDENTITY CASCADE"))
+                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.publication_history RESTART IDENTITY CASCADE"))
+                cleanup_session.commit()  # Commit immédiatement après succès
+            except Exception as e:
+                cleanup_session.rollback()  # Rollback si erreur
+                # Ignorer si table n'existe pas
+                pass
+
+        # 2. Supprimer users et ai_credits (FK)
+        # NOTE: Ne PAS utiliser CASCADE car cela supprimerait subscription_quotas
+        try:
+            cleanup_session.execute(text("TRUNCATE TABLE public.ai_credits RESTART IDENTITY CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE public.users RESTART IDENTITY CASCADE"))
+            cleanup_session.commit()
+        except Exception as e:
+            cleanup_session.rollback()
+
+        # 3. Supprimer les tables d'attributs (dans product_attributes schema)
+        try:
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.brands CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.categories CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.colors CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.conditions CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.sizes_normalized CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.sizes_original CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.materials CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.fits CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.genders CASCADE"))
+            cleanup_session.execute(text("TRUNCATE TABLE product_attributes.seasons CASCADE"))
+            cleanup_session.commit()  # Commit immédiatement après succès
+        except Exception:
+            cleanup_session.rollback()  # Rollback si erreur
+
+        # 4. Supprimer clothing_prices (table indépendante)
+        try:
+            cleanup_session.execute(text("TRUNCATE TABLE public.clothing_prices CASCADE"))
+            cleanup_session.commit()  # Commit immédiatement après succès
+        except Exception:
+            cleanup_session.rollback()  # Rollback si erreur
+
+        # NOTE: Les tables de référence ne sont PAS truncate car elles contiennent
+        # des données seed/fixtures permanentes:
+        # - subscription_quotas (FREE, STARTER, PRO, ENTERPRISE)
+
+    except Exception as e:
+        cleanup_session.rollback()  # Rollback en cas d'erreur
+    finally:
+        cleanup_session.close()  # Fermer la session cleanup
+
+
 @pytest.fixture(scope="function", autouse=True)
 def cleanup_data(request):
     """
     Fixture pour nettoyer les données entre chaque test.
 
-    Exécutée automatiquement après chaque test pour:
+    Exécutée automatiquement AVANT et APRÈS chaque test pour:
     - Supprimer toutes les données des tables
     - Garder la structure intacte
     - Éviter les conflits entre tests
+    - Garantir un état propre même si la session précédente a crashé
 
-    Note: Utilise un finalizer pour garantir que le cleanup s'exécute
-    TOUJOURS, même si le test échoue pendant le setup.
+    Note: Le cleanup s'exécute:
+    1. AVANT le test (pour nettoyer les données résiduelles)
+    2. APRÈS le test (via finalizer, même si le test échoue)
     """
-    def cleanup():
-        """Cleanup function exécutée via finalizer."""
-        print("\n🧹 Running cleanup...")
+    # BEFORE: Nettoyer avant chaque test pour garantir un état propre
+    # Cela gère le cas où la session précédente a crashé sans cleanup
+    _run_cleanup()
 
-        # CRITICAL: Créer une NOUVELLE session indépendante pour le cleanup
-        # Cela évite les conflits avec la session du test en cours
-        cleanup_session = TestingSessionLocal()
+    # Enregistrer le finalizer pour le cleanup APRÈS le test
+    request.addfinalizer(_run_cleanup)
 
-        try:
-            # IMPORTANT: L'ordre est crucial pour respecter les Foreign Keys
-
-            # 1. Supprimer d'abord les données dans les schemas user (jobs, tasks, produits, images)
-            # NOTE: Les schemas user_X peuvent ne pas exister pour les tests qui ne les utilisent pas
-            for user_id in [1, 2, 3]:
-                schema = f"user_{user_id}"
-                try:
-                    # Order: tasks → jobs → batch_jobs → products → images
-                    # (respecter les FK: tasks dépend de jobs, jobs dépend de batch_jobs)
-                    cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.marketplace_tasks RESTART IDENTITY CASCADE"))
-                    cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.marketplace_jobs RESTART IDENTITY CASCADE"))
-                    cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.batch_jobs RESTART IDENTITY CASCADE"))
-                    cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.vinted_products RESTART IDENTITY CASCADE"))
-                    cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.products RESTART IDENTITY CASCADE"))
-                    cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.product_images RESTART IDENTITY CASCADE"))
-                    cleanup_session.commit()  # Commit immédiatement après succès
-                except Exception as e:
-                    cleanup_session.rollback()  # Rollback si erreur
-                    # Ignorer si table n'existe pas
-                    pass
-
-            # 2. Supprimer users et ai_credits (FK)
-            # NOTE: Ne PAS utiliser CASCADE car cela supprimerait subscription_quotas
-            try:
-                cleanup_session.execute(text("TRUNCATE TABLE public.ai_credits RESTART IDENTITY CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE public.users RESTART IDENTITY CASCADE"))
-                cleanup_session.commit()
-            except Exception as e:
-                cleanup_session.rollback()
-                print(f"⚠️  Error cleaning users/ai_credits: {e}")
-
-            # 3. Supprimer les tables d'attributs (dans product_attributes schema)
-            try:
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.brands CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.categories CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.colors CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.conditions CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.sizes_normalized CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.sizes_original CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.materials CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.fits CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.genders CASCADE"))
-                cleanup_session.execute(text("TRUNCATE TABLE product_attributes.seasons CASCADE"))
-                cleanup_session.commit()  # Commit immédiatement après succès
-            except Exception:
-                cleanup_session.rollback()  # Rollback si erreur
-
-            # 4. Supprimer clothing_prices (table indépendante)
-            try:
-                cleanup_session.execute(text("TRUNCATE TABLE public.clothing_prices CASCADE"))
-                cleanup_session.commit()  # Commit immédiatement après succès
-            except Exception:
-                cleanup_session.rollback()  # Rollback si erreur
-
-            # NOTE: Les tables de référence ne sont PAS truncate car elles contiennent
-            # des données seed/fixtures permanentes:
-            # - subscription_quotas (FREE, STARTER, PRO, ENTERPRISE)
-
-            print("✅ Cleanup complete")
-        except Exception as e:
-            cleanup_session.rollback()  # Rollback en cas d'erreur
-            # Log error mais ne pas casser les tests
-            print(f"⚠️  Cleanup error: {e}")
-        finally:
-            cleanup_session.close()  # Fermer la session cleanup
-
-    # Enregistrer le finalizer AVANT le yield pour qu'il s'exécute toujours
-    request.addfinalizer(cleanup)
-
-    yield  # Test runs here (ou setup échoue, le finalizer s'exécute quand même)
+    yield  # Test runs here
 
 
 @pytest.fixture(scope="function")
