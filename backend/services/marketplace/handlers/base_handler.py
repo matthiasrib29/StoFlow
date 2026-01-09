@@ -28,7 +28,7 @@ from models.user.marketplace_task import (
     MarketplaceTaskType,
     TaskStatus,
 )
-from services.plugin_task_helper import create_and_wait
+# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)

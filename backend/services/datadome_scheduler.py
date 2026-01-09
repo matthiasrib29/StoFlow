@@ -34,10 +34,13 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
 from models.user.vinted_connection import VintedConnection, DataDomeStatus
-from services.datadome_ping_service import (
-    DataDomePingService,
-    DATADOME_PING_INTERVAL_SECONDS
-)
+# REMOVED (2026-01-09): DataDomePingService uses PluginTask (obsolete)
+# from services.datadome_ping_service import (
+#     DataDomePingService,
+#     DATADOME_PING_INTERVAL_SECONDS
+# )
+# Temporary constant until DataDome ping is re-implemented with WebSocket
+DATADOME_PING_INTERVAL_SECONDS = 60
 from shared.config import settings
 from shared.logging_setup import get_logger
 
@@ -120,12 +123,17 @@ def get_connected_vinted_users(db: Session, schema: str) -> List[VintedConnectio
 
 def ping_datadome_for_all_users():
     """
+    DISABLED (2026-01-09): DataDomePingService uses PluginTask (obsolete).
+
     Ping DataDome for all connected Vinted users.
 
     This task runs every DATADOME_POLL_INTERVAL_MINUTES minutes.
     It iterates through all user schemas and pings DataDome for
     users that need it (haven't been pinged in 5 minutes).
     """
+    logger.info("🛡️ DataDome ping DISABLED (WebSocket migration in progress)")
+    return  # TEMPORARY: Disabled until re-implemented with WebSocket
+
     logger.info("🛡️ Starting DataDome ping cycle")
     start_time = datetime.now(timezone.utc)
 

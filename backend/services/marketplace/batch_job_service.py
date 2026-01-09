@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from models.user.batch_job import BatchJob, BatchJobStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
-from models.user.marketplace_task import MarketplaceTask, TaskStatus
+# MarketplaceTask removed (2026-01-09): WebSocket architecture, no granular tasks in DB
 from models.vinted.vinted_action_type import VintedActionType
 from shared.logging_setup import get_logger
 
@@ -353,7 +353,7 @@ class BatchJobService:
         # Cancel all pending/running child jobs
         jobs = (
             self.db.query(MarketplaceJob)
-            .options(selectinload(MarketplaceJob.tasks))
+            # .options(selectinload(MarketplaceJob.tasks))  # Removed: no tasks relationship (WebSocket architecture)
             .filter(MarketplaceJob.batch_job_id == batch_job_id)
             .filter(
                 MarketplaceJob.status.in_([JobStatus.PENDING, JobStatus.RUNNING])
@@ -364,12 +364,8 @@ class BatchJobService:
         for job in jobs:
             job.status = JobStatus.CANCELLED
             job.completed_at = datetime.now(timezone.utc)
-
-            # Also cancel pending tasks
-            for task in job.tasks:
-                if task.status in (TaskStatus.PENDING, TaskStatus.PROCESSING):
-                    task.status = TaskStatus.CANCELLED
-                    task.completed_at = datetime.now(timezone.utc)
+            # Tasks cancellation removed: WebSocket handles real-time cancellation
+            # No granular tasks in DB (Option A: simple architecture)
 
             cancelled_count += 1
 
