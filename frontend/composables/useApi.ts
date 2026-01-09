@@ -14,7 +14,7 @@ interface ApiError {
 
 export const useApi = () => {
   const config = useRuntimeConfig()
-  const baseURL = config.public.apiUrl || 'http://localhost:8000'
+  const baseURL = config.public.apiBaseUrl || 'http://localhost:8000/api'
   const { isValidToken, isTokenExpired, willExpireSoon } = useTokenValidator()
 
   /**
@@ -175,7 +175,7 @@ export const useApi = () => {
     if (!refreshToken) return false
 
     try {
-      const response = await fetch(`${baseURL}/api/auth/refresh`, {
+      const response = await fetch(`${baseURL}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
