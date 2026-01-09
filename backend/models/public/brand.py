@@ -3,8 +3,9 @@ Brand Model
 
 Table pour les marques de produits (schema product_attributes, partagée entre tenants).
 
-Business Rules (Updated: 2025-12-08):
+Business Rules (Updated: 2026-01-08):
 - Marques partagées entre tous les tenants
+- Pas de traduction nécessaire (les noms de marques restent identiques)
 - Champs pythonApiWOO compatibles:
   * vinted_id: ID marketplace Vinted
   * monitoring: Flag pour tracking spécial
@@ -22,7 +23,8 @@ class Brand(Base):
     """
     Modèle pour les marques de produits.
 
-    Extended Attributes (2025-12-08):
+    Business Rules (Updated: 2026-01-08):
+    - Pas de traduction: les noms de marques sont internationaux
     - vinted_id: ID pour intégration Vinted
     - monitoring: Marque suivie spécialement
     - sector_jeans: Segment marché jeans (BUDGET → ULTRA PREMIUM)
@@ -34,12 +36,7 @@ class Brand(Base):
 
     # ===== PRIMARY KEY =====
     name: Mapped[str] = mapped_column(
-        String(100), primary_key=True, index=True, comment="Nom de la marque (EN)"
-    )
-
-    # ===== MULTILINGUAL TRANSLATIONS (Added 2025-12-08) =====
-    name_fr: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Nom de la marque (FR)"
+        String(100), primary_key=True, index=True, comment="Nom de la marque"
     )
 
     # ===== DESCRIPTIVE FIELDS =====
@@ -52,11 +49,6 @@ class Brand(Base):
     def name_en(self) -> str:
         """Alias pour compatibilité avec autres modèles: name → name_en"""
         return self.name
-
-    @property
-    def french_name(self) -> str | None:
-        """Alias pour compatibilité: name_fr → french_name"""
-        return self.name_fr
 
     # ===== MARKETPLACE INTEGRATION =====
     vinted_id: Mapped[str | None] = mapped_column(
