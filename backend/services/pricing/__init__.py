@@ -1,3 +1,4 @@
 """Pricing services for intelligent price calculation."""
-# Exports will be added as modules are created
-__all__ = []
+from .group_determination import determine_group
+
+__all__ = ["determine_group"]
