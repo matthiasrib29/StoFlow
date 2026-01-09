@@ -2,15 +2,19 @@
 Group determination service for pricing algorithm.
 
 Determines which pricing group a product belongs to based on its category and materials.
-Uses material priority logic to resolve conflicts when multiple materials are present.
+Handles both variable groups (with material variants) and fixed groups (single group).
 """
 
 from typing import Optional
 from .constants import (
     MATERIAL_TYPE_MAPPING,
     MATERIAL_PRIORITY,
-    CATEGORY_GROUP_MAPPING,
+    VARIABLE_GROUPS,
+    FIXED_GROUPS,
+    VARIABLE_CATEGORY_ALIASES,
     VALID_GROUPS,
+    MATERIAL_WOOL_LUXURY,
+    MATERIAL_SILK_LUXURY,
 )
 
 
@@ -19,112 +23,109 @@ def determine_group(category: str, materials: list[str]) -> str:
     Determine pricing group from category and materials.
 
     Business Rules:
-    1. Normalize category to base group (e.g., "blazer" → "jacket")
-    2. If jeans → always return "jeans" (no material suffix)
-    3. Determine dominant material type using priority order
-    4. Combine category + material type → group
-    5. Validate group exists in VALID_GROUPS
-    6. Fallback to generic group if no material match
+    1. Normalize category (lowercase, strip whitespace)
+    2. If fixed group → return group name directly (ignores materials)
+    3. If variable group:
+       - Apply category aliases (e.g., chinos → pants)
+       - Determine dominant material type using priority
+       - Map material type to suffix (wool_luxury → wool, silk_luxury → luxury)
+       - Build group name: category_suffix
+       - Validate against VALID_GROUPS
+       - Fallback if invalid
 
     Material Priority (highest to lowest):
-    LEATHER > DENIM > WOOL_LUXURY > NATURAL > TECHNICAL > SYNTHETIC
+    LEATHER > SILK_LUXURY > DENIM > WOOL_LUXURY > NATURAL > TECHNICAL > SYNTHETIC
 
     Args:
-        category: Product category (e.g., "jacket", "jeans", "shirt")
+        category: Product category (e.g., "jacket", "jeans", "t-shirt")
         materials: List of material names (e.g., ["cotton", "elastane"])
 
     Returns:
-        str: Pricing group (e.g., "jacket_leather", "jeans", "shirt_natural")
+        str: Pricing group (e.g., "jacket_leather", "jeans", "shirt_luxury")
 
     Raises:
-        ValueError: If category is unknown or invalid
+        ValueError: If category is unknown
 
     Examples:
         >>> determine_group("jacket", ["leather", "cotton"])
         "jacket_leather"  # Leather wins priority
 
         >>> determine_group("jeans", ["denim", "elastane"])
-        "jeans"  # Jeans always return "jeans"
+        "jeans"  # Fixed group, ignores materials
 
         >>> determine_group("shirt", ["silk"])
-        "shirt_luxury"  # Silk is luxury material
+        "shirt_luxury"  # Silk maps to luxury for shirts
 
-        >>> determine_group("t-shirt", [])
-        "tshirt_natural"  # Default fallback for empty materials
+        >>> determine_group("t-shirt", ["cotton"])
+        "tshirt"  # Fixed group
 
         >>> determine_group("unknown_category", ["cotton"])
         ValueError: Unknown category 'unknown_category'
     """
     # 1. Normalize category
     category_lower = category.lower().strip()
-    base_group = CATEGORY_GROUP_MAPPING.get(category_lower)
 
-    if not base_group:
-        raise ValueError(
-            f"Unknown category '{category}'. Valid categories: "
-            f"{', '.join(sorted(set(CATEGORY_GROUP_MAPPING.keys()))[:10])}..."
-        )
+    # 2. Check if fixed group
+    if category_lower in FIXED_GROUPS:
+        return FIXED_GROUPS[category_lower]
 
-    # 2. Special case: jeans always return "jeans"
-    if base_group == "jeans":
-        return "jeans"
+    # 3. Check if variable group
+    if category_lower in VARIABLE_GROUPS or category_lower in VARIABLE_CATEGORY_ALIASES:
+        # Apply alias if needed
+        base_category = VARIABLE_CATEGORY_ALIASES.get(category_lower, category_lower)
 
-    # 3. Determine dominant material type
-    material_type = _get_dominant_material_type(materials)
+        # Determine dominant material type
+        material_type = _get_dominant_material_type(materials)
 
-    # 4. Build group name
-    if material_type:
-        group = f"{base_group}_{material_type}"
-    else:
-        # Fallback: use default material for category
-        group = _get_default_group(base_group)
+        if material_type:
+            # Map material type to group suffix
+            suffix = _material_type_to_suffix(material_type, base_category)
+            group = f"{base_category}_{suffix}"
+        else:
+            # Fallback to most common material for category
+            group = _get_default_group(base_category)
 
-    # 5. Validate group exists
-    if group not in VALID_GROUPS:
-        # Fallback to most common variant
-        group = _get_default_group(base_group)
+        # Validate group exists
+        if group not in VALID_GROUPS:
+            group = _get_default_group(base_category)
 
-    return group
+        return group
+
+    # 4. Unknown category
+    raise ValueError(
+        f"Unknown category '{category}'. "
+        f"Valid categories: variable groups ({', '.join(list(VARIABLE_GROUPS.keys())[:5])}...) "
+        f"or fixed groups ({', '.join(list(FIXED_GROUPS.keys())[:5])}...)"
+    )
 
 
 def _get_dominant_material_type(materials: list[str]) -> Optional[str]:
     """
     Find dominant material type using priority order.
 
-    When a product has multiple materials, the highest priority material
-    determines the group. For example, a jacket with "cotton" and "leather"
-    will be classified as leather because LEATHER has higher priority.
-
     Args:
         materials: List of material names (case-insensitive)
 
     Returns:
-        Material type (e.g., "leather", "natural") or None if no match
+        Material type constant or None if no match
 
     Examples:
         >>> _get_dominant_material_type(["cotton", "leather"])
-        "leather"  # Leather wins
+        "leather"  # LEATHER wins
 
-        >>> _get_dominant_material_type(["polyester", "wool"])
-        "wool_luxury"  # Wool wins over polyester
+        >>> _get_dominant_material_type(["silk", "polyester"])
+        "silk_luxury"  # SILK_LUXURY wins
 
-        >>> _get_dominant_material_type(["cotton", "elastane"])
-        "natural"  # Cotton wins (both map to different types, natural is higher)
-
-        >>> _get_dominant_material_type([])
-        None  # No materials
-
-        >>> _get_dominant_material_type(["unknown_material"])
-        None  # Unknown material ignored
+        >>> _get_dominant_material_type(["wool", "cotton"])
+        "wool_luxury"  # WOOL_LUXURY wins over NATURAL
     """
     if not materials:
         return None
 
-    # Normalize materials to lowercase
+    # Normalize and map materials to types
     materials_lower = [m.lower().strip() for m in materials if m]
-
-    # Map materials to types
     material_types = []
+
     for material in materials_lower:
         material_type = MATERIAL_TYPE_MAPPING.get(material)
         if material_type:
@@ -133,7 +134,7 @@ def _get_dominant_material_type(materials: list[str]) -> Optional[str]:
     if not material_types:
         return None
 
-    # Return highest priority material
+    # Return highest priority material type
     for priority_type in MATERIAL_PRIORITY:
         if priority_type in material_types:
             return priority_type
@@ -141,49 +142,63 @@ def _get_dominant_material_type(materials: list[str]) -> Optional[str]:
     return None
 
 
-def _get_default_group(base_group: str) -> str:
+def _material_type_to_suffix(material_type: str, category: str) -> str:
     """
-    Get default group when material is unknown or group is invalid.
+    Convert material type constant to group suffix.
 
-    Defaults are chosen based on the most common material for each category:
-    - Jackets: natural (cotton/linen jackets most common)
-    - Pants: natural (chinos, cotton pants)
-    - Shirts: natural (cotton shirts most common)
-    - T-shirts: natural (cotton is standard)
-    - Sweaters: natural (cotton sweaters common)
-    - Dresses: natural (cotton dresses common)
-    - Skirts: natural (cotton skirts common)
-    - Shoes: synthetic (most affordable shoes are synthetic)
-    - Bags: synthetic (most bags are synthetic/nylon)
-    - Accessories: natural (cotton/linen accessories common)
+    Different categories use different suffixes for luxury materials:
+    - shirt, blouse, dress: silk_luxury → "luxury"
+    - jacket, coat, pants, etc.: wool_luxury → "wool"
 
     Args:
-        base_group: Base category group (e.g., "jacket", "pants")
+        material_type: Material type constant (e.g., "wool_luxury", "silk_luxury")
+        category: Base category (e.g., "jacket", "shirt")
 
     Returns:
-        Default group with material suffix (e.g., "jacket_natural")
+        Group suffix (e.g., "wool", "luxury", "natural")
+
+    Examples:
+        >>> _material_type_to_suffix("wool_luxury", "jacket")
+        "wool"
+
+        >>> _material_type_to_suffix("silk_luxury", "shirt")
+        "luxury"
+
+        >>> _material_type_to_suffix("natural", "pants")
+        "natural"
+    """
+    # Silk luxury materials → "luxury" suffix
+    if material_type == MATERIAL_SILK_LUXURY:
+        return "luxury"
+
+    # Wool luxury materials → "wool" suffix
+    if material_type == MATERIAL_WOOL_LUXURY:
+        return "wool"
+
+    # All other types use their type name as suffix
+    return material_type
+
+
+def _get_default_group(category: str) -> str:
+    """
+    Get default group when material is unknown or invalid.
+
+    Defaults chosen based on most common/affordable material per category:
+    - Jacket/coat/blazer/pants/skirt: natural (cotton is most common)
+    - Shirt/blouse/dress: natural (cotton is most common)
+
+    Args:
+        category: Base category (e.g., "jacket", "pants")
+
+    Returns:
+        Default group with material suffix
 
     Examples:
         >>> _get_default_group("jacket")
         "jacket_natural"
 
-        >>> _get_default_group("shoes")
-        "shoes_synthetic"
-
-        >>> _get_default_group("unknown_category")
-        "unknown_category_natural"  # Safe fallback
+        >>> _get_default_group("shirt")
+        "shirt_natural"
     """
-    defaults = {
-        "jacket": "jacket_natural",
-        "pants": "pants_natural",
-        "shorts": "shorts_natural",
-        "shirt": "shirt_natural",
-        "tshirt": "tshirt_natural",
-        "sweater": "sweater_natural",
-        "dress": "dress_natural",
-        "skirt": "skirt_natural",
-        "shoes": "shoes_synthetic",
-        "bag": "bag_synthetic",
-        "accessory": "accessory_natural",
-    }
-    return defaults.get(base_group, f"{base_group}_natural")
+    # All variable categories default to natural (most common/affordable)
+    return f"{category}_natural"
