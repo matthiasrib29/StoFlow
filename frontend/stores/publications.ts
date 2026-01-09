@@ -90,7 +90,7 @@ export const usePublicationsStore = defineStore('publications', {
           const vintedStatus = await api.get<{
             is_connected: boolean
             last_sync?: string
-          }>('/api/vinted/status')
+          }>('/vinted/status')
 
           const vintedIntegration = this.integrations.find(i => i.platform === 'vinted')
           if (vintedIntegration) {
@@ -105,7 +105,7 @@ export const usePublicationsStore = defineStore('publications', {
         try {
           const ebayStatus = await api.get<{
             connected: boolean
-          }>('/api/ebay/status')
+          }>('/ebay/status')
 
           const ebayIntegration = this.integrations.find(i => i.platform === 'ebay')
           if (ebayIntegration) {
@@ -147,7 +147,7 @@ export const usePublicationsStore = defineStore('publications', {
           const vintedResponse = await api.get<{
             products: any[]
             total: number
-          }>('/api/vinted/products?limit=100')
+          }>('/vinted/products?limit=100')
 
           if (vintedResponse?.products) {
             const vintedPublications = vintedResponse.products.map((p: any) => ({
@@ -189,7 +189,7 @@ export const usePublicationsStore = defineStore('publications', {
       try {
         // TODO: Remplacer par appel API quand route disponible
         // const api = useApi()
-        // const response = await api.get('/api/activity?limit=10')
+        // const response = await api.get('/activity?limit=10')
         // this.recentActivity = response.activities
 
         // Pour l'instant, générer activité depuis les publications
@@ -235,7 +235,7 @@ export const usePublicationsStore = defineStore('publications', {
             vinted_user_id?: number
             login?: string
             last_sync?: string
-          }>('/api/vinted/status')
+          }>('/vinted/status')
 
           integration.is_connected = status.is_connected
           integration.last_sync = status.last_sync
@@ -245,10 +245,10 @@ export const usePublicationsStore = defineStore('publications', {
           }
         } else if (platform === 'ebay') {
           // Vérifier via OAuth - redirige vers flow OAuth si pas connecté
-          const status = await api.get<{ is_connected: boolean }>('/api/ebay/status')
+          const status = await api.get<{ is_connected: boolean }>('/ebay/status')
           integration.is_connected = status.is_connected
         } else if (platform === 'etsy') {
-          const status = await api.get<{ is_connected: boolean }>('/api/etsy/status')
+          const status = await api.get<{ is_connected: boolean }>('/etsy/status')
           integration.is_connected = status.is_connected
         }
 
@@ -275,11 +275,11 @@ export const usePublicationsStore = defineStore('publications', {
 
         if (platform === 'vinted') {
           // Pour Vinted, on supprime juste la connexion côté backend
-          await api.delete('/api/vinted/disconnect')
+          await api.delete('/vinted/disconnect')
         } else if (platform === 'ebay') {
-          await api.delete('/api/ebay/disconnect')
+          await api.delete('/ebay/disconnect')
         } else if (platform === 'etsy') {
-          await api.delete('/api/etsy/disconnect')
+          await api.delete('/etsy/disconnect')
         }
 
         // Reset local state

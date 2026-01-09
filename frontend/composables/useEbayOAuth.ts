@@ -150,7 +150,7 @@ export const useEbayOAuth = () => {
       oauthLogger.debug('OAuth state generated and stored')
 
       // Get OAuth URL from backend with state parameter
-      const { auth_url } = await api.get<{ auth_url: string }>(`/api/ebay/connect?state=${encodeURIComponent(state)}`)
+      const { auth_url } = await api.get<{ auth_url: string }>(`/ebay/connect?state=${encodeURIComponent(state)}`)
 
       // Validate that auth_url is on eBay domain (prevent redirect attacks)
       try {
@@ -205,7 +205,7 @@ export const useEbayOAuth = () => {
    * Exchange OAuth code for tokens
    */
   const exchangeCodeForTokens = async (code: string): Promise<OAuthCallbackResponse> => {
-    const response = await api.post<OAuthCallbackResponse>('/api/ebay/callback', { code })
+    const response = await api.post<OAuthCallbackResponse>('/ebay/callback', { code })
     return response
   }
 
@@ -213,7 +213,7 @@ export const useEbayOAuth = () => {
    * Check current connection status
    */
   const checkConnectionStatus = async (): Promise<ConnectionStatus> => {
-    const status = await api.get<ConnectionStatus>('/api/ebay/status')
+    const status = await api.get<ConnectionStatus>('/ebay/status')
     return status
   }
 
@@ -250,7 +250,7 @@ export const useEbayOAuth = () => {
    * Disconnect eBay account
    */
   const disconnect = async (): Promise<void> => {
-    await api.post('/api/ebay/disconnect')
+    await api.post('/ebay/disconnect')
   }
 
   /**

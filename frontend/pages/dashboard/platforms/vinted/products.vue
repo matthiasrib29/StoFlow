@@ -369,7 +369,7 @@ async function fetchProducts() {
   error.value = null
 
   try {
-    const response = await api.get<{ products: VintedProduct[] }>('/api/vinted/products?limit=500')
+    const response = await api.get<{ products: VintedProduct[] }>('/vinted/products?limit=500')
     products.value = response?.products || []
   } catch (e: any) {
     vintedLogger.error('Failed to fetch Vinted products', { error: e.message })
@@ -383,7 +383,7 @@ async function syncProducts() {
   syncing.value = true
 
   try {
-    await api.post('/api/vinted/products/sync')
+    await api.post('/vinted/products/sync')
     await fetchProducts()
   } catch (e: any) {
     vintedLogger.error('Failed to sync Vinted products', { error: e.message })

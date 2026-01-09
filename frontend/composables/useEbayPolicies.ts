@@ -31,9 +31,9 @@ export const useEbayPolicies = () => {
     payment: EbayPaymentPolicy[]
   }> => {
     const [shipping, returns, payment] = await Promise.all([
-      api.get<EbayShippingPolicy[]>('/api/ebay/policies/shipping'),
-      api.get<EbayReturnPolicy[]>('/api/ebay/policies/return'),
-      api.get<EbayPaymentPolicy[]>('/api/ebay/policies/payment')
+      api.get<EbayShippingPolicy[]>('/ebay/policies/shipping'),
+      api.get<EbayReturnPolicy[]>('/ebay/policies/return'),
+      api.get<EbayPaymentPolicy[]>('/ebay/policies/payment')
     ])
 
     return { shipping, returns, payment }

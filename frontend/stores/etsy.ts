@@ -87,7 +87,7 @@ export const useEtsyStore = defineStore('etsy', {
           account?: EtsyAccount
           shop?: EtsyShop
           tokens?: EtsyTokens
-        }>('/api/etsy/status')
+        }>('/etsy/status')
 
         if (status.connected) {
           this.isConnected = true
@@ -115,7 +115,7 @@ export const useEtsyStore = defineStore('etsy', {
 
       try {
         const api = useApi()
-        const { authorization_url } = await api.get<{ authorization_url: string }>('/api/etsy/authorize')
+        const { authorization_url } = await api.get<{ authorization_url: string }>('/etsy/authorize')
 
         // Ouvrir popup OAuth
         const width = 600
@@ -186,7 +186,7 @@ export const useEtsyStore = defineStore('etsy', {
           tokens: EtsyTokens
           account: EtsyAccount
           shop: EtsyShop
-        }>('/api/etsy/callback', { code })
+        }>('/etsy/callback', { code })
 
         this.tokens = response.tokens
         this.account = response.account
@@ -216,7 +216,7 @@ export const useEtsyStore = defineStore('etsy', {
 
       try {
         const api = useApi()
-        await api.post('/api/etsy/disconnect')
+        await api.post('/etsy/disconnect')
 
         // Réinitialiser le state
         this.$reset()
@@ -236,7 +236,7 @@ export const useEtsyStore = defineStore('etsy', {
 
       try {
         const api = useApi()
-        const listings = await api.get<EtsyListing[]>('/api/etsy/listings')
+        const listings = await api.get<EtsyListing[]>('/etsy/listings')
         this.listings = listings ?? []
       } catch (error) {
         etsyLogger.error('Erreur chargement listings Etsy', { error })
@@ -252,7 +252,7 @@ export const useEtsyStore = defineStore('etsy', {
     async fetchStats() {
       try {
         const api = useApi()
-        const stats = await api.get<EtsyStats>('/api/etsy/stats')
+        const stats = await api.get<EtsyStats>('/etsy/stats')
         this.stats = stats
       } catch (error) {
         etsyLogger.error('Erreur chargement stats Etsy', { error })
@@ -268,7 +268,7 @@ export const useEtsyStore = defineStore('etsy', {
 
       try {
         const api = useApi()
-        const newListing = await api.post('/api/etsy/listings', listingData)
+        const newListing = await api.post('/etsy/listings', listingData)
 
         // Recharger les listings et stats
         await Promise.all([
@@ -293,7 +293,7 @@ export const useEtsyStore = defineStore('etsy', {
 
       try {
         const api = useApi()
-        const updatedListing = await api.put<EtsyListing>(`/api/etsy/listings/${listingId}`, updates)
+        const updatedListing = await api.put<EtsyListing>(`/etsy/listings/${listingId}`, updates)
 
         // Mettre à jour localement
         const index = this.listings.findIndex(l => l.listing_id === listingId)
@@ -318,7 +318,7 @@ export const useEtsyStore = defineStore('etsy', {
 
       try {
         const api = useApi()
-        await api.delete(`/api/etsy/listings/${listingId}`)
+        await api.delete(`/etsy/listings/${listingId}`)
 
         // Retirer localement
         this.listings = this.listings.filter(l => l.listing_id !== listingId)

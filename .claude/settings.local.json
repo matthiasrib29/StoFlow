@@ -302,7 +302,11 @@
       "Bash(paste:*)",
       "Bash(for file in /home/maribeiro/StoFlow-unit-tests/backend/services/*.py)",
       "Bash(do wc -l \"$file\")",
-      "Bash(PGPASSWORD='Ribeiro2002!' psql:*)"
+      "Bash(PGPASSWORD='Ribeiro2002!' psql:*)",
+      "mcp__plugin_github_github__get_file_contents",
+      "Bash(npx get-shit-done-cc)",
+      "Skill(gsd:new-project)",
+      "Skill(gsd:map-codebase)"
     ]
   },
   "enableAllProjectMcpServers": true,
