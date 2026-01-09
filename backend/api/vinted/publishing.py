@@ -67,7 +67,7 @@ async def publish_single_product(
 
         # Exécuter immédiatement si demandé
         if process_now:
-            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
             result = await processor._execute_job(job)
             response["result"] = result
             response["status"] = "completed" if result.get("success") else "failed"
@@ -137,7 +137,7 @@ async def publish_batch(
 
         # Exécuter immédiatement si demandé
         if process_now:
-            processor = VintedJobProcessor(db, shop_id=connection.vinted_user_id)
+            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
             batch_result = await processor.process_batch(batch_id)
             response["status"] = "processed"
             response["success_count"] = batch_result["success_count"]

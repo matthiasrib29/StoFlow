@@ -33,12 +33,12 @@ stoflow_db
 │   └── seasons, closures, decades, etc.
 ├── template_tenant (template pour nouveaux users)
 │   ├── products, product_images
-│   ├── plugin_tasks, plugin_queue
-│   └── vinted_*, ebay_* tables
+│   ├── vinted_*, ebay_* tables
+│   └── marketplace_jobs (job orchestration)
 ├── user_1 (isolation données user 1)
 │   ├── products
 │   ├── product_images
-│   ├── plugin_tasks
+│   ├── marketplace_jobs
 │   └── vinted_credentials, ebay_credentials, etc.
 └── user_2 (isolation données user 2)
     └── ...

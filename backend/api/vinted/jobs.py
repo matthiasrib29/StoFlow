@@ -459,7 +459,7 @@ async def process_pending_jobs(
     try:
         from services.vinted.vinted_job_processor import VintedJobProcessor
 
-        processor = VintedJobProcessor(db, shop_id=None)
+        processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=None)
         results = await processor.process_all_pending_jobs(
             max_jobs=limit,
             stop_on_error=False

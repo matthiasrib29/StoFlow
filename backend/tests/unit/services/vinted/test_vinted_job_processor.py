@@ -65,7 +65,7 @@ class TestProcessorInit:
 
     def test_init_with_shop_id(self, mock_db):
         """Test initialisation avec shop_id."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         assert processor.db == mock_db
         assert processor.shop_id == 123
@@ -73,7 +73,7 @@ class TestProcessorInit:
 
     def test_init_without_shop_id(self, mock_db):
         """Test initialisation sans shop_id."""
-        processor = VintedJobProcessor(mock_db)
+        processor = VintedJobProcessor(mock_db, user_id=1)
 
         assert processor.shop_id is None
 
@@ -89,7 +89,7 @@ class TestProcessNextJob:
     @pytest.mark.asyncio
     async def test_no_pending_jobs(self, mock_db):
         """Test quand aucun job n'est en attente."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         with patch.object(processor.job_service, 'expire_old_jobs', return_value=0):
             with patch.object(processor.job_service, 'get_next_pending_job', return_value=None):
@@ -100,7 +100,7 @@ class TestProcessNextJob:
     @pytest.mark.asyncio
     async def test_process_pending_job_success(self, mock_db, mock_job, mock_action_type):
         """Test traitement réussi d'un job via handler."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         # Mock du handler
         mock_handler_instance = MagicMock()
@@ -128,7 +128,7 @@ class TestProcessNextJob:
     @pytest.mark.asyncio
     async def test_process_pending_job_failure(self, mock_db, mock_job, mock_action_type):
         """Test traitement échoué d'un job via handler."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         # Mock du handler qui échoue
         mock_handler_instance = MagicMock()
@@ -168,7 +168,7 @@ class TestHandlerDispatch:
     @pytest.mark.asyncio
     async def test_dispatch_to_publish_handler(self, mock_db, mock_job, mock_action_type):
         """Test dispatch vers PublishJobHandler."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         mock_handler_instance = MagicMock()
         mock_handler_instance.execute = AsyncMock(return_value={"success": True})
@@ -191,7 +191,7 @@ class TestHandlerDispatch:
     @pytest.mark.asyncio
     async def test_dispatch_to_update_handler(self, mock_db, mock_job):
         """Test dispatch vers UpdateJobHandler."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         # Action type update
         action_type = MagicMock()
@@ -213,7 +213,7 @@ class TestHandlerDispatch:
     @pytest.mark.asyncio
     async def test_dispatch_to_delete_handler(self, mock_db, mock_job):
         """Test dispatch vers DeleteJobHandler."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         action_type = MagicMock()
         action_type.code = "delete"
@@ -234,7 +234,7 @@ class TestHandlerDispatch:
     @pytest.mark.asyncio
     async def test_dispatch_unknown_action(self, mock_db, mock_job):
         """Test dispatch action inconnue."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         action_type = MagicMock()
         action_type.code = "unknown_action"
@@ -265,7 +265,7 @@ class TestProcessBatch:
     @pytest.mark.asyncio
     async def test_process_batch_empty(self, mock_db):
         """Test batch vide."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         with patch.object(processor.job_service, 'get_batch_jobs', return_value=[]):
             result = await processor.process_batch("batch_123")
@@ -276,7 +276,7 @@ class TestProcessBatch:
     @pytest.mark.asyncio
     async def test_process_batch_with_jobs(self, mock_db, mock_action_type):
         """Test batch avec jobs."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         # Créer plusieurs jobs mock
         jobs = []
@@ -320,7 +320,7 @@ class TestRetryLogic:
     @pytest.mark.asyncio
     async def test_retry_on_failure(self, mock_db, mock_job, mock_action_type):
         """Test retry après échec."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
         mock_job.retry_count = 0
 
         # Simuler un échec avec retry possible
@@ -341,7 +341,7 @@ class TestRetryLogic:
     @pytest.mark.asyncio
     async def test_max_retries_reached(self, mock_db, mock_job, mock_action_type):
         """Test max retries atteint."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
         mock_job.retry_count = 3
 
         # Simuler max retries atteint
@@ -370,7 +370,7 @@ class TestQueueStatus:
 
     def test_queue_status_empty(self, mock_db):
         """Test status queue vide."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         with patch.object(processor.job_service, 'get_pending_jobs', return_value=[]):
             with patch.object(processor.job_service, 'get_interrupted_jobs', return_value=[]):
@@ -382,7 +382,7 @@ class TestQueueStatus:
 
     def test_queue_status_with_jobs(self, mock_db, mock_job, mock_action_type):
         """Test status queue avec jobs."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         with patch.object(processor.job_service, 'get_pending_jobs', return_value=[mock_job]):
             with patch.object(processor.job_service, 'get_interrupted_jobs', return_value=[]):
@@ -405,7 +405,7 @@ class TestProcessAllPending:
     @pytest.mark.asyncio
     async def test_process_all_empty(self, mock_db):
         """Test traitement queue vide."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         with patch.object(processor, 'process_next_job', new_callable=AsyncMock) as mock_process:
             mock_process.return_value = None
@@ -417,7 +417,7 @@ class TestProcessAllPending:
     @pytest.mark.asyncio
     async def test_process_all_with_jobs(self, mock_db):
         """Test traitement de plusieurs jobs."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         call_count = 0
         async def mock_process_next():
@@ -435,7 +435,7 @@ class TestProcessAllPending:
     @pytest.mark.asyncio
     async def test_process_all_stop_on_error(self, mock_db):
         """Test arrêt sur erreur."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         call_count = 0
         async def mock_process_next():
@@ -456,7 +456,7 @@ class TestProcessAllPending:
     @pytest.mark.asyncio
     async def test_process_all_max_jobs_limit(self, mock_db):
         """Test limite max_jobs."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         call_count = 0
         async def mock_process_next():
@@ -481,7 +481,7 @@ class TestMessageHandlerDispatch:
     @pytest.mark.asyncio
     async def test_dispatch_to_message_handler_inbox(self, mock_db, mock_job):
         """Test dispatch vers MessageJobHandler (sync inbox)."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         action_type = MagicMock()
         action_type.code = "message"
@@ -512,7 +512,7 @@ class TestMessageHandlerDispatch:
     @pytest.mark.asyncio
     async def test_dispatch_to_message_handler_conversation(self, mock_db, mock_job):
         """Test dispatch vers MessageJobHandler (sync conversation)."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         action_type = MagicMock()
         action_type.code = "message"
@@ -542,7 +542,7 @@ class TestMessageHandlerDispatch:
     @pytest.mark.asyncio
     async def test_dispatch_to_orders_handler(self, mock_db, mock_job):
         """Test dispatch vers OrdersJobHandler."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         action_type = MagicMock()
         action_type.code = "orders"
@@ -567,7 +567,7 @@ class TestMessageHandlerDispatch:
     @pytest.mark.asyncio
     async def test_dispatch_to_sync_handler(self, mock_db, mock_job):
         """Test dispatch vers SyncJobHandler."""
-        processor = VintedJobProcessor(mock_db, shop_id=123)
+        processor = VintedJobProcessor(mock_db, user_id=1, shop_id=123)
 
         action_type = MagicMock()
         action_type.code = "sync"
