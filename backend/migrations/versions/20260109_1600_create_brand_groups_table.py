@@ -1,7 +1,7 @@
 """create brand_groups table
 
-Revision ID: 20260109_1600_create_brand_groups_table
-Revises:
+Revision ID: 2f3a9708b420
+Revises: 20260109_0400
 Create Date: 2026-01-09 16:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
-revision: str = '20260109_1600_create_brand_groups_table'
+revision: str = '2f3a9708b420'
 down_revision: Union[str, None] = '20260109_0400'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
