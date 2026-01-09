@@ -12,7 +12,7 @@ from models.user.etsy_credentials import EtsyCredentials
 from models.user.ebay_product import EbayProduct
 from models.user.ebay_product_marketplace import EbayProductMarketplace
 from models.user.ebay_promoted_listing import EbayPromotedListing
-from models.user.plugin_task import PluginTask, TaskStatus
+# PluginTask removed (2026-01-09): Replaced by WebSocket communication
 from models.user.product import Product, ProductStatus
 from models.user.product_attributes_m2m import (
     ProductColor,
@@ -46,8 +46,8 @@ __all__ = [
     "PublicationHistory",
     "PublicationStatus",
     "AIGenerationLog",
-    "PluginTask",
-    "TaskStatus",
+    # "PluginTask",  # Removed (2026-01-09): Replaced by WebSocket
+    # "TaskStatus",  # Removed (2026-01-09): Replaced by WebSocket
     "EbayProductMarketplace",
     "EbayPromotedListing",
     "EbayOrder",

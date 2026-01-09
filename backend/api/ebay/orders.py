@@ -141,7 +141,7 @@ async def sync_orders(
         # Execute immediately if requested
         if process_now:
             from services.vinted.vinted_job_processor import VintedJobProcessor
-            processor = VintedJobProcessor(db, shop_id=current_user.id)
+            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=current_user.id)
             result = await processor._execute_job(job)
 
             if result.get("success"):
