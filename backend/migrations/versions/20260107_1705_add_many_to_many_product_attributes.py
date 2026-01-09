@@ -67,6 +67,11 @@ def upgrade() -> None:
     logger.info("🚀 CREATING MANY-TO-MANY JUNCTION TABLES")
     logger.info("=" * 70)
 
+    # Check if migration_errors table exists (prod might not have it)
+    has_migration_errors = table_exists(conn, 'public', 'migration_errors')
+    if not has_migration_errors:
+        logger.info("⚠️  public.migration_errors table not found - skipping error logging")
+
     schemas = get_user_schemas(conn)
     logger.info(f"\n✅ Found {len(schemas)} schemas to process\n")
 
@@ -217,24 +222,25 @@ def upgrade() -> None:
         if colors_skipped > 0:
             logger.info(f"  ⚠️  Skipped {colors_skipped} products with invalid color")
 
-            # Log skipped products to migration_errors table
-            conn.execute(text(f"""
-                INSERT INTO public.migration_errors
-                    (schema_name, product_id, migration_name, error_type, error_details)
-                SELECT
-                    '{schema}' AS schema_name,
-                    id AS product_id,
-                    'add_many_to_many_product_attributes' AS migration_name,
-                    'invalid_color' AS error_type,
-                    'Color: ' || color AS error_details
-                FROM {schema}.products
-                WHERE color IS NOT NULL
-                AND color != ''
-                AND color NOT IN (SELECT name_en FROM product_attributes.colors)
-                AND deleted_at IS NULL
-                ON CONFLICT (schema_name, product_id, migration_name, error_type) DO NOTHING;
-            """))
-            logger.info(f"     📝 Logged {colors_skipped} invalid colors to migration_errors table")
+            # Log skipped products to migration_errors table (if table exists)
+            if has_migration_errors:
+                conn.execute(text(f"""
+                    INSERT INTO public.migration_errors
+                        (schema_name, product_id, migration_name, error_type, error_details)
+                    SELECT
+                        '{schema}' AS schema_name,
+                        id AS product_id,
+                        'add_many_to_many_product_attributes' AS migration_name,
+                        'invalid_color' AS error_type,
+                        'Color: ' || color AS error_details
+                    FROM {schema}.products
+                    WHERE color IS NOT NULL
+                    AND color != ''
+                    AND color NOT IN (SELECT name_en FROM product_attributes.colors)
+                    AND deleted_at IS NULL
+                    ON CONFLICT (schema_name, product_id, migration_name, error_type) DO NOTHING;
+                """))
+                logger.info(f"     📝 Logged {colors_skipped} invalid colors to migration_errors table")
 
         # Migrate materials (String → product_materials, no percentage)
         result = conn.execute(text(f"""
@@ -265,24 +271,25 @@ def upgrade() -> None:
         if materials_skipped > 0:
             logger.info(f"  ⚠️  Skipped {materials_skipped} products with invalid material")
 
-            # Log skipped products to migration_errors table
-            conn.execute(text(f"""
-                INSERT INTO public.migration_errors
-                    (schema_name, product_id, migration_name, error_type, error_details)
-                SELECT
-                    '{schema}' AS schema_name,
-                    id AS product_id,
-                    'add_many_to_many_product_attributes' AS migration_name,
-                    'invalid_material' AS error_type,
-                    'Material: ' || material AS error_details
-                FROM {schema}.products
-                WHERE material IS NOT NULL
-                AND material != ''
-                AND material NOT IN (SELECT name_en FROM product_attributes.materials)
-                AND deleted_at IS NULL
-                ON CONFLICT (schema_name, product_id, migration_name, error_type) DO NOTHING;
-            """))
-            logger.info(f"     📝 Logged {materials_skipped} invalid materials to migration_errors table")
+            # Log skipped products to migration_errors table (if table exists)
+            if has_migration_errors:
+                conn.execute(text(f"""
+                    INSERT INTO public.migration_errors
+                        (schema_name, product_id, migration_name, error_type, error_details)
+                    SELECT
+                        '{schema}' AS schema_name,
+                        id AS product_id,
+                        'add_many_to_many_product_attributes' AS migration_name,
+                        'invalid_material' AS error_type,
+                        'Material: ' || material AS error_details
+                    FROM {schema}.products
+                    WHERE material IS NOT NULL
+                    AND material != ''
+                    AND material NOT IN (SELECT name_en FROM product_attributes.materials)
+                    AND deleted_at IS NULL
+                    ON CONFLICT (schema_name, product_id, migration_name, error_type) DO NOTHING;
+                """))
+                logger.info(f"     📝 Logged {materials_skipped} invalid materials to migration_errors table")
 
         # Migrate condition_sup (JSONB array → product_condition_sups)
         # Use jsonb_array_elements_text to explode the array
@@ -316,27 +323,28 @@ def upgrade() -> None:
         if condition_sups_skipped > 0:
             logger.info(f"  ⚠️  Skipped {condition_sups_skipped} products with invalid condition_sup values")
 
-            # Log skipped products to migration_errors table
+            # Log skipped products to migration_errors table (if table exists)
             # Aggregate all invalid values per product into a comma-separated list
-            conn.execute(text(f"""
-                INSERT INTO public.migration_errors
-                    (schema_name, product_id, migration_name, error_type, error_details)
-                SELECT
-                    '{schema}' AS schema_name,
-                    p.id AS product_id,
-                    'add_many_to_many_product_attributes' AS migration_name,
-                    'invalid_condition_sup' AS error_type,
-                    'Invalid values: ' || string_agg(elem::text, ', ') AS error_details
-                FROM {schema}.products p,
-                     LATERAL jsonb_array_elements_text(p.condition_sup) AS elem
-                WHERE p.condition_sup IS NOT NULL
-                AND jsonb_typeof(p.condition_sup) = 'array'
-                AND elem::text NOT IN (SELECT name_en FROM product_attributes.condition_sups)
-                AND p.deleted_at IS NULL
-                GROUP BY p.id
-                ON CONFLICT (schema_name, product_id, migration_name, error_type) DO NOTHING;
-            """))
-            logger.info(f"     📝 Logged {condition_sups_skipped} invalid condition_sups to migration_errors table")
+            if has_migration_errors:
+                conn.execute(text(f"""
+                    INSERT INTO public.migration_errors
+                        (schema_name, product_id, migration_name, error_type, error_details)
+                    SELECT
+                        '{schema}' AS schema_name,
+                        p.id AS product_id,
+                        'add_many_to_many_product_attributes' AS migration_name,
+                        'invalid_condition_sup' AS error_type,
+                        'Invalid values: ' || string_agg(elem::text, ', ') AS error_details
+                    FROM {schema}.products p,
+                         LATERAL jsonb_array_elements_text(p.condition_sup) AS elem
+                    WHERE p.condition_sup IS NOT NULL
+                    AND jsonb_typeof(p.condition_sup) = 'array'
+                    AND elem::text NOT IN (SELECT name_en FROM product_attributes.condition_sups)
+                    AND p.deleted_at IS NULL
+                    GROUP BY p.id
+                    ON CONFLICT (schema_name, product_id, migration_name, error_type) DO NOTHING;
+                """))
+                logger.info(f"     📝 Logged {condition_sups_skipped} invalid condition_sups to migration_errors table")
 
     logger.info("\n" + "=" * 70)
     logger.info("📊 MIGRATION SUMMARY")
@@ -357,9 +365,12 @@ def upgrade() -> None:
     total_skipped = total_colors_skipped + total_materials_skipped + total_condition_sups_skipped
     if total_skipped > 0:
         logger.info(f"\n📝 Data Quality Report:")
-        logger.info(f"   {total_skipped} products with invalid data logged to public.migration_errors")
-        logger.info(f"   Query to review: SELECT * FROM public.migration_errors")
-        logger.info(f"   WHERE migration_name = 'add_many_to_many_product_attributes';")
+        if has_migration_errors:
+            logger.info(f"   {total_skipped} products with invalid data logged to public.migration_errors")
+            logger.info(f"   Query to review: SELECT * FROM public.migration_errors")
+            logger.info(f"   WHERE migration_name = 'add_many_to_many_product_attributes';")
+        else:
+            logger.info(f"   {total_skipped} products with invalid data (not logged - migration_errors table missing)")
         logger.info("=" * 70)
 
 
