@@ -31,7 +31,7 @@ logger = getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision: str = '3407fcb980ee'
-down_revision: Union[str, None] = 'd4d7725adb3a'
+down_revision: Union[str, None] = '20260109_1319'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
