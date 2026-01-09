@@ -88,7 +88,7 @@ export const useAdminStats = () => {
     error.value = null
 
     try {
-      const response = await api.get<AdminStatsOverview>('/api/admin/stats/overview')
+      const response = await api.get<AdminStatsOverview>('/admin/stats/overview')
       overview.value = response
       return response
     } catch (e: any) {
@@ -107,7 +107,7 @@ export const useAdminStats = () => {
     error.value = null
 
     try {
-      const response = await api.get<AdminStatsSubscriptions>('/api/admin/stats/subscriptions')
+      const response = await api.get<AdminStatsSubscriptions>('/admin/stats/subscriptions')
       subscriptions.value = response
       return response
     } catch (e: any) {
@@ -171,10 +171,10 @@ export const useAdminStats = () => {
 
     try {
       const [overviewData, subscriptionsData, registrationsData, activityData] = await Promise.all([
-        api.get<AdminStatsOverview>('/api/admin/stats/overview'),
-        api.get<AdminStatsSubscriptions>('/api/admin/stats/subscriptions'),
-        api.get<AdminStatsRegistrations>(`/api/admin/stats/registrations?period=${period}`),
-        api.get<AdminStatsRecentActivity>('/api/admin/stats/recent-activity?limit=5'),
+        api.get<AdminStatsOverview>('/admin/stats/overview'),
+        api.get<AdminStatsSubscriptions>('/admin/stats/subscriptions'),
+        api.get<AdminStatsRegistrations>(`/admin/stats/registrations?period=${period}`),
+        api.get<AdminStatsRecentActivity>('/admin/stats/recent-activity?limit=5'),
       ])
 
       overview.value = overviewData

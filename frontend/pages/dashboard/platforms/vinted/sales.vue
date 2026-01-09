@@ -273,7 +273,7 @@ const fetchOrders = async () => {
 
   try {
     const api = useApi()
-    const response = await api.get('/api/vinted/orders')
+    const response = await api.get('/vinted/orders')
 
     orders.value = response.orders || []
 
@@ -295,7 +295,7 @@ const syncOrders = async () => {
 
   try {
     const api = useApi()
-    await api.post('/api/vinted/orders/sync')
+    await api.post('/vinted/orders/sync')
 
     const toast = useAppToast()
     toast.success('Synchronisation des commandes lancée')

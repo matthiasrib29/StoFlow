@@ -93,7 +93,7 @@ export const useAdminUsers = () => {
       if (params?.is_active !== undefined) queryParams.set('is_active', params.is_active.toString())
 
       const query = queryParams.toString() ? `?${queryParams.toString()}` : ''
-      const response = await api.get<AdminUserListResponse>(`/api/admin/users${query}`)
+      const response = await api.get<AdminUserListResponse>(`/admin/users${query}`)
 
       users.value = response.users
       total.value = response.total
@@ -115,7 +115,7 @@ export const useAdminUsers = () => {
     error.value = null
 
     try {
-      const response = await api.get<AdminUser>(`/api/admin/users/${userId}`)
+      const response = await api.get<AdminUser>(`/admin/users/${userId}`)
       return response
     } catch (e: any) {
       error.value = e.message || 'Failed to fetch user'
@@ -133,7 +133,7 @@ export const useAdminUsers = () => {
     error.value = null
 
     try {
-      const response = await api.post<AdminUser>('/api/admin/users', userData)
+      const response = await api.post<AdminUser>('/admin/users', userData)
       // Refresh the list
       await fetchUsers()
       return response
@@ -153,7 +153,7 @@ export const useAdminUsers = () => {
     error.value = null
 
     try {
-      const response = await api.patch<AdminUser>(`/api/admin/users/${userId}`, userData)
+      const response = await api.patch<AdminUser>(`/admin/users/${userId}`, userData)
       // Update in local list
       const index = users.value.findIndex(u => u.id === userId)
       if (index !== -1) {
@@ -176,7 +176,7 @@ export const useAdminUsers = () => {
     error.value = null
 
     try {
-      const response = await api.delete<AdminUserDeleteResponse>(`/api/admin/users/${userId}`)
+      const response = await api.delete<AdminUserDeleteResponse>(`/admin/users/${userId}`)
       // Remove from local list
       users.value = users.value.filter(u => u.id !== userId)
       total.value--
