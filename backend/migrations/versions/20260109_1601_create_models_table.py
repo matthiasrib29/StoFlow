@@ -1,7 +1,7 @@
 """create models table
 
-Revision ID: 20260109_1601_create_models_table
-Revises: 20260109_1600_create_brand_groups_table
+Revision ID: 68a6d6ef6f65
+Revises: 2f3a9708b420
 Create Date: 2026-01-09 16:01:00.000000
 
 """
@@ -12,8 +12,8 @@ from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
-revision: str = '20260109_1601_create_models_table'
-down_revision: Union[str, None] = '20260109_1600_create_brand_groups_table'
+revision: str = '68a6d6ef6f65'
+down_revision: Union[str, None] = '2f3a9708b420'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
