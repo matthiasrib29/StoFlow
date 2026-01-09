@@ -195,9 +195,12 @@ const connectPlatform = async (platformId: string) => {
   }
 }
 
-// Fetch publications on mount (non-blocking for instant navigation)
+// Fetch integrations status and publications on mount
 onMounted(async () => {
   try {
+    // Fetch connection status first (fast)
+    await publicationsStore.fetchIntegrationsStatus()
+    // Then fetch publications (slower)
     await publicationsStore.fetchPublications()
   } catch (error) {
     platformLogger.error('Failed to load platforms', { error })
