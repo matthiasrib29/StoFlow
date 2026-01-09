@@ -30,12 +30,13 @@ __all__ = [
 ]
 
 # Mapping action_code -> Handler class
+# Format: {action}_{marketplace} for unified system (2026-01-09)
 HANDLERS = {
-    "publish": PublishJobHandler,
-    "update": UpdateJobHandler,
-    "delete": DeleteJobHandler,
-    "orders": OrdersJobHandler,
-    "sync": SyncJobHandler,
-    "message": MessageJobHandler,
-    "link_product": LinkProductJobHandler,
+    "publish_vinted": PublishJobHandler,
+    "update_vinted": UpdateJobHandler,
+    "delete_vinted": DeleteJobHandler,
+    "orders_vinted": OrdersJobHandler,
+    "sync_vinted": SyncJobHandler,
+    "message_vinted": MessageJobHandler,
+    "link_product_vinted": LinkProductJobHandler,
 }

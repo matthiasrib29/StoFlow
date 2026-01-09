@@ -10,10 +10,8 @@ Date: 2025-12-17
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
 
-from api.dependencies import get_current_user, get_db
-from models.public.user import User
+from api.dependencies import get_user_db
 from models.user.product import Product
 from services.etsy import (
     EtsyListingClient,
@@ -23,7 +21,6 @@ from services.etsy import (
 from shared.logging_setup import get_logger
 
 from .schemas import (
-    DeleteListingRequest,
     ListingResponse,
     PublishProductRequest,
     PublishProductResponse,
@@ -40,8 +37,7 @@ logger = get_logger(__name__)
 @router.post("/products/publish", response_model=PublishProductResponse)
 def publish_product_to_etsy(
     request: PublishProductRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Publie un produit Stoflow sur Etsy.
@@ -52,6 +48,8 @@ def publish_product_to_etsy(
     Returns:
         Resultat de la publication avec listing_id et URL
     """
+    db, current_user = user_db
+
     product = (
         db.query(Product)
         .filter(
@@ -103,15 +101,24 @@ def publish_product_to_etsy(
         )
 
 
-@router.put("/products/update")
+@router.put("/products/{listing_id}")
 def update_etsy_listing(
+    listing_id: int,
     request: UpdateListingRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Met a jour un listing Etsy avec les donnees d'un produit Stoflow.
+
+    Args:
+        listing_id: ID du listing Etsy a mettre a jour
+        request.product_id: ID du produit Stoflow source
+
+    Returns:
+        Resultat de la mise a jour
     """
+    db, current_user = user_db
+
     product = (
         db.query(Product)
         .filter(
@@ -129,7 +136,7 @@ def update_etsy_listing(
 
     try:
         service = EtsyPublicationService(db, current_user.id)
-        result = service.update_product(product, request.listing_id)
+        result = service.update_product(product, listing_id)
 
         if not result["success"]:
             raise HTTPException(
@@ -137,7 +144,7 @@ def update_etsy_listing(
                 detail=result["error"],
             )
 
-        logger.info(f"Etsy listing {request.listing_id} updated")
+        logger.info(f"Etsy listing {listing_id} updated")
 
         return result
 
@@ -149,18 +156,25 @@ def update_etsy_listing(
         )
 
 
-@router.delete("/products/delete")
+@router.delete("/products/{listing_id}", status_code=status.HTTP_200_OK)
 def delete_etsy_listing(
-    request: DeleteListingRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    listing_id: int,
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Supprime un listing Etsy.
+
+    Args:
+        listing_id: ID du listing Etsy a supprimer
+
+    Returns:
+        Resultat de la suppression
     """
+    db, current_user = user_db
+
     try:
         service = EtsyPublicationService(db, current_user.id)
-        result = service.delete_product(request.listing_id)
+        result = service.delete_product(listing_id)
 
         if not result["success"]:
             raise HTTPException(
@@ -168,7 +182,7 @@ def delete_etsy_listing(
                 detail=result["error"],
             )
 
-        logger.info(f"Etsy listing {request.listing_id} deleted")
+        logger.info(f"Etsy listing {listing_id} deleted")
 
         return result
 
@@ -187,12 +201,13 @@ def delete_etsy_listing(
 def get_active_listings(
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Recupere les listings actifs du shop Etsy.
     """
+    db, current_user = user_db
+
     try:
         client = EtsyListingClient(db, current_user.id)
         result = client.get_shop_listings_active(limit=limit, offset=offset)
@@ -224,12 +239,13 @@ def get_active_listings(
 @router.get("/listings/{listing_id}")
 def get_listing_details(
     listing_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    user_db: tuple = Depends(get_user_db),
 ):
     """
     Recupere les details d'un listing Etsy.
     """
+    db, current_user = user_db
+
     try:
         client = EtsyListingClient(db, current_user.id)
         listing = client.get_listing(listing_id)

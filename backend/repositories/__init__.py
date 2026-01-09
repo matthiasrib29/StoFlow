@@ -22,7 +22,8 @@ Updated: 2025-12-24 - CategoryMappingRepository désactivé (modèle manquant)
 
 # DEPRECATED: CategoryMappingRepository désactivé - modèle manquant
 # from .category_mapping_repository import CategoryMappingRepository
-from .plugin_task_repository import PluginTaskRepository
+# REMOVED (2026-01-09): PluginTask system replaced by WebSocket communication
+# from .plugin_task_repository import PluginTaskRepository
 from .product_attribute_repository import ProductAttributeRepository
 from .product_repository import ProductRepository
 from .user_repository import UserRepository
@@ -33,7 +34,7 @@ from .vinted_error_log_repository import VintedErrorLogRepository
 
 __all__ = [
     # 'CategoryMappingRepository',  # DEPRECATED
-    'PluginTaskRepository',
+    # 'PluginTaskRepository',  # REMOVED (2026-01-09): Replaced by WebSocket
     'ProductAttributeRepository',
     'ProductRepository',
     'UserRepository',

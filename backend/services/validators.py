@@ -489,7 +489,7 @@ class PluginTaskResultValidator:
     Business Rules (2025-12-11):
     - Valide le status HTTP (2xx = success, 4xx/5xx = error)
     - Valide la structure JSON selon le type de requête
-    - Utilisé par api/plugin.py lors du submit_task_result
+    - Utilisé par le système WebSocket lors de la réception des résultats plugin
 
     Example:
         >>> validator = PluginTaskResultValidator()

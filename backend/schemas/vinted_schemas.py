@@ -50,6 +50,96 @@ class VintedProductResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class VintedProductDetailResponse(BaseModel):
+    """Response schema détaillé pour un VintedProduct (GET /products/{vinted_id})."""
+
+    vinted_id: int = Field(..., description="ID Vinted (PK)")
+    product_id: Optional[int] = Field(None, description="ID du produit Stoflow lié")
+    title: Optional[str] = Field(None, description="Titre du produit")
+    description: Optional[str] = Field(None, description="Description")
+    price: Optional[float] = Field(None, description="Prix de vente")
+    total_price: Optional[float] = Field(None, description="Prix total (avec frais)")
+    currency: Optional[str] = Field(None, description="Devise (EUR)")
+    url: Optional[str] = Field(None, description="URL du listing Vinted")
+    status: Optional[str] = Field(None, description="Statut")
+    condition: Optional[str] = Field(None, description="État du produit")
+    status_id: Optional[int] = Field(None, description="ID du statut")
+    view_count: int = Field(0, description="Nombre de vues")
+    favourite_count: int = Field(0, description="Nombre de favoris")
+    brand: Optional[str] = Field(None, description="Nom de la marque")
+    brand_id: Optional[int] = Field(None, description="ID de la marque")
+    size: Optional[str] = Field(None, description="Taille")
+    size_id: Optional[int] = Field(None, description="ID de la taille")
+    color1: Optional[str] = Field(None, description="Couleur principale")
+    catalog_id: Optional[int] = Field(None, description="ID du catalogue Vinted")
+    measurement_width: Optional[int] = Field(None, description="Largeur (cm)")
+    measurement_length: Optional[int] = Field(None, description="Longueur (cm)")
+    manufacturer_labelling: Optional[str] = Field(None, description="Étiquette fabricant")
+    image_url: Optional[str] = Field(None, description="URL de l'image principale")
+    is_draft: Optional[bool] = Field(None, description="Est un brouillon")
+    is_closed: Optional[bool] = Field(None, description="Est fermé")
+    is_reserved: Optional[bool] = Field(None, description="Est réservé")
+    is_hidden: Optional[bool] = Field(None, description="Est caché")
+    seller_id: Optional[int] = Field(None, description="ID du vendeur")
+    seller_login: Optional[str] = Field(None, description="Login du vendeur")
+    service_fee: Optional[float] = Field(None, description="Frais de service Vinted")
+    published_at: Optional[str] = Field(None, description="Date de publication (ISO)")
+    created_at: Optional[str] = Field(None, description="Date de création (ISO)")
+    updated_at: Optional[str] = Field(None, description="Date de modification (ISO)")
+
+
+class VintedProductsListResponse(BaseModel):
+    """Response schema pour liste de produits Vinted avec pagination offset/limit."""
+
+    products: List[VintedProductDetailResponse] = Field(..., description="Liste des produits")
+    total: int = Field(..., description="Nombre total de produits")
+    limit: int = Field(..., description="Limite par page")
+    offset: int = Field(..., description="Offset de pagination")
+
+
+class VintedStatsResponse(BaseModel):
+    """Response schema pour les statistiques Vinted."""
+
+    activePublications: int = Field(..., description="Nombre de publications actives")
+    totalViews: int = Field(..., description="Total de vues")
+    totalFavourites: int = Field(..., description="Total de favoris")
+    potentialRevenue: float = Field(..., description="Revenu potentiel (EUR)")
+    totalProducts: int = Field(..., description="Nombre total de produits")
+
+
+class VintedJobResponse(BaseModel):
+    """Response schema pour opérations avec job (sync, update, etc.)."""
+
+    job_id: int = Field(..., description="ID du job MarketplaceJob")
+    status: str = Field(..., description="Statut du job (pending, running, completed, failed)")
+    result: Optional[dict] = Field(None, description="Résultat de l'exécution si process_now=True")
+
+
+class VintedDeleteResponse(BaseModel):
+    """Response schema pour suppression de produit."""
+
+    success: bool = Field(..., description="Succès de l'opération")
+    vinted_id: int = Field(..., description="ID Vinted du produit supprimé")
+
+
+class VintedLinkResponse(BaseModel):
+    """Response schema pour liaison/création de Product depuis VintedProduct."""
+
+    success: bool = Field(..., description="Succès de l'opération")
+    vinted_id: int = Field(..., description="ID Vinted")
+    product_id: int = Field(..., description="ID du Product Stoflow")
+    created: bool = Field(..., description="True si Product créé, False si lié à existant")
+    images_copied: Optional[int] = Field(None, description="Nombre d'images copiées (si créé)")
+    product: Optional[dict] = Field(None, description="Détails du Product créé")
+
+
+class VintedUnlinkResponse(BaseModel):
+    """Response schema pour déliaison de Product."""
+
+    success: bool = Field(..., description="Succès de l'opération")
+    vinted_id: int = Field(..., description="ID Vinted")
+
+
 class VintedProductListResponse(BaseModel):
     """Response schema pour une liste de VintedProducts."""
 
@@ -97,9 +187,9 @@ class VintedBatchPublishResponse(BaseModel):
 class VintedUpdateRequest(BaseModel):
     """Request pour mettre à jour un produit Vinted."""
 
-    title: Optional[str] = Field(None, description="Nouveau titre")
+    title: Optional[str] = Field(None, max_length=500, description="Nouveau titre")
     price: Optional[Decimal] = Field(None, description="Nouveau prix")
-    description: Optional[str] = Field(None, description="Nouvelle description")
+    description: Optional[str] = Field(None, max_length=5000, description="Nouvelle description")
 
 
 class VintedAnalyticsUpdate(BaseModel):

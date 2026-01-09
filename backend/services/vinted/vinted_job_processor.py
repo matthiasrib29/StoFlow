@@ -1,6 +1,9 @@
 """
 Vinted Job Processor - Orchestrateur d'exécution des jobs
 
+DEPRECATED: This class is deprecated as of 2026-01-09.
+Use MarketplaceJobProcessor instead for unified marketplace support.
+
 Ce service est le coeur du système de jobs. Il:
 - Récupère les jobs PENDING par priorité
 - Dispatch vers le handler approprié
@@ -19,9 +22,12 @@ Architecture:
 
 Author: Claude
 Date: 2025-12-19
+Updated: 2026-01-08 - Added user_id for WebSocket communication
+Updated: 2026-01-09 - DEPRECATED in favor of MarketplaceJobProcessor
 """
 
 import time
+import warnings
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -33,6 +39,15 @@ from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
+# Deprecation warning
+warnings.warn(
+    "VintedJobProcessor is deprecated as of 2026-01-09. "
+    "Use MarketplaceJobProcessor from services.marketplace.marketplace_job_processor instead. "
+    "This class will be removed in February 2026.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 
 class VintedJobProcessor:
     """
@@ -42,22 +57,24 @@ class VintedJobProcessor:
     Dispatch vers les handlers spécialisés pour chaque type d'action.
 
     Usage:
-        processor = VintedJobProcessor(db, shop_id=123)
+        processor = VintedJobProcessor(db, user_id=1, shop_id=123)
         result = await processor.process_next_job()
 
         # Or process all pending jobs:
         results = await processor.process_all_pending_jobs()
     """
 
-    def __init__(self, db: Session, shop_id: int | None = None):
+    def __init__(self, db: Session, user_id: int, shop_id: int | None = None):
         """
         Initialize the job processor.
 
         Args:
             db: SQLAlchemy session (user schema)
+            user_id: User ID (required for WebSocket communication)
             shop_id: Vinted shop ID (required for sync operations)
         """
         self.db = db
+        self.user_id = user_id
         self.shop_id = shop_id
         self.job_service = VintedJobService(db)
 
@@ -206,6 +223,9 @@ class VintedJobProcessor:
                 shop_id=self.shop_id,
                 job_id=job_id
             )
+
+            # Set user_id for WebSocket communication
+            handler.user_id = self.user_id
 
             # Execute the handler
             result = await handler.execute(job)

@@ -180,6 +180,15 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
             'max_attempts_ip': 10,
             'window_seconds': 3600       # 1 heure
         },
+        # Marketplace expensive operations (2026-01-08)
+        '/api/vinted/products/sync': {
+            'max_attempts_ip': 10,       # Limite sync Vinted (expensive DB/API operation)
+            'window_seconds': 3600       # 1 heure
+        },
+        '/api/ebay/products/import': {
+            'max_attempts_ip': 5,        # Limite import eBay (very expensive operation)
+            'window_seconds': 3600       # 1 heure
+        },
     }
 
     # Check si endpoint rate-limité
