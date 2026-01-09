@@ -24,7 +24,7 @@ from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session
 
 from models.vinted.vinted_action_type import VintedActionType
-from models.user.plugin_task import PluginTask, TaskStatus
+# from models.user.plugin_task import PluginTask, TaskStatus  # REMOVED (2026-01-09): WebSocket architecture
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.vinted_job_stats import VintedJobStats
 from shared.logging_setup import get_logger
@@ -581,49 +581,33 @@ class VintedJobService:
 
     def _cancel_job_tasks(self, job_id: int) -> int:
         """
+        DEPRECATED (2026-01-09): WebSocket architecture, no granular tasks in DB.
+
         Cancel all pending tasks for a job.
 
         Args:
             job_id: Job ID
 
         Returns:
-            Number of tasks cancelled
+            Number of tasks cancelled (always 0 now)
         """
-        pending_tasks = (
-            self.db.query(PluginTask)
-            .filter(
-                PluginTask.job_id == job_id,
-                PluginTask.status == TaskStatus.PENDING,
-            )
-            .all()
-        )
+        # WebSocket architecture: no PluginTask in DB, cancellation handled real-time
+        return 0
 
-        for task in pending_tasks:
-            task.status = TaskStatus.CANCELLED
-            task.error_message = "Parent job cancelled"
-            task.completed_at = datetime.now(timezone.utc)
-
-        if pending_tasks:
-            self.db.commit()
-
-        return len(pending_tasks)
-
-    def get_job_tasks(self, job_id: int) -> list[PluginTask]:
+    def get_job_tasks(self, job_id: int) -> list:
         """
+        DEPRECATED (2026-01-09): WebSocket architecture, no granular tasks in DB.
+
         Get all tasks for a job.
 
         Args:
             job_id: Job ID
 
         Returns:
-            List of PluginTask
+            Empty list (no tasks in DB)
         """
-        return (
-            self.db.query(PluginTask)
-            .filter(PluginTask.job_id == job_id)
-            .order_by(PluginTask.created_at)
-            .all()
-        )
+        # WebSocket architecture: no PluginTask in DB
+        return []
 
     def get_job_progress(self, job_id: int) -> dict:
         """

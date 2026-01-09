@@ -390,9 +390,7 @@ class TestBatchJobServiceCancel:
             ),
         ]
 
-        # Add empty tasks list to each job
-        for job in cancelable_jobs:
-            job.tasks = []
+        # Tasks removed (2026-01-09): WebSocket architecture, no granular tasks in DB
 
         # Completed job for progress update
         completed_job = MarketplaceJob(
@@ -421,12 +419,11 @@ class TestBatchJobServiceCancel:
                 return Mock(filter=Mock(return_value=Mock(first=Mock(return_value=batch))))
             else:  # MarketplaceJob
                 if call_count[0] == 2:
-                    # Cancel query - needs .options().filter().filter().all() chain
+                    # Cancel query - needs .filter().filter().all() chain (no options)
                     mock_all = Mock(all=Mock(return_value=cancelable_jobs))
                     mock_filter2 = Mock(filter=Mock(return_value=mock_all))
                     mock_filter1 = Mock(return_value=mock_filter2)
-                    mock_options = Mock(return_value=Mock(filter=mock_filter1))
-                    return Mock(options=mock_options)
+                    return Mock(filter=mock_filter1)
                 else:
                     # Progress update query - all jobs
                     return Mock(filter=Mock(return_value=Mock(all=Mock(return_value=all_jobs))))
