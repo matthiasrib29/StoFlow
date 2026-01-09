@@ -48,10 +48,36 @@ Cree un nouveau worktree pour une feature avec env dev 1 (ports 8000/3000).
    - Tous les Edit() → ~/StoFlow-[nom]/...
    - Tous les Bash() → cd ~/StoFlow-[nom] && ...
 
-5. Demande : "Que veux-tu implementer sur cette feature ?"
+5. Integration GSD automatique :
 
-6. APRES avoir recu les consignes de l'utilisateur :
-   - Utilise EnterPlanMode pour entrer en mode planification
-   - Analyse le codebase dans ~/StoFlow-[nom]/
-   - Propose un plan d'implementation detaille
-   - Attends la validation avant de coder
+   a) Copier .planning/codebase/ depuis repo principal (si existe) :
+   ```bash
+   if [ -d ~/StoFlow/.planning/codebase ]; then
+     mkdir -p ~/StoFlow-[nom]/.planning
+     cp -r ~/StoFlow/.planning/codebase ~/StoFlow-[nom]/.planning/
+     echo "✅ Codebase map copié depuis repo principal"
+   fi
+   ```
+
+   b) Lancer automatiquement /gsd:new-project dans le worktree :
+   - Utilise Skill tool : skill="gsd:new-project"
+   - Le workflow GSD va poser les questions interactives
+   - PROJECT.md sera créé dans ~/StoFlow-[nom]/.planning/
+
+   c) Après /gsd:new-project, affiche :
+
+╔══════════════════════════════════════════════════════════════╗
+║  🎯 PROJECT INITIALISÉ AVEC GSD                              ║
+╠══════════════════════════════════════════════════════════════╣
+║  📁 Project : ~/StoFlow-[nom]/.planning/PROJECT.md           ║
+║  📋 Config  : ~/StoFlow-[nom]/.planning/config.json          ║
+║                                                              ║
+║  ▶ Prochaine étape :                                         ║
+║    /gsd:create-roadmap                                       ║
+║                                                              ║
+║    Cela va créer le ROADMAP avec les phases de travail.     ║
+╚══════════════════════════════════════════════════════════════╝
+
+6. ATTENDRE que l'utilisateur lance /gsd:create-roadmap ou donne d'autres instructions.
+
+7. REGLE : Tous les chemins utilisent ~/StoFlow-[nom]/...

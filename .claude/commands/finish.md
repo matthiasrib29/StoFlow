@@ -26,14 +26,33 @@ git branch --show-current  # Vérifie qu'on n'est pas sur develop/prod
 git status
 ```
 
-### 2. Commit & Push
+### 2. Commit & Push (avec support GSD)
+
 ```bash
+# Détecte si GSD utilisé dans ce worktree
+if [ -d .planning/ ]; then
+  echo "📊 GSD détecté - inclusion de .planning/ dans le commit"
+  HAS_GSD=true
+else
+  HAS_GSD=false
+fi
+
+# Stage tous les fichiers
 git add .
+
+# Si GSD utilisé, ajouter aussi .planning/
+if [ "$HAS_GSD" = true ]; then
+  git add .planning/
+fi
+
+# Commit
 git commit -m "feat/fix/chore: [déduis du contexte]
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
 Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+
+# Push
 git push -u origin $(git branch --show-current)
 ```
 
