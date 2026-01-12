@@ -141,13 +141,18 @@ async def sync_conversations(
             action_code="message",
             result_data=result_data
         )
+
+        # Store values BEFORE commit (SET LOCAL search_path resets on commit)
+        job_id = job.id
+        shop_id = vinted_connection.vinted_user_id
+
         db.commit()
 
-        processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=vinted_connection.vinted_user_id, marketplace="vinted")
+        processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
         result = await processor._execute_job(job)
 
         return {
-            "job_id": job.id,
+            "job_id": job_id,
             "status": "completed" if result.get("success") else "failed",
             **result
         }

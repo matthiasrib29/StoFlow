@@ -62,7 +62,7 @@ class VintedConnection(Base):
     # Foreign key vers public.users.id (UNIQUE - 1 connexion par user max)
     user_id = Column(Integer, nullable=False, unique=True, index=True)
 
-    # État de connexion
+    # Connection state
     is_connected = Column(
         Boolean,
         nullable=False,
@@ -104,66 +104,18 @@ class VintedConnection(Base):
     )
 
     # Seller statistics (from /api/v2/users/current)
-    item_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of items currently for sale"
-    )
-    total_items_count = Column(
-        Integer,
-        nullable=True,
-        comment="Total items count (including sold)"
-    )
-    given_item_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of items sold"
-    )
-    taken_item_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of items bought"
-    )
-    followers_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of followers"
-    )
-    feedback_count = Column(
-        Integer,
-        nullable=True,
-        comment="Total feedback/reviews count"
-    )
-    feedback_reputation = Column(
-        Float,
-        nullable=True,
-        comment="Reputation score (0.0 to 1.0)"
-    )
-    positive_feedback_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of positive reviews"
-    )
-    negative_feedback_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of negative reviews"
-    )
-    is_business = Column(
-        Boolean,
-        nullable=True,
-        comment="True if business/pro account"
-    )
-    is_on_holiday = Column(
-        Boolean,
-        nullable=True,
-        comment="True if holiday mode is enabled"
-    )
-    stats_updated_at = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="Timestamp of last stats update"
-    )
+    item_count = Column(Integer, nullable=True, comment="Number of items currently for sale")
+    total_items_count = Column(Integer, nullable=True, comment="Total items count (including sold)")
+    given_item_count = Column(Integer, nullable=True, comment="Number of items sold")
+    taken_item_count = Column(Integer, nullable=True, comment="Number of items bought")
+    followers_count = Column(Integer, nullable=True, comment="Number of followers")
+    feedback_count = Column(Integer, nullable=True, comment="Total feedback/reviews count")
+    feedback_reputation = Column(Float, nullable=True, comment="Reputation score (0.0 to 1.0)")
+    positive_feedback_count = Column(Integer, nullable=True, comment="Number of positive reviews")
+    negative_feedback_count = Column(Integer, nullable=True, comment="Number of negative reviews")
+    is_business = Column(Boolean, nullable=True, comment="True if business/pro account")
+    is_on_holiday = Column(Boolean, nullable=True, comment="True if holiday mode is enabled")
+    stats_updated_at = Column(DateTime(timezone=True), nullable=True, comment="Timestamp of last stats update")
 
     # Timestamps
     last_synced_at = Column(

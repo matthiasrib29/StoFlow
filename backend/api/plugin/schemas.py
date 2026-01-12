@@ -56,7 +56,7 @@ class PlatformStatus(BaseModel):
     connected: bool
     user: dict | None = None
     error: str | None = None
-    last_sync: datetime | None = None
+    last_synced_at: datetime | None = None
 
 
 class PluginSyncResponse(BaseModel):
