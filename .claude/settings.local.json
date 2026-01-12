@@ -306,7 +306,8 @@
       "mcp__plugin_github_github__get_file_contents",
       "Bash(npx get-shit-done-cc)",
       "Skill(gsd:new-project)",
-      "Skill(gsd:map-codebase)"
+      "Skill(gsd:map-codebase)",
+      "Skill(gsd:progress)"
     ]
   },
   "enableAllProjectMcpServers": true,

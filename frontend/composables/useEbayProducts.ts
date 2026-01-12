@@ -70,7 +70,7 @@ export function useEbayProducts() {
   const importProducts = async (): Promise<void> => {
     isImporting.value = true
     try {
-      const response = await post<{ imported_count: number }>('/api/ebay/products/import')
+      const response = await post<{ imported_count: number }>('/ebay/products/import')
       showSuccess('Import terminé', `${response?.imported_count || 0} produit(s) importé(s)`, 3000)
       await loadProducts()
     } catch (error: any) {
@@ -91,7 +91,7 @@ export function useEbayProducts() {
         enriched: number
         errors: number
         remaining: number
-      }>('/api/ebay/products/enrich')
+      }>('/ebay/products/enrich')
 
       const { enriched, errors, remaining } = response || { enriched: 0, errors: 0, remaining: 0 }
 
@@ -122,7 +122,7 @@ export function useEbayProducts() {
         updated: number
         errors: number
         remaining: number
-      }>('/api/ebay/products/refresh-aspects?batch_size=500')
+      }>('/ebay/products/refresh-aspects?batch_size=500')
 
       const { updated, errors, remaining } = response || { updated: 0, errors: 0, remaining: 0 }
 

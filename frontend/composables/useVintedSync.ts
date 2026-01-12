@@ -44,10 +44,10 @@ export function useVintedSync() {
       showInfo('Synchronisation en cours', 'Récupération des produits depuis Vinted via le plugin...', 5000)
 
       // 1. Call sync endpoint
-      const syncResponse = await post<SyncStats>('/api/vinted/products/sync')
+      const syncResponse = await post<SyncStats>('/vinted/products/sync')
 
       // 2. Fetch products from DB
-      const productsResponse = await get<{ products: any[]; total: number }>('/api/vinted/products?limit=100')
+      const productsResponse = await get<{ products: any[]; total: number }>('/vinted/products?limit=100')
 
       // 3. Store complete raw result
       const result: SyncResult = {
@@ -104,8 +104,8 @@ export function useVintedSync() {
 
       showInfo('Synchronisation', 'Récupération de vos produits Vinted...', 3000)
 
-      const syncResponse = await post<SyncStats>('/api/vinted/products/sync')
-      const productsResponse = await get<{ products: any[]; total: number }>('/api/vinted/products?limit=100')
+      const syncResponse = await post<SyncStats>('/vinted/products/sync')
+      const productsResponse = await get<{ products: any[]; total: number }>('/vinted/products?limit=100')
 
       syncedProducts.value = productsResponse.products || []
 
