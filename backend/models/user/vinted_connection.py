@@ -12,19 +12,24 @@ Business Rules:
 
 Author: Claude
 Date: 2025-12-17
+Updated: 2026-01-12 - Aligned with actual DB schema
 """
 
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Index, Enum, Float
+from sqlalchemy import Column, Integer, BigInteger, String, Text, DateTime, Boolean, Float, Enum
 from shared.database import Base
 
 
 class DataDomeStatus(str, PyEnum):
     """Status of the DataDome session."""
-    OK = "OK"                    # Last ping successful
-    FAILED = "FAILED"            # Last ping failed (after retries)
-    UNKNOWN = "UNKNOWN"          # Never pinged or expired
+    OK = "OK"
+    VALID = "VALID"
+    FAILED = "FAILED"
+    EXPIRED = "EXPIRED"
+    BLOCKED = "BLOCKED"
+    CAPTCHA_REQUIRED = "CAPTCHA_REQUIRED"
+    UNKNOWN = "UNKNOWN"
 
 
 class VintedConnection(Base):
@@ -32,146 +37,100 @@ class VintedConnection(Base):
     Table pour stocker la connexion Vinted d'un utilisateur.
 
     Attributes:
-        vinted_user_id: ID utilisateur Vinted (PK)
+        id: Primary key
+        vinted_user_id: ID utilisateur Vinted
         login: Username Vinted
         is_connected: True si actuellement connecté
-        created_at: Date de première connexion
-        last_sync: Dernière synchronisation réussie
-        disconnected_at: Date de dernière déconnexion (null si connecté)
+        user_id: FK vers l'utilisateur Stoflow
+        session_id: Session Vinted
+        csrf_token: CSRF token pour les requêtes
+        datadome_cookie: Cookie DataDome
     """
     __tablename__ = "vinted_connection"
 
-    # Primary key: l'ID utilisateur Vinted
-    vinted_user_id = Column(Integer, primary_key=True, index=True)
+    # Primary key
+    id = Column(Integer, primary_key=True)
 
-    # Login/username Vinted
-    login = Column(String(255), nullable=False, index=True)
+    # Vinted user info
+    vinted_user_id = Column(BigInteger, nullable=True, index=True)
+    login = Column(String(255), nullable=True, index=True)
 
-    # État de connexion
+    # Connection state
     is_connected = Column(
         Boolean,
         nullable=False,
-        default=True,
+        default=False,
         index=True,
         comment="True si l'utilisateur est connecté à Vinted"
     )
 
-    # Relation vers l'utilisateur Stoflow (cross-schema reference, no FK constraint)
-    # Note: La table users est dans le schema public, vinted_connection dans user_{id}
-    # L'intégrité référentielle est gérée au niveau applicatif
-    user_id = Column(Integer, nullable=False, index=True)
+    # Relation vers l'utilisateur Stoflow
+    user_id = Column(Integer, nullable=False, unique=True, index=True)
+
+    # Session data
+    session_id = Column(Text, nullable=True)
+    csrf_token = Column(Text, nullable=True)
+    datadome_cookie = Column(Text, nullable=True)
+
+    # DataDome tracking
+    datadome_status = Column(
+        Enum(DataDomeStatus, name='datadomestatus', create_type=False),
+        nullable=True,
+        default=DataDomeStatus.UNKNOWN,
+        comment="Current DataDome session status"
+    )
+    last_datadome_ping = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp of last successful DataDome ping"
+    )
 
     # Timestamps
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        comment="Date de première connexion"
+        server_default="now()",
+        comment="Date de création"
     )
-    last_sync = Column(
+    updated_at = Column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        server_default="now()",
         onupdate=lambda: datetime.now(timezone.utc),
+        comment="Dernière mise à jour"
+    )
+    last_synced_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
         comment="Dernière synchronisation réussie"
-    )
-    disconnected_at = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        default=None,
-        comment="Date de dernière déconnexion (null si connecté)"
-    )
-
-    # DataDome tracking
-    last_datadome_ping = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        default=None,
-        comment="Timestamp of last successful DataDome ping"
-    )
-    datadome_status = Column(
-        Enum(DataDomeStatus),
-        nullable=False,
-        default=DataDomeStatus.UNKNOWN,
-        comment="Current DataDome session status"
     )
 
     # Seller statistics (from /api/v2/users/current)
-    item_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of items currently for sale"
-    )
-    total_items_count = Column(
-        Integer,
-        nullable=True,
-        comment="Total items count (including sold)"
-    )
-    given_item_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of items sold"
-    )
-    taken_item_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of items bought"
-    )
-    followers_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of followers"
-    )
-    feedback_count = Column(
-        Integer,
-        nullable=True,
-        comment="Total feedback/reviews count"
-    )
-    feedback_reputation = Column(
-        Float,
-        nullable=True,
-        comment="Reputation score (0.0 to 1.0)"
-    )
-    positive_feedback_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of positive reviews"
-    )
-    negative_feedback_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of negative reviews"
-    )
-    is_business = Column(
-        Boolean,
-        nullable=True,
-        comment="True if business/pro account"
-    )
-    is_on_holiday = Column(
-        Boolean,
-        nullable=True,
-        comment="True if holiday mode is enabled"
-    )
-    stats_updated_at = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="Timestamp of last stats update"
-    )
+    item_count = Column(Integer, nullable=True, comment="Number of items currently for sale")
+    total_items_count = Column(Integer, nullable=True, comment="Total items count (including sold)")
+    given_item_count = Column(Integer, nullable=True, comment="Number of items sold")
+    taken_item_count = Column(Integer, nullable=True, comment="Number of items bought")
+    followers_count = Column(Integer, nullable=True, comment="Number of followers")
+    feedback_count = Column(Integer, nullable=True, comment="Total feedback/reviews count")
+    feedback_reputation = Column(Float, nullable=True, comment="Reputation score (0.0 to 1.0)")
+    positive_feedback_count = Column(Integer, nullable=True, comment="Number of positive reviews")
+    negative_feedback_count = Column(Integer, nullable=True, comment="Number of negative reviews")
+    is_business = Column(Boolean, nullable=True, comment="True if business/pro account")
+    is_on_holiday = Column(Boolean, nullable=True, comment="True if holiday mode is enabled")
+    stats_updated_at = Column(DateTime(timezone=True), nullable=True, comment="Timestamp of last stats update")
 
     def __repr__(self):
         status = "connected" if self.is_connected else "disconnected"
-        return f"<VintedConnection(vinted_user_id={self.vinted_user_id}, login='{self.login}', {status})>"
+        return f"<VintedConnection(id={self.id}, login='{self.login}', {status})>"
 
     def connect(self) -> None:
         """Marque la connexion comme active."""
         self.is_connected = True
-        self.disconnected_at = None
-        self.last_sync = datetime.now(timezone.utc)
+        self.last_synced_at = datetime.now(timezone.utc)
 
     def disconnect(self) -> None:
         """Marque la connexion comme inactive."""
         self.is_connected = False
-        self.disconnected_at = datetime.now(timezone.utc)
 
     def update_datadome_status(self, success: bool) -> None:
         """Update DataDome ping status."""
@@ -207,8 +166,3 @@ class VintedConnection(Base):
         self.is_business = stats.get("business")
         self.is_on_holiday = stats.get("is_on_holiday")
         self.stats_updated_at = datetime.now(timezone.utc)
-
-
-# Index pour recherches fréquentes
-Index('ix_vinted_connection_user_id', VintedConnection.user_id)
-Index('ix_vinted_connection_is_connected', VintedConnection.is_connected)
