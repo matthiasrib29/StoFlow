@@ -78,7 +78,7 @@ async def plugin_sync_platforms(
                     connected=result["connected"],
                     user=result.get("user"),
                     error=result.get("error"),
-                    last_sync=utc_now() if result["connected"] else None,
+                    last_synced_at=utc_now() if result["connected"] else None,
                 )
             )
 
@@ -90,7 +90,7 @@ async def plugin_sync_platforms(
                     connected=False,
                     user=None,
                     error="eBay requires OAuth2, cookie sync not supported",
-                    last_sync=None,
+                    last_synced_at=None,
                 )
             )
 
@@ -102,7 +102,7 @@ async def plugin_sync_platforms(
                     connected=False,
                     user=None,
                     error="Etsy requires OAuth2, cookie sync not supported",
-                    last_sync=None,
+                    last_synced_at=None,
                 )
             )
 
@@ -113,7 +113,7 @@ async def plugin_sync_platforms(
                     connected=False,
                     user=None,
                     error=f"Platform '{platform_name}' not supported",
-                    last_sync=None,
+                    last_synced_at=None,
                 )
             )
 

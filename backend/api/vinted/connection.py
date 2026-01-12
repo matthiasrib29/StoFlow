@@ -182,7 +182,7 @@ async def vinted_connection_callback(
                     is_connected=True,
                     user_id=current_user.id,
                     created_at=now,
-                    last_sync=now
+                    last_synced_at=now
                 )
                 db.add(connection)
 
@@ -232,8 +232,7 @@ async def get_vinted_status(
             "is_connected": bool,
             "vinted_user_id": int | null,
             "login": str | null,
-            "last_sync": str | null,
-            "disconnected_at": str | null
+            "last_synced_at": str | null
         }
     """
     db, current_user = user_db
@@ -248,16 +247,14 @@ async def get_vinted_status(
                 "is_connected": connection.is_connected,
                 "vinted_user_id": connection.vinted_user_id,
                 "login": connection.login,
-                "last_sync": connection.last_sync.isoformat() if connection.last_sync else None,
-                "disconnected_at": connection.disconnected_at.isoformat() if connection.disconnected_at else None
+                "last_synced_at": connection.last_synced_at.isoformat() if connection.last_synced_at else None
             }
         else:
             return {
                 "is_connected": False,
                 "vinted_user_id": None,
                 "login": None,
-                "last_sync": None,
-                "disconnected_at": None
+                "last_synced_at": None
             }
 
     except Exception as e:
