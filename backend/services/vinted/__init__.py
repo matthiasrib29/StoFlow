@@ -8,7 +8,7 @@ Architecture:
 
 Services disponibles:
 - VintedJobService: Gestion des jobs (creation, status, priorite, stats)
-- VintedJobProcessor: Orchestrateur qui execute les jobs
+- VintedJobProcessor: [DEPRECATED] Use MarketplaceJobProcessor instead
 - VintedSyncService: Operations Vinted (publish, update, delete)
 - VintedApiSyncService: Synchronisation produits depuis API Vinted
 - VintedOrderSyncService: Synchronisation commandes Vinted

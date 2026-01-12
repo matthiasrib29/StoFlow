@@ -14,6 +14,7 @@ Date: 2026-01-08 (Security Audit 2)
 from abc import abstractmethod
 from typing import Any
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import MarketplaceJob, JobStatus
@@ -188,17 +189,36 @@ class BasePublishHandler(BaseMarketplaceHandler):
 
     def _load_product(self) -> Product:
         """
-        Load product from database.
+        Load product from database with row-level lock.
+
+        Uses SELECT FOR UPDATE NOWAIT to prevent concurrent publication
+        of the same product by multiple workers.
 
         Returns:
             Product instance
 
         Raises:
-            ValueError: If product not found
+            ValueError: If product not found or deleted
+            ConflictError: If product already locked by another worker
+
+        Security Phase 2.1 (2026-01-12): Race condition fix
         """
-        product = (
-            self.db.query(Product).filter(Product.id == self.product_id).first()
-        )
+        try:
+            product = (
+                self.db.query(Product)
+                .filter(Product.id == self.product_id)
+                .with_for_update(nowait=True)  # Lock row immediately, fail if already locked
+                .first()
+            )
+        except OperationalError as e:
+            # Another worker is processing this product
+            self.log_warning(
+                f"Product #{self.product_id} is locked by another worker: {e}"
+            )
+            raise ConflictError(
+                f"Product #{self.product_id} is currently being published by another worker. "
+                f"Please wait and try again."
+            )
 
         if not product:
             raise ValueError(f"Product #{self.product_id} not found")

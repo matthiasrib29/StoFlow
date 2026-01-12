@@ -45,12 +45,13 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models.user.vinted_product import VintedProduct
-# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_data_extractor import VintedDataExtractor
 from services.vinted.vinted_product_enricher import VintedProductEnricher
 from shared.schema_utils import restore_search_path_after_rollback, commit_and_restore_path
 from shared.vinted_constants import VintedProductAPI
 from shared.logging_setup import get_logger
+from shared.config import settings
 
 logger = get_logger(__name__)
 
@@ -63,18 +64,20 @@ class VintedApiSyncService:
     avec la base de donnees locale.
     """
 
-    def __init__(self, shop_id: int):
+    def __init__(self, shop_id: int, user_id: int | None = None):
         """
         Initialize VintedApiSyncService.
 
         Args:
             shop_id: ID du shop Vinted (vinted_user_id)
+            user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
         """
         if not shop_id:
             raise ValueError("shop_id requis pour VintedApiSyncService")
         self.shop_id = shop_id
+        self.user_id = user_id
         self.extractor = VintedDataExtractor()
-        self.enricher = VintedProductEnricher()
+        self.enricher = VintedProductEnricher(user_id=user_id)
 
     async def sync_products_from_api(self, db: Session) -> dict[str, Any]:
         """
@@ -100,14 +103,14 @@ class VintedApiSyncService:
 
         while True:
             try:
-                result = await create_and_wait(
-                    db,
+                # WebSocket architecture (2026-01-12)
+                result = await PluginWebSocketHelper.call_plugin_http(
+                    db=db,
+                    user_id=self.user_id,
                     http_method="GET",
                     path=VintedProductAPI.get_shop_items(self.shop_id, page=page),
-                    payload={},
-                    platform="vinted",
-                    timeout=30,
-                    description=f"Get products page {page}"
+                    timeout=settings.plugin_timeout_sync,
+                    description=f"Sync products page {page}"
                 )
             except Exception as e:
                 logger.error(f"Erreur recuperation page {page}: {e}")
@@ -371,13 +374,13 @@ class VintedApiSyncService:
             vinted_id: ID Vinted du produit
         """
         try:
-            await create_and_wait(
-                db,
+            # WebSocket architecture (2026-01-12)
+            await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
                 http_method="POST",
                 path=VintedProductAPI.delete(vinted_id),
-                payload={},
-                platform="vinted",
-                timeout=30,
+                timeout=settings.plugin_timeout_delete,
                 description=f"Delete orphan {vinted_id}"
             )
         except Exception as e:

@@ -16,10 +16,11 @@ from dateutil.parser import parse as parse_datetime
 from sqlalchemy.orm import Session
 
 from repositories.vinted_conversation_repository import VintedConversationRepository
-# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from shared.schema_utils import SchemaManager
 from shared.vinted_constants import VintedConversationAPI, VintedReferers
 from shared.logging_setup import get_logger
+from shared.config import settings
 
 logger = get_logger(__name__)
 
@@ -27,8 +28,14 @@ logger = get_logger(__name__)
 class VintedInboxSyncService:
     """Service for syncing Vinted inbox (conversation list)."""
 
-    def __init__(self):
-        """Initialize service."""
+    def __init__(self, user_id: int | None = None):
+        """
+        Initialize service.
+
+        Args:
+            user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
+        """
+        self.user_id = user_id
         self._schema_manager = SchemaManager()
 
     async def sync_inbox(
@@ -75,13 +82,14 @@ class VintedInboxSyncService:
             while has_more:
                 logger.info(f"[VintedInboxSyncService] Fetching inbox page {current_page}")
 
-                # Call Vinted API via PluginTask
-                api_result = await create_and_wait(
+                # Call Vinted API via WebSocket (2026-01-12)
+                api_result = await PluginWebSocketHelper.call_plugin_http(
                     db=db,
+                    user_id=self.user_id,
                     http_method="GET",
                     path=VintedConversationAPI.get_inbox(page=current_page, per_page=per_page),
-                    referer=VintedReferers.INBOX,
-                    description=f"inbox page {current_page}"
+                    timeout=settings.plugin_timeout_sync,
+                    description=f"Sync inbox page {current_page}"
                 )
 
                 if not api_result:

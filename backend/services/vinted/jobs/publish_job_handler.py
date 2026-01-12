@@ -225,7 +225,7 @@ class PublishJobHandler(BaseJobHandler):
         """Upload les images sur Vinted."""
         self.log_debug("Upload photos...")
         photo_ids = await upload_product_images(
-            self.db, product, job_id=self.job_id
+            self.db, product, user_id=self.user_id, job_id=self.job_id
         )
 
         is_valid, error = self.validator.validate_images(photo_ids)
