@@ -16,11 +16,12 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
-# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_data_extractor import VintedDataExtractor
 from shared.schema_utils import SchemaManager, commit_and_restore_path
 from shared.vinted_constants import VintedOrderAPI, VintedConversationAPI
 from shared.logging_setup import get_logger
+from shared.config import settings
 
 logger = get_logger(__name__)
 
@@ -39,8 +40,14 @@ class VintedOrderSyncService:
     - sync_orders_by_month: Utilise /wallet/invoices (mois specifique)
     """
 
-    def __init__(self):
-        """Initialize VintedOrderSyncService."""
+    def __init__(self, user_id: int | None = None):
+        """
+        Initialize VintedOrderSyncService.
+
+        Args:
+            user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
+        """
+        self.user_id = user_id
         self.extractor = VintedDataExtractor()
         self._schema_manager = SchemaManager()
 
@@ -87,14 +94,13 @@ class VintedOrderSyncService:
         while True:
             # 1. Get orders page
             try:
-                result = await create_and_wait(
-                    db,
+                result = await PluginWebSocketHelper.call_plugin_http(
+                    db=db,
+                    user_id=self.user_id,
                     http_method="GET",
                     path=VintedOrderAPI.get_orders("sold", "completed", page, per_page),
-                    payload={},
-                    platform="vinted",
-                    timeout=30,
-                    description=f"orders p{page}"
+                    timeout=settings.plugin_timeout_order,
+                    description=f"Sync orders page {page}"
                 )
             except Exception as e:
                 logger.error(f"Erreur page {page}: {type(e).__name__}: {e}")
@@ -120,14 +126,13 @@ class VintedOrderSyncService:
 
                 # 3. Get transaction details
                 try:
-                    transaction = await create_and_wait(
-                        db,
+                    transaction = await PluginWebSocketHelper.call_plugin_http(
+                        db=db,
+                        user_id=self.user_id,
                         http_method="GET",
                         path=VintedOrderAPI.get_transaction(transaction_id),
-                        payload={},
-                        platform="vinted",
-                        timeout=30,
-                        description=f"tx {transaction_id}"
+                        timeout=settings.plugin_timeout_order,
+                        description=f"Get transaction {transaction_id}"
                     )
 
                     order_data = self.extractor.extract_order_data(transaction)
@@ -201,14 +206,13 @@ class VintedOrderSyncService:
         while True:
             # 1. Get invoices page
             try:
-                result = await create_and_wait(
-                    db,
+                result = await PluginWebSocketHelper.call_plugin_http(
+                    db=db,
+                    user_id=self.user_id,
                     http_method="GET",
                     path=VintedOrderAPI.get_wallet_invoices(year, month, page),
-                    payload={},
-                    platform="vinted",
-                    timeout=30,
-                    description=f"invoices {month_str} p{page}"
+                    timeout=settings.plugin_timeout_order,
+                    description=f"Sync invoices {month_str} page {page}"
                 )
             except Exception as e:
                 logger.error(f"Erreur invoices p{page}: {type(e).__name__}: {e}")
@@ -254,14 +258,13 @@ class VintedOrderSyncService:
 
                 # 3. Get conversation to extract transaction_id
                 try:
-                    conv_result = await create_and_wait(
-                        db,
+                    conv_result = await PluginWebSocketHelper.call_plugin_http(
+                        db=db,
+                        user_id=self.user_id,
                         http_method="GET",
                         path=VintedConversationAPI.get_conversation(conversation_id),
-                        payload={},
-                        platform="vinted",
-                        timeout=30,
-                        description=f"conv {conversation_id}"
+                        timeout=settings.plugin_timeout_order,
+                        description=f"Get conversation {conversation_id}"
                     )
 
                     conversation = conv_result.get('conversation', {})
@@ -279,14 +282,13 @@ class VintedOrderSyncService:
                         continue
 
                     # 4. Get full transaction details
-                    tx_result = await create_and_wait(
-                        db,
+                    tx_result = await PluginWebSocketHelper.call_plugin_http(
+                        db=db,
+                        user_id=self.user_id,
                         http_method="GET",
                         path=VintedOrderAPI.get_transaction(transaction_id),
-                        payload={},
-                        platform="vinted",
-                        timeout=30,
-                        description=f"tx {transaction_id}"
+                        timeout=settings.plugin_timeout_order,
+                        description=f"Get transaction details {transaction_id}"
                     )
 
                     transaction = tx_result.get('transaction', {})
