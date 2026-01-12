@@ -307,7 +307,17 @@
       "Bash(npx get-shit-done-cc)",
       "Skill(gsd:new-project)",
       "Skill(gsd:map-codebase)",
-      "Skill(gsd:progress)"
+      "Skill(gsd:progress)",
+      "Bash(for f in /tmp/vinted_*.py)",
+      "Bash(if [ -f \"$f\" ])",
+      "Bash(then)",
+      "Bash(fi)",
+      "Bash(__NEW_LINE_840aa4a828573187__ echo \"\")",
+      "Bash(for f in /tmp/migration_*.py)",
+      "Bash(__NEW_LINE_03338e8fe2041a38__ echo \"\")",
+      "Bash(__NEW_LINE_015a82b4e2feeea5__ echo \"\")",
+      "Bash(if [ -f \"plugin/src/components/PermissionRequest.vue\" ])",
+      "Bash(else)"
     ]
   },
   "enableAllProjectMcpServers": true,

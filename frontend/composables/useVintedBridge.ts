@@ -278,6 +278,15 @@ export function useVintedBridge() {
   // ============================================================
 
   /**
+   * Send a ping to content script to trigger STOFLOW_PLUGIN_READY response
+   * This helps Firefox detect the plugin after injection
+   */
+  function pingContentScript(): void {
+    log.debug('🏓 Sending STOFLOW_PING to content script...')
+    window.postMessage({ type: 'STOFLOW_PING' }, window.location.origin)
+  }
+
+  /**
    * Check if the plugin is installed and responsive
    */
   async function checkInstalled(): Promise<boolean> {
@@ -298,6 +307,31 @@ export function useVintedBridge() {
         const response = await sendMessage({ action: 'PING' }, 5000)
         isInstalled.value = response?.success === true
         return isInstalled.value
+      }
+
+      // Firefox: send ping to content script and wait for response
+      if (isFirefox()) {
+        log.info('🦊 Firefox detected - pinging content script...')
+        pingContentScript()
+
+        // Wait a bit for response
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        if (pluginOrigin) {
+          isInstalled.value = true
+          return true
+        }
+
+        // Retry a few times
+        for (let i = 0; i < 3; i++) {
+          log.debug(`🔄 Retry ping ${i + 1}/3...`)
+          pingContentScript()
+          await new Promise(resolve => setTimeout(resolve, 500))
+          if (pluginOrigin) {
+            isInstalled.value = true
+            return true
+          }
+        }
       }
 
       // Firefox: wait for plugin announcement
@@ -554,18 +588,23 @@ export function useVintedBridge() {
    * Handle messages from the plugin (Firefox postMessage fallback)
    */
   function handlePluginMessage(event: MessageEvent) {
-    // Validate origin
-    if (!isValidExtensionOrigin(event.origin)) {
+    const data = event.data
+
+    // Only accept messages from same origin (content script runs in page context)
+    // or from extension origins (for future Chrome support)
+    const isFromSameOrigin = event.origin === window.location.origin
+    const isFromExtension = isValidExtensionOrigin(event.origin)
+
+    if (!isFromSameOrigin && !isFromExtension) {
       return
     }
 
-    const data = event.data
-
-    // Plugin announcement
+    // Plugin announcement (from content script injected in same origin)
     if (data?.type === 'STOFLOW_PLUGIN_READY') {
+      // Store the origin for future postMessage communication
       pluginOrigin = event.origin
       isInstalled.value = true
-      log.info('Plugin detected via postMessage, origin:', pluginOrigin)
+      log.info('✅ Plugin detected via postMessage, origin:', pluginOrigin)
 
       // Send ACK
       window.postMessage({ type: 'STOFLOW_FRONTEND_ACK' }, pluginOrigin)
@@ -574,6 +613,7 @@ export function useVintedBridge() {
 
     // Response to a Vinted action (Firefox fallback)
     if (data?.type === 'VINTED_ACTION_RESPONSE' && data.requestId) {
+      log.debug('📥 Received VINTED_ACTION_RESPONSE:', data.requestId)
       const pending = pendingRequests.get(data.requestId)
       if (pending) {
         clearTimeout(pending.timeout)
@@ -583,8 +623,11 @@ export function useVintedBridge() {
         if (data.errorCode === 'NO_VINTED_TAB') {
           pending.reject(new NoVintedTabError(data.error))
         } else {
+          log.info('✅ Response received for:', data.requestId)
           pending.resolve(data)
         }
+      } else {
+        log.warn('⚠️ No pending request found for:', data.requestId)
       }
     }
   }

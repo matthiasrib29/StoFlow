@@ -23,7 +23,9 @@ const ALLOWED_ORIGINS = [
   'https://www.stoflow.io',
   'https://app.stoflow.io',
   'http://localhost:3000',
-  'http://localhost:5173'
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
 ];
 
 // Flag pour les logs (activés pour debug)
@@ -146,6 +148,12 @@ function setupMessageListener() {
       return;
     }
 
+    // IMPORTANT: Ignore our own STOFLOW_PLUGIN_READY messages to avoid infinite loop
+    if (data.type === 'STOFLOW_PLUGIN_READY') {
+      log.debug('⚠️  Message ignoré (notre propre annonce)');
+      return;
+    }
+
     log.info('✅ Message accepté:', data.type);
 
     // Traiter les différents types de messages
@@ -153,6 +161,16 @@ function setupMessageListener() {
       case 'STOFLOW_FRONTEND_ACK':
         // Le frontend a reçu notre annonce
         log.info('Frontend a confirmé la réception (ACK)');
+        break;
+
+      case 'STOFLOW_PING':
+        // Frontend is asking if we're here - respond with PLUGIN_READY
+        log.info('🏓 Ping reçu du frontend - réponse PONG');
+        window.postMessage({
+          type: 'STOFLOW_PLUGIN_READY',
+          version: '1.0.0',
+          isPong: true  // Flag to indicate this is a response to ping
+        }, event.origin);
         break;
 
       // ============ FIREFOX FALLBACK: Vinted Actions ============
@@ -174,7 +192,17 @@ function setupMessageListener() {
 
 // ==================== INITIALISATION ====================
 
+// Guard against multiple injections (can happen with registerContentScripts + manifest content_scripts)
+const INIT_FLAG = '__STOFLOW_CONTENT_SCRIPT_INITIALIZED__';
+
 function init() {
+  // Check if already initialized
+  if ((window as any)[INIT_FLAG]) {
+    log.warn('Content script déjà initialisé - skip');
+    return;
+  }
+  (window as any)[INIT_FLAG] = true;
+
   log.info('Content script chargé sur', window.location.href);
 
   // 1. S'annoncer au frontend
