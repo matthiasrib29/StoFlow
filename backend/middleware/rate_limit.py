@@ -142,9 +142,32 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
     Returns:
         429 Too Many Requests si limite dépassée
     """
-    # BYPASS en mode TESTING (2026-01-07: Changed to DISABLE_RATE_LIMIT to avoid conflict with PostgreSQL search_path)
-    if os.getenv("DISABLE_RATE_LIMIT") == "1":
-        return await call_next(request)
+    # BYPASS RULES (Security 2026-01-12):
+    # - NEVER bypass in production (checked via APP_ENV)
+    # - Only bypass in test environment (DISABLE_RATE_LIMIT=1 AND APP_ENV=test)
+    # - Logs warning if bypass is used
+    app_env = os.getenv("APP_ENV", "development")
+    disable_rate_limit = os.getenv("DISABLE_RATE_LIMIT") == "1"
+
+    if disable_rate_limit:
+        if app_env == "production":
+            # CRITICAL: Log and IGNORE the bypass in production
+            logger.critical(
+                "🚨 SECURITY: DISABLE_RATE_LIMIT=1 detected in production environment. "
+                "This flag is IGNORED for security. Rate limiting is ACTIVE."
+            )
+            # Continue to rate limiting (do NOT bypass)
+        elif app_env == "test":
+            # Allow bypass in test environment only
+            logger.debug("[RateLimit] Bypass active (test environment)")
+            return await call_next(request)
+        else:
+            # Development: allow but warn
+            logger.warning(
+                "[RateLimit] Bypass active (development environment). "
+                "Do NOT use in production."
+            )
+            return await call_next(request)
 
     # Configuration par endpoint (Security 2025-12-23: Extended rate limiting)
     rate_limits = {
