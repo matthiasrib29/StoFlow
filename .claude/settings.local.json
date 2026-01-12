@@ -320,7 +320,9 @@
       "Bash(else)",
       "Bash(DATABASE_URL=postgresql://stoflow_user:stoflow_dev_password_2024@localhost:5433/stoflow_expected alembic upgrade:*)",
       "Bash([ -d .planning/ ])",
-      "Bash(./scripts/rotate-logs.sh:*)"
+      "Bash(./scripts/rotate-logs.sh:*)",
+      "Bash(./scripts/db-protect.sh:*)",
+      "Bash(./scripts/db-backup.sh:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
