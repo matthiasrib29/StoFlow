@@ -25,7 +25,7 @@ import logging
 
 # revision identifiers, used by Alembic.
 revision = '20260112_1900'
-down_revision = '6bc865c4c841'
+down_revision = '94236e80c53d'
 branch_labels = None
 depends_on = None
 

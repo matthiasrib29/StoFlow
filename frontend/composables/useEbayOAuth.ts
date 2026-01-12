@@ -181,18 +181,91 @@ export const useEbayOAuth = () => {
       }
 
       return new Promise((resolve, reject) => {
+        // Add postMessage listener for backend success notification
+        const handleMessage = (event: MessageEvent) => {
+          // Security: Validate origin (should be from our backend)
+          const config = useRuntimeConfig()
+          const backendOrigin = config.public.apiUrl || window.location.origin
+
+          if (!event.origin.startsWith(backendOrigin.split('//')[0] + '//' + new URL(backendOrigin).hostname)) {
+            oauthLogger.warn('postMessage from invalid origin', { origin: event.origin })
+            return
+          }
+
+          // Handle success
+          if (event.data.type === 'ebay_oauth_success') {
+            oauthLogger.info('OAuth success via postMessage')
+            window.removeEventListener('message', handleMessage)
+            clearInterval(checkClosed)
+            clearTimeout(timeoutId)
+            onSuccess()
+            resolve(true)
+            return
+          }
+
+          // Handle error
+          if (event.data.type === 'ebay_oauth_error') {
+            oauthLogger.error('OAuth error via postMessage', { error: event.data.error })
+            window.removeEventListener('message', handleMessage)
+            clearInterval(checkClosed)
+            clearTimeout(timeoutId)
+            reject(new Error(event.data.error))
+            return
+          }
+        }
+
+        window.addEventListener('message', handleMessage)
+
+        let pollingStarted = false
+        let pollCount = 0
+        const MAX_POLLS = 10  // 10 seconds max
+
         const checkClosed = setInterval(() => {
           if (popup.closed) {
             clearInterval(checkClosed)
-            // Check if connection was successful by calling onSuccess
-            onSuccess()
-            resolve(true)
+            window.removeEventListener('message', handleMessage)
+
+            // Start polling fallback if postMessage didn't fire
+            if (!pollingStarted) {
+              pollingStarted = true
+              oauthLogger.info('Popup closed, starting status polling fallback')
+
+              const pollInterval = setInterval(async () => {
+                pollCount++
+
+                try {
+                  const status = await checkConnectionStatus()
+
+                  if (status.is_connected) {
+                    oauthLogger.info('Connection successful via polling', { pollCount })
+                    clearInterval(pollInterval)
+                    clearTimeout(timeoutId)
+                    onSuccess()
+                    resolve(true)
+                    return
+                  }
+
+                  if (pollCount >= MAX_POLLS) {
+                    oauthLogger.warn('Polling timeout - connection status still false')
+                    clearInterval(pollInterval)
+                    clearTimeout(timeoutId)
+                    reject(new Error('Timeout: impossible de vérifier la connexion'))
+                  }
+                } catch (error) {
+                  oauthLogger.error('Polling error', { error, pollCount })
+                  clearInterval(pollInterval)
+                  clearTimeout(timeoutId)
+                  reject(error)
+                }
+              }, 1000)  // Poll every 1 second
+            }
           }
         }, 500)
 
         // Timeout after 5 minutes
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           clearInterval(checkClosed)
+          window.removeEventListener('message', handleMessage)
           clearState()
           popup.close()
           reject(new Error('Délai d\'authentification expiré'))
