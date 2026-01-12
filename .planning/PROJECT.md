@@ -305,4 +305,138 @@ None currently - all key decisions have been made based on the comprehensive doc
 
 ---
 
-*Last updated: 2026-01-09 after project initialization*
+## Implementation Summary
+
+**Feature**: Intelligent Pricing Algorithm
+**Status**: Complete ✅
+**Completed**: 2026-01-12
+
+### Overview
+
+Implemented a comprehensive pricing algorithm that generates intelligent price suggestions for secondhand products using LLM-powered data generation and a transparent adjustment-based calculation formula.
+
+### Architecture
+
+**Backend (FastAPI + PostgreSQL + Google Gemini)**:
+- **Database**: Brand×Group base prices + Model coefficients (auto-generated via LLM)
+- **Group Determination**: 69 product groups based on category + materials
+- **LLM Generation Service**: Gemini-powered generation with validation and fallbacks
+- **6 Adjustment Calculators**: Condition, Origin, Decade, Trend, Feature, Model
+- **Pricing Service**: Orchestrates fetch-or-generate → calculate → return 3 price levels
+- **REST API**: POST /pricing/calculate with JWT auth
+
+**Frontend (Nuxt.js 3 + Vue 3 + Tailwind CSS)**:
+- **Composable**: usePricingCalculation for API integration and state management
+- **Component**: PricingDisplay with 3 color-coded price cards + expandable breakdown
+- **Integration**: Product detail page with "Calculate Price" button
+
+### Pricing Formula
+
+```
+STANDARD_PRICE = BASE_PRICE × MODEL_COEFF × (1 + TOTAL_ADJUSTMENTS)
+
+Where:
+- BASE_PRICE: LLM-generated for Brand×Group (€20-500 range)
+- MODEL_COEFF: LLM-generated for specific models (0.6-2.0 range), default 1.0
+- TOTAL_ADJUSTMENTS: Sum of 6 adjustment values (-1.0 to +1.0 each)
+
+Price Levels:
+- Quick Sale: STANDARD × 0.75
+- Standard: STANDARD × 1.0 (recommended)
+- Premium: STANDARD × 1.30
+```
+
+### Adjustment Calculators
+
+1. **Condition** (-0.50 to +0.20): Based on condition score (0-5) + supplements
+2. **Origin** (-0.30 to +0.30): Tier-based comparison (actual vs expected)
+3. **Decade** (-0.10 to +0.30): Bonus for unexpected vintage decades
+4. **Trend** (-0.05 to +0.25): Best unexpected trend bonus
+5. **Feature** (-0.10 to +0.30): Sum of unexpected feature bonuses
+6. **Model**: Coefficient multiplier (not additive)
+
+### Product Groups (69 total)
+
+**Categories with material variations**:
+- Bags: leather, textile, exotic
+- Clothing: coats (leather/textile/wool), jackets (leather/denim/textile), pants (denim/textile), etc.
+- Shoes: sneakers, boots, heels (leather/textile variations)
+- Accessories: watches, jewelry, scarves, etc.
+- Home: furniture, decoration (wood/metal/glass variations)
+
+### Error Handling
+
+- **400**: Validation errors (missing fields, invalid ranges)
+- **500**: LLM generation failures (with database rollback)
+- **504**: Timeout errors (>30s processing)
+- **Logging**: Structured logging with elapsed_time_ms, user_id, brand context
+
+### Testing
+
+**Backend**:
+- Unit tests: 94 tests for adjustment calculators
+- Unit tests: 20 tests for pricing service orchestration
+- Integration tests: 19 tests for API endpoint
+- Total: 2500+ lines of test code
+
+**Frontend**:
+- Unit tests: 9+ tests for usePricingCalculation composable
+- Configured: Vitest + @nuxt/test-utils
+- Coverage: State management, API integration, error handling
+
+**E2E**:
+- Manual test scenarios documented (luxury, streetwear, vintage, errors)
+- Real-world brand validation
+
+### Key Decisions
+
+1. **LLM Provider**: Google Gemini (already integrated, generous free tier)
+2. **Fetch-or-Generate**: Automatic LLM fallback if data missing (no manual seeding)
+3. **Price Transparency**: Expandable breakdown showing all adjustments + formula
+4. **Color Scheme**: Blue (quick), Green (standard/recommended), Purple (premium)
+5. **Error Strategy**: User-friendly messages, no stack traces, performance logging
+6. **Test Strategy**: Comprehensive backend coverage, frontend composable testing
+7. **Material Priority**: LEATHER > DENIM > WOOL > NATURAL > TECHNICAL > SYNTHETIC
+
+### Files
+
+**Backend**:
+- `backend/repositories/brand_group_repository.py`
+- `backend/repositories/model_repository.py`
+- `backend/services/pricing/group_determination.py`
+- `backend/services/pricing/adjustment_calculators.py`
+- `backend/services/pricing_generation_service.py`
+- `backend/services/pricing_service.py`
+- `backend/api/pricing.py`
+- `backend/schemas/pricing.py`
+- `backend/models/public/brand_group.py`
+- `backend/models/public/model.py`
+
+**Frontend**:
+- `frontend/composables/usePricingCalculation.ts`
+- `frontend/components/products/PricingDisplay.vue`
+- `frontend/pages/dashboard/products/[id]/index.vue` (integration)
+
+**Database**:
+- Migration: `2f3a9708b420_add_brand_groups_table.py`
+- Migration: `68a6d6ef6f65_add_models_table.py`
+
+### Performance
+
+- **Average Response Time**: 2-5 seconds (with LLM generation)
+- **Cached Response Time**: <500ms (data already exists)
+- **Timeout Threshold**: 30 seconds
+- **Database**: Indexed on brand+group, brand+group+model for fast lookups
+
+### Future Enhancements
+
+Logged in `.planning/ISSUES.md`:
+- Performance optimization: connection pooling, caching strategies
+- Enhanced model generation: more context, fine-tuning
+- Additional adjustment factors: seasonality, market trends
+- Bulk pricing calculations
+- Price history tracking
+
+---
+
+*Last updated: 2026-01-12 after Phase 7 completion*
