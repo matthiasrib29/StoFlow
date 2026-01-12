@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from models.user.product import Product, ProductStatus
 from models.user.vinted_product import VintedProduct
 from models.vinted.vinted_deletion import VintedDeletion
-# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_api_sync import VintedApiSyncService
 from services.vinted.vinted_order_sync import VintedOrderSyncService
 from services.vinted.vinted_mapping_service import VintedMappingService
@@ -38,6 +38,7 @@ from services.vinted.vinted_product_helpers import (
 )
 from shared.vinted_constants import VintedProductAPI
 from shared.logging_setup import get_logger
+from shared.config import settings
 
 logger = get_logger(__name__)
 
@@ -54,14 +55,16 @@ class VintedSyncService:
         result = await service.publish_product(db, product_id=456)
     """
 
-    def __init__(self, shop_id: int | None = None):
+    def __init__(self, shop_id: int | None = None, user_id: int | None = None):
         """
         Initialize VintedSyncService.
 
         Args:
             shop_id: ID du shop Vinted (pour operations de sync)
+            user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
         """
         self.shop_id = shop_id
+        self.user_id = user_id
         self.mapping_service = VintedMappingService()
         self.pricing_service = VintedPricingService()
         self.validator = VintedProductValidator()
@@ -179,18 +182,16 @@ class VintedSyncService:
                 description=description
             )
 
-            # 9. Creer produit via plugin
+            # 9. Creer produit via plugin (WebSocket 2026-01-12)
             logger.info(f"  Creation listing Vinted...")
-            result = await create_and_wait(
-                db,
+            result = await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
                 http_method="POST",
                 path=VintedProductAPI.CREATE,
                 payload={"body": payload},
-                platform="vinted",
-                product_id=product_id,
-                job_id=job_id,
-                timeout=60,
-                description="Creation produit Vinted"
+                timeout=settings.plugin_timeout_publish,
+                description="Create product on Vinted"
             )
 
             # 10. Extraire resultat
@@ -324,21 +325,19 @@ class VintedSyncService:
                 description=description
             )
 
-            # 9. Mettre a jour via plugin
+            # 9. Mettre a jour via plugin (WebSocket 2026-01-12)
             logger.info(
                 f"  Mise a jour listing Vinted "
                 f"(prix: {prix_actuel}EUR -> {prix_vinted}EUR)..."
             )
-            await create_and_wait(
-                db,
+            await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
                 http_method="PUT",
                 path=VintedProductAPI.update(vinted_product.vinted_id),
                 payload={"body": payload},
-                platform="vinted",
-                product_id=product_id,
-                job_id=job_id,
-                timeout=60,
-                description="Update produit Vinted"
+                timeout=settings.plugin_timeout_publish,
+                description="Update product on Vinted"
             )
 
             # 10. Mettre a jour VintedProduct local
@@ -405,18 +404,16 @@ class VintedSyncService:
             deletion = VintedDeletion.from_vinted_product(vinted_product)
             db.add(deletion)
 
-            # 4. Supprimer via plugin
+            # 4. Supprimer via plugin (WebSocket 2026-01-12)
             logger.info(f"  Suppression listing Vinted...")
-            await create_and_wait(
-                db,
+            await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
                 http_method="POST",
                 path=VintedProductAPI.delete(vinted_product.vinted_id),
                 payload={},
-                platform="vinted",
-                product_id=product_id,
-                job_id=job_id,
-                timeout=30,
-                description="Suppression produit Vinted"
+                timeout=settings.plugin_timeout_delete,
+                description="Delete product from Vinted"
             )
 
             # 5. Supprimer VintedProduct local
