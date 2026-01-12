@@ -129,6 +129,7 @@ docker-compose.override.yml
 *.temp
 *.bak
 *.backup
+backups/
 
 # Claude Code
 .claude/settings.local.json
