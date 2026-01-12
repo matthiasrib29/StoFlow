@@ -5,95 +5,102 @@ Source de vérité unique pour l'état de connexion Vinted d'un utilisateur.
 Les colonnes User.vinted_* ont été supprimées au profit de ce modèle.
 
 Business Rules:
-- Un user Stoflow = un compte Vinted max
+- Un user Stoflow = un compte Vinted max (UniqueConstraint sur user_id)
 - is_connected = True si l'utilisateur est connecté à Vinted
 - Le plugin détecte les connexions/déconnexions et notifie le backend
 - Le frontend peut vérifier via /check-connection (task plugin)
 
 Author: Claude
 Date: 2025-12-17
+Updated: 2026-01-12 (refactored schema: id as PK, username, last_synced_at)
 """
 
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Index, Enum, Float
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, Text, Float, Enum
 from shared.database import Base
 
 
 class DataDomeStatus(str, PyEnum):
     """Status of the DataDome session."""
-    OK = "OK"                    # Last ping successful
-    FAILED = "FAILED"            # Last ping failed (after retries)
-    UNKNOWN = "UNKNOWN"          # Never pinged or expired
+    UNKNOWN = "UNKNOWN"              # Never checked or expired
+    OK = "OK"                        # Session is valid (legacy)
+    VALID = "VALID"                  # Session is valid
+    EXPIRED = "EXPIRED"              # Session has expired
+    BLOCKED = "BLOCKED"              # IP/session is blocked
+    CAPTCHA_REQUIRED = "CAPTCHA_REQUIRED"  # Captcha needs solving
+    FAILED = "FAILED"                # Last check failed
 
 
 class VintedConnection(Base):
     """
     Table pour stocker la connexion Vinted d'un utilisateur.
 
+    Note: Cette table est dans le schema utilisateur (user_X), pas public.
+    Elle est créée à partir de template_tenant lors de la création de l'utilisateur.
+
     Attributes:
-        vinted_user_id: ID utilisateur Vinted (PK)
-        login: Username Vinted
+        id: Auto-increment primary key
+        user_id: FK vers public.users.id (UNIQUE - 1 connexion par user)
         is_connected: True si actuellement connecté
-        created_at: Date de première connexion
-        last_sync: Dernière synchronisation réussie
-        disconnected_at: Date de dernière déconnexion (null si connecté)
+        vinted_user_id: ID utilisateur Vinted (nullable)
+        username: Login/username Vinted
+        session_id: Session ID Vinted
+        csrf_token: CSRF token pour les requêtes
+        datadome_cookie: Cookie DataDome
+        datadome_status: Status de la session DataDome
+        last_datadome_ping: Dernière vérification DataDome
+        created_at: Date de création
+        updated_at: Date de mise à jour
+        last_synced_at: Dernière synchronisation réussie
     """
     __tablename__ = "vinted_connection"
 
-    # Primary key: l'ID utilisateur Vinted
-    vinted_user_id = Column(Integer, primary_key=True, index=True)
+    # Primary key: auto-increment ID
+    id = Column(Integer, primary_key=True, index=True)
 
-    # Login/username Vinted
-    login = Column(String(255), nullable=False, index=True)
+    # Foreign key vers public.users.id (UNIQUE - 1 connexion par user max)
+    user_id = Column(Integer, nullable=False, unique=True, index=True)
 
     # État de connexion
     is_connected = Column(
         Boolean,
         nullable=False,
-        default=True,
+        default=False,
         index=True,
         comment="True si l'utilisateur est connecté à Vinted"
     )
 
-    # Relation vers l'utilisateur Stoflow (cross-schema reference, no FK constraint)
-    # Note: La table users est dans le schema public, vinted_connection dans user_{id}
-    # L'intégrité référentielle est gérée au niveau applicatif
-    user_id = Column(Integer, nullable=False, index=True)
-
-    # Timestamps
-    created_at = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        comment="Date de première connexion"
-    )
-    last_sync = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-        comment="Dernière synchronisation réussie"
-    )
-    disconnected_at = Column(
-        DateTime(timezone=True),
+    # Vinted user info
+    vinted_user_id = Column(
+        BigInteger,
         nullable=True,
-        default=None,
-        comment="Date de dernière déconnexion (null si connecté)"
+        index=True,
+        comment="ID utilisateur sur Vinted"
     )
+    username = Column(
+        String(255),
+        nullable=True,
+        index=True,
+        comment="Login/username Vinted"
+    )
+
+    # Session credentials (managed by plugin)
+    session_id = Column(Text, nullable=True, comment="Session ID Vinted")
+    csrf_token = Column(Text, nullable=True, comment="CSRF token pour les requêtes")
+    datadome_cookie = Column(Text, nullable=True, comment="Cookie DataDome")
 
     # DataDome tracking
-    last_datadome_ping = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        default=None,
-        comment="Timestamp of last successful DataDome ping"
-    )
     datadome_status = Column(
         Enum(DataDomeStatus),
         nullable=False,
         default=DataDomeStatus.UNKNOWN,
         comment="Current DataDome session status"
+    )
+    last_datadome_ping = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp of last DataDome check"
     )
 
     # Seller statistics (from /api/v2/users/current)
@@ -158,20 +165,42 @@ class VintedConnection(Base):
         comment="Timestamp of last stats update"
     )
 
+    # Timestamps
+    last_synced_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Dernière synchronisation réussie"
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default="now()",
+        comment="Date de création"
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default="now()",
+        onupdate=lambda: datetime.now(timezone.utc),
+        comment="Date de mise à jour"
+    )
+
     def __repr__(self):
         status = "connected" if self.is_connected else "disconnected"
-        return f"<VintedConnection(vinted_user_id={self.vinted_user_id}, login='{self.login}', {status})>"
+        return f"<VintedConnection(id={self.id}, username='{self.username}', {status})>"
 
-    def connect(self) -> None:
+    def connect(self, vinted_user_id: int = None, username: str = None) -> None:
         """Marque la connexion comme active."""
         self.is_connected = True
-        self.disconnected_at = None
-        self.last_sync = datetime.now(timezone.utc)
+        if vinted_user_id is not None:
+            self.vinted_user_id = vinted_user_id
+        if username is not None:
+            self.username = username
+        self.last_synced_at = datetime.now(timezone.utc)
 
     def disconnect(self) -> None:
         """Marque la connexion comme inactive."""
         self.is_connected = False
-        self.disconnected_at = datetime.now(timezone.utc)
 
     def update_datadome_status(self, success: bool) -> None:
         """Update DataDome ping status."""
@@ -207,8 +236,3 @@ class VintedConnection(Base):
         self.is_business = stats.get("business")
         self.is_on_holiday = stats.get("is_on_holiday")
         self.stats_updated_at = datetime.now(timezone.utc)
-
-
-# Index pour recherches fréquentes
-Index('ix_vinted_connection_user_id', VintedConnection.user_id)
-Index('ix_vinted_connection_is_connected', VintedConnection.is_connected)
