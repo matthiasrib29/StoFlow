@@ -23,7 +23,11 @@ class Settings(BaseSettings):
 
     # Application
     app_name: str = "Stoflow"
-    app_env: str = Field(default="development", pattern="^(development|staging|production)$")
+    app_env: str = Field(
+        default="development",
+        pattern="^(development|test|staging|production)$",
+        description="Environment: development, test, staging, or production (Security 2026-01-12)"
+    )
     debug: bool = True
     api_host: str = "0.0.0.0"
     api_port: int = 8000
