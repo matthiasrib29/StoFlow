@@ -18,10 +18,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_user_db
 from models.vinted.vinted_order import VintedOrder
-from services.vinted import (
-    VintedJobService,
-    VintedJobProcessor,
-)
+from services.vinted import VintedJobService
+from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
 from .shared import get_active_vinted_connection
 
 router = APIRouter()

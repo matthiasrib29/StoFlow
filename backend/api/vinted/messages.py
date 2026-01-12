@@ -23,7 +23,7 @@ from api.dependencies import get_user_db
 from repositories.vinted_conversation_repository import VintedConversationRepository
 from services.vinted.vinted_conversation_service import VintedConversationService
 from services.vinted.vinted_job_service import VintedJobService
-from services.vinted.vinted_job_processor import VintedJobProcessor
+from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
 from .shared import get_active_vinted_connection
 
 router = APIRouter()
