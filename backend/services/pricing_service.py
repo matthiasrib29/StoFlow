@@ -1,251 +1,380 @@
 """
 Pricing Service
 
-Service pour calcul automatique de prix selon brand, category, condition, rarity, quality.
+Core pricing engine that orchestrates all calculators and generates price levels.
+Handles data fetching/generation, applies adjustments, and returns detailed breakdown.
 
-Business Rules (2025-12-08):
-- Formule: prix_final = base_price × coeff_condition × coeff_rarity × coeff_quality
-- Prix minimum: 5€, arrondi: 0.50€
-- Compatible avec PostEditFlet logic (adjust_price)
+Architecture:
+- Service layer orchestrating repositories, generation, and calculators
+- Fetch-or-generate pattern for BrandGroup and Model data
+- Clean separation: data fetching → calculation → output
+- Error handling with graceful fallbacks
 
+Created: 2026-01-12
 Author: Claude
-Date: 2025-12-08
 """
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from models.public.clothing_price import ClothingPrice
-from models.public.condition import Condition
+from models.public.brand_group import BrandGroup
+from models.public.model import Model
+from repositories.brand_group_repository import BrandGroupRepository
+from repositories.model_repository import ModelRepository
+from schemas.pricing import AdjustmentBreakdown, PriceInput, PriceOutput
+from services.pricing.adjustment_calculators import (
+    calculateConditionAdjustment,
+    calculateDecadeAdjustment,
+    calculateFeatureAdjustment,
+    calculateModelCoefficient,
+    calculateOriginAdjustment,
+    calculateTrendAdjustment,
+)
+from services.pricing.group_determination import determine_group
+from services.pricing.pricing_generation_service import PricingGenerationService
+from shared.exceptions import (
+    BrandGroupGenerationError,
+    GroupDeterminationError,
+    ModelGenerationError,
+    PricingCalculationError,
+    PricingError,
+)
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
 
 class PricingService:
-    """Service pour calcul automatique de prix."""
+    """
+    Core pricing service that orchestrates the pricing algorithm.
 
-    # Coefficients de rareté
-    RARITY_COEFFICIENTS = {
-        "Rare": 1.3,
-        "Vintage": 1.2,
-        "Common": 1.0,
-        "Standard": 1.0,
-    }
+    Responsibilities:
+    - Fetch or generate BrandGroup and Model data
+    - Calculate adjusted prices using all 6 calculators
+    - Generate 3 price levels (quick, standard, premium)
+    - Return detailed breakdown for transparency
+    """
 
-    # Coefficients de qualité
-    QUALITY_COEFFICIENTS = {
-        "Premium": 1.2,
-        "Good": 1.0,
-        "Average": 0.8,
-        "Standard": 1.0,
-    }
-
-    # Prix par défaut si non trouvé
-    DEFAULT_BASE_PRICE = Decimal("30.00")
-
-    # Prix minimum (Business Rule)
-    MIN_PRICE = Decimal("5.00")
-
-    # Arrondi (Business Rule: 0.50€)
-    ROUND_TO = Decimal("0.50")
-
-    @staticmethod
-    def calculate_price(
+    def __init__(
+        self,
         db: Session,
-        brand: Optional[str],
+        brand_group_repo: BrandGroupRepository,
+        model_repo: ModelRepository,
+        generation_service: PricingGenerationService,
+    ):
+        """
+        Initialize PricingService with dependencies.
+
+        Args:
+            db: Database session
+            brand_group_repo: BrandGroup repository
+            model_repo: Model repository
+            generation_service: LLM generation service
+        """
+        self.db = db
+        self.brand_group_repo = brand_group_repo
+        self.model_repo = model_repo
+        self.generation_service = generation_service
+
+    async def fetch_or_generate_pricing_data(
+        self,
+        brand: str,
         category: str,
-        condition: str,
-        rarity: Optional[str] = None,
-        quality: Optional[str] = None,
-    ) -> Decimal:
+        materials: list[str],
+        model_name: Optional[str] = None,
+    ) -> dict:
         """
-        Calcule le prix automatiquement selon les attributs produit.
+        Fetch or generate BrandGroup and Model data for pricing.
 
-        Business Rules (2025-12-08):
-        - Prix = base_price × coeff_condition × coeff_rarity × coeff_quality
-        - Prix minimum: 5€
-        - Arrondi: 0.50€ (ex: 24.30€ → 24.50€)
-        - Si base_price non trouvé → DEFAULT_BASE_PRICE (30€)
+        This method implements the fetch-or-generate pattern:
+        1. Determine group from category and materials
+        2. Fetch BrandGroup from DB, generate if missing
+        3. If model_name provided: fetch Model from DB, generate if missing
+        4. Return pricing data with base_price and model_coeff
 
         Args:
-            db: Session SQLAlchemy
-            brand: Marque (ex: "Levi's")
-            category: Catégorie (ex: "Jeans")
-            condition: État (ex: "EXCELLENT", "GOOD", etc.)
-            rarity: Rareté (ex: "Rare", "Vintage", "Common")
-            quality: Qualité (ex: "Premium", "Good", "Average")
+            brand: Brand name
+            category: Product category
+            materials: List of product materials
+            model_name: Optional model name
 
         Returns:
-            Decimal: Prix final calculé et arrondi
-
-        Examples:
-            >>> price = PricingService.calculate_price(db, "Levi's", "Jeans", "EXCELLENT")
-            >>> print(price)
-            Decimal('45.00')
-
-            >>> price = PricingService.calculate_price(
-            ...     db, "Diesel", "Jeans", "GOOD", rarity="Vintage", quality="Premium"
-            ... )
-            >>> print(price)  # 80 * 0.9 * 1.2 * 1.2 = 103.68 → 104.00
-            Decimal('104.00')
-        """
-        logger.debug(
-            f"[PricingService] Calculating price: brand={brand}, category={category}, "
-            f"condition={condition}, rarity={rarity}, quality={quality}"
-        )
-
-        # 1. Récupérer prix de base depuis DB
-        base_price = PricingService._get_base_price(db, brand, category)
-
-        # 2. Récupérer coefficient condition depuis DB
-        coeff_condition = PricingService._get_condition_coefficient(db, condition)
-
-        # 3. Récupérer coefficient rareté
-        coeff_rarity = PricingService.RARITY_COEFFICIENTS.get(rarity or "Standard", 1.0)
-        # CRITICAL: Validate rarity coefficient (Security 2026-01-12)
-        PricingService._validate_coefficient(
-            coeff_rarity, name="rarity", min_value=0.5, max_value=2.0
-        )
-
-        # 4. Récupérer coefficient qualité
-        coeff_quality = PricingService.QUALITY_COEFFICIENTS.get(quality or "Standard", 1.0)
-        # CRITICAL: Validate quality coefficient (Security 2026-01-12)
-        PricingService._validate_coefficient(
-            coeff_quality, name="quality", min_value=0.5, max_value=2.0
-        )
-
-        # 5. Calcul prix final
-        price = base_price * Decimal(str(coeff_condition)) * Decimal(str(coeff_rarity)) * Decimal(str(coeff_quality))
-
-        # 6. Appliquer minimum
-        if price < PricingService.MIN_PRICE:
-            price = PricingService.MIN_PRICE
-
-        # 7. Arrondir à 0.50€
-        price = PricingService._round_to_nearest(price, PricingService.ROUND_TO)
-
-        logger.debug(
-            f"[PricingService] Price calculated: {price} EUR "
-            f"(base={base_price}, cond={coeff_condition}, "
-            f"rarity={coeff_rarity}, qual={coeff_quality})"
-        )
-
-        return price
-
-    @staticmethod
-    def _get_base_price(db: Session, brand: Optional[str], category: str) -> Decimal:
-        """
-        Récupère le prix de base depuis la table clothing_prices.
-
-        Args:
-            db: Session SQLAlchemy
-            brand: Marque
-            category: Catégorie
-
-        Returns:
-            Decimal: Prix de base (ou DEFAULT_BASE_PRICE si non trouvé)
-        """
-        if not brand:
-            return PricingService.DEFAULT_BASE_PRICE
-
-        # Query la table clothing_prices
-        clothing_price = (
-            db.query(ClothingPrice)
-            .filter(ClothingPrice.brand == brand, ClothingPrice.category == category)
-            .first()
-        )
-
-        if clothing_price:
-            return clothing_price.base_price
-
-        # Si non trouvé, retourner prix par défaut
-        return PricingService.DEFAULT_BASE_PRICE
-
-    @staticmethod
-    def _get_condition_coefficient(db: Session, condition: str) -> float:
-        """
-        Récupère le coefficient de condition depuis la table conditions.
-
-        Args:
-            db: Session SQLAlchemy
-            condition: Note condition (0-10, ex: 0=neuf, 5=bon état)
-
-        Returns:
-            float: Coefficient (ex: 1.0 pour neuf, 0.9 pour bon état)
+            dict with keys:
+            - base_price: Decimal
+            - model_coeff: Decimal
+            - brand_group: BrandGroup
+            - model: Optional[Model]
+            - group: str
 
         Raises:
-            ValueError: If coefficient from DB is outside acceptable range (Security 2026-01-12)
+            GroupDeterminationError: If group cannot be determined
+            BrandGroupGenerationError: If BrandGroup generation fails
+            ModelGenerationError: If Model generation fails
         """
-        condition_obj = db.query(Condition).filter(Condition.note == condition).first()
-
-        if condition_obj and condition_obj.coefficient:
-            coeff = float(condition_obj.coefficient)
-            # CRITICAL: Validate coefficient from DB (Security 2026-01-12)
-            PricingService._validate_coefficient(
-                coeff, name="condition", min_value=0.0, max_value=2.0
+        # Step 1: Determine group
+        try:
+            group = determine_group(category, materials)
+        except ValueError as e:
+            logger.error(
+                f"[PricingService] Group determination failed: {e}",
+                extra={
+                    "category": category,
+                    "materials": materials
+                }
             )
-            return coeff
+            raise GroupDeterminationError(category, materials) from e
 
-        # Fallback si non trouvé
-        return 1.0
+        logger.info(
+            f"[PricingService] Pricing data request: "
+            f"brand={brand}, group={group}, model_name={model_name}"
+        )
 
-    @staticmethod
-    def _validate_coefficient(
-        coeff: float,
-        name: str,
-        min_value: float = 0.0,
-        max_value: float = 2.0
-    ) -> None:
+        # Step 2: Fetch or generate BrandGroup
+        brand_group = self.brand_group_repo.get_by_brand_and_group(self.db, brand, group)
+
+        if brand_group is None:
+            logger.info(
+                f"[PricingService] BrandGroup not found for {brand} + {group}, generating..."
+            )
+            try:
+                brand_group = await self.generation_service.generate_brand_group(
+                    brand, group
+                )
+                # Save to DB
+                brand_group = self.brand_group_repo.create(self.db, brand_group)
+                self.db.commit()
+                logger.info(
+                    f"[PricingService] BrandGroup generated and saved: "
+                    f"{brand} + {group}, base_price={brand_group.base_price}"
+                )
+            except Exception as e:
+                self.db.rollback()
+                logger.error(
+                    f"[PricingService] Failed to generate BrandGroup: {e}",
+                    exc_info=True,
+                    extra={
+                        "brand": brand,
+                        "group": group
+                    }
+                )
+                raise BrandGroupGenerationError(brand, group, str(e)) from e
+
+        # Extract base_price
+        base_price = brand_group.base_price
+
+        # Step 3: Fetch or generate Model (if model_name provided)
+        model = None
+        model_coeff = Decimal("1.0")  # Default coefficient if no model
+
+        if model_name:
+            model = self.model_repo.get_by_brand_group_and_name(
+                self.db, brand, group, model_name
+            )
+
+            if model is None:
+                logger.info(
+                    f"[PricingService] Model not found for {brand} + {group} + {model_name}, generating..."
+                )
+                try:
+                    model = await self.generation_service.generate_model(
+                        brand, group, model_name, base_price
+                    )
+                    # Save to DB
+                    model = self.model_repo.create(self.db, model)
+                    self.db.commit()
+                    logger.info(
+                        f"[PricingService] Model generated and saved: "
+                        f"{brand} + {group} + {model_name}, coefficient={model.coefficient}"
+                    )
+                except Exception as e:
+                    self.db.rollback()
+                    logger.error(
+                        f"[PricingService] Failed to generate Model: {e}",
+                        exc_info=True,
+                        extra={
+                            "brand": brand,
+                            "group": group,
+                            "model": model_name
+                        }
+                    )
+                    raise ModelGenerationError(brand, group, model_name, str(e)) from e
+
+            # Extract coefficient
+            model_coeff = model.coefficient
+
+        logger.info(
+            f"[PricingService] Pricing data ready: "
+            f"base_price={base_price}, model_coeff={model_coeff}"
+        )
+
+        return {
+            "base_price": base_price,
+            "model_coeff": model_coeff,
+            "brand_group": brand_group,
+            "model": model,
+            "group": group,
+        }
+
+    async def calculate_price(self, input_data: PriceInput) -> PriceOutput:
         """
-        Validate pricing coefficient is within acceptable range.
+        Calculate adjusted price with all 6 calculators and 3 price levels.
+
+        Formula: PRICE = BASE_PRICE × MODEL_COEFF × (1 + ADJUSTMENTS)
+        Where ADJUSTMENTS = condition + origin + decade + trend + feature
+
+        3 price levels:
+        - Quick: PRICE × 0.75
+        - Standard: PRICE × 1.0
+        - Premium: PRICE × 1.30
 
         Args:
-            coeff: Coefficient value to validate
-            name: Name of the coefficient (for error messages)
-            min_value: Minimum acceptable value
-            max_value: Maximum acceptable value
-
-        Raises:
-            ValueError: If coefficient is outside acceptable range (Security 2026-01-12)
-        """
-        if not (min_value <= coeff <= max_value):
-            raise ValueError(
-                f"{name.capitalize()} coefficient {coeff} is invalid. "
-                f"Must be between {min_value} and {max_value}.",
-            )
-
-    @staticmethod
-    def _round_to_nearest(value: Decimal, round_to: Decimal) -> Decimal:
-        """
-        Arrondit à la valeur la plus proche.
-
-        Business Rule: Arrondir à 0.50€ (ex: 24.30€ → 24.50€, 24.70€ → 25.00€)
-
-        Args:
-            value: Valeur à arrondir
-            round_to: Increment d'arrondi (ex: 0.50)
+            input_data: PriceInput with all product attributes and adjustment parameters
 
         Returns:
-            Decimal: Valeur arrondie
+            PriceOutput: Complete pricing data with 3 levels and detailed breakdown
 
         Raises:
-            ValueError: If round_to is zero or negative (Security 2026-01-12)
-
-        Examples:
-            >>> PricingService._round_to_nearest(Decimal("24.30"), Decimal("0.50"))
-            Decimal('24.50')
-
-            >>> PricingService._round_to_nearest(Decimal("24.70"), Decimal("0.50"))
-            Decimal('25.00')
+            GroupDeterminationError: If group cannot be determined
+            BrandGroupGenerationError: If BrandGroup generation fails
+            ModelGenerationError: If Model generation fails
+            PricingCalculationError: If calculation fails
         """
-        # CRITICAL: Guard against division by zero (Security 2026-01-12)
-        if round_to <= 0:
-            raise ValueError(
-                f"round_to must be positive (got {round_to}). "
-                f"Cannot round to zero or negative increment."
+        try:
+            logger.info(
+                f"[PricingService] Calculate price request: "
+                f"brand={input_data.brand}, category={input_data.category}, "
+                f"model={input_data.model_name}"
             )
 
-        return (value / round_to).quantize(Decimal("1")) * round_to
+            # Step 1: Fetch or generate pricing data
+            pricing_data = await self.fetch_or_generate_pricing_data(
+                brand=input_data.brand,
+                category=input_data.category,
+                materials=input_data.materials,
+                model_name=input_data.model_name,
+            )
+
+            base_price = pricing_data["base_price"]
+            brand_group = pricing_data["brand_group"]
+            model = pricing_data["model"]
+            group = pricing_data["group"]
+
+            # Step 2: Calculate model coefficient
+            if model:
+                model_coeff = calculateModelCoefficient(model)
+            else:
+                model_coeff = Decimal("1.0")
+
+            # Step 3: Calculate all 6 adjustments with error handling
+            try:
+                condition_adj = calculateConditionAdjustment(
+                    input_data.condition_score,
+                    input_data.supplements,
+                    input_data.condition_sensitivity,
+                )
+
+                origin_adj = calculateOriginAdjustment(
+                    input_data.actual_origin,
+                    input_data.expected_origins or brand_group.expected_origins,
+                )
+
+                decade_adj = calculateDecadeAdjustment(
+                    input_data.actual_decade,
+                    input_data.expected_decades or brand_group.expected_decades,
+                )
+
+                trend_adj = calculateTrendAdjustment(
+                    input_data.actual_trends,
+                    input_data.expected_trends or brand_group.expected_trends,
+                )
+
+                # For feature adjustment, use expected_features from Model if input is empty
+                expected_features = input_data.expected_features
+                if model and not expected_features:  # Empty list or None
+                    expected_features = model.expected_features or []
+
+                feature_adj = calculateFeatureAdjustment(
+                    input_data.actual_features,
+                    expected_features,
+                )
+            except (ValueError, KeyError, InvalidOperation) as e:
+                logger.error(
+                    f"[PricingService] Adjustment calculation failed: {e}",
+                    exc_info=True,
+                    extra={
+                        "brand": input_data.brand,
+                        "category": input_data.category,
+                        "model": input_data.model_name
+                    }
+                )
+                raise PricingCalculationError(f"Failed to calculate adjustments: {str(e)}") from e
+
+            # Step 4: Apply formula and calculate prices with error handling
+            try:
+                total_adjustment = (
+                    condition_adj + origin_adj + decade_adj + trend_adj + feature_adj
+                )
+                adjusted_price = base_price * model_coeff * (1 + total_adjustment)
+
+                # Step 5: Calculate 3 price levels with quantization
+                quick_price = (adjusted_price * Decimal("0.75")).quantize(Decimal("0.01"))
+                standard_price = adjusted_price.quantize(Decimal("0.01"))
+                premium_price = (adjusted_price * Decimal("1.30")).quantize(Decimal("0.01"))
+            except (InvalidOperation, OverflowError) as e:
+                logger.error(
+                    f"[PricingService] Price calculation failed: {e}",
+                    exc_info=True,
+                    extra={
+                        "base_price": str(base_price),
+                        "model_coeff": str(model_coeff),
+                        "total_adjustment": str(total_adjustment) if 'total_adjustment' in locals() else "N/A"
+                    }
+                )
+                raise PricingCalculationError(f"Failed to calculate final prices: {str(e)}") from e
+
+            logger.info(
+                f"[PricingService] Price calculated: "
+                f"quick={quick_price}, standard={standard_price}, premium={premium_price}, "
+                f"base={base_price}, coeff={model_coeff}, total_adj={total_adjustment}"
+            )
+
+            # Step 6: Build output
+            return PriceOutput(
+                # Price levels
+                quick_price=quick_price,
+                standard_price=standard_price,
+                premium_price=premium_price,
+                # Breakdown
+                base_price=base_price,
+                model_coefficient=model_coeff,
+                adjustments=AdjustmentBreakdown(
+                    condition=condition_adj,
+                    origin=origin_adj,
+                    decade=decade_adj,
+                    trend=trend_adj,
+                    feature=feature_adj,
+                    total=total_adjustment,
+                ),
+                # Metadata
+                brand=input_data.brand,
+                group=group,
+                model_name=input_data.model_name,
+            )
+
+        except PricingError:
+            # Re-raise our custom exceptions
+            raise
+        except Exception as e:
+            # Catch any unexpected errors
+            logger.error(
+                f"[PricingService] Unexpected error in calculate_price: {e}",
+                exc_info=True,
+                extra={
+                    "brand": input_data.brand,
+                    "category": input_data.category,
+                    "model": input_data.model_name
+                }
+            )
+            raise PricingCalculationError(f"Unexpected error during price calculation: {str(e)}") from e

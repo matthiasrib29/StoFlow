@@ -15,6 +15,7 @@ Tout est automatique sauf en cas d'erreur critique (conflits merge).
 **Arrêt + question SEULEMENT si :**
 - Conflit de merge dans la PR
 - Erreur Alembic critique lors du merge heads
+- ⚠️ **Commits locaux non poussés détectés sur develop** (NOUVEAU)
 
 ---
 
@@ -66,7 +67,57 @@ gh pr merge --merge --delete-branch  # Depuis ~/StoFlow si erreur worktree
 
 **Si conflit merge** → ⛔ ARRÊTER et DEMANDER à l'utilisateur comment résoudre
 
-### 4. Update develop
+### 4. ⚠️ PROTECTION: Vérifier ~/StoFlow avant update (CRITIQUE)
+
+**AVANT de toucher à ~/StoFlow, TOUJOURS exécuter ces vérifications :**
+
+```bash
+cd ~/StoFlow
+
+# 1. Vérifier les changements non commités
+if [ -n "$(git status --porcelain)" ]; then
+  echo "⚠️ ATTENTION: ~/StoFlow a des changements non commités!"
+  git status --short
+  # ⛔ ARRÊTER et DEMANDER à l'utilisateur
+fi
+
+# 2. Vérifier les commits locaux non poussés
+LOCAL_COMMITS=$(git log origin/develop..develop --oneline 2>/dev/null)
+if [ -n "$LOCAL_COMMITS" ]; then
+  echo "⚠️ ATTENTION: ~/StoFlow develop a des commits locaux NON POUSSÉS!"
+  echo "$LOCAL_COMMITS"
+  # ⛔ ARRÊTER et DEMANDER à l'utilisateur:
+  # - Option 1: Pousser ces commits d'abord
+  # - Option 2: Créer une branche de sauvegarde
+  # - Option 3: Les abandonner (avec confirmation explicite)
+fi
+
+# 3. Vérifier si develop est derrière origin
+git fetch origin develop
+BEHIND=$(git rev-list develop..origin/develop --count 2>/dev/null)
+if [ "$BEHIND" -gt 0 ]; then
+  echo "ℹ️ develop est $BEHIND commits derrière origin/develop"
+fi
+```
+
+**⛔ Si commits locaux détectés** → ARRÊTER et afficher :
+```
+╔══════════════════════════════════════════════════════════════╗
+║  ⚠️ COMMITS LOCAUX DÉTECTÉS SUR ~/StoFlow develop           ║
+╠══════════════════════════════════════════════════════════════╣
+║  Les commits suivants ne sont pas sur origin:                ║
+║  [liste des commits]                                         ║
+║                                                              ║
+║  Options:                                                    ║
+║  1. Pousser ces commits maintenant (git push)                ║
+║  2. Sauvegarder dans une branche (git branch backup-XXX)     ║
+║  3. Abandonner ces commits (PERTE DE DONNÉES)                ║
+║                                                              ║
+║  Que voulez-vous faire?                                      ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+### 5. Update develop (seulement après vérifications OK)
 ```bash
 cd ~/StoFlow
 git checkout develop
@@ -74,7 +125,7 @@ git pull --no-rebase origin develop  # Auto-merge si divergence
 git push origin develop  # Push le merge commit si créé
 ```
 
-### 5. Alembic check & auto-merge
+### 6. Alembic check & auto-merge
 ```bash
 cd ~/StoFlow/backend
 HEADS=$(alembic heads 2>/dev/null | grep -c "head")
@@ -91,7 +142,7 @@ git push origin develop
 
 **Si erreur Alembic** → ⛔ ARRÊTER et DEMANDER
 
-### 6. Cleanup automatique
+### 7. Cleanup automatique
 ```bash
 BRANCH=$(git branch --show-current)
 WORKTREE=$(git worktree list | grep $BRANCH | awk '{print $1}')
@@ -120,3 +171,15 @@ Afficher un tableau récapitulatif :
 ║     (branche develop)                    ║
 ╚══════════════════════════════════════════╝
 ```
+
+---
+
+## 🛡️ Règles de sécurité (ajoutées 2026-01-12)
+
+> Ces règles ont été ajoutées après une perte de ~8000 lignes de code
+> causée par un reset accidentel lors d'un /finish.
+
+1. **JAMAIS** de `git reset --hard` sur develop sans vérification
+2. **TOUJOURS** vérifier les commits locaux avant de toucher à ~/StoFlow
+3. **TOUJOURS** utiliser `git pull --no-rebase` (pas de reset)
+4. **EN CAS DE DOUTE** → ARRÊTER et DEMANDER
