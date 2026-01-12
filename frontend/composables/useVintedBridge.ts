@@ -110,16 +110,16 @@ export function useVintedBridge() {
   // Pending requests for Firefox fallback
   const pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (error: any) => void; timeout: NodeJS.Timeout }>()
 
-  // Flag for logs (dev only)
-  const isDev = import.meta.dev
+  // Flag for logs (ALWAYS ENABLED for debugging plugin communication)
+  const DEBUG_ENABLED = true
 
   // ============================================================
   // INTERNAL HELPERS
   // ============================================================
 
   const log = {
-    debug: (...args: any[]) => isDev && console.log('[VintedBridge]', ...args),
-    info: (...args: any[]) => isDev && console.info('[VintedBridge]', ...args),
+    debug: (...args: any[]) => DEBUG_ENABLED && console.log('[VintedBridge]', ...args),
+    info: (...args: any[]) => DEBUG_ENABLED && console.info('[VintedBridge]', ...args),
     warn: (...args: any[]) => console.warn('[VintedBridge]', ...args),
     error: (...args: any[]) => console.error('[VintedBridge]', ...args)
   }
@@ -167,13 +167,22 @@ export function useVintedBridge() {
     const requestId = generateRequestId()
     const messageWithId = { ...message, requestId }
 
-    log.debug('Sending message:', message.action, requestId)
+    log.info('🚀 Sending message:', {
+      action: message.action,
+      requestId,
+      hasChromeRuntime: hasChromeRuntime(),
+      isFirefox: isFirefox(),
+      hasPluginOrigin: !!pluginOrigin,
+      pluginOrigin
+    })
 
     // Try chrome.runtime.sendMessage first (works on Chrome)
     if (hasChromeRuntime() && !isFirefox()) {
+      log.info('📡 Using chrome.runtime.sendMessage')
       try {
         return await sendViaChromeRuntime(messageWithId, timeout)
       } catch (err: any) {
+        log.error('❌ chrome.runtime error:', err.message)
         // If chrome.runtime fails, check if it's because plugin is not installed
         if (err.message?.includes('Could not establish connection') ||
             err.message?.includes('Extension not found') ||
@@ -186,10 +195,12 @@ export function useVintedBridge() {
 
     // Firefox fallback: use postMessage via content script
     if (pluginOrigin) {
+      log.info('📬 Using postMessage fallback (Firefox)')
       return await sendViaPostMessage(messageWithId, timeout)
     }
 
     // No communication method available
+    log.error('❌ Aucune méthode de communication disponible!')
     throw new PluginNotInstalledError('Plugin not detected. Please install the StoFlow extension.')
   }
 
@@ -236,7 +247,15 @@ export function useVintedBridge() {
     return new Promise((resolve, reject) => {
       const requestId = message.requestId
 
+      log.info('📤 Envoi postMessage vers plugin:', {
+        requestId,
+        action: message.action,
+        pluginOrigin,
+        message
+      })
+
       const timeoutId = setTimeout(() => {
+        log.error('⏱️ Timeout - aucune réponse du plugin après', timeout, 'ms')
         pendingRequests.delete(requestId)
         reject(new PluginTimeoutError())
       }, timeout)
@@ -249,6 +268,8 @@ export function useVintedBridge() {
         type: 'VINTED_ACTION',
         ...message
       }, pluginOrigin!)
+
+      log.debug('✅ postMessage envoyé')
     })
   }
 
