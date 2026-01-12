@@ -87,10 +87,13 @@ interface OAuthCallbackResponse {
 }
 
 interface ConnectionStatus {
-  connected: boolean
+  is_connected: boolean
+  access_token_valid?: boolean
+  refresh_token_valid?: boolean
   account_info?: Record<string, any>
   sandbox_mode?: boolean
   access_token_expires_at?: string
+  refresh_token_expires_at?: string
 }
 
 export const useEbayOAuth = () => {
@@ -221,7 +224,7 @@ export const useEbayOAuth = () => {
    * Parse account info from status response
    */
   const parseAccountFromStatus = (status: ConnectionStatus): EbayAccount | null => {
-    if (!status.connected || !status.account_info) {
+    if (!status.is_connected || !status.account_info) {
       return null
     }
 

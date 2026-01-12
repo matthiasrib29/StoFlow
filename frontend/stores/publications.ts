@@ -104,12 +104,12 @@ export const usePublicationsStore = defineStore('publications', {
         // Fetch eBay status
         try {
           const ebayStatus = await api.get<{
-            connected: boolean
+            is_connected: boolean
           }>('/ebay/status')
 
           const ebayIntegration = this.integrations.find(i => i.platform === 'ebay')
           if (ebayIntegration) {
-            ebayIntegration.is_connected = ebayStatus.connected
+            ebayIntegration.is_connected = ebayStatus.is_connected
           }
         } catch (e) {
           platformLogger.warn('eBay status fetch failed', { error: e })
