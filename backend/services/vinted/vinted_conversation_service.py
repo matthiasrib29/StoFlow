@@ -27,11 +27,12 @@ from repositories.vinted_conversation_repository import (
     VintedConversationRepository,
     VintedMessageRepository,
 )
-# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_inbox_sync_service import VintedInboxSyncService
 from shared.schema_utils import SchemaManager, commit_and_restore_path
 from shared.vinted_constants import VintedConversationAPI, VintedReferers
 from shared.logging_setup import get_logger
+from shared.config import settings
 
 logger = get_logger(__name__)
 
@@ -47,10 +48,16 @@ class VintedConversationService:
     - get_messages: Get messages for a conversation from DB
     """
 
-    def __init__(self):
-        """Initialize VintedConversationService."""
+    def __init__(self, user_id: int | None = None):
+        """
+        Initialize VintedConversationService.
+
+        Args:
+            user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
+        """
+        self.user_id = user_id
         self._schema_manager = SchemaManager()
-        self._inbox_sync_service = VintedInboxSyncService()
+        self._inbox_sync_service = VintedInboxSyncService(user_id=user_id)
 
     # =========================================================================
     # SYNC INBOX (delegated to VintedInboxSyncService)
@@ -119,13 +126,14 @@ class VintedConversationService:
         try:
             logger.info(f"[VintedConversationService] Syncing conversation {conversation_id}")
 
-            # Call Vinted API via PluginTask
-            api_result = await create_and_wait(
+            # Call Vinted API via WebSocket (2026-01-12)
+            api_result = await PluginWebSocketHelper.call_plugin_http(
                 db=db,
+                user_id=self.user_id,
                 http_method="GET",
                 path=VintedConversationAPI.get_conversation(conversation_id),
-                referer=VintedReferers.inbox_conversation(conversation_id),
-                description=f"conversation {conversation_id}"
+                timeout=settings.plugin_timeout_sync,
+                description=f"Sync conversation {conversation_id}"
             )
 
             if not api_result:

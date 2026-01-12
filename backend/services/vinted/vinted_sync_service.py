@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from models.user.product import Product, ProductStatus
 from models.user.vinted_product import VintedProduct
 from models.vinted.vinted_deletion import VintedDeletion
-# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_api_sync import VintedApiSyncService
 from services.vinted.vinted_order_sync import VintedOrderSyncService
 from services.vinted.vinted_mapping_service import VintedMappingService
@@ -38,6 +38,7 @@ from services.vinted.vinted_product_helpers import (
 )
 from shared.vinted_constants import VintedProductAPI
 from shared.logging_setup import get_logger
+from shared.config import settings
 
 logger = get_logger(__name__)
 
@@ -54,14 +55,16 @@ class VintedSyncService:
         result = await service.publish_product(db, product_id=456)
     """
 
-    def __init__(self, shop_id: int | None = None):
+    def __init__(self, shop_id: int | None = None, user_id: int | None = None):
         """
         Initialize VintedSyncService.
 
         Args:
             shop_id: ID du shop Vinted (pour operations de sync)
+            user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
         """
         self.shop_id = shop_id
+        self.user_id = user_id
         self.mapping_service = VintedMappingService()
         self.pricing_service = VintedPricingService()
         self.validator = VintedProductValidator()
@@ -91,6 +94,213 @@ class VintedSyncService:
     # =========================================================================
     # PUBLICATION DE PRODUIT
     # =========================================================================
+    # ===== HELPER METHODS FOR publish_product() (Refactored 2026-01-12 Phase 3.2d) =====
+
+    def _get_and_validate_product(self, db: Session, product_id: int) -> Product:
+        """
+        Get product and validate it's not already published.
+
+        Args:
+            db: Session SQLAlchemy (user schema)
+            product_id: Product ID
+
+        Returns:
+            Product instance
+
+        Raises:
+            ValueError: If product not found or already published
+        """
+        product = db.query(Product).filter(Product.id == product_id).first()
+        if not product:
+            raise ValueError(f"Produit #{product_id} introuvable")
+
+        logger.info(f"  Produit: {product.title[:50] if product.title else 'Sans titre'}...")
+
+        # Check not already published
+        existing = db.query(VintedProduct).filter(
+            VintedProduct.product_id == product_id
+        ).first()
+        if existing:
+            raise ValueError(
+                f"Produit #{product_id} deja publie sur Vinted "
+                f"(vinted_id: {existing.vinted_id})"
+            )
+
+        return product
+
+    def _validate_product_attributes(self, db: Session, product: Product) -> dict:
+        """
+        Validate product and map attributes.
+
+        Args:
+            db: Session SQLAlchemy
+            product: Product to validate
+
+        Returns:
+            Mapped attributes dict
+
+        Raises:
+            ValueError: If validation fails
+        """
+        logger.info(f"  Validation...")
+        is_valid, error = self.validator.validate_for_creation(product)
+        if not is_valid:
+            raise ValueError(f"Validation echouee: {error}")
+
+        logger.info(f"  Mapping attributs...")
+        mapped_attrs = self.mapping_service.map_all_attributes(db, product)
+        is_valid, error = self.validator.validate_mapped_attributes(
+            mapped_attrs, product.id
+        )
+        if not is_valid:
+            raise ValueError(f"Attributs invalides: {error}")
+
+        return mapped_attrs
+
+    async def _prepare_product_data(
+        self, db: Session, product: Product, job_id: int | None
+    ) -> tuple[float, str, str, list[int]]:
+        """
+        Prepare product data: price, title, description, photos.
+
+        Args:
+            db: Session SQLAlchemy
+            product: Product to prepare
+            job_id: Optional job ID for tracking
+
+        Returns:
+            Tuple (prix_vinted, title, description, photo_ids)
+
+        Raises:
+            ValueError: If photo upload or validation fails
+        """
+        logger.info(f"  Calcul prix...")
+        prix_vinted = self.pricing_service.calculate_vinted_price(product)
+        logger.info(f"  Prix: {prix_vinted}EUR")
+
+        title = self.title_service.generate_title(product)
+        description = self.description_service.generate_description(product)
+
+        logger.info(f"  Upload photos...")
+        photo_ids = await upload_product_images(db, product, user_id=self.user_id, job_id=job_id)
+        is_valid, error = self.validator.validate_images(photo_ids)
+        if not is_valid:
+            raise ValueError(f"Images invalides: {error}")
+        logger.info(f"  {len(photo_ids)} photos uploadees")
+
+        return prix_vinted, title, description, photo_ids
+
+    @staticmethod
+    def _build_publish_payload(
+        product: Product,
+        photo_ids: list[int],
+        mapped_attrs: dict,
+        prix_vinted: float,
+        title: str,
+        description: str
+    ) -> dict:
+        """
+        Build Vinted API payload for product creation.
+
+        Args:
+            product: Product to publish
+            photo_ids: Uploaded photo IDs
+            mapped_attrs: Mapped attributes
+            prix_vinted: Vinted price
+            title: Product title
+            description: Product description
+
+        Returns:
+            Vinted API payload dict
+        """
+        return VintedProductConverter.build_create_payload(
+            product=product,
+            photo_ids=photo_ids,
+            mapped_attrs=mapped_attrs,
+            prix_vinted=prix_vinted,
+            title=title,
+            description=description
+        )
+
+    async def _publish_to_vinted(self, db: Session, payload: dict) -> dict:
+        """
+        Publish product to Vinted via plugin (WebSocket).
+
+        Args:
+            db: Session SQLAlchemy
+            payload: Vinted API payload
+
+        Returns:
+            API response dict with 'item' data
+
+        Raises:
+            ValueError: If vinted_id missing in response
+        """
+        logger.info(f"  Creation listing Vinted...")
+        result = await PluginWebSocketHelper.call_plugin_http(
+            db=db,
+            user_id=self.user_id,
+            http_method="POST",
+            path=VintedProductAPI.CREATE,
+            payload={"body": payload},
+            timeout=settings.plugin_timeout_publish,
+            description="Create product on Vinted"
+        )
+
+        # Validate response
+        item_data = result.get('item', result)
+        vinted_id = item_data.get('id')
+
+        if not vinted_id:
+            raise ValueError("vinted_id manquant dans la reponse")
+
+        return result
+
+    def _save_published_product(
+        self,
+        db: Session,
+        product: Product,
+        result: dict,
+        prix_vinted: float,
+        photo_ids: list[int],
+        title: str
+    ) -> tuple[int, str]:
+        """
+        Save VintedProduct and update Product status.
+
+        Args:
+            db: Session SQLAlchemy
+            product: Published product
+            result: Vinted API response
+            prix_vinted: Vinted price
+            photo_ids: Photo IDs
+            title: Product title
+
+        Returns:
+            Tuple (vinted_id, vinted_url)
+        """
+        logger.info(f"  Post-processing...")
+
+        save_new_vinted_product(
+            db=db,
+            product_id=product.id,
+            response_data=result,
+            prix_vinted=prix_vinted,
+            image_ids=photo_ids,
+            title=title
+        )
+
+        # Update Product status
+        product.status = ProductStatus.PUBLISHED
+        db.commit()
+
+        # Extract IDs from response
+        item_data = result.get('item', result)
+        vinted_id = item_data.get('id')
+        vinted_url = item_data.get('url')
+
+        return vinted_id, vinted_url
+
 
     async def publish_product(
         self,
@@ -100,6 +310,8 @@ class VintedSyncService:
     ) -> dict[str, Any]:
         """
         Publie un produit sur Vinted avec workflow step-by-step via plugin.
+
+        Refactored 2026-01-12 Phase 3.2d: Extracted 6 helper methods for clarity.
 
         Args:
             db: Session SQLAlchemy (user schema)
@@ -120,101 +332,29 @@ class VintedSyncService:
         try:
             logger.info(f"[PUBLISH] Debut publication produit #{product_id}")
 
-            # 1. Recuperer produit
-            product = db.query(Product).filter(Product.id == product_id).first()
-            if not product:
-                raise ValueError(f"Produit #{product_id} introuvable")
+            # 1. Get and validate product
+            product = self._get_and_validate_product(db, product_id)
 
-            logger.info(f"  Produit: {product.title[:50] if product.title else 'Sans titre'}...")
+            # 2. Validate attributes and map to Vinted
+            mapped_attrs = self._validate_product_attributes(db, product)
 
-            # 2. Verifier si deja publie
-            existing = db.query(VintedProduct).filter(
-                VintedProduct.product_id == product_id
-            ).first()
-            if existing:
-                raise ValueError(
-                    f"Produit #{product_id} deja publie sur Vinted "
-                    f"(vinted_id: {existing.vinted_id})"
-                )
-
-            # 3. Valider produit
-            logger.info(f"  Validation...")
-            is_valid, error = self.validator.validate_for_creation(product)
-            if not is_valid:
-                raise ValueError(f"Validation echouee: {error}")
-
-            # 4. Mapper attributs
-            logger.info(f"  Mapping attributs...")
-            mapped_attrs = self.mapping_service.map_all_attributes(db, product)
-            is_valid, error = self.validator.validate_mapped_attributes(
-                mapped_attrs, product_id
-            )
-            if not is_valid:
-                raise ValueError(f"Attributs invalides: {error}")
-
-            # 5. Calculer prix
-            logger.info(f"  Calcul prix...")
-            prix_vinted = self.pricing_service.calculate_vinted_price(product)
-            logger.info(f"  Prix: {prix_vinted}EUR")
-
-            # 6. Generer titre et description
-            title = self.title_service.generate_title(product)
-            description = self.description_service.generate_description(product)
-
-            # 7. Upload photos
-            logger.info(f"  Upload photos...")
-            photo_ids = await upload_product_images(db, product, job_id=job_id)
-            is_valid, error = self.validator.validate_images(photo_ids)
-            if not is_valid:
-                raise ValueError(f"Images invalides: {error}")
-            logger.info(f"  {len(photo_ids)} photos uploadees")
-
-            # 8. Construire payload
-            payload = VintedProductConverter.build_create_payload(
-                product=product,
-                photo_ids=photo_ids,
-                mapped_attrs=mapped_attrs,
-                prix_vinted=prix_vinted,
-                title=title,
-                description=description
+            # 3. Prepare data (price, title, description, photos)
+            prix_vinted, title, description, photo_ids = await self._prepare_product_data(
+                db, product, job_id
             )
 
-            # 9. Creer produit via plugin
-            logger.info(f"  Creation listing Vinted...")
-            result = await create_and_wait(
-                db,
-                http_method="POST",
-                path=VintedProductAPI.CREATE,
-                payload={"body": payload},
-                platform="vinted",
-                product_id=product_id,
-                job_id=job_id,
-                timeout=60,
-                description="Creation produit Vinted"
+            # 4. Build API payload
+            payload = self._build_publish_payload(
+                product, photo_ids, mapped_attrs, prix_vinted, title, description
             )
 
-            # 10. Extraire resultat
-            item_data = result.get('item', result)
-            vinted_id = item_data.get('id')
-            vinted_url = item_data.get('url')
+            # 5. Publish to Vinted via plugin
+            result = await self._publish_to_vinted(db, payload)
 
-            if not vinted_id:
-                raise ValueError("vinted_id manquant dans la reponse")
-
-            # 11. Post-processing: creer VintedProduct
-            logger.info(f"  Post-processing...")
-            save_new_vinted_product(
-                db=db,
-                product_id=product_id,
-                response_data=result,
-                prix_vinted=prix_vinted,
-                image_ids=photo_ids,
-                title=title
+            # 6. Save published product and update status
+            vinted_id, vinted_url = self._save_published_product(
+                db, product, result, prix_vinted, photo_ids, title
             )
-
-            # Mettre a jour Product.status
-            product.status = ProductStatus.PUBLISHED
-            db.commit()
 
             elapsed = time.time() - start_time
             logger.info(
@@ -244,6 +384,8 @@ class VintedSyncService:
                 "product_id": product_id,
                 "error": str(e)
             }
+
+
 
     # =========================================================================
     # MISE A JOUR DE PRODUIT
@@ -324,21 +466,19 @@ class VintedSyncService:
                 description=description
             )
 
-            # 9. Mettre a jour via plugin
+            # 9. Mettre a jour via plugin (WebSocket 2026-01-12)
             logger.info(
                 f"  Mise a jour listing Vinted "
                 f"(prix: {prix_actuel}EUR -> {prix_vinted}EUR)..."
             )
-            await create_and_wait(
-                db,
+            await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
                 http_method="PUT",
                 path=VintedProductAPI.update(vinted_product.vinted_id),
                 payload={"body": payload},
-                platform="vinted",
-                product_id=product_id,
-                job_id=job_id,
-                timeout=60,
-                description="Update produit Vinted"
+                timeout=settings.plugin_timeout_publish,
+                description="Update product on Vinted"
             )
 
             # 10. Mettre a jour VintedProduct local
@@ -405,18 +545,16 @@ class VintedSyncService:
             deletion = VintedDeletion.from_vinted_product(vinted_product)
             db.add(deletion)
 
-            # 4. Supprimer via plugin
+            # 4. Supprimer via plugin (WebSocket 2026-01-12)
             logger.info(f"  Suppression listing Vinted...")
-            await create_and_wait(
-                db,
+            await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
                 http_method="POST",
                 path=VintedProductAPI.delete(vinted_product.vinted_id),
                 payload={},
-                platform="vinted",
-                product_id=product_id,
-                job_id=job_id,
-                timeout=30,
-                description="Suppression produit Vinted"
+                timeout=settings.plugin_timeout_delete,
+                description="Delete product from Vinted"
             )
 
             # 5. Supprimer VintedProduct local

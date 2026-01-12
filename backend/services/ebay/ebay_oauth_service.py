@@ -23,6 +23,7 @@ from services.ebay.ebay_oauth_config import (
     get_ebay_credentials,
     get_oauth_urls,
 )
+from shared.database import set_search_path_safe
 from services.ebay.ebay_account_parser import update_ebay_credentials_from_seller_info
 from shared.logging_setup import get_logger
 
@@ -218,17 +219,19 @@ def save_tokens_to_db(
 
     if not ebay_creds:
         ebay_creds = EbayCredentials(
-            access_token=tokens["access_token"],
-            refresh_token=tokens["refresh_token"],
-            access_token_expires_at=tokens["access_token_expires_at"],
-            refresh_token_expires_at=tokens["refresh_token_expires_at"],
             sandbox_mode=sandbox,
             is_connected=True,
         )
+        # Use secure setters for tokens (Security 2026-01-12)
+        ebay_creds.set_access_token(tokens["access_token"])
+        ebay_creds.set_refresh_token(tokens["refresh_token"])
+        ebay_creds.access_token_expires_at = tokens["access_token_expires_at"]
+        ebay_creds.refresh_token_expires_at = tokens["refresh_token_expires_at"]
         db.add(ebay_creds)
     else:
-        ebay_creds.access_token = tokens["access_token"]
-        ebay_creds.refresh_token = tokens["refresh_token"]
+        # Use secure setters for tokens (Security 2026-01-12)
+        ebay_creds.set_access_token(tokens["access_token"])
+        ebay_creds.set_refresh_token(tokens["refresh_token"])
         ebay_creds.access_token_expires_at = tokens["access_token_expires_at"]
         ebay_creds.refresh_token_expires_at = tokens["refresh_token_expires_at"]
         ebay_creds.sandbox_mode = sandbox
@@ -266,9 +269,8 @@ def fetch_and_save_account_info(
         from services.ebay.ebay_identity_client import EbayIdentityClient
         from services.ebay.ebay_trading_client import EbayTradingClient
 
-        # Redéfinir search_path si nécessaire
-        if schema_name:
-            db.execute(text(f"SET search_path TO {schema_name}, public"))
+        # SECURITY (2026-01-12): Use validated search_path setting
+        set_search_path_safe(db, user_id)
 
         seller_info = {}
 
@@ -333,9 +335,8 @@ def process_oauth_callback(
     Raises:
         HTTPException: Si validation ou échange échoue
     """
-    # Configure search_path
-    if schema_name:
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
+    # SECURITY (2026-01-12): Use validated search_path setting
+    set_search_path_safe(db, user_id)
 
     # Validate state (CSRF protection)
     if not validate_state(state, user_id):
@@ -351,8 +352,7 @@ def process_oauth_callback(
     ebay_creds = save_tokens_to_db(db, tokens, sandbox)
 
     # Fetch and save account info (non-blocking)
-    if schema_name:
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
+    # Note: set_search_path_safe is called inside fetch_and_save_account_info
     fetch_and_save_account_info(db, user_id, ebay_creds, schema_name)
 
     return {

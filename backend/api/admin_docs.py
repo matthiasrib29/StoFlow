@@ -10,6 +10,7 @@ Date: 2024-12-24
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from api.dependencies import require_admin
@@ -55,13 +56,17 @@ async def admin_list_categories(
 
     categories = query.order_by(DocCategory.display_order).all()
 
+    # ===== PERFORMANCE FIX (Phase 3.4 - 2026-01-12): Avoid N+1 queries =====
+    # Count articles per category in a single query (instead of one query per category)
+    article_counts = dict(
+        db.query(DocArticle.category_id, func.count(DocArticle.id))
+        .group_by(DocArticle.category_id)
+        .all()
+    )
+
     result = []
     for cat in categories:
-        article_count = (
-            db.query(DocArticle)
-            .filter(DocArticle.category_id == cat.id)
-            .count()
-        )
+        article_count = article_counts.get(cat.id, 0)
         result.append(
             DocCategoryResponse(
                 id=cat.id,
@@ -262,9 +267,17 @@ async def admin_list_articles(
 
     articles = query.order_by(DocArticle.category_id, DocArticle.display_order).all()
 
+    # ===== PERFORMANCE FIX (Phase 3.4 - 2026-01-12): Avoid N+1 queries =====
+    # Load all categories in a single query (instead of one query per article)
+    category_ids = {article.category_id for article in articles}
+    categories_dict = {
+        cat.id: cat
+        for cat in db.query(DocCategory).filter(DocCategory.id.in_(category_ids)).all()
+    }
+
     result = []
     for article in articles:
-        category = db.query(DocCategory).filter(DocCategory.id == article.category_id).first()
+        category = categories_dict.get(article.category_id)
         result.append(
             DocArticleSummary(
                 id=article.id,

@@ -112,6 +112,103 @@ class EbayOrderFulfillmentService:
         )
 
         return updated_order
+    # ===== HELPER METHODS FOR add_tracking() (Refactored 2026-01-12 Phase 3.2c) =====
+
+    @staticmethod
+    def _validate_order_for_tracking(order: EbayOrder, tracking_number: str) -> None:
+        """
+        Validate order can receive tracking (PAID status, valid tracking format).
+
+        Args:
+            order: EbayOrder to validate
+            tracking_number: Tracking number to validate
+
+        Raises:
+            ValueError: If order not paid or tracking format invalid
+        """
+        if order.order_payment_status != "PAID":
+            raise ValueError(
+                f"Order {order.order_id} is not paid (status: {order.order_payment_status}). "
+                "Cannot add tracking to unpaid order."
+            )
+
+        if not tracking_number.isalnum():
+            raise ValueError(
+                f"Invalid tracking number '{tracking_number}'. "
+                "Must be alphanumeric only (no spaces, dashes, or special characters)."
+            )
+
+    @staticmethod
+    def _prepare_shipped_date(shipped_date: Optional[datetime]) -> str:
+        """
+        Prepare shipped date in eBay API format (ISO 8601).
+
+        Args:
+            shipped_date: Shipped date (default: now if None)
+
+        Returns:
+            ISO 8601 formatted date string
+        """
+        if shipped_date is None:
+            shipped_date = datetime.now(timezone.utc)
+
+        return shipped_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+    @staticmethod
+    def _build_line_items_payload(order: EbayOrder) -> list[dict]:
+        """
+        Build line items payload for eBay shipping fulfillment API.
+
+        Args:
+            order: EbayOrder with products
+
+        Returns:
+            List of line items with lineItemId and quantity
+
+        Raises:
+            ValueError: If no valid line items found
+        """
+        line_items_payload = []
+
+        for product in order.products:
+            if product.line_item_id:
+                line_items_payload.append({
+                    "lineItemId": product.line_item_id,
+                    "quantity": product.quantity or 1,
+                })
+
+        if not line_items_payload:
+            raise ValueError(
+                f"Order {order.order_id} has no line items with lineItemId. "
+                "Cannot create shipping fulfillment."
+            )
+
+        return line_items_payload
+
+    def _update_order_tracking(
+        self, order: EbayOrder, tracking_number: str, carrier_code: str
+    ) -> None:
+        """
+        Update order tracking info in local DB.
+
+        Args:
+            order: EbayOrder to update
+            tracking_number: Tracking number
+            carrier_code: Carrier code
+        """
+        order.tracking_number = tracking_number
+        order.shipping_carrier = carrier_code
+        order.order_fulfillment_status = "IN_PROGRESS"
+        order.updated_at = datetime.now(timezone.utc)
+
+        EbayOrderRepository.update(self.db, order)
+        self.db.commit()
+
+        logger.info(
+            f"[EbayOrderFulfillmentService] Order {order.order_id} tracking added: "
+            f"{tracking_number} ({carrier_code})"
+        )
+
 
     def add_tracking(
         self,
@@ -123,7 +220,7 @@ class EbayOrderFulfillmentService:
         """
         Add tracking information to order (calls eBay API + updates local DB).
 
-        **Workflow:**
+        **Workflow (refactored 2026-01-12):**
         1. Validate order exists and is PAID
         2. Prepare payload for eBay API
         3. Call eBay API: POST /order/{orderId}/shipping_fulfillment
@@ -169,49 +266,17 @@ class EbayOrderFulfillmentService:
             f"order_id={order_id}, tracking={tracking_number}, carrier={carrier_code}"
         )
 
-        # Get order
+        # 1. Get and validate order
         order = EbayOrderRepository.get_by_id(self.db, order_id)
 
         if not order:
             raise ValueError(f"Order {order_id} not found")
 
-        # Validate order is paid
-        if order.order_payment_status != "PAID":
-            raise ValueError(
-                f"Order {order.order_id} is not paid (status: {order.order_payment_status}). "
-                "Cannot add tracking to unpaid order."
-            )
+        self._validate_order_for_tracking(order, tracking_number)
 
-        # Validate tracking number format (alphanumeric only)
-        if not tracking_number.isalnum():
-            raise ValueError(
-                f"Invalid tracking number '{tracking_number}'. "
-                "Must be alphanumeric only (no spaces, dashes, or special characters)."
-            )
-
-        # Prepare shipped date
-        if shipped_date is None:
-            shipped_date = datetime.now(timezone.utc)
-
-        shipped_date_iso = shipped_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-
-        # Prepare payload for eBay API
-        # We need all line items from the order
-        line_items_payload = []
-        for product in order.products:
-            if product.line_item_id:
-                line_items_payload.append(
-                    {
-                        "lineItemId": product.line_item_id,
-                        "quantity": product.quantity or 1,
-                    }
-                )
-
-        if not line_items_payload:
-            raise ValueError(
-                f"Order {order.order_id} has no line items with lineItemId. "
-                "Cannot create shipping fulfillment."
-            )
+        # 2. Prepare payload
+        shipped_date_iso = self._prepare_shipped_date(shipped_date)
+        line_items_payload = self._build_line_items_payload(order)
 
         payload = {
             "lineItems": line_items_payload,
@@ -224,8 +289,8 @@ class EbayOrderFulfillmentService:
             f"[EbayOrderFulfillmentService] Calling eBay API for order {order.order_id}"
         )
 
+        # 3. Call eBay API and update DB
         try:
-            # Call eBay API
             api_result = self.fulfillment_client.create_shipping_fulfillment(
                 order_id=order.order_id,
                 payload=payload,
@@ -238,19 +303,7 @@ class EbayOrderFulfillmentService:
                 f"fulfillment_id={fulfillment_id}"
             )
 
-            # Update local DB
-            order.tracking_number = tracking_number
-            order.shipping_carrier = carrier_code
-            order.order_fulfillment_status = "IN_PROGRESS"
-            order.updated_at = datetime.now(timezone.utc)
-
-            EbayOrderRepository.update(self.db, order)
-            self.db.commit()
-
-            logger.info(
-                f"[EbayOrderFulfillmentService] Order {order.order_id} tracking added: "
-                f"{tracking_number} ({carrier_code})"
-            )
+            self._update_order_tracking(order, tracking_number, carrier_code)
 
             return {
                 "success": True,
@@ -269,3 +322,4 @@ class EbayOrderFulfillmentService:
             raise RuntimeError(
                 f"Failed to add tracking to eBay: {str(e)}"
             ) from e
+

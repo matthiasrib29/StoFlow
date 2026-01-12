@@ -23,7 +23,7 @@ from api.dependencies import get_user_db
 from repositories.vinted_conversation_repository import VintedConversationRepository
 from services.vinted.vinted_conversation_service import VintedConversationService
 from services.vinted.vinted_job_service import VintedJobService
-from services.vinted.vinted_job_processor import VintedJobProcessor
+from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
 from .shared import get_active_vinted_connection
 
 router = APIRouter()
@@ -143,7 +143,7 @@ async def sync_conversations(
         )
         db.commit()
 
-        processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=vinted_connection.vinted_user_id)
+        processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=vinted_connection.vinted_user_id, marketplace="vinted")
         result = await processor._execute_job(job)
 
         return {

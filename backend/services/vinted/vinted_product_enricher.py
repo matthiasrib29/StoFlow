@@ -21,10 +21,11 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models.user.vinted_product import VintedProduct
-# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_item_upload_parser import VintedItemUploadParser
 from shared.schema_utils import restore_search_path_after_rollback, commit_and_restore_path
 from shared.logging_setup import get_logger
+from shared.config import settings
 
 logger = get_logger(__name__)
 
@@ -44,8 +45,14 @@ class VintedProductEnricher:
     # API endpoint pattern for item_upload
     ITEM_UPLOAD_API = "/api/v2/item_upload/items/{vinted_id}"
 
-    def __init__(self):
-        """Initialize VintedProductEnricher."""
+    def __init__(self, user_id: int | None = None):
+        """
+        Initialize VintedProductEnricher.
+
+        Args:
+            user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
+        """
+        self.user_id = user_id
         self.parser = VintedItemUploadParser()
 
     async def enrich_products_without_description(
@@ -150,12 +157,13 @@ class VintedProductEnricher:
             # Build API path
             api_path = self.ITEM_UPLOAD_API.format(vinted_id=product.vinted_id)
 
-            result = await create_and_wait(
-                db,
+            # WebSocket architecture (2026-01-12)
+            result = await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
                 http_method="GET",
                 path=api_path,
-                timeout=30,
-                rate_limit=True,
+                timeout=settings.plugin_timeout_sync,
                 description=f"Get item_upload for {product.vinted_id}"
             )
 

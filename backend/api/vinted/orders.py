@@ -18,10 +18,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_user_db
 from models.vinted.vinted_order import VintedOrder
-from services.vinted import (
-    VintedJobService,
-    VintedJobProcessor,
-)
+from services.vinted import VintedJobService
+from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
 from .shared import get_active_vinted_connection
 
 router = APIRouter()
@@ -144,7 +142,7 @@ async def sync_orders(
             response["month"] = f"{year}-{month:02d}"
 
         if process_now:
-            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
+            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id, marketplace="vinted")
             result = await processor._execute_job(job)
             response["result"] = result.get("result", result)
             response["status"] = "completed" if result.get("success") else "failed"
