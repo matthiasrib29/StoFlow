@@ -100,6 +100,71 @@ def get_db_context() -> Generator[Session, None, None]:
         db.close()
 
 
+def validate_schema_name(schema_name: str) -> str:
+    """
+    Validate PostgreSQL schema name for safe interpolation.
+
+    Security: Prevents SQL injection via schema names (2026-01-12)
+
+    Validation rules:
+    - Must start with letter or underscore
+    - Can only contain alphanumeric and underscore
+    - Max length 63 bytes (PostgreSQL limit)
+    - Cannot be a reserved schema (pg_catalog, information_schema, pg_toast)
+
+    Args:
+        schema_name: Schema name to validate
+
+    Returns:
+        Validated schema name
+
+    Raises:
+        ValueError: If schema name is invalid
+    """
+    import re
+
+    # Allow only: alphanumeric, underscore
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', schema_name):
+        raise ValueError(
+            f"Invalid schema name: {schema_name}. "
+            f"Must match ^[a-zA-Z_][a-zA-Z0-9_]*$"
+        )
+
+    # Max length check (PostgreSQL limit: 63 bytes)
+    if len(schema_name) > 63:
+        raise ValueError(f"Schema name too long: {len(schema_name)} > 63")
+
+    # Blacklist reserved schemas
+    reserved = {'pg_catalog', 'information_schema', 'pg_toast'}
+    if schema_name.lower() in reserved:
+        raise ValueError(f"Schema name is reserved: {schema_name}")
+
+    return schema_name
+
+
+def set_search_path_safe(db: Session, user_id: int) -> None:
+    """
+    Safely set search path for multi-tenant isolation.
+
+    Security: SQL injection protection via user_id validation (2026-01-12)
+
+    Args:
+        db: SQLAlchemy session
+        user_id: User ID (must be positive integer)
+
+    Raises:
+        ValueError: If user_id is invalid or schema name validation fails
+    """
+    if not isinstance(user_id, int) or user_id <= 0:
+        raise ValueError(f"Invalid user_id: {user_id}")
+
+    schema_name = f"user_{user_id}"
+    validate_schema_name(schema_name)
+
+    # Safe: schema_name validated, user_id is integer
+    db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+
 def set_user_schema(db: Session, user_id: int) -> None:
     """
     Configure le search_path PostgreSQL pour isoler l'utilisateur.
@@ -122,26 +187,8 @@ def set_user_schema(db: Session, user_id: int) -> None:
     Raises:
         ValueError: Si user_id n'est pas un entier valide (Security: 2025-12-07)
     """
-    import re
-
-    # ===== SECURITY FIX (2025-12-07, updated 2025-12-23): SQL Injection Protection =====
-    # Step 1: Validation stricte: user_id DOIT être un integer positif
-    if not isinstance(user_id, int):
-        raise ValueError(
-            f"Invalid user_id: must be integer, got {type(user_id).__name__}"
-        )
-
-    if user_id <= 0:
-        raise ValueError(f"Invalid user_id: must be positive, got {user_id}")
-
-    # Step 2: Build and validate schema_name
-    schema_name = f"user_{user_id}"
-
-    # Step 3: Defense-in-depth - verify pattern matches expected format
-    if not re.match(r'^user_\d+$', schema_name):
-        raise ValueError(f"Invalid schema_name generated: {schema_name}")
-
-    db.execute(text(f"SET search_path TO {schema_name}, public"))
+    # Delegate to new secure function (2026-01-12)
+    set_search_path_safe(db, user_id)
 
 
 # NOTE (2025-12-08): La fonction create_user_schema() a été déplacée vers

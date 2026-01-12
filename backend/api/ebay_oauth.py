@@ -203,9 +203,9 @@ def ebay_callback(
                 detail="User not found",
             )
 
-        # Configure search_path
-        schema_name = user.schema_name
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
+        # SECURITY (2026-01-12): Use validated search_path setting
+        from shared.database import set_search_path_safe
+        set_search_path_safe(db, user_id)
 
         # Process OAuth callback
         result = process_oauth_callback(
