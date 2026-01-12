@@ -38,6 +38,8 @@ from models.user.product import Product
 from models.user.vinted_product import VintedProduct
 from models.user.publication_history import PublicationHistory
 from models.user.ai_generation_log import AIGenerationLog
+from models.user.batch_job import BatchJob
+from models.user.marketplace_job import MarketplaceJob
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
