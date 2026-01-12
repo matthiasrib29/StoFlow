@@ -106,18 +106,20 @@ class VintedJobStatsService:
             .all()
         )
 
+        # ===== PERFORMANCE FIX (Phase 3.4 - 2026-01-12): Avoid N+1 queries =====
+        # Load all action types in a single query (instead of one query per stat)
+        if not action_type_resolver:
+            action_type_ids = {stat.action_type_id for stat in stats_records}
+            action_types = (
+                db.query(VintedActionType)
+                .filter(VintedActionType.id.in_(action_type_ids))
+                .all()
+            )
+            action_type_resolver = {at.id: at for at in action_types}.get
+
         result = []
         for stat in stats_records:
-            action_type = None
-            if action_type_resolver:
-                action_type = action_type_resolver(stat.action_type_id)
-            else:
-                # Direct query if no resolver
-                action_type = (
-                    db.query(VintedActionType)
-                    .filter(VintedActionType.id == stat.action_type_id)
-                    .first()
-                )
+            action_type = action_type_resolver(stat.action_type_id)
 
             result.append({
                 "date": stat.date.isoformat(),
