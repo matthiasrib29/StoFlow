@@ -127,16 +127,26 @@ function setupMessageListener() {
   log.debug('Installation du listener postMessage...');
 
   window.addEventListener('message', async (event) => {
+    // Log ALL messages received (for debugging)
+    log.debug('📥 Message reçu:', {
+      origin: event.origin,
+      type: event.data?.type,
+      data: event.data
+    });
+
     // SÉCURITÉ CRITIQUE: Valider l'origine du message
     if (!isAllowedOrigin(event.origin)) {
-      // Ignorer silencieusement les messages d'origines non autorisées
+      log.warn('❌ Origine refusée:', event.origin, 'Autorisées:', ALLOWED_ORIGINS);
       return;
     }
 
     const data = event.data;
     if (!data || typeof data.type !== 'string') {
+      log.debug('⚠️  Message ignoré (pas de type):', data);
       return;
     }
+
+    log.info('✅ Message accepté:', data.type);
 
     // Traiter les différents types de messages
     switch (data.type) {
