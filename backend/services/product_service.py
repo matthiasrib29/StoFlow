@@ -412,15 +412,27 @@ class ProductService:
                 update(Product)
                 .where(
                     Product.id == product_id,
-                    Product.version_number == product.version_number
+                    Product.version_number == product.version_number,
+                    Product.status != ProductStatus.SOLD  # CRITICAL: Atomic SOLD check (Security 2026-01-12)
                 )
                 .values(**set_values)
                 .execution_options(synchronize_session="fetch")
             )
 
             if result.rowcount == 0:
+                db.refresh(product)
+
+                # Check if SOLD (race condition: became SOLD during edit)
+                if product.status == ProductStatus.SOLD:
+                    raise ValueError(
+                        "Cannot modify SOLD product. Product was sold while you were editing. "
+                        "Please refresh the page."
+                    )
+
+                # Otherwise: concurrent modification (version mismatch)
                 raise ConcurrentModificationError(
-                    f"Product {product_id} was modified by another user. Please refresh and try again.",
+                    f"Product {product_id} was modified by another user. "
+                    f"Please refresh and try again.",
                     details={
                         "product_id": product_id,
                         "expected_version": product.version_number

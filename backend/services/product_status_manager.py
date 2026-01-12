@@ -140,14 +140,33 @@ class ProductStatusManager:
                 f"product_id={product_id}, stock decremented to 0"
             )
         else:
-            # For other status changes, use standard ORM
-            product.status = new_status
-            db.flush()
-            db.refresh(product)
+            # CRITICAL: Make ALL status changes atomic (not just SOLD) (Security 2026-01-12)
+            result = db.execute(
+                update(Product)
+                .where(
+                    Product.id == product_id,
+                    Product.version_number == product.version_number  # Optimistic lock
+                )
+                .values(
+                    status=new_status,
+                    version_number=Product.version_number + 1
+                )
+                .execution_options(synchronize_session="fetch")
+            )
 
+            if result.rowcount == 0:
+                # Version mismatch (concurrent modification)
+                db.refresh(product)
+                raise ConcurrentModificationError(
+                    f"Product {product_id} was modified by another transaction. "
+                    f"Please refresh and try again.",
+                    details={"product_id": product_id}
+                )
+
+            db.refresh(product)
             logger.info(
-                f"[ProductStatusManager] Status updated: product_id={product_id}, "
-                f"{current_status.value} -> {new_status.value}"
+                f"[ProductStatusManager] Status updated atomically: "
+                f"product_id={product_id}, {current_status.value} -> {new_status.value}"
             )
 
         return product
