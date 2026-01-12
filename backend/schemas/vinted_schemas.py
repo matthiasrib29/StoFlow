@@ -22,8 +22,7 @@ class VintedConnectionStatusResponse(BaseModel):
     is_connected: bool = Field(..., description="Connexion active")
     vinted_user_id: Optional[int] = Field(None, description="ID Vinted")
     login: Optional[str] = Field(None, description="Username")
-    last_sync: Optional[datetime] = Field(None, description="Dernière sync")
-    disconnected_at: Optional[datetime] = Field(None, description="Date de déconnexion si déconnecté")
+    last_synced_at: Optional[datetime] = Field(None, description="Dernière sync")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -337,6 +336,6 @@ class VintedSimpleConnectionResponse(BaseModel):
     is_connected: bool = Field(..., description="Indique si l'utilisateur est connecté à Vinted")
     vinted_user_id: Optional[int] = Field(None, description="ID utilisateur Vinted")
     login: Optional[str] = Field(None, description="Login/username Vinted")
-    last_sync: Optional[datetime] = Field(None, description="Date de dernière synchronisation")
+    last_synced_at: Optional[datetime] = Field(None, description="Date de dernière synchronisation")
 
     model_config = ConfigDict(from_attributes=True)

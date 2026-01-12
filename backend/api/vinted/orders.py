@@ -132,17 +132,23 @@ async def sync_orders(
             product_id=None,
             result_data=result_data
         )
+
+        # Store values BEFORE commit (SET LOCAL search_path resets on commit)
+        job_id = job.id
+        job_status = job.status.value
+        shop_id = connection.vinted_user_id
+
         db.commit()
 
         response = {
-            "job_id": job.id,
-            "status": job.status.value,
+            "job_id": job_id,
+            "status": job_status,
         }
         if year and month:
             response["month"] = f"{year}-{month:02d}"
 
         if process_now:
-            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id, marketplace="vinted")
+            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
             result = await processor._execute_job(job)
             response["result"] = result.get("result", result)
             response["status"] = "completed" if result.get("success") else "failed"
