@@ -16,10 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_user_db
 from models.user.product import Product
-from services.vinted import (
-    VintedJobService,
-    VintedJobProcessor,
-)
+from services.vinted import VintedJobService
+from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
 from .shared import get_active_vinted_connection
 
 router = APIRouter()
@@ -67,7 +65,7 @@ async def publish_single_product(
 
         # Exécuter immédiatement si demandé
         if process_now:
-            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
+            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id, marketplace="vinted")
             result = await processor._execute_job(job)
             response["result"] = result
             response["status"] = "completed" if result.get("success") else "failed"
@@ -137,7 +135,7 @@ async def publish_batch(
 
         # Exécuter immédiatement si demandé
         if process_now:
-            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
+            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id, marketplace="vinted")
             batch_result = await processor.process_batch(batch_id)
             response["status"] = "processed"
             response["success_count"] = batch_result["success_count"]

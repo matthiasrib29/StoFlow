@@ -45,7 +45,8 @@ from schemas.vinted_schemas import (
 from shared.error_handling import not_found, bad_request
 from services.file_service import FileService
 from services.product_service import ProductService
-from services.vinted import VintedSyncService, VintedJobService, VintedJobProcessor
+from services.vinted import VintedSyncService, VintedJobService
+from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
 from services.vinted.vinted_link_service import VintedLinkService
 from services.vinted.vinted_stats_service import VintedStatsService
 from services.vinted.vinted_image_sync_service import VintedImageSyncService
