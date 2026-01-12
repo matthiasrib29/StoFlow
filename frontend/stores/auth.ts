@@ -116,7 +116,7 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const config = useRuntimeConfig()
-        const baseURL = config.public.apiUrl
+        const baseURL = config.public.apiBaseUrl
 
         // Préparer les données en transformant full_name si nécessaire
         const requestData: any = { ...registerData }
@@ -125,7 +125,7 @@ export const useAuthStore = defineStore('auth', {
           delete requestData.fullName
         }
 
-        const response = await fetch(`${baseURL}/api/auth/register`, {
+        const response = await fetch(`${baseURL}/auth/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -191,9 +191,9 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const config = useRuntimeConfig()
-        const baseURL = config.public.apiUrl
+        const baseURL = config.public.apiBaseUrl
 
-        const response = await fetch(`${baseURL}/api/auth/login?source=web`, {
+        const response = await fetch(`${baseURL}/auth/login?source=web`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -338,9 +338,9 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const config = useRuntimeConfig()
-        const baseURL = config.public.apiUrl
+        const baseURL = config.public.apiBaseUrl
 
-        const response = await fetch(`${baseURL}/api/auth/refresh`, {
+        const response = await fetch(`${baseURL}/auth/refresh`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -94,7 +94,7 @@ const resendEmail = async () => {
 
   try {
     await fetch(
-      `${config.public.apiUrl}/api/auth/resend-verification?email=${encodeURIComponent(email.value)}`,
+      `${config.public.apiBaseUrl}/auth/resend-verification?email=${encodeURIComponent(email.value)}`,
       { method: 'POST' }
     )
 
