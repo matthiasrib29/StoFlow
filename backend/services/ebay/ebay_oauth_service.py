@@ -219,17 +219,19 @@ def save_tokens_to_db(
 
     if not ebay_creds:
         ebay_creds = EbayCredentials(
-            access_token=tokens["access_token"],
-            refresh_token=tokens["refresh_token"],
-            access_token_expires_at=tokens["access_token_expires_at"],
-            refresh_token_expires_at=tokens["refresh_token_expires_at"],
             sandbox_mode=sandbox,
             is_connected=True,
         )
+        # Use secure setters for tokens (Security 2026-01-12)
+        ebay_creds.set_access_token(tokens["access_token"])
+        ebay_creds.set_refresh_token(tokens["refresh_token"])
+        ebay_creds.access_token_expires_at = tokens["access_token_expires_at"]
+        ebay_creds.refresh_token_expires_at = tokens["refresh_token_expires_at"]
         db.add(ebay_creds)
     else:
-        ebay_creds.access_token = tokens["access_token"]
-        ebay_creds.refresh_token = tokens["refresh_token"]
+        # Use secure setters for tokens (Security 2026-01-12)
+        ebay_creds.set_access_token(tokens["access_token"])
+        ebay_creds.set_refresh_token(tokens["refresh_token"])
         ebay_creds.access_token_expires_at = tokens["access_token_expires_at"]
         ebay_creds.refresh_token_expires_at = tokens["refresh_token_expires_at"]
         ebay_creds.sandbox_mode = sandbox

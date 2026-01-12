@@ -16,7 +16,7 @@ Date: 2026-01-07
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Integer, LargeBinary, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -59,16 +59,28 @@ class EtsyCredentials(Base):
     # Primary Key
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
-    # OAuth2 Tokens
+    # OAuth2 Tokens (DEPRECATED - use encrypted columns)
     access_token: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
-        comment="OAuth2 Access Token (expire 1h)"
+        comment="DEPRECATED - use access_token_encrypted (2026-01-12)"
     )
     refresh_token: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
-        comment="OAuth2 Refresh Token (expire 90 jours)"
+        comment="DEPRECATED - use refresh_token_encrypted (2026-01-12)"
+    )
+
+    # OAuth2 Tokens (ENCRYPTED - Security 2026-01-12)
+    access_token_encrypted: Mapped[Optional[bytes]] = mapped_column(
+        LargeBinary,
+        nullable=True,
+        comment="Encrypted OAuth2 Access Token (expire 1h)"
+    )
+    refresh_token_encrypted: Mapped[Optional[bytes]] = mapped_column(
+        LargeBinary,
+        nullable=True,
+        comment="Encrypted OAuth2 Refresh Token (expire 90 jours)"
     )
 
     # Token Expiration
@@ -147,10 +159,76 @@ class EtsyCredentials(Base):
             f"is_connected={self.is_connected})>"
         )
 
+    # ========== TOKEN ENCRYPTION/DECRYPTION (Security 2026-01-12) ==========
+
+    def get_access_token(self) -> Optional[str]:
+        """
+        Get decrypted access token.
+
+        Migration fallback: Returns plaintext token if encrypted version not available.
+
+        Returns:
+            Decrypted access token or None
+        """
+        if self.access_token_encrypted:
+            from shared.encryption import decrypt_token
+            return decrypt_token(self.access_token_encrypted.decode() if isinstance(self.access_token_encrypted, bytes) else self.access_token_encrypted)
+
+        # Fallback during migration
+        return self.access_token
+
+    def set_access_token(self, token: Optional[str]) -> None:
+        """
+        Set and encrypt access token.
+
+        Args:
+            token: Plaintext access token to encrypt
+        """
+        if token:
+            from shared.encryption import encrypt_token
+            encrypted = encrypt_token(token)
+            self.access_token_encrypted = encrypted.encode() if isinstance(encrypted, str) else encrypted
+            self.access_token = None  # Clear plaintext
+        else:
+            self.access_token_encrypted = None
+            self.access_token = None
+
+    def get_refresh_token(self) -> Optional[str]:
+        """
+        Get decrypted refresh token.
+
+        Migration fallback: Returns plaintext token if encrypted version not available.
+
+        Returns:
+            Decrypted refresh token or None
+        """
+        if self.refresh_token_encrypted:
+            from shared.encryption import decrypt_token
+            return decrypt_token(self.refresh_token_encrypted.decode() if isinstance(self.refresh_token_encrypted, bytes) else self.refresh_token_encrypted)
+
+        # Fallback during migration
+        return self.refresh_token
+
+    def set_refresh_token(self, token: Optional[str]) -> None:
+        """
+        Set and encrypt refresh token.
+
+        Args:
+            token: Plaintext refresh token to encrypt
+        """
+        if token:
+            from shared.encryption import encrypt_token
+            encrypted = encrypt_token(token)
+            self.refresh_token_encrypted = encrypted.encode() if isinstance(encrypted, str) else encrypted
+            self.refresh_token = None  # Clear plaintext
+        else:
+            self.refresh_token_encrypted = None
+            self.refresh_token = None
+
     @property
     def has_valid_tokens(self) -> bool:
         """Vérifie si les tokens OAuth2 sont présents."""
-        return bool(self.access_token and self.refresh_token)
+        return bool(self.get_access_token() and self.get_refresh_token())
 
     @property
     def is_access_token_expired(self) -> bool:
