@@ -26,7 +26,7 @@ class TestEbayOrdersSyncJobHandlerInit:
             EbayOrdersSyncJobHandler,
         )
 
-        assert EbayOrdersSyncJobHandler.ACTION_CODE == "sync_orders_ebay"
+        assert EbayOrdersSyncJobHandler.ACTION_CODE == "sync_orders"
 
     def test_init_stores_parameters(self):
         """Test that __init__ stores all parameters correctly."""
