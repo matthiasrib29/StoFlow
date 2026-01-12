@@ -9,12 +9,12 @@
 ## Progress
 
 **Phases completed**: 3/7
-**Plans completed**: 7/10
+**Plans completed**: 8/10
 
 - [x] Phase 1: Database Foundation ✅ (2026-01-09)
 - [x] Phase 2: Group Determination Logic ✅ (2026-01-09)
 - [x] Phase 3: LLM Generation Service ✅ (2026-01-12)
-- [ ] Phase 4: Adjustment Calculators
+- [ ] Phase 4: Adjustment Calculators (In Progress - 1/3 plans complete)
 - [ ] Phase 5: Main Pricing Algorithm & API
 - [ ] Phase 6: Frontend UI
 - [ ] Phase 7: Testing & Polish
@@ -23,25 +23,26 @@
 
 ## Active Work
 
-**Current phase**: Phase 3 Complete ✅ - Ready for Phase 4 (Adjustment Calculators)
+**Current phase**: Phase 4 - Adjustment Calculators (In Progress)
 
-**Last completed**: Phase 3 Plan 2 - Model Generation Service
-- Added generate_model() method to PricingGenerationService
-- Model entity with coefficient (0.5-3.0) and expected_features (JSONB)
-- Base price context passed to LLM for accurate coefficient generation
-- Validation and fallback logic (coefficient=1.0, features=[])
-- 19 comprehensive unit tests (42 total tests, 100% passing)
-- 2 commits, 3 files changed
+**Last completed**: Phase 4 Plan 1 - Model Coefficient & Condition Adjustment Calculators
+- Implemented calculateModelCoefficient (simple extraction from Model entity)
+- Implemented calculateConditionAdjustment (score-based with supplements and caps)
+- Formula: (score - 3.0) / 10.0 * sensitivity + supplements, capped at ±0.30
+- Supplement bonuses: original_box (+0.05), tags (+0.03), dust_bag (+0.03), authenticity_card (+0.04)
+- 31 comprehensive unit tests (7 for model coefficient, 24 for condition adjustment)
+- TDD cycle: RED (failing tests) → GREEN (implementation) → No refactor needed
+- 2 commits, 2 files created
 
 ---
 
 ## Recent Changes
 
+*2026-01-12 12:00*: Phase 4 Plan 1 completed - Model coefficient and condition adjustment calculators (TDD)
 *2026-01-12 11:45*: Phase 3 completed - LLM generation service fully implemented (BrandGroup + Model)
 *2026-01-12 11:16*: Phase 3 Plan 1 completed - BrandGroup generation service with Gemini integration
 *2026-01-12 11:00*: Phase 2 completed - Group determination logic implemented with 111 tests
 *2026-01-09 16:15*: Phase 1 completed - Database foundation established
-*2026-01-09 15:47*: Project initialized, roadmap created with 7 phases
 
 ---
 
