@@ -9,7 +9,7 @@ Cree un nouveau worktree pour une feature avec env dev 3 (ports 8002/3002).
    - Bash: git worktree add ~/StoFlow-[nom] -b feature/[nom]
    - Bash: cp ~/StoFlow/backend/.env ~/StoFlow-[nom]/backend/.env && cp ~/StoFlow/frontend/.env ~/StoFlow-[nom]/frontend/.env
    - Bash: ln -s ~/StoFlow/backend/.venv ~/StoFlow-[nom]/backend/.venv
-   - Bash: ln -s .venv ~/StoFlow-[nom]/backend/venv
+   - Bash: cd ~/StoFlow-[nom]/backend && ln -s .venv venv
    - Bash: cp -r ~/StoFlow/backend/keys ~/StoFlow-[nom]/backend/
    - Bash: mkdir -p ~/StoFlow-[nom]/logs
    - Bash: cd ~/StoFlow-[nom]/frontend && npm install (timeout 120000)
