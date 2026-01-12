@@ -125,7 +125,7 @@ async def sync_orders(
 
         job = job_service.create_job(
             marketplace="ebay",
-            action_code="sync_orders_ebay",
+            action_code="sync_orders",
             product_id=None,  # Operation-level job (not product-specific)
             input_data={
                 "hours": request.hours,
