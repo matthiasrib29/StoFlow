@@ -73,26 +73,32 @@
 
 ---
 
-### Phase 4: Adjustment Calculators
+### Phase 4: Adjustment Calculators ✅ COMPLETED (2026-01-12)
 **Goal**: Implement 6 adjustment calculation functions
 
 **Why this phase**: Core pricing logic that calculates bonuses/malus based on product attributes. Each calculator is independent and testable. These feed into the main pricing algorithm.
 
-**Deliverables**:
-- `calculateConditionAdjustment(score, supplements, sensitivity)` - Score + supplements with caps
-- `calculateOriginAdjustment(actualOrigin, expectedOrigins)` - Tier-based comparison
-- `calculateDecadeAdjustment(actualDecade, expectedDecades)` - Bonus if unexpected
-- `calculateTrendAdjustment(actualTrends, expectedTrends)` - Best unexpected trend
-- `calculateFeatureAdjustment(actualFeatures, expectedFeatures)` - Sum unexpected features
-- `calculateModelCoefficient(modelData)` - Simple multiplier
-- Unit tests for each calculator with edge cases
-- Constants for DECADE_COEFFICIENTS, TREND_COEFFICIENTS, FEATURE_COEFFICIENTS, ORIGIN_TIERS
+**Deliverables**: ✅ All completed
+- ✅ `calculateConditionAdjustment(score, supplements, sensitivity)` - Score + supplements with caps
+- ✅ `calculateOriginAdjustment(actualOrigin, expectedOrigins)` - Tier-based comparison
+- ✅ `calculateDecadeAdjustment(actualDecade, expectedDecades)` - Bonus if unexpected
+- ✅ `calculateTrendAdjustment(actualTrends, expectedTrends)` - Best unexpected trend
+- ✅ `calculateFeatureAdjustment(actualFeatures, expectedFeatures)` - Sum unexpected features
+- ✅ `calculateModelCoefficient(modelData)` - Simple multiplier
+- ✅ Unit tests for each calculator with edge cases (94 tests total)
+- ✅ Constants for DECADE_COEFFICIENTS, TREND_COEFFICIENTS, FEATURE_COEFFICIENTS, ORIGIN_TIERS
 
 **Dependencies**: Phase 2 (needs group determination for context)
 
 **Research needed**: No - formulas are fully specified
 
 **Estimated complexity**: Medium (6 functions, caps, edge cases, extensive tests)
+
+**Execution Summary**: See `.planning/phases/04-adjustment-calculators/` (3 plans)
+- 3 TDD plans executed (RED-GREEN-REFACTOR cycle)
+- 94 unit tests (100% passing)
+- All 6 calculators implemented in `backend/services/pricing/adjustment_calculators.py`
+- Clean code with comprehensive docstrings and validation
 
 ---
 
