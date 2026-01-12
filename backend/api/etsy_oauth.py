@@ -295,9 +295,9 @@ def etsy_oauth_callback(
         credentials = db.query(EtsyCredentials).first()
 
         if credentials:
-            # Update existing
-            credentials.access_token = access_token
-            credentials.refresh_token = refresh_token
+            # Update existing (using secure setters - Security 2026-01-12)
+            credentials.set_access_token(access_token)
+            credentials.set_refresh_token(refresh_token)
             credentials.access_token_expires_at = access_token_expires_at
             credentials.refresh_token_expires_at = refresh_token_expires_at
             credentials.user_id_etsy = user_id_etsy
@@ -307,12 +307,8 @@ def etsy_oauth_callback(
             credentials.is_connected = True
             credentials.last_sync = datetime.now(timezone.utc)
         else:
-            # Create new
+            # Create new (using secure setters - Security 2026-01-12)
             credentials = EtsyCredentials(
-                access_token=access_token,
-                refresh_token=refresh_token,
-                access_token_expires_at=access_token_expires_at,
-                refresh_token_expires_at=refresh_token_expires_at,
                 user_id_etsy=user_id_etsy,
                 shop_id=shop_id,
                 shop_name=shop_name,
@@ -320,6 +316,10 @@ def etsy_oauth_callback(
                 is_connected=True,
                 last_sync=datetime.now(timezone.utc),
             )
+            credentials.set_access_token(access_token)
+            credentials.set_refresh_token(refresh_token)
+            credentials.access_token_expires_at = access_token_expires_at
+            credentials.refresh_token_expires_at = refresh_token_expires_at
             db.add(credentials)
 
         db.commit()

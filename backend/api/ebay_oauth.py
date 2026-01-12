@@ -250,9 +250,9 @@ def disconnect_ebay(
             detail="eBay account not connected",
         )
 
-    # Clear tokens
-    ebay_creds.access_token = None
-    ebay_creds.refresh_token = None
+    # Clear tokens (using secure setters)
+    ebay_creds.set_access_token(None)
+    ebay_creds.set_refresh_token(None)
     ebay_creds.access_token_expires_at = None
     ebay_creds.refresh_token_expires_at = None
     ebay_creds.is_connected = False
@@ -278,7 +278,7 @@ def ebay_connection_status(
     db, _ = db_user
     ebay_creds = db.query(EbayCredentials).first()
 
-    if not ebay_creds or not ebay_creds.access_token:
+    if not ebay_creds or not ebay_creds.get_access_token():
         return {"is_connected": False, "message": "eBay account not connected"}
 
     now = datetime.now(timezone.utc)
@@ -352,7 +352,7 @@ def get_ebay_account_info(
     db, current_user = db_user
     ebay_creds = db.query(EbayCredentials).first()
 
-    if not ebay_creds or not ebay_creds.access_token:
+    if not ebay_creds or not ebay_creds.get_access_token():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="eBay account not connected. Please connect first.",
@@ -435,7 +435,7 @@ def get_shipping_policies(
     db, current_user = db_user
     ebay_creds = db.query(EbayCredentials).first()
 
-    if not ebay_creds or not ebay_creds.access_token:
+    if not ebay_creds or not ebay_creds.get_access_token():
         return []
 
     try:
@@ -459,7 +459,7 @@ def get_return_policies(
     db, current_user = db_user
     ebay_creds = db.query(EbayCredentials).first()
 
-    if not ebay_creds or not ebay_creds.access_token:
+    if not ebay_creds or not ebay_creds.get_access_token():
         return []
 
     try:
@@ -483,7 +483,7 @@ def get_payment_policies(
     db, current_user = db_user
     ebay_creds = db.query(EbayCredentials).first()
 
-    if not ebay_creds or not ebay_creds.access_token:
+    if not ebay_creds or not ebay_creds.get_access_token():
         return []
 
     try:
@@ -504,7 +504,7 @@ def get_ebay_stats(
     db, _ = db_user
     ebay_creds = db.query(EbayCredentials).first()
 
-    if not ebay_creds or not ebay_creds.access_token:
+    if not ebay_creds or not ebay_creds.get_access_token():
         return {
             "activeLis": 0,
             "totalViews": 0,
