@@ -7,10 +7,11 @@ Routes API pour l'authentification des utilisateurs.
 import asyncio
 import random
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from middleware.auth_rate_limit import get_auth_rate_limiter
 from models.public.user import User, UserRole, SubscriptionTier, AccountType, BusinessType, EstimatedProducts
 from schemas.auth_schemas import LoginRequest, RefreshRequest, RefreshResponse, RegisterRequest, TokenResponse
 from services.auth_service import AuthService
@@ -28,6 +29,7 @@ security = HTTPBearer()
 
 @router.post("/login", response_model=TokenResponse, status_code=status.HTTP_200_OK)
 async def login(
+    request: Request,
     credentials: LoginRequest,
     db: Session = Depends(get_db),
     source: str = "web",
@@ -53,6 +55,10 @@ async def login(
     Raises:
         HTTPException: 401 si authentification échouée
     """
+    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
+    rate_limiter = get_auth_rate_limiter()
+    await rate_limiter.check_rate_limit(request, "login")
+
     # ===== SECURITY FIX (2025-12-05): Redact password dans logs =====
     # Log sans exposer le password
     logger.info(f"Login attempt: email={credentials.email}, password={redact_password(credentials.password)}, source={source}")
@@ -104,7 +110,8 @@ async def login(
 
 
 @router.post("/refresh", response_model=RefreshResponse, status_code=status.HTTP_200_OK)
-def refresh_token(
+async def refresh_token(
+    request_obj: Request,
     request: RefreshRequest,
     db: Session = Depends(get_db),
 ) -> RefreshResponse:
@@ -126,6 +133,10 @@ def refresh_token(
     Raises:
         HTTPException: 401 si refresh token invalide ou compte inactif
     """
+    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
+    rate_limiter = get_auth_rate_limiter()
+    await rate_limiter.check_rate_limit(request_obj, "refresh")
+
     result = AuthService.refresh_access_token(db, request.refresh_token)
 
     if not result:
@@ -186,6 +197,7 @@ def logout(
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
+    request: Request,
     registration: RegisterRequest,
     db: Session = Depends(get_db),
 ):
@@ -211,6 +223,10 @@ async def register(
     Raises:
         HTTPException: 400 si email déjà utilisé ou erreur de création
     """
+    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
+    rate_limiter = get_auth_rate_limiter()
+    await rate_limiter.check_rate_limit(request, "register")
+
     # Vérifier que l'email n'existe pas déjà
     # Security (2025-12-23): Message générique pour éviter énumération d'emails
     existing_user = db.query(User).filter(User.email == registration.email).first()
@@ -317,7 +333,8 @@ async def register(
 
 
 @router.get("/verify-email", status_code=status.HTTP_200_OK)
-def verify_email(
+async def verify_email(
+    request: Request,
     token: str,
     db: Session = Depends(get_db),
 ):
@@ -339,6 +356,10 @@ def verify_email(
     Raises:
         HTTPException: 400 si token invalide ou expiré
     """
+    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
+    rate_limiter = get_auth_rate_limiter()
+    await rate_limiter.check_rate_limit(request, "verify_email")
+
     user = AuthService.verify_email_token(db, token)
 
     if not user:
@@ -355,6 +376,7 @@ def verify_email(
 
 @router.post("/resend-verification", status_code=status.HTTP_200_OK)
 async def resend_verification(
+    request: Request,
     email: str,
     db: Session = Depends(get_db),
 ):
@@ -374,6 +396,10 @@ async def resend_verification(
     Returns:
         Message de succès (toujours le même pour éviter enumeration)
     """
+    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
+    rate_limiter = get_auth_rate_limiter()
+    await rate_limiter.check_rate_limit(request, "resend_verification")
+
     # Toujours retourner le même message pour éviter l'énumération d'emails
     success_message = {
         "message": "Si cet email existe et n'est pas vérifié, un email de vérification a été envoyé"
