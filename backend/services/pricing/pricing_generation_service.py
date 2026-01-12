@@ -19,6 +19,7 @@ from google import genai
 from google.genai import types
 
 from models.public.brand_group import BrandGroup
+from models.public.model import Model
 from shared.config import settings
 from shared.exceptions import AIGenerationError
 from shared.logging_setup import get_logger
@@ -287,4 +288,254 @@ Generate realistic secondhand pricing data:"""
             expected_decades=[],  # No expectations = no decade adjustments
             expected_trends=[],  # No expectations = no trend adjustments
             condition_sensitivity=Decimal("1.0"),  # Standard sensitivity
+        )
+
+    # ===== MODEL GENERATION =====
+
+    @staticmethod
+    async def generate_model(
+        brand: str, group: str, model: str, base_price: Decimal
+    ) -> Model:
+        """
+        Generate Model pricing data using Gemini LLM.
+
+        Args:
+            brand: Brand name (e.g., "Levi's", "Nike")
+            group: Pricing group (e.g., "jeans", "sneakers")
+            model: Model name (e.g., "501", "Jordan 1")
+            base_price: BrandGroup base_price for context (helps LLM accuracy)
+
+        Returns:
+            Model object with generated or fallback values
+
+        Raises:
+            AIGenerationError: On unrecoverable API errors (after fallback attempted)
+        """
+        logger.info(f"Generating Model for {brand} + {group} + {model}")
+
+        try:
+            # Initialize Gemini client
+            client = genai.Client(api_key=settings.gemini_api_key)
+
+            # Build prompt with base_price context
+            prompt = PricingGenerationService._build_model_prompt(
+                brand, group, model, base_price
+            )
+
+            # Call Gemini API with structured output
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",  # Cost-efficient for structured data
+                contents=[prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.7,  # Balanced creativity for pricing
+                ),
+            )
+
+            # Parse JSON response
+            response_data = json.loads(response.text)
+
+            # Validate response
+            is_valid, sanitized_data = PricingGenerationService._validate_model_response(
+                response_data, brand, group, model
+            )
+
+            if not is_valid:
+                logger.warning(
+                    f"LLM response validation failed for model {model}, using fallback"
+                )
+                return PricingGenerationService._get_fallback_model(brand, group, model)
+
+            # Create Model from validated data
+            model_obj = Model(
+                brand=brand,
+                group=group,
+                name=model,
+                coefficient=Decimal(str(sanitized_data["coefficient"])),
+                expected_features=sanitized_data["expected_features"],
+            )
+
+            logger.info(
+                f"Generated Model for {brand} + {group} + {model}: "
+                f"coefficient={model_obj.coefficient}, "
+                f"features={len(model_obj.expected_features)}"
+            )
+
+            return model_obj
+
+        except genai.errors.ClientError as e:
+            logger.error(f"Gemini client error for model {model}: {e}")
+            logger.info(f"Using fallback values for model {model}")
+            return PricingGenerationService._get_fallback_model(brand, group, model)
+
+        except genai.errors.ServerError as e:
+            logger.error(f"Gemini server error for model {model}: {e}")
+            logger.info(f"Using fallback values for model {model}")
+            return PricingGenerationService._get_fallback_model(brand, group, model)
+
+        except genai.errors.APIError as e:
+            logger.error(f"Gemini API error for model {model}: {e}")
+            logger.info(f"Using fallback values for model {model}")
+            return PricingGenerationService._get_fallback_model(brand, group, model)
+
+        except Exception as e:
+            logger.error(
+                f"Unexpected error generating Model for {model}: {e}",
+                exc_info=True
+            )
+            logger.info(f"Using fallback values for model {model}")
+            return PricingGenerationService._get_fallback_model(brand, group, model)
+
+    @staticmethod
+    def _build_model_prompt(
+        brand: str, group: str, model: str, base_price: Decimal
+    ) -> str:
+        """
+        Build LLM prompt for Model generation.
+
+        Args:
+            brand: Brand name
+            group: Pricing group
+            model: Model name
+            base_price: BrandGroup base_price for context
+
+        Returns:
+            Formatted prompt string
+        """
+        return f"""You are a secondhand fashion pricing expert specializing in model-specific valuations.
+
+Your task: Generate pricing coefficient and expected features for the model "{model}" within "{brand}" {group} (base price: {base_price}€).
+
+Output format: JSON with the following fields:
+{{
+  "coefficient": <float between 0.5 and 3.0>,
+  "expected_features": [<list of model-specific features, max 10 strings>]
+}}
+
+Field explanations:
+- coefficient: Price multiplier relative to base group price
+  * 1.0 = standard model (no premium or discount)
+  * > 1.0 = premium model (more valuable than average)
+  * < 1.0 = budget/entry model (less valuable than average)
+- expected_features: Specific attributes that make THIS model valuable beyond the base group
+  * Features should be model-specific, not category-wide
+  * Examples: "selvedge denim", "original box", "limited edition", "vintage label"
+  * Empty list if no special features expected
+
+Examples:
+- Levi's jeans + "501" (base: 25€) → {{"coefficient": 1.4, "expected_features": []}}
+  (Classic model with 40% premium, no special features expected)
+
+- Levi's jeans + "Big E" (base: 25€) → {{"coefficient": 2.5, "expected_features": ["selvedge", "chain_stitching", "vintage_label"]}}
+  (Vintage premium model, specific features drive value)
+
+- Nike sneakers + "Jordan 1" (base: 45€) → {{"coefficient": 2.8, "expected_features": ["original_box", "deadstock", "og_colorway"]}}
+  (Iconic model with strong premium, condition and features critical)
+
+- Zara basics + "Standard T-shirt" (base: 10€) → {{"coefficient": 0.8, "expected_features": []}}
+  (Budget model with 20% discount, no special features)
+
+Consider:
+- Model's reputation and desirability in secondhand market
+- How much more (or less) collectors/buyers pay for THIS model vs average
+- Features that specifically make THIS model valuable (not just category features)
+- Base price context: {base_price}€ is the group average
+
+Generate realistic model pricing data:"""
+
+    @staticmethod
+    def _validate_model_response(
+        response_data: dict, brand: str, group: str, model: str
+    ) -> tuple[bool, dict]:
+        """
+        Validate LLM response for Model generation.
+
+        Args:
+            response_data: Parsed JSON from LLM
+            brand: Brand name (for logging)
+            group: Group name (for logging)
+            model: Model name (for logging)
+
+        Returns:
+            Tuple of (is_valid, sanitized_data)
+        """
+        try:
+            # Check required fields present
+            required_fields = ["coefficient", "expected_features"]
+            for field in required_fields:
+                if field not in response_data:
+                    logger.warning(
+                        f"Validation failed for model {model}: missing field '{field}'"
+                    )
+                    return False, {}
+
+            # Validate coefficient
+            coefficient = float(response_data["coefficient"])
+            if coefficient < 0.5 or coefficient > 3.0:
+                logger.warning(
+                    f"Validation failed for model {model}: "
+                    f"coefficient {coefficient} out of range [0.5, 3.0]"
+                )
+                return False, {}
+
+            # Validate expected_features
+            features = response_data["expected_features"]
+            if not isinstance(features, list):
+                logger.warning(
+                    f"Validation failed for model {model}: "
+                    f"expected_features is not a list"
+                )
+                return False, {}
+
+            if len(features) > 10:
+                logger.warning(
+                    f"Validation failed for model {model}: "
+                    f"expected_features has {len(features)} items (max 10)"
+                )
+                return False, {}
+
+            # Check all items are non-empty strings
+            for item in features:
+                if not isinstance(item, str) or not item.strip():
+                    logger.warning(
+                        f"Validation failed for model {model}: "
+                        f"expected_features contains invalid item: {item}"
+                    )
+                    return False, {}
+
+            # All validations passed, return sanitized data
+            sanitized = {
+                "coefficient": coefficient,
+                "expected_features": features,
+            }
+
+            return True, sanitized
+
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning(
+                f"Validation failed for model {model}: exception {type(e).__name__}: {e}"
+            )
+            return False, {}
+
+    @staticmethod
+    def _get_fallback_model(brand: str, group: str, model: str) -> Model:
+        """
+        Get fallback Model with conservative defaults.
+
+        Args:
+            brand: Brand name
+            group: Group name
+            model: Model name
+
+        Returns:
+            Model with safe default values
+        """
+        logger.info(f"Using fallback values for Model: {brand} + {group} + {model}")
+
+        return Model(
+            brand=brand,
+            group=group,
+            name=model,
+            coefficient=Decimal("1.0"),  # Standard multiplier (no premium/discount)
+            expected_features=[],  # No expectations = no feature adjustments
         )
