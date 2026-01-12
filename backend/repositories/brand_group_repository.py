@@ -1,67 +1,128 @@
-"""Repository for BrandGroup data access."""
+"""
+BrandGroup Repository
+
+Repository for managing BrandGroup entities (CRUD operations).
+Responsibility: Data access for brand_groups (schema public).
+
+Architecture:
+- Repository pattern for DB isolation
+- Standard CRUD operations
+- Queries for pricing algorithm
+
+Created: 2026-01-12
+Author: Claude
+"""
+
 from typing import Optional
+
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+
 from models.public.brand_group import BrandGroup
+from shared.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 class BrandGroupRepository:
-    """Repository for BrandGroup data access."""
+    """
+    Repository for managing BrandGroup entities.
 
-    def __init__(self, db: Session):
-        self.db = db
+    Provides CRUD operations and specialized queries.
+    All methods are static for ease of use.
+    """
 
-    def find_by_brand_and_group(self, brand: str, group: str) -> Optional[BrandGroup]:
+    @staticmethod
+    def create(db: Session, brand_group: BrandGroup) -> BrandGroup:
         """
-        Find brand group by exact brand and group name match.
+        Create a new BrandGroup.
 
         Args:
+            db: SQLAlchemy Session
+            brand_group: BrandGroup instance to create
+
+        Returns:
+            BrandGroup: Created instance with assigned ID
+        """
+        db.add(brand_group)
+        db.flush()  # Get ID without committing (caller manages transaction)
+
+        logger.info(
+            f"[BrandGroupRepository] BrandGroup created: "
+            f"brand={brand_group.brand}, group={brand_group.group}, "
+            f"base_price={brand_group.base_price}"
+        )
+
+        return brand_group
+
+    @staticmethod
+    def get_by_id(db: Session, brand_group_id: int) -> Optional[BrandGroup]:
+        """
+        Retrieve a BrandGroup by its ID.
+
+        Args:
+            db: SQLAlchemy Session
+            brand_group_id: BrandGroup ID
+
+        Returns:
+            BrandGroup if found, None otherwise
+        """
+        return db.query(BrandGroup).filter(BrandGroup.id == brand_group_id).first()
+
+    @staticmethod
+    def get_by_brand_and_group(
+        db: Session, brand: str, group: str
+    ) -> Optional[BrandGroup]:
+        """
+        Retrieve a BrandGroup by brand and group combination.
+
+        Args:
+            db: SQLAlchemy Session
             brand: Brand name
             group: Group name
 
         Returns:
             BrandGroup if found, None otherwise
         """
-        stmt = select(BrandGroup).where(
-            BrandGroup.brand == brand,
-            BrandGroup.group_name == group
+        return (
+            db.query(BrandGroup)
+            .filter(BrandGroup.brand == brand, BrandGroup.group == group)
+            .first()
         )
-        return self.db.execute(stmt).scalar_one_or_none()
 
-    def create(self, brand_group: BrandGroup) -> BrandGroup:
+    @staticmethod
+    def update(db: Session, brand_group: BrandGroup) -> BrandGroup:
         """
-        Create a new brand group entry.
+        Update an existing BrandGroup.
 
         Args:
-            brand_group: BrandGroup instance to create
+            db: SQLAlchemy Session
+            brand_group: BrandGroup instance with updated values
 
         Returns:
-            The created BrandGroup with ID populated
+            BrandGroup: Updated instance
         """
-        self.db.add(brand_group)
-        self.db.flush()  # Get ID without committing transaction
+        db.flush()  # Persist changes without committing
+
+        logger.info(
+            f"[BrandGroupRepository] BrandGroup updated: "
+            f"id={brand_group.id}, brand={brand_group.brand}, group={brand_group.group}"
+        )
+
         return brand_group
 
-    def get_all(self, limit: int = 100, offset: int = 0) -> list[BrandGroup]:
+    @staticmethod
+    def delete(db: Session, brand_group: BrandGroup) -> None:
         """
-        Get all brand groups with pagination.
+        Delete a BrandGroup.
 
         Args:
-            limit: Maximum number of results (default 100)
-            offset: Number of results to skip (default 0)
-
-        Returns:
-            List of BrandGroup instances
+            db: SQLAlchemy Session
+            brand_group: BrandGroup instance to delete
         """
-        stmt = select(BrandGroup).order_by(BrandGroup.created_at.desc()).limit(limit).offset(offset)
-        return list(self.db.execute(stmt).scalars().all())
+        db.delete(brand_group)
+        db.flush()  # Apply deletion without committing
 
-    def count(self) -> int:
-        """
-        Count total brand groups.
-
-        Returns:
-            Total count of brand groups
-        """
-        stmt = select(func.count(BrandGroup.id))
-        return self.db.execute(stmt).scalar()
+        logger.info(
+            f"[BrandGroupRepository] BrandGroup deleted: "
+            f"id={brand_group.id}, brand={brand_group.brand}, group={brand_group.group}"
+        )

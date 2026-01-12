@@ -207,6 +207,9 @@ def ebay_callback(
         from shared.database import set_search_path_safe
         set_search_path_safe(db, user_id)
 
+        # Define schema_name for multi-tenant isolation
+        schema_name = user.schema_name
+
         # Process OAuth callback
         result = process_oauth_callback(
             code=code,

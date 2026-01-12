@@ -14,8 +14,10 @@ from models.public.model import Model
 from services.pricing.adjustment_calculators import (
     calculateConditionAdjustment,
     calculateDecadeAdjustment,
+    calculateFeatureAdjustment,
     calculateModelCoefficient,
     calculateOriginAdjustment,
+    calculateTrendAdjustment,
 )
 
 
@@ -628,6 +630,362 @@ class TestCalculateDecadeAdjustment:
         result = calculateDecadeAdjustment(
             actual_decade="1990s",
             expected_decades=["2000s"]
+        )
+
+        assert isinstance(result, Decimal)
+
+
+# ===== TestCalculateTrendAdjustment =====
+
+
+class TestCalculateTrendAdjustment:
+    """Test trend-based price adjustment with best unexpected trend logic."""
+
+    # --- All expected cases (no bonus) ---
+
+    def test_single_expected_trend_returns_zero(self):
+        """Should return 0.00 when single actual trend is in expected list."""
+        result = calculateTrendAdjustment(
+            actual_trends=["y2k"],
+            expected_trends=["y2k"]
+        )
+
+        assert result == Decimal("0.00")
+
+    def test_multiple_expected_trends_returns_zero(self):
+        """Should return 0.00 when all actual trends are in expected list."""
+        result = calculateTrendAdjustment(
+            actual_trends=["y2k", "vintage"],
+            expected_trends=["y2k", "vintage"]
+        )
+
+        assert result == Decimal("0.00")
+
+    def test_empty_actual_trends_returns_zero(self):
+        """Should return 0.00 when no actual trends provided."""
+        result = calculateTrendAdjustment(
+            actual_trends=[],
+            expected_trends=["vintage"]
+        )
+
+        assert result == Decimal("0.00")
+
+    # --- Single unexpected trend cases ---
+
+    def test_unexpected_y2k_trend_highest_bonus(self):
+        """Y2K trend (unexpected) should return +0.20 (highest bonus)."""
+        result = calculateTrendAdjustment(
+            actual_trends=["y2k"],
+            expected_trends=["vintage"]
+        )
+
+        assert result == Decimal("0.20")
+
+    def test_unexpected_vintage_trend(self):
+        """Vintage trend (unexpected) should return +0.18."""
+        result = calculateTrendAdjustment(
+            actual_trends=["vintage"],
+            expected_trends=["grunge"]
+        )
+
+        assert result == Decimal("0.18")
+
+    def test_unexpected_grunge_trend(self):
+        """Grunge trend (unexpected) should return +0.15."""
+        result = calculateTrendAdjustment(
+            actual_trends=["grunge"],
+            expected_trends=["y2k"]
+        )
+
+        assert result == Decimal("0.15")
+
+    def test_unexpected_streetwear_trend(self):
+        """Streetwear trend (unexpected) should return +0.12."""
+        result = calculateTrendAdjustment(
+            actual_trends=["streetwear"],
+            expected_trends=["minimalist"]
+        )
+
+        assert result == Decimal("0.12")
+
+    # --- Multiple unexpected trends (MAX logic, not sum) ---
+
+    def test_multiple_unexpected_returns_max_y2k_vintage(self):
+        """Multiple unexpected trends should return MAX coefficient (y2k > vintage)."""
+        result = calculateTrendAdjustment(
+            actual_trends=["y2k", "vintage"],
+            expected_trends=["grunge"]
+        )
+
+        # Max of y2k (0.20) and vintage (0.18) = 0.20
+        assert result == Decimal("0.20")
+
+    def test_multiple_unexpected_returns_max_streetwear_minimalist(self):
+        """Multiple unexpected trends should return MAX coefficient (streetwear > minimalist)."""
+        result = calculateTrendAdjustment(
+            actual_trends=["streetwear", "minimalist"],
+            expected_trends=["y2k"]
+        )
+
+        # Max of streetwear (0.12) and minimalist (0.08) = 0.12
+        assert result == Decimal("0.12")
+
+    def test_all_unexpected_returns_max(self):
+        """All trends unexpected should return MAX coefficient."""
+        result = calculateTrendAdjustment(
+            actual_trends=["y2k", "vintage", "grunge"],
+            expected_trends=[]
+        )
+
+        # Max of y2k (0.20), vintage (0.18), grunge (0.15) = 0.20
+        assert result == Decimal("0.20")
+
+    # --- Mixed expected/unexpected cases ---
+
+    def test_mixed_expected_unexpected_returns_max_unexpected(self):
+        """Mixed list should return MAX of unexpected trends only."""
+        result = calculateTrendAdjustment(
+            actual_trends=["y2k", "vintage"],
+            expected_trends=["y2k"]
+        )
+
+        # y2k is expected (ignored), vintage is unexpected (0.18)
+        assert result == Decimal("0.18")
+
+    def test_mixed_grunge_streetwear_one_expected(self):
+        """Mixed list with one expected should return MAX of unexpected."""
+        result = calculateTrendAdjustment(
+            actual_trends=["grunge", "streetwear"],
+            expected_trends=["grunge"]
+        )
+
+        # grunge is expected (ignored), streetwear is unexpected (0.12)
+        assert result == Decimal("0.12")
+
+    # --- Edge cases ---
+
+    def test_empty_actual_and_expected_returns_zero(self):
+        """Both empty lists should return 0.00."""
+        result = calculateTrendAdjustment(
+            actual_trends=[],
+            expected_trends=[]
+        )
+
+        assert result == Decimal("0.00")
+
+    def test_unknown_trend_ignored(self):
+        """Unknown trends in actual should be ignored, not crash."""
+        result = calculateTrendAdjustment(
+            actual_trends=["unknown_trend", "y2k"],
+            expected_trends=["vintage"]
+        )
+
+        # Only y2k counts (unknown ignored), y2k is unexpected (0.20)
+        assert result == Decimal("0.20")
+
+    def test_all_unknown_trends_returns_zero(self):
+        """All unknown trends should return 0.00."""
+        result = calculateTrendAdjustment(
+            actual_trends=["unknown1", "unknown2"],
+            expected_trends=[]
+        )
+
+        assert result == Decimal("0.00")
+
+    def test_returns_decimal_type(self):
+        """Should always return Decimal type for precision."""
+        result = calculateTrendAdjustment(
+            actual_trends=["y2k"],
+            expected_trends=["vintage"]
+        )
+
+        assert isinstance(result, Decimal)
+
+
+# ===== TestCalculateFeatureAdjustment =====
+
+
+class TestCalculateFeatureAdjustment:
+    """Test feature-based price adjustment with sum and cap logic."""
+
+    # --- All expected cases (no bonus) ---
+
+    def test_single_expected_feature_returns_zero(self):
+        """Should return 0.00 when single actual feature is in expected list."""
+        result = calculateFeatureAdjustment(
+            actual_features=["selvedge"],
+            expected_features=["selvedge"]
+        )
+
+        assert result == Decimal("0.00")
+
+    def test_multiple_expected_features_returns_zero(self):
+        """Should return 0.00 when all actual features are in expected list."""
+        result = calculateFeatureAdjustment(
+            actual_features=["selvedge", "original_box"],
+            expected_features=["selvedge", "original_box"]
+        )
+
+        assert result == Decimal("0.00")
+
+    def test_empty_actual_features_returns_zero(self):
+        """Should return 0.00 when no actual features provided."""
+        result = calculateFeatureAdjustment(
+            actual_features=[],
+            expected_features=["selvedge"]
+        )
+
+        assert result == Decimal("0.00")
+
+    # --- Single unexpected feature cases ---
+
+    def test_unexpected_deadstock_feature_highest(self):
+        """Deadstock feature (unexpected) should return +0.20."""
+        result = calculateFeatureAdjustment(
+            actual_features=["deadstock"],
+            expected_features=["selvedge"]
+        )
+
+        assert result == Decimal("0.20")
+
+    def test_unexpected_selvedge_feature(self):
+        """Selvedge feature (unexpected) should return +0.15."""
+        result = calculateFeatureAdjustment(
+            actual_features=["selvedge"],
+            expected_features=["original_box"]
+        )
+
+        assert result == Decimal("0.15")
+
+    def test_unexpected_og_colorway_feature(self):
+        """OG colorway feature (unexpected) should return +0.15."""
+        result = calculateFeatureAdjustment(
+            actual_features=["og_colorway"],
+            expected_features=["deadstock"]
+        )
+
+        assert result == Decimal("0.15")
+
+    def test_unexpected_original_box_feature(self):
+        """Original box feature (unexpected) should return +0.10."""
+        result = calculateFeatureAdjustment(
+            actual_features=["original_box"],
+            expected_features=["selvedge"]
+        )
+
+        assert result == Decimal("0.10")
+
+    # --- Multiple unexpected features (sum logic) ---
+
+    def test_multiple_unexpected_sums_selvedge_box(self):
+        """Multiple unexpected features should sum their coefficients."""
+        result = calculateFeatureAdjustment(
+            actual_features=["selvedge", "original_box"],
+            expected_features=["deadstock"]
+        )
+
+        # 0.15 (selvedge) + 0.10 (original_box) = 0.25
+        assert result == Decimal("0.25")
+
+    def test_multiple_unexpected_sums_chain_label(self):
+        """Multiple unexpected features should sum their coefficients."""
+        result = calculateFeatureAdjustment(
+            actual_features=["chain_stitching", "vintage_label"],
+            expected_features=[]
+        )
+
+        # 0.08 (chain_stitching) + 0.10 (vintage_label) = 0.18
+        assert result == Decimal("0.18")
+
+    # --- Capping cases (sum > 0.30) ---
+
+    def test_capping_deadstock_selvedge(self):
+        """Sum exceeding 0.30 should cap at +0.30."""
+        result = calculateFeatureAdjustment(
+            actual_features=["deadstock", "selvedge"],
+            expected_features=[]
+        )
+
+        # 0.20 (deadstock) + 0.15 (selvedge) = 0.35 → capped at 0.30
+        assert result == Decimal("0.30")
+
+    def test_capping_deadstock_og_colorway(self):
+        """Sum exceeding 0.30 should cap at +0.30."""
+        result = calculateFeatureAdjustment(
+            actual_features=["deadstock", "og_colorway"],
+            expected_features=[]
+        )
+
+        # 0.20 (deadstock) + 0.15 (og_colorway) = 0.35 → capped at 0.30
+        assert result == Decimal("0.30")
+
+    def test_capping_three_features(self):
+        """Three features exceeding 0.30 should cap at +0.30."""
+        result = calculateFeatureAdjustment(
+            actual_features=["selvedge", "limited_edition", "vintage_label"],
+            expected_features=[]
+        )
+
+        # 0.15 (selvedge) + 0.12 (limited_edition) + 0.10 (vintage_label) = 0.37 → capped at 0.30
+        assert result == Decimal("0.30")
+
+    # --- Mixed expected/unexpected cases ---
+
+    def test_mixed_expected_unexpected_sums_unexpected_only(self):
+        """Mixed list should sum unexpected features only."""
+        result = calculateFeatureAdjustment(
+            actual_features=["selvedge", "original_box"],
+            expected_features=["selvedge"]
+        )
+
+        # selvedge is expected (ignored), original_box is unexpected (0.10)
+        assert result == Decimal("0.10")
+
+    def test_mixed_deadstock_selvedge_one_expected(self):
+        """Mixed list with one expected should sum unexpected only."""
+        result = calculateFeatureAdjustment(
+            actual_features=["deadstock", "selvedge"],
+            expected_features=["deadstock"]
+        )
+
+        # deadstock is expected (ignored), selvedge is unexpected (0.15)
+        assert result == Decimal("0.15")
+
+    # --- Edge cases ---
+
+    def test_empty_actual_and_expected_returns_zero(self):
+        """Both empty lists should return 0.00."""
+        result = calculateFeatureAdjustment(
+            actual_features=[],
+            expected_features=[]
+        )
+
+        assert result == Decimal("0.00")
+
+    def test_unknown_feature_ignored(self):
+        """Unknown features in actual should be ignored, not crash."""
+        result = calculateFeatureAdjustment(
+            actual_features=["unknown_feature", "deadstock"],
+            expected_features=["selvedge"]
+        )
+
+        # Only deadstock counts (unknown ignored), deadstock is unexpected (0.20)
+        assert result == Decimal("0.20")
+
+    def test_all_unknown_features_returns_zero(self):
+        """All unknown features should return 0.00."""
+        result = calculateFeatureAdjustment(
+            actual_features=["unknown1", "unknown2"],
+            expected_features=[]
+        )
+
+        assert result == Decimal("0.00")
+
+    def test_returns_decimal_type(self):
+        """Should always return Decimal type for precision."""
+        result = calculateFeatureAdjustment(
+            actual_features=["deadstock"],
+            expected_features=["selvedge"]
         )
 
         assert isinstance(result, Decimal)

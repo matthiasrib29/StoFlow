@@ -48,6 +48,29 @@ DECADE_COEFFICIENTS = {
     "2020s": Decimal("0.00"),
 }
 
+# Trend coefficients for unexpected trend bonuses
+TREND_COEFFICIENTS = {
+    "y2k": Decimal("0.20"),
+    "vintage": Decimal("0.18"),
+    "grunge": Decimal("0.15"),
+    "streetwear": Decimal("0.12"),
+    "minimalist": Decimal("0.08"),
+    "bohemian": Decimal("0.06"),
+    "preppy": Decimal("0.04"),
+    "athleisure": Decimal("0.02"),
+}
+
+# Feature coefficients for unexpected feature bonuses
+FEATURE_COEFFICIENTS = {
+    "deadstock": Decimal("0.20"),
+    "selvedge": Decimal("0.15"),
+    "og_colorway": Decimal("0.15"),
+    "limited_edition": Decimal("0.12"),
+    "vintage_label": Decimal("0.10"),
+    "original_box": Decimal("0.10"),
+    "chain_stitching": Decimal("0.08"),
+}
+
 
 def calculateModelCoefficient(model: Optional[Model]) -> Decimal:
     """
@@ -207,61 +230,45 @@ def calculateDecadeAdjustment(
     return DECADE_COEFFICIENTS[actual_decade]
 
 
-# Trend coefficients for popular trends
-TREND_COEFFICIENTS = {
-    "vintage": Decimal("0.15"),
-    "retro": Decimal("0.12"),
-    "minimalist": Decimal("0.08"),
-    "streetwear": Decimal("0.10"),
-    "designer": Decimal("0.15"),
-    "sustainable": Decimal("0.08"),
-    "limited_edition": Decimal("0.18"),
-    "collaboration": Decimal("0.15"),
-    "archive": Decimal("0.12"),
-}
-
-
 def calculateTrendAdjustment(
     actual_trends: list[str],
     expected_trends: list[str]
 ) -> Decimal:
     """
-    Calculate trend-based price adjustment.
+    Calculate trend-based price adjustment with best unexpected trend logic.
 
     Logic:
-    - If all actual trends are in expected_trends → 0.00 (as expected)
-    - For each actual trend NOT in expected_trends → add bonus from TREND_COEFFICIENTS
-    - Unknown trends get a small bonus of +0.03
-    - Total is capped at +0.30
+    - Find trends in actual_trends that are NOT in expected_trends
+    - For each unexpected trend, get coefficient from TREND_COEFFICIENTS
+    - Return the MAXIMUM coefficient (best unexpected trend)
+    - If no unexpected trends or all actual are expected → 0.00
+    - Unknown trends in actual_trends are ignored (don't crash)
 
     Args:
-        actual_trends: List of actual product trends/styles.
-        expected_trends: List of expected trends for the category.
+        actual_trends: List of actual product trends (e.g., ["y2k", "vintage"]).
+        expected_trends: List of expected trends for the product group.
 
     Returns:
-        Adjustment as Decimal (0.00 to +0.30).
+        Adjustment as Decimal (0.00 to +0.20).
+
+    Examples:
+        actual=["y2k"], expected=["y2k"] → 0.00 (expected, no bonus)
+        actual=["y2k"], expected=["vintage"] → +0.20 (unexpected y2k)
+        actual=["y2k", "vintage"], expected=["grunge"] → +0.20 (max of 0.20, 0.18)
+        actual=["y2k", "vintage"], expected=["y2k"] → +0.18 (vintage unexpected)
     """
-    # Handle empty inputs
-    if not actual_trends:
+    # Find unexpected trends (actual NOT in expected) that are known
+    unexpected_trends = [
+        trend for trend in actual_trends
+        if trend not in expected_trends and trend in TREND_COEFFICIENTS
+    ]
+
+    # If no unexpected trends, return 0.00
+    if not unexpected_trends:
         return Decimal("0.00")
 
-    # Calculate bonus for unexpected trends
-    total_bonus = Decimal("0.00")
-
-    for trend in actual_trends:
-        # Normalize trend name (lowercase, strip)
-        trend_normalized = trend.lower().strip() if trend else ""
-
-        if trend_normalized and trend_normalized not in [t.lower().strip() for t in expected_trends]:
-            # Trend not expected → apply bonus
-            bonus = TREND_COEFFICIENTS.get(trend_normalized, Decimal("0.03"))
-            total_bonus += bonus
-
-    # Cap at MAX_ADJUSTMENT
-    if total_bonus > MAX_ADJUSTMENT:
-        total_bonus = MAX_ADJUSTMENT
-
-    return total_bonus.quantize(Decimal("0.01"))
+    # Return MAX coefficient (best unexpected trend)
+    return max(TREND_COEFFICIENTS[trend] for trend in unexpected_trends)
 
 
 def calculateFeatureAdjustment(
@@ -269,44 +276,43 @@ def calculateFeatureAdjustment(
     expected_features: list[str]
 ) -> Decimal:
     """
-    Calculate feature-based price adjustment.
+    Calculate feature-based price adjustment with sum and cap logic.
 
     Logic:
-    - If actual_features contain all expected_features → base 0.00
-    - For each missing expected feature → penalty of -0.03
-    - For each extra feature (not in expected) → bonus of +0.02
-    - Total is capped at ±0.30
+    - Find features in actual_features that are NOT in expected_features
+    - For each unexpected feature, get coefficient from FEATURE_COEFFICIENTS
+    - Return the SUM of coefficients, capped at +0.30
+    - If no unexpected features or all actual are expected → 0.00
+    - Unknown features in actual_features are ignored (don't crash)
 
     Args:
-        actual_features: List of actual product features.
-        expected_features: List of expected features for the model.
+        actual_features: List of actual product features (e.g., ["deadstock", "selvedge"]).
+        expected_features: List of expected features for the product group.
 
     Returns:
-        Adjustment as Decimal (-0.30 to +0.30).
+        Adjustment as Decimal (0.00 to +0.30, capped).
+
+    Examples:
+        actual=["selvedge"], expected=["selvedge"] → 0.00 (expected, no bonus)
+        actual=["deadstock"], expected=["selvedge"] → +0.20 (unexpected deadstock)
+        actual=["selvedge", "original_box"], expected=[] → +0.25 (0.15 + 0.10)
+        actual=["deadstock", "selvedge"], expected=[] → +0.30 (capped from 0.35)
     """
-    # Handle empty inputs
-    if not actual_features and not expected_features:
+    # Find unexpected features (actual NOT in expected) that are known
+    unexpected_features = [
+        feature for feature in actual_features
+        if feature not in expected_features and feature in FEATURE_COEFFICIENTS
+    ]
+
+    # If no unexpected features, return 0.00
+    if not unexpected_features:
         return Decimal("0.00")
 
-    # Normalize feature lists for comparison
-    actual_normalized = {f.lower().strip() for f in actual_features if f}
-    expected_normalized = {f.lower().strip() for f in expected_features if f}
+    # Sum all unexpected feature coefficients
+    total_adjustment = sum(FEATURE_COEFFICIENTS[feature] for feature in unexpected_features)
 
-    # Calculate missing features (penalty)
-    missing_features = expected_normalized - actual_normalized
-    missing_penalty = len(missing_features) * Decimal("-0.03")
-
-    # Calculate extra features (bonus)
-    extra_features = actual_normalized - expected_normalized
-    extra_bonus = len(extra_features) * Decimal("0.02")
-
-    # Total adjustment
-    total_adjustment = missing_penalty + extra_bonus
-
-    # Apply caps
+    # Cap at +0.30
     if total_adjustment > MAX_ADJUSTMENT:
-        total_adjustment = MAX_ADJUSTMENT
-    elif total_adjustment < MIN_ADJUSTMENT:
-        total_adjustment = MIN_ADJUSTMENT
+        return MAX_ADJUSTMENT
 
-    return total_adjustment.quantize(Decimal("0.01"))
+    return total_adjustment

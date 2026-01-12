@@ -67,11 +67,11 @@ class JobCleanupService:
             )
         ).rowcount
 
-        # 2. Mark PROCESSING jobs as FAILED if too old (worker died/stuck)
+        # 2. Mark RUNNING jobs as FAILED if too old (worker died/stuck)
         processing_expired = db.execute(
             update(MarketplaceJob)
             .where(
-                MarketplaceJob.status == JobStatus.PROCESSING,
+                MarketplaceJob.status == JobStatus.RUNNING,
                 MarketplaceJob.started_at < now - JobCleanupService.PROCESSING_TIMEOUT
             )
             .values(
