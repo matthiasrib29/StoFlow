@@ -1,86 +1,151 @@
-"""Repository for Model data access."""
-from typing import Optional
+"""
+Model Repository
+
+Repository for managing Model entities (CRUD operations).
+Responsibility: Data access for models (schema public).
+
+Architecture:
+- Repository pattern for DB isolation
+- Standard CRUD operations
+- Queries for pricing algorithm
+
+Created: 2026-01-12
+Author: Claude
+"""
+
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+
 from models.public.model import Model
+from shared.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 class ModelRepository:
-    """Repository for Model data access."""
+    """
+    Repository for managing Model entities.
 
-    def __init__(self, db: Session):
-        self.db = db
+    Provides CRUD operations and specialized queries.
+    All methods are static for ease of use.
+    """
 
-    def find_by_brand_group_model(self, brand: str, group: str, model: str) -> Optional[Model]:
+    @staticmethod
+    def create(db: Session, model: Model) -> Model:
         """
-        Find model by exact brand, group, and model name match.
+        Create a new Model.
 
         Args:
-            brand: Brand name
-            group: Group name
-            model: Model name
+            db: SQLAlchemy Session
+            model: Model instance to create
+
+        Returns:
+            Model: Created instance with assigned ID
+        """
+        db.add(model)
+        db.flush()  # Get ID without committing (caller manages transaction)
+
+        logger.info(
+            f"[ModelRepository] Model created: "
+            f"brand={model.brand}, group={model.group}, name={model.name}, "
+            f"coefficient={model.coefficient}"
+        )
+
+        return model
+
+    @staticmethod
+    def get_by_id(db: Session, model_id: int) -> Optional[Model]:
+        """
+        Retrieve a Model by its ID.
+
+        Args:
+            db: SQLAlchemy Session
+            model_id: Model ID
 
         Returns:
             Model if found, None otherwise
         """
-        stmt = select(Model).where(
-            Model.brand == brand,
-            Model.group_name == group,
-            Model.model == model
-        )
-        return self.db.execute(stmt).scalar_one_or_none()
+        return db.query(Model).filter(Model.id == model_id).first()
 
-    def find_by_brand_and_group(self, brand: str, group: str) -> list[Model]:
+    @staticmethod
+    def get_by_brand_group_and_name(
+        db: Session, brand: str, group: str, name: str
+    ) -> Optional[Model]:
         """
-        Find all models for a brand and group combination.
+        Retrieve a Model by brand, group, and name combination.
 
         Args:
+            db: SQLAlchemy Session
+            brand: Brand name
+            group: Group name
+            name: Model name
+
+        Returns:
+            Model if found, None otherwise
+        """
+        return (
+            db.query(Model)
+            .filter(Model.brand == brand, Model.group == group, Model.name == name)
+            .first()
+        )
+
+    @staticmethod
+    def get_all_by_brand_and_group(
+        db: Session, brand: str, group: str
+    ) -> List[Model]:
+        """
+        Retrieve all Models for a brand and group combination.
+
+        Args:
+            db: SQLAlchemy Session
             brand: Brand name
             group: Group name
 
         Returns:
-            List of Model instances ordered by model name
+            List of Models
         """
-        stmt = select(Model).where(
-            Model.brand == brand,
-            Model.group_name == group
-        ).order_by(Model.model)
-        return list(self.db.execute(stmt).scalars().all())
+        return (
+            db.query(Model)
+            .filter(Model.brand == brand, Model.group == group)
+            .order_by(Model.name)
+            .all()
+        )
 
-    def create(self, model: Model) -> Model:
+    @staticmethod
+    def update(db: Session, model: Model) -> Model:
         """
-        Create a new model entry.
+        Update an existing Model.
 
         Args:
-            model: Model instance to create
+            db: SQLAlchemy Session
+            model: Model instance with updated values
 
         Returns:
-            The created Model with ID populated
+            Model: Updated instance
         """
-        self.db.add(model)
-        self.db.flush()
+        db.flush()  # Persist changes without committing
+
+        logger.info(
+            f"[ModelRepository] Model updated: "
+            f"id={model.id}, brand={model.brand}, group={model.group}, name={model.name}"
+        )
+
         return model
 
-    def get_all(self, limit: int = 100, offset: int = 0) -> list[Model]:
+    @staticmethod
+    def delete(db: Session, model: Model) -> None:
         """
-        Get all models with pagination.
+        Delete a Model.
 
         Args:
-            limit: Maximum number of results (default 100)
-            offset: Number of results to skip (default 0)
-
-        Returns:
-            List of Model instances
+            db: SQLAlchemy Session
+            model: Model instance to delete
         """
-        stmt = select(Model).order_by(Model.created_at.desc()).limit(limit).offset(offset)
-        return list(self.db.execute(stmt).scalars().all())
+        db.delete(model)
+        db.flush()  # Apply deletion without committing
 
-    def count(self) -> int:
-        """
-        Count total models.
-
-        Returns:
-            Total count of models
-        """
-        stmt = select(func.count(Model.id))
-        return self.db.execute(stmt).scalar()
+        logger.info(
+            f"[ModelRepository] Model deleted: "
+            f"id={model.id}, brand={model.brand}, group={model.group}, name={model.name}"
+        )
