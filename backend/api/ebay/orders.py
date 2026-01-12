@@ -132,10 +132,14 @@ async def sync_orders(
                 "status_filter": request.status_filter
             },
         )
+
+        # Store values BEFORE commit (SET LOCAL search_path resets on commit)
+        job_id = job.id
+
         db.commit()
 
         logger.info(
-            f"[POST /orders/sync] Created job #{job.id} for user {current_user.id}"
+            f"[POST /orders/sync] Created job #{job_id} for user {current_user.id}"
         )
 
         # Execute immediately if requested
@@ -156,7 +160,7 @@ async def sync_orders(
                 }
 
                 logger.info(
-                    f"[POST /orders/sync] Job #{job.id} completed: "
+                    f"[POST /orders/sync] Job #{job_id} completed: "
                     f"created={stats['created']}, updated={stats['updated']}, "
                     f"errors={stats['errors']}"
                 )
@@ -165,7 +169,7 @@ async def sync_orders(
             else:
                 error = result.get("error", "Job execution failed")
                 logger.error(
-                    f"[POST /orders/sync] Job #{job.id} failed: {error}"
+                    f"[POST /orders/sync] Job #{job_id} failed: {error}"
                 )
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -174,7 +178,7 @@ async def sync_orders(
         else:
             # Job created but not executed yet
             logger.info(
-                f"[POST /orders/sync] Job #{job.id} queued for later processing"
+                f"[POST /orders/sync] Job #{job_id} queued for later processing"
             )
             return SyncOrdersResponse(
                 created=0,

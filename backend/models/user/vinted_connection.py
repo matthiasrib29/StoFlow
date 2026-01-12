@@ -39,7 +39,7 @@ class VintedConnection(Base):
     Attributes:
         id: Primary key
         vinted_user_id: ID utilisateur Vinted
-        login: Username Vinted
+        username: Username Vinted
         is_connected: True si actuellement connecté
         user_id: FK vers l'utilisateur Stoflow
         session_id: Session Vinted
@@ -53,7 +53,7 @@ class VintedConnection(Base):
 
     # Vinted user info
     vinted_user_id = Column(BigInteger, nullable=True, index=True)
-    login = Column(String(255), nullable=True, index=True)
+    username = Column(String(255), nullable=True, index=True)
 
     # Connection state
     is_connected = Column(
@@ -121,7 +121,7 @@ class VintedConnection(Base):
 
     def __repr__(self):
         status = "connected" if self.is_connected else "disconnected"
-        return f"<VintedConnection(id={self.id}, login='{self.login}', {status})>"
+        return f"<VintedConnection(id={self.id}, username='{self.username}', {status})>"
 
     def connect(self) -> None:
         """Marque la connexion comme active."""

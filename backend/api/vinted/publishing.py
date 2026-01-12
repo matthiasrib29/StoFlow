@@ -55,17 +55,23 @@ async def publish_single_product(
             action_code="publish",
             product_id=product_id
         )
+
+        # Store values BEFORE commit (SET LOCAL search_path resets on commit)
+        job_id = job.id
+        job_status = job.status.value
+        shop_id = connection.vinted_user_id
+
         db.commit()
 
         response = {
-            "job_id": job.id,
-            "status": job.status.value,
+            "job_id": job_id,
+            "status": job_status,
             "product_id": product_id,
         }
 
         # Exécuter immédiatement si demandé
         if process_now:
-            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id, marketplace="vinted")
+            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
             result = await processor._execute_job(job)
             response["result"] = result
             response["status"] = "completed" if result.get("success") else "failed"
@@ -110,6 +116,9 @@ async def publish_batch(
 
     connection = get_active_vinted_connection(db, current_user.id)
 
+    # Store BEFORE any potential commit (SET LOCAL search_path resets on commit)
+    shop_id = connection.vinted_user_id
+
     try:
         job_service = VintedJobService(db)
 
@@ -135,7 +144,7 @@ async def publish_batch(
 
         # Exécuter immédiatement si demandé
         if process_now:
-            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id, marketplace="vinted")
+            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
             batch_result = await processor.process_batch(batch_id)
             response["status"] = "processed"
             response["success_count"] = batch_result["success_count"]
