@@ -61,10 +61,82 @@ class BackgroundService {
       BackgroundLogger.debug('[Background] onMessageExternal not available (Firefox uses content script fallback)');
     }
 
+    // FIREFOX WORKAROUND: Inject content script manually on localhost tabs
+    // Firefox sometimes doesn't inject content scripts automatically on localhost
+    chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+      if (changeInfo.status === 'complete' && tab.url) {
+        const url = tab.url;
+        const isLocalhost = url.startsWith('http://localhost:') || url.startsWith('http://127.0.0.1:');
+        const isStoflow = url.includes('stoflow.io');
+
+        if (isLocalhost || isStoflow) {
+          // Firefox bug: permissions take time to activate, retry with delay
+          await this.injectContentScriptWithRetry(tabId, url, 3);
+        }
+      }
+    });
+
     // Listen for installation
     chrome.runtime.onInstalled.addListener((details) => {
       this.onInstall(details);
     });
+  }
+
+  /**
+   * Inject content script with retry (Firefox permission timing bug workaround)
+   */
+  private async injectContentScriptWithRetry(
+    tabId: number,
+    url: string,
+    maxRetries: number,
+    retryCount: number = 0
+  ): Promise<void> {
+    BackgroundLogger.debug('[Background] Manually injecting content script on:', url, `(attempt ${retryCount + 1}/${maxRetries})`);
+
+    // Check if we have permission for this URL
+    const urlObj = new URL(url);
+    const origin = `${urlObj.protocol}//${urlObj.host}/*`;
+
+    const hasPermission = await chrome.permissions.contains({
+      origins: [origin]
+    });
+
+    if (!hasPermission) {
+      BackgroundLogger.warn('[Background] Missing permission for:', origin);
+      BackgroundLogger.info('[Background] User needs to grant permission in popup or about:addons');
+      return;
+    }
+
+    BackgroundLogger.debug('[Background] Permission verified for:', origin);
+
+    // Inject the content script manually
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['/assets/stoflow-web.ts-h6NQ0vQk.js']
+      });
+
+      BackgroundLogger.info('[Background] ✅ Content script injected successfully on:', url);
+      BackgroundLogger.debug('[Background] Injection results:', results);
+    } catch (error: any) {
+      // Firefox bug: permissions.contains() returns true but injection fails with "Missing host permission"
+      // Retry after delay
+      if (error.message?.includes('Missing host permission') && retryCount < maxRetries - 1) {
+        const delayMs = 1000 * (retryCount + 1); // 1s, 2s, 3s
+        BackgroundLogger.warn(`[Background] ⚠️ Injection failed (Firefox permission timing bug), retrying in ${delayMs}ms...`);
+
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        return this.injectContentScriptWithRetry(tabId, url, maxRetries, retryCount + 1);
+      }
+
+      BackgroundLogger.error('[Background] ❌ Failed to inject content script after retries:', {
+        error: error.message,
+        stack: error.stack,
+        url,
+        tabId,
+        retryCount
+      });
+    }
   }
 
   /**
