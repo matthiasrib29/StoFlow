@@ -15,6 +15,9 @@ from typing import Any, Dict, Optional
 import socketio
 
 from shared.logging_setup import get_logger
+from services.auth_service import AuthService
+from shared.database import SessionLocal
+from models.public.user import User
 
 logger = get_logger(__name__)
 
@@ -110,16 +113,80 @@ class WebSocketService:
 
 @sio.event
 async def connect(sid, environ, auth):
-    """Client connected."""
-    user_id = auth.get("user_id") if auth else None
+    """
+    Client WebSocket connection with JWT authentication.
 
-    if not user_id:
-        logger.warning("[WebSocket] Connection rejected: no user_id")
+    Security (2026-01-12):
+    - JWT token MUST be provided and valid
+    - Token type MUST be "access"
+    - User MUST be active in database
+    - Rejects if token invalid, expired, or user inactive
+
+    Auth format:
+    {
+        "token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "user_id": 123  # Optional, for validation only
+    }
+
+    Returns:
+        bool: True if authenticated, False otherwise
+    """
+    # 1. Extract token from auth dict
+    if not auth or not isinstance(auth, dict):
+        logger.warning(f"[WebSocket] Connection rejected: no auth dict (sid={sid})")
         return False
 
-    # Join user-specific room
+    token = auth.get("token")
+    claimed_user_id = auth.get("user_id")  # Optional, for logging
+
+    if not token:
+        logger.warning(f"[WebSocket] Connection rejected: no token (sid={sid})")
+        return False
+
+    # 2. Verify JWT token
+    payload = AuthService.verify_token(token, token_type="access")
+    if not payload:
+        logger.warning(f"[WebSocket] Connection rejected: invalid token (sid={sid})")
+        return False
+
+    # 3. Extract user_id from verified token (trusted source)
+    user_id = payload.get("user_id")
+    if not user_id:
+        logger.warning(f"[WebSocket] Connection rejected: no user_id in token (sid={sid})")
+        return False
+
+    # 4. Security check: verify user is active in database
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+
+        if not user:
+            logger.warning(
+                f"[WebSocket] Connection rejected: user not found "
+                f"(user_id={user_id}, sid={sid})"
+            )
+            return False
+
+        if not user.is_active:
+            logger.warning(
+                f"[WebSocket] Connection rejected: user inactive "
+                f"(user_id={user_id}, sid={sid})"
+            )
+            return False
+    finally:
+        db.close()
+
+    # 5. Log warning if claimed user_id doesn't match token
+    if claimed_user_id and claimed_user_id != user_id:
+        logger.warning(
+            f"[WebSocket] User ID mismatch: claimed={claimed_user_id}, "
+            f"token={user_id} (sid={sid})"
+        )
+
+    # 6. Authentication successful - join user room
     await sio.enter_room(sid, f"user_{user_id}")
-    logger.info(f"[WebSocket] User {user_id} connected (sid={sid})")
+    logger.info(f"[WebSocket] User {user_id} authenticated and connected (sid={sid})")
+
     return True
 
 
