@@ -317,7 +317,9 @@
       "Bash(__NEW_LINE_03338e8fe2041a38__ echo \"\")",
       "Bash(__NEW_LINE_015a82b4e2feeea5__ echo \"\")",
       "Bash(if [ -f \"plugin/src/components/PermissionRequest.vue\" ])",
-      "Bash(else)"
+      "Bash(else)",
+      "Bash(DATABASE_URL=postgresql://stoflow_user:stoflow_dev_password_2024@localhost:5433/stoflow_expected alembic upgrade:*)",
+      "Bash([ -d .planning/ ])"
     ]
   },
   "enableAllProjectMcpServers": true,
