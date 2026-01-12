@@ -5,10 +5,13 @@ Cree un nouveau worktree pour un hotfix urgent avec env dev 2 (ports 8001/3001).
 1. Demande le nom du fix (ex: fix-login)
 
 2. Execute TOUT en sequence sans demander de validation :
-   - Bash: cd ~/StoFlow && git checkout develop && git pull origin develop
+   - Bash: cd ~/StoFlow && git checkout develop && git pull
    - Bash: git worktree add ~/StoFlow-[nom] -b hotfix/[nom]
    - Bash: cp ~/StoFlow/backend/.env ~/StoFlow-[nom]/backend/.env && cp ~/StoFlow/frontend/.env ~/StoFlow-[nom]/frontend/.env
-   - Bash: ln -s ~/StoFlow/backend/.venv ~/StoFlow-[nom]/backend/venv && mkdir -p ~/StoFlow-[nom]/logs
+   - Bash: ln -s ~/StoFlow/backend/.venv ~/StoFlow-[nom]/backend/.venv
+   - Bash: ln -s .venv ~/StoFlow-[nom]/backend/venv
+   - Bash: cp -r ~/StoFlow/backend/keys ~/StoFlow-[nom]/backend/
+   - Bash: mkdir -p ~/StoFlow-[nom]/logs
    - Bash: cd ~/StoFlow-[nom]/frontend && npm install (timeout 120000)
    - Bash: cd ~/StoFlow-[nom] && ./2-dev.sh (run_in_background: true)
 
