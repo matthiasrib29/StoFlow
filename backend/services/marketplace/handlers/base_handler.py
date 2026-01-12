@@ -29,6 +29,8 @@ from models.user.marketplace_task import (
     TaskStatus,
 )
 # from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
+from shared.config import settings
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -59,6 +61,7 @@ class BaseMarketplaceHandler(ABC):
         """
         self.db = db
         self.job_id = job_id
+        self.user_id = None  # Set by MarketplaceJobProcessor for WebSocket (2026-01-12)
 
         # Load the job
         self.job = (
@@ -175,15 +178,13 @@ class BaseMarketplaceHandler(ABC):
         self.db.commit()
 
         try:
-            # Call plugin via helper (waits for completion)
-            result = await create_and_wait(
-                self.db,
+            # Call plugin via WebSocket (2026-01-12)
+            result = await PluginWebSocketHelper.call_plugin_http(
+                db=self.db,
+                user_id=self.user_id,
                 http_method=task.http_method,
                 path=task.path,
                 payload=task.payload,
-                platform=task.platform or "vinted",
-                product_id=task.product_id,
-                job_id=self.job_id,
                 timeout=timeout,
                 description=task.description,
             )
