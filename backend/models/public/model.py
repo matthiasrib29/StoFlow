@@ -8,10 +8,11 @@ Schema: public
 Table: models
 """
 
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, DECIMAL, ForeignKeyConstraint, Index, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, DECIMAL, ForeignKeyConstraint, Index, String, TIMESTAMP, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,6 +37,7 @@ class Model(Base):
         UniqueConstraint("brand", "group", "name", name="uq_models_brand_group_name"),
         Index("idx_models_brand_group", "brand", "group"),
         Index("idx_models_name", "name"),
+        Index("idx_models_created_at", "created_at"),
         {"schema": "public"}
     )
 
@@ -57,6 +59,8 @@ class Model(Base):
     # Metadata
     generated_by_ai: Mapped[bool] = mapped_column(default=False, nullable=False)
     ai_confidence: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(3, 2), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self) -> str:
         return f"<Model(brand='{self.brand}', group='{self.group}', name='{self.name}', coefficient={self.coefficient})>"
