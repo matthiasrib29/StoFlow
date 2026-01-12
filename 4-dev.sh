@@ -26,6 +26,11 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+# Rotate logs (clean old logs automatically)
+if [ -f "scripts/rotate-logs.sh" ]; then
+    ./scripts/rotate-logs.sh > /dev/null 2>&1 || true
+fi
+
 # Check if PostgreSQL container is running
 if ! docker ps | grep -q stoflow.*postgres; then
     echo -e "${YELLOW}⚠️  PostgreSQL container not running. Starting...${NC}"
