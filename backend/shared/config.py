@@ -102,6 +102,14 @@ class Settings(BaseSettings):
     vinted_max_retries: int = 3
     vinted_retry_delay_seconds: int = 60
 
+    # Plugin WebSocket Timeouts (Vinted operations via browser extension)
+    plugin_timeout_default: int = 60   # Default timeout
+    plugin_timeout_publish: int = 60   # Publish/update operations
+    plugin_timeout_delete: int = 30    # Delete operations
+    plugin_timeout_upload: int = 30    # Image upload
+    plugin_timeout_sync: int = 60      # Sync operations
+    plugin_timeout_order: int = 60     # Order sync operations
+
     # Logging
     log_level: str = "DEBUG"
     log_format: str = "detailed"
