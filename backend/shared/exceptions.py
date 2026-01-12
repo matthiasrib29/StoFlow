@@ -420,6 +420,20 @@ class OutOfStockError(ServiceError):
     pass
 
 
+class ConflictError(ServiceError):
+    """
+    Erreur de conflit de ressource (resource lock, concurrent access).
+
+    Raised when:
+    - SELECT FOR UPDATE fails (resource already locked by another transaction)
+    - Two workers try to process the same job/product simultaneously
+    - Concurrent modification detected via pessimistic locking
+
+    Security Phase 2.1 (2026-01-12)
+    """
+    pass
+
+
 # ===== AI EXCEPTIONS =====
 
 class AIError(StoflowError):
@@ -503,6 +517,7 @@ __all__ = [
     "TaskExecutionError",
     "ConcurrentModificationError",
     "OutOfStockError",
+    "ConflictError",
 
     # AI
     "AIError",

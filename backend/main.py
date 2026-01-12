@@ -53,6 +53,11 @@ from services.datadome_scheduler import (
     stop_datadome_scheduler,
     get_datadome_scheduler
 )
+from services.marketplace.job_cleanup_scheduler import (
+    start_job_cleanup_scheduler,
+    stop_job_cleanup_scheduler,
+    get_job_cleanup_scheduler
+)
 from services.websocket_service import sio
 from shared.config import settings
 from shared.exceptions import StoflowError
@@ -126,11 +131,20 @@ async def lifespan(app: FastAPI):
     # TODO: Réactiver quand la logique de ping par nombre de requêtes sera implémentée
     logger.info("🛡️ DataDome scheduler DISABLED (stand-by)")
 
+    # ===== JOB CLEANUP SCHEDULER (2026-01-12) =====
+    # Automatically cleanup expired/stuck marketplace jobs
+    start_job_cleanup_scheduler()
+    logger.info("🧹 Job cleanup scheduler started")
+
     yield  # Application runs here
 
     # ===== SHUTDOWN =====
     logger.info("🛑 Shutting down StoFlow backend...")
     # Note: DataDome scheduler shutdown is currently disabled (stand-by mode)
+
+    # Stop job cleanup scheduler
+    stop_job_cleanup_scheduler()
+    logger.info("🧹 Job cleanup scheduler stopped")
 
 
 # Creation de l'application FastAPI
