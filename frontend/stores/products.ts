@@ -139,7 +139,7 @@ export const useProductsStore = defineStore('products', {
         if (options?.brand) params.append('brand', options.brand)
 
         const queryString = params.toString()
-        const endpoint = `/api/products?${queryString}`
+        const endpoint = `/products?${queryString}`
 
         const data = await api.get<{
           products: Product[]
