@@ -170,52 +170,142 @@ class VintedOrderSyncService:
     # SYNC BY MONTH (via /wallet/invoices + /conversations)
     # =========================================================================
 
-    async def sync_orders_by_month(
-        self,
-        db: Session,
-        year: int,
-        month: int
-    ) -> dict[str, Any]:
+
+    # ===== HELPER METHODS FOR sync_orders_by_month() (Refactored 2026-01-12 Phase 3.2) =====
+
+    async def _fetch_invoices_page(
+        self, db: Session, year: int, month: int, page: int
+    ) -> dict | None:
+        """Fetch single page of invoices. Returns None on error."""
+        try:
+            result = await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
+                http_method="GET",
+                path=VintedOrderAPI.get_wallet_invoices(year, month, page),
+                timeout=settings.plugin_timeout_order,
+                description=f"Sync invoices {year}-{month:02d} page {page}"
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Erreur invoices p{page}: {type(e).__name__}: {e}")
+            return None
+
+    @staticmethod
+    def _extract_invoice_pricing(line: dict) -> tuple[float | None, str]:
+        """Extract invoice price and currency from invoice line."""
+        invoice_amount = line.get('amount', {})
+        invoice_price = None
+        invoice_currency = 'EUR'
+
+        if isinstance(invoice_amount, dict):
+            try:
+                invoice_price = float(invoice_amount.get('amount', 0))
+            except (ValueError, TypeError):
+                pass
+            invoice_currency = invoice_amount.get('currency_code', 'EUR')
+
+        return invoice_price, invoice_currency
+
+    async def _fetch_conversation_and_transaction(
+        self, db: Session, conversation_id: int
+    ) -> tuple[dict | None, int | None]:
         """
-        Synchronise les commandes d'un mois specifique.
-
-        Flow:
-        1. GET /wallet/invoices/{year}/{month} -> invoice_lines
-        2. Filtre entity_type = "order" ou "sale"
-        3. GET /conversations/{entity_id} -> details transaction
-        4. Sauvegarde avec prix invoice (montant reel)
-
-        Args:
-            db: Session SQLAlchemy
-            year: Annee (ex: 2025)
-            month: Mois (1-12)
+        Fetch conversation and transaction details.
 
         Returns:
-            {"synced": int, "duplicates": int, "errors": int, "month": str}
+            Tuple of (transaction_dict, transaction_id) or (None, None) on error
+        """
+        try:
+            # Get conversation to extract transaction_id
+            conv_result = await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
+                http_method="GET",
+                path=VintedConversationAPI.get_conversation(conversation_id),
+                timeout=settings.plugin_timeout_order,
+                description=f"Get conversation {conversation_id}"
+            )
+
+            conversation = conv_result.get('conversation', {})
+            conv_transaction = conversation.get('transaction', {})
+            transaction_id = conv_transaction.get('id')
+
+            if not transaction_id:
+                logger.warning(f"Conv {conversation_id}: pas de transaction_id")
+                return None, None
+
+            # Get full transaction details
+            tx_result = await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
+                http_method="GET",
+                path=VintedOrderAPI.get_transaction(transaction_id),
+                timeout=settings.plugin_timeout_order,
+                description=f"Get transaction details {transaction_id}"
+            )
+
+            transaction = tx_result.get('transaction', {})
+            return transaction, transaction_id
+
+        except Exception as e:
+            logger.error(f"Erreur conv {conversation_id}: {type(e).__name__}: {e}")
+            return None, None
+
+    def _process_and_save_order(
+        self, db: Session, transaction: dict, invoice_price: float | None, invoice_currency: str
+    ) -> bool:
+        """
+        Extract order data and save to DB.
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            order_data = self._extract_order_from_transaction(
+                transaction, invoice_price, invoice_currency
+            )
+            products_data = self._extract_products_from_transaction(transaction)
+
+            if order_data:
+                self._save_order(db, order_data, products_data)
+                commit_and_restore_path(db)
+                return True
+            return False
+
+        except Exception as e:
+            logger.error(f"Erreur save order: {type(e).__name__}: {e}")
+            db.rollback()
+            self._schema_manager.restore_after_rollback(db)
+            logger.debug(f"Search path restored to {self._schema_manager.schema}")
+            return False
+
+
+    async def sync_orders_by_month(self, db: Session, year: int, month: int) -> dict[str, Any]:
+        """
+        Synchronise les commandes d'un mois (refactored 2026-01-12).
+
+        Flow:
+        1. GET /wallet/invoices/{year}/{month} (paginated)
+        2. Filter entity_type = "order" or "sale"
+        3. GET /conversations/{entity_id} + /transactions/{id}
+        4. Save with invoice pricing (real amount)
+
+        Returns:
+            {"synced": int, "duplicates": int, "errors": int, "pages": int, "month": str}
         """
         month_str = f"{year}-{month:02d}"
         logger.info(f"Sync commandes: {month_str}")
 
-        # Capture schema for restoration after potential rollbacks
         self._schema_manager.capture(db)
-
         stats = {"synced": 0, "duplicates": 0, "errors": 0, "pages": 0}
         processed_ids = set()
         page = 1
 
         while True:
-            # 1. Get invoices page
-            try:
-                result = await PluginWebSocketHelper.call_plugin_http(
-                    db=db,
-                    user_id=self.user_id,
-                    http_method="GET",
-                    path=VintedOrderAPI.get_wallet_invoices(year, month, page),
-                    timeout=settings.plugin_timeout_order,
-                    description=f"Sync invoices {month_str} page {page}"
-                )
-            except Exception as e:
-                logger.error(f"Erreur invoices p{page}: {type(e).__name__}: {e}")
+            # Fetch invoices page
+            result = await self._fetch_invoices_page(db, year, month, page)
+            if not result:
                 break
 
             invoice_lines = result.get('invoice_lines', [])
@@ -223,7 +313,7 @@ class VintedOrderSyncService:
                 logger.info(f"  Page {page}: aucune ligne")
                 break
 
-            # Log stats
+            # Log page stats
             sales_count = sum(
                 1 for line in invoice_lines
                 if line.get('entity_type') == ENTITY_TYPE_THREAD
@@ -231,7 +321,7 @@ class VintedOrderSyncService:
             )
             logger.info(f"  Page {page}: {len(invoice_lines)} lignes, {sales_count} ventes")
 
-            # 2. Process each invoice line
+            # Process each sale
             for line in invoice_lines:
                 entity_type = line.get('entity_type')
                 title = line.get('title', '')
@@ -245,73 +335,30 @@ class VintedOrderSyncService:
 
                 processed_ids.add(conversation_id)
 
-                # Extract invoice amount (real money received)
-                invoice_amount = line.get('amount', {})
-                invoice_price = None
-                invoice_currency = 'EUR'
-                if isinstance(invoice_amount, dict):
-                    try:
-                        invoice_price = float(invoice_amount.get('amount', 0))
-                    except (ValueError, TypeError):
-                        pass
-                    invoice_currency = invoice_amount.get('currency_code', 'EUR')
+                # Extract invoice pricing
+                invoice_price, invoice_currency = self._extract_invoice_pricing(line)
 
-                # 3. Get conversation to extract transaction_id
-                try:
-                    conv_result = await PluginWebSocketHelper.call_plugin_http(
-                        db=db,
-                        user_id=self.user_id,
-                        http_method="GET",
-                        path=VintedConversationAPI.get_conversation(conversation_id),
-                        timeout=settings.plugin_timeout_order,
-                        description=f"Get conversation {conversation_id}"
-                    )
+                # Fetch conversation and transaction
+                transaction, transaction_id = await self._fetch_conversation_and_transaction(
+                    db, conversation_id
+                )
 
-                    conversation = conv_result.get('conversation', {})
-                    conv_transaction = conversation.get('transaction', {})
-                    transaction_id = conv_transaction.get('id')
-
-                    if not transaction_id:
-                        logger.warning(f"Conv {conversation_id}: pas de transaction_id")
-                        stats["errors"] += 1
-                        continue
-
-                    # Check duplicate by transaction_id
-                    if self._order_exists(db, transaction_id):
-                        stats["duplicates"] += 1
-                        continue
-
-                    # 4. Get full transaction details
-                    tx_result = await PluginWebSocketHelper.call_plugin_http(
-                        db=db,
-                        user_id=self.user_id,
-                        http_method="GET",
-                        path=VintedOrderAPI.get_transaction(transaction_id),
-                        timeout=settings.plugin_timeout_order,
-                        description=f"Get transaction details {transaction_id}"
-                    )
-
-                    transaction = tx_result.get('transaction', {})
-
-                    # 5. Extract and save using full transaction data
-                    order_data = self._extract_order_from_transaction(
-                        transaction, invoice_price, invoice_currency
-                    )
-                    products_data = self._extract_products_from_transaction(transaction)
-
-                    if order_data:
-                        self._save_order(db, order_data, products_data)
-                        commit_and_restore_path(db)
-                        stats["synced"] += 1
-
-                except Exception as e:
-                    logger.error(f"Erreur conv {conversation_id}: {type(e).__name__}: {e}")
+                if not transaction or not transaction_id:
                     stats["errors"] += 1
-                    db.rollback()
-                    self._schema_manager.restore_after_rollback(db)
-                    logger.debug(f"Search path restored to {self._schema_manager.schema}")
+                    continue
 
-            # Pagination
+                # Check duplicate
+                if self._order_exists(db, transaction_id):
+                    stats["duplicates"] += 1
+                    continue
+
+                # Process and save
+                if self._process_and_save_order(db, transaction, invoice_price, invoice_currency):
+                    stats["synced"] += 1
+                else:
+                    stats["errors"] += 1
+
+            # Pagination check
             pagination = result.get('invoice_lines_pagination', {})
             if page >= pagination.get('total_pages', 1):
                 break
@@ -324,6 +371,7 @@ class VintedOrderSyncService:
             f"{stats['duplicates']} dup, {stats['errors']} err"
         )
         return stats
+
 
     # =========================================================================
     # DATA EXTRACTION (from /transactions/{id} response)
