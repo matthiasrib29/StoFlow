@@ -8,10 +8,11 @@ Schema: public
 Table: brand_groups
 """
 
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, DECIMAL, Index, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, DECIMAL, Index, String, TIMESTAMP, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -34,6 +35,7 @@ class BrandGroup(Base):
         UniqueConstraint("brand", "group", name="uq_brand_groups_brand_group"),
         Index("idx_brand_groups_brand", "brand"),
         Index("idx_brand_groups_group", "group"),
+        Index("idx_brand_groups_created_at", "created_at"),
         {"schema": "public"}
     )
 
@@ -57,6 +59,8 @@ class BrandGroup(Base):
     # Metadata
     generated_by_ai: Mapped[bool] = mapped_column(default=False, nullable=False)
     ai_confidence: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(3, 2), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self) -> str:
         return f"<BrandGroup(brand='{self.brand}', group='{self.group}', base_price={self.base_price})>"
