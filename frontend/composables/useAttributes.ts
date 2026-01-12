@@ -31,7 +31,7 @@ export interface ConditionOption extends AttributeOption {
 
 export const useAttributes = () => {
   const config = useRuntimeConfig()
-  const apiUrl = config.public.apiUrl || 'http://localhost:8000'
+  const apiBaseUrl = config.public.apiBaseUrl || 'http://localhost:8000/api'
 
   // États réactifs pour les données
   const categories = ref<CategoryOption[]>([])
@@ -58,7 +58,7 @@ export const useAttributes = () => {
   ): Promise<T[]> => {
     try {
       const response = await $fetch<T[]>(
-        `${apiUrl}/api/attributes/${attributeType}`,
+        `${apiBaseUrl}/attributes/${attributeType}`,
         {
           params: {
             lang,
@@ -160,7 +160,7 @@ export const useAttributes = () => {
   const searchBrands = async (query: string, limit: number = 20): Promise<AttributeOption[]> => {
     try {
       const response = await $fetch<AttributeOption[]>(
-        `${apiUrl}/api/attributes/brands`,
+        `${apiBaseUrl}/attributes/brands`,
         {
           params: {
             search: query || undefined, // Si vide, l'API retournera des marques populaires

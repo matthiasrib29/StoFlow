@@ -170,8 +170,8 @@ export const useEbayStore = defineStore('ebay', {
         const { checkConnectionStatus, parseAccountFromStatus } = useEbayOAuth()
         const status = await checkConnectionStatus()
 
-        this.isConnected = status.connected
-        if (status.connected) {
+        this.isConnected = status.is_connected
+        if (status.is_connected) {
           this.account = parseAccountFromStatus(status)
         }
 

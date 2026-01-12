@@ -1,4 +1,6 @@
-"""Pricing services for intelligent price calculation."""
-from .group_determination import determine_group
+"""Pricing services module."""
 
-__all__ = ["determine_group"]
+from .group_determination import determine_group
+from .pricing_generation_service import PricingGenerationService
+
+__all__ = ["determine_group", "PricingGenerationService"]

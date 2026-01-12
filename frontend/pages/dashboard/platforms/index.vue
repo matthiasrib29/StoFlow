@@ -135,6 +135,7 @@ definePageMeta({
 
 const publicationsStore = usePublicationsStore()
 const { showSuccess, showError } = useAppToast()
+const { connect: connectVinted } = useVintedConnection()
 
 // Stats globales
 const platforms = computed(() => publicationsStore.integrations)
@@ -188,16 +189,28 @@ const enrichedPlatforms = computed(() => {
 
 const connectPlatform = async (platformId: string) => {
   try {
-    await publicationsStore.connectIntegration(platformId as any)
-    showSuccess('Connexion réussie', 'La plateforme a été connectée', 3000)
+    // Vinted uses plugin-based connection flow
+    if (platformId === 'vinted') {
+      const success = await connectVinted()
+      if (!success) {
+        throw new Error('Échec de la connexion Vinted')
+      }
+    } else {
+      // Other platforms use direct API connection
+      await publicationsStore.connectIntegration(platformId as any)
+      showSuccess('Connexion réussie', 'La plateforme a été connectée', 3000)
+    }
   } catch (error: any) {
     showError('Erreur', error.message || 'Impossible de connecter la plateforme', 5000)
   }
 }
 
-// Fetch publications on mount (non-blocking for instant navigation)
+// Fetch integrations status and publications on mount
 onMounted(async () => {
   try {
+    // Fetch connection status first (fast)
+    await publicationsStore.fetchIntegrationsStatus()
+    // Then fetch publications (slower)
     await publicationsStore.fetchPublications()
   } catch (error) {
     platformLogger.error('Failed to load platforms', { error })

@@ -249,7 +249,7 @@ const fetchProducts = async () => {
     const response = await get<{
       items: any[]
       total: number
-    }>('/api/ebay/products?page=1&page_size=100')
+    }>('/ebay/products?page=1&page_size=100')
 
     products.value = response?.items || []
     totalProducts.value = response?.total || 0
@@ -276,7 +276,7 @@ const importProducts = async () => {
   ebayLogger.info('Starting eBay products import')
   isImporting.value = true
   try {
-    const response = await post<{ imported_count: number }>('/api/ebay/products/import')
+    const response = await post<{ imported_count: number }>('/ebay/products/import')
     const importedCount = response?.imported_count || 0
 
     ebayLogger.info('eBay products import completed', {
@@ -300,7 +300,7 @@ const syncProducts = async () => {
   ebayLogger.info('Starting bulk products sync')
   isSyncing.value = true
   try {
-    await post('/api/ebay/products/sync')
+    await post('/ebay/products/sync')
     ebayLogger.info('Bulk products sync completed successfully')
     showSuccess('Synchronisation', 'Produits synchronisés', 3000)
     await fetchProducts()

@@ -318,7 +318,7 @@ const fetchOrders = async () => {
   try {
     const api = useApi()
     // Use new paginated endpoint with large page_size to get all orders
-    const response = await api.get('/api/ebay/orders', {
+    const response = await api.get('/ebay/orders', {
       params: {
         page: 1,
         page_size: 200 // Max allowed
@@ -348,7 +348,7 @@ const triggerSync = async () => {
     const api = useApi()
 
     // hours: 0 = fetch ALL orders (no date filter)
-    const response = await api.post('/api/ebay/orders/sync', {
+    const response = await api.post('/ebay/orders/sync', {
       hours: 0,
       status_filter: null
     })

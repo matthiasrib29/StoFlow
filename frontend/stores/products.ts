@@ -139,7 +139,7 @@ export const useProductsStore = defineStore('products', {
         if (options?.brand) params.append('brand', options.brand)
 
         const queryString = params.toString()
-        const endpoint = `/api/products?${queryString}`
+        const endpoint = `/products?${queryString}`
 
         const data = await api.get<{
           products: Product[]
@@ -174,7 +174,7 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        const product = await api.get<Product>(`/api/products/${id}`)
+        const product = await api.get<Product>(`/products/${id}`)
         this.selectedProduct = product
         return product
       } catch (error: any) {
@@ -195,7 +195,7 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        const newProduct = await api.post<Product>('/api/products', productData)
+        const newProduct = await api.post<Product>('/products', productData)
         if (newProduct) {
           this.products.push(newProduct)
         }
@@ -218,7 +218,7 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        const updatedProduct = await api.patch<Product>(`/api/products/${id}`, productData)
+        const updatedProduct = await api.patch<Product>(`/products/${id}`, productData)
 
         // Mettre à jour dans la liste locale
         const index = this.products.findIndex(p => p.id === id)
@@ -245,7 +245,7 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        await api.delete(`/api/products/${id}`)
+        await api.delete(`/products/${id}`)
 
         // Retirer de la liste locale
         const index = this.products.findIndex(p => p.id === id)
@@ -281,7 +281,7 @@ export const useProductsStore = defineStore('products', {
         // le token du store
         const token = authStore.token
 
-        const response = await fetch(`${config.public.apiUrl}/api/products/${productId}/images`, {
+        const response = await fetch(`${config.public.apiBaseUrl}/products/${productId}/images`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -294,7 +294,7 @@ export const useProductsStore = defineStore('products', {
         if (response.status === 401) {
           const refreshed = await authStore.refreshAccessToken()
           if (refreshed) {
-            const retryResponse = await fetch(`${config.public.apiUrl}/api/products/${productId}/images`, {
+            const retryResponse = await fetch(`${config.public.apiBaseUrl}/products/${productId}/images`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${authStore.token}`
@@ -338,7 +338,7 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        await api.delete(`/api/products/${productId}/images/${imageId}`)
+        await api.delete(`/products/${productId}/images/${imageId}`)
       } catch (error: any) {
         this.error = error.message
         productLogger.error('Error deleting image', { error: error?.message })
@@ -359,7 +359,7 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        await api.put(`/api/products/${productId}/images/reorder`, imageOrder)
+        await api.put(`/products/${productId}/images/reorder`, imageOrder)
       } catch (error: any) {
         this.error = error.message
         productLogger.error('Error reordering images', { error: error?.message })

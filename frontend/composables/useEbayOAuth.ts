@@ -87,10 +87,13 @@ interface OAuthCallbackResponse {
 }
 
 interface ConnectionStatus {
-  connected: boolean
+  is_connected: boolean
+  access_token_valid?: boolean
+  refresh_token_valid?: boolean
   account_info?: Record<string, any>
   sandbox_mode?: boolean
   access_token_expires_at?: string
+  refresh_token_expires_at?: string
 }
 
 export const useEbayOAuth = () => {
@@ -150,7 +153,7 @@ export const useEbayOAuth = () => {
       oauthLogger.debug('OAuth state generated and stored')
 
       // Get OAuth URL from backend with state parameter
-      const { auth_url } = await api.get<{ auth_url: string }>(`/api/ebay/connect?state=${encodeURIComponent(state)}`)
+      const { auth_url } = await api.get<{ auth_url: string }>(`/ebay/connect?state=${encodeURIComponent(state)}`)
 
       // Validate that auth_url is on eBay domain (prevent redirect attacks)
       try {
@@ -205,7 +208,7 @@ export const useEbayOAuth = () => {
    * Exchange OAuth code for tokens
    */
   const exchangeCodeForTokens = async (code: string): Promise<OAuthCallbackResponse> => {
-    const response = await api.post<OAuthCallbackResponse>('/api/ebay/callback', { code })
+    const response = await api.post<OAuthCallbackResponse>('/ebay/callback', { code })
     return response
   }
 
@@ -213,7 +216,7 @@ export const useEbayOAuth = () => {
    * Check current connection status
    */
   const checkConnectionStatus = async (): Promise<ConnectionStatus> => {
-    const status = await api.get<ConnectionStatus>('/api/ebay/status')
+    const status = await api.get<ConnectionStatus>('/ebay/status')
     return status
   }
 
@@ -221,7 +224,7 @@ export const useEbayOAuth = () => {
    * Parse account info from status response
    */
   const parseAccountFromStatus = (status: ConnectionStatus): EbayAccount | null => {
-    if (!status.connected || !status.account_info) {
+    if (!status.is_connected || !status.account_info) {
       return null
     }
 
@@ -250,7 +253,7 @@ export const useEbayOAuth = () => {
    * Disconnect eBay account
    */
   const disconnect = async (): Promise<void> => {
-    await api.post('/api/ebay/disconnect')
+    await api.post('/ebay/disconnect')
   }
 
   /**
