@@ -35,6 +35,7 @@ from api.ebay_webhook import router as ebay_webhook_router
 # from api.etsy_oauth import router as etsy_oauth_router
 # REMOVED (2026-01-09): Plugin now communicates via WebSocket (no HTTP endpoints needed)
 # from api.plugin import router as plugin_router
+from api.pricing import router as pricing_router
 from api.products import router as products_router
 from api.stripe_routes import router as stripe_router
 from api.subscription import router as subscription_router
@@ -52,11 +53,6 @@ from services.datadome_scheduler import (
     start_datadome_scheduler,
     stop_datadome_scheduler,
     get_datadome_scheduler
-)
-from services.marketplace.job_cleanup_scheduler import (
-    start_job_cleanup_scheduler,
-    stop_job_cleanup_scheduler,
-    get_job_cleanup_scheduler
 )
 from services.websocket_service import sio
 from shared.config import settings
@@ -131,20 +127,11 @@ async def lifespan(app: FastAPI):
     # TODO: Réactiver quand la logique de ping par nombre de requêtes sera implémentée
     logger.info("🛡️ DataDome scheduler DISABLED (stand-by)")
 
-    # ===== JOB CLEANUP SCHEDULER (2026-01-12) =====
-    # Automatically cleanup expired/stuck marketplace jobs
-    start_job_cleanup_scheduler()
-    logger.info("🧹 Job cleanup scheduler started")
-
     yield  # Application runs here
 
     # ===== SHUTDOWN =====
     logger.info("🛑 Shutting down StoFlow backend...")
     # Note: DataDome scheduler shutdown is currently disabled (stand-by mode)
-
-    # Stop job cleanup scheduler
-    stop_job_cleanup_scheduler()
-    logger.info("🧹 Job cleanup scheduler stopped")
 
 
 # Creation de l'application FastAPI
@@ -249,6 +236,7 @@ app.include_router(batches_router, prefix="/api")  # Generic batch jobs (multi-m
 app.include_router(docs_router, prefix="/api")  # Public documentation (no auth required)
 app.include_router(admin_docs_router, prefix="/api")  # Admin documentation CRUD (admin only)
 app.include_router(attributes_router, prefix="/api")
+app.include_router(pricing_router, prefix="/api")  # Pricing algorithm endpoint
 app.include_router(products_router, prefix="/api")
 # REMOVED (2026-01-09): Plugin communication via WebSocket only
 # app.include_router(plugin_router, prefix="/api")
