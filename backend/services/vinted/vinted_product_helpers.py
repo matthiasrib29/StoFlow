@@ -18,10 +18,11 @@ from sqlalchemy.orm import Session
 
 from models.user.product import Product
 from models.user.vinted_product import VintedProduct
-# from services.plugin_task_helper import  # REMOVED (2026-01-09): WebSocket architecture create_and_wait
+from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_product_converter import VintedProductConverter
 from shared.vinted_constants import VintedImageAPI
 from shared.logging_setup import get_logger
+from shared.config import settings
 
 logger = get_logger(__name__)
 
@@ -29,6 +30,7 @@ logger = get_logger(__name__)
 async def upload_product_images(
     db: Session,
     product: Product,
+    user_id: int,
     job_id: int | None = None
 ) -> list[int]:
     """
@@ -37,6 +39,7 @@ async def upload_product_images(
     Args:
         db: Session SQLAlchemy
         product: Instance Product
+        user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
         job_id: ID du job parent (optionnel, pour tracking)
 
     Returns:
@@ -70,15 +73,14 @@ async def upload_product_images(
                 image_url=image_url
             )
 
-            result = await create_and_wait(
-                db,
+            # WebSocket architecture (2026-01-12)
+            result = await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=user_id,
                 http_method="POST",
                 path=VintedImageAPI.UPLOAD,
                 payload={"body": payload, "image_url": image_url},
-                platform="vinted",
-                product_id=product.id,
-                job_id=job_id,
-                timeout=30,
+                timeout=settings.plugin_timeout_upload,
                 description=f"Upload image {idx}"
             )
 

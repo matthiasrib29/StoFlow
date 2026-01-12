@@ -166,7 +166,7 @@ class VintedSyncService:
 
             # 7. Upload photos
             logger.info(f"  Upload photos...")
-            photo_ids = await upload_product_images(db, product, job_id=job_id)
+            photo_ids = await upload_product_images(db, product, user_id=self.user_id, job_id=job_id)
             is_valid, error = self.validator.validate_images(photo_ids)
             if not is_valid:
                 raise ValueError(f"Images invalides: {error}")
