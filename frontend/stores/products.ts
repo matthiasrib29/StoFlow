@@ -281,7 +281,7 @@ export const useProductsStore = defineStore('products', {
         // le token du store
         const token = authStore.token
 
-        const response = await fetch(`${config.public.apiUrl}/api/products/${productId}/images`, {
+        const response = await fetch(`${config.public.apiBaseUrl}/products/${productId}/images`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -294,7 +294,7 @@ export const useProductsStore = defineStore('products', {
         if (response.status === 401) {
           const refreshed = await authStore.refreshAccessToken()
           if (refreshed) {
-            const retryResponse = await fetch(`${config.public.apiUrl}/api/products/${productId}/images`, {
+            const retryResponse = await fetch(`${config.public.apiBaseUrl}/products/${productId}/images`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${authStore.token}`

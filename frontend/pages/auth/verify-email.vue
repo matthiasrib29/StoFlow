@@ -157,7 +157,7 @@ const verifyEmail = async () => {
 
   try {
     const response = await fetch(
-      `${config.public.apiUrl}/api/auth/verify-email?token=${encodeURIComponent(token.value)}`,
+      `${config.public.apiBaseUrl}/auth/verify-email?token=${encodeURIComponent(token.value)}`,
       { method: 'GET' }
     )
 
@@ -187,7 +187,7 @@ const resendVerification = async () => {
 
   try {
     const response = await fetch(
-      `${config.public.apiUrl}/api/auth/resend-verification?email=${encodeURIComponent(resendEmail.value)}`,
+      `${config.public.apiBaseUrl}/auth/resend-verification?email=${encodeURIComponent(resendEmail.value)}`,
       { method: 'POST' }
     )
 
