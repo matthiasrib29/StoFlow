@@ -83,9 +83,13 @@ const connectedIntegrationsRef = computed(() => publicationsStore.connectedInteg
 const { displayValue: animatedTotalProducts } = useCountUp(totalProductsRef, { duration: 1500, delay: 0 })
 const { displayValue: animatedConnectedIntegrations } = useCountUp(connectedIntegrationsRef, { duration: 1500, delay: 100 })
 
-// Fetch products on mount (non-blocking for instant navigation)
+// Fetch data on mount (non-blocking for instant navigation)
 onMounted(async () => {
   try {
+    // Fetch integrations status to show correct connection state
+    await publicationsStore.fetchIntegrationsStatus()
+
+    // Fetch products if not already loaded
     if (productsStore.products.length === 0) {
       await productsStore.fetchProducts()
     }

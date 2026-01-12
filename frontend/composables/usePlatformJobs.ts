@@ -73,17 +73,17 @@ interface PlatformConfig {
 const PLATFORM_CONFIGS: Record<PlatformCode, PlatformConfig> = {
   vinted: {
     name: 'Vinted',
-    apiPrefix: '/api/vinted',
+    apiPrefix: '/vinted',
     logoPath: '/images/platforms/vinted-logo.png',
   },
   ebay: {
     name: 'eBay',
-    apiPrefix: '/api/ebay',
+    apiPrefix: '/ebay',
     logoPath: '/images/platforms/ebay-logo.png',
   },
   etsy: {
     name: 'Etsy',
-    apiPrefix: '/api/etsy',
+    apiPrefix: '/etsy',
     logoPath: '/images/platforms/etsy-logo.png',
   },
 }

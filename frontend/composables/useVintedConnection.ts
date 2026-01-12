@@ -75,7 +75,7 @@ export function useVintedConnection() {
         action: string
         requestId: string
         timeout: number
-      }>('/api/vinted/check-connection')
+      }>('/vinted/check-connection')
 
       if (instruction.instruction !== 'call_plugin') {
         showError('Erreur', 'Instruction inconnue du backend', 5000)
@@ -99,7 +99,7 @@ export function useVintedConnection() {
         vinted_user_id: number | null
         login: string | null
         message: string
-      }>('/api/vinted/check-connection/callback', {
+      }>('/vinted/check-connection/callback', {
         requestId: instruction.requestId,
         success: pluginResult.success,
         result: pluginResult.data,
@@ -178,7 +178,7 @@ export function useVintedConnection() {
         login?: string
         last_sync?: string
         disconnected_at?: string
-      }>('/api/vinted/status')
+      }>('/vinted/status')
 
       isConnected.value = response.is_connected
       if (response.is_connected) {
@@ -196,7 +196,7 @@ export function useVintedConnection() {
    */
   const fetchStats = async (): Promise<void> => {
     try {
-      const response = await get<VintedStats>('/api/vinted/stats')
+      const response = await get<VintedStats>('/vinted/stats')
       stats.value = {
         activePublications: response.activePublications || 0,
         totalViews: response.totalViews || 0,

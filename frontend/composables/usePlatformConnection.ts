@@ -16,17 +16,17 @@ interface PlatformConnectionConfig {
 const PLATFORM_CONNECTION_CONFIGS: Record<PlatformCode, PlatformConnectionConfig> = {
   vinted: {
     name: 'Vinted',
-    apiPrefix: '/api/vinted',
+    apiPrefix: '/vinted',
     settingsPath: '/dashboard/platforms/vinted/settings',
   },
   ebay: {
     name: 'eBay',
-    apiPrefix: '/api/ebay',
+    apiPrefix: '/ebay',
     settingsPath: '/dashboard/platforms/ebay/settings',
   },
   etsy: {
     name: 'Etsy',
-    apiPrefix: '/api/etsy',
+    apiPrefix: '/etsy',
     settingsPath: '/dashboard/platforms/etsy/settings',
   },
 }
