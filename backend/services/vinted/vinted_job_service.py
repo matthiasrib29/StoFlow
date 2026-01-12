@@ -23,7 +23,7 @@ from typing import Optional
 from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session
 
-from models.vinted.vinted_action_type import VintedActionType
+from models.public.marketplace_action_type import MarketplaceActionType
 # from models.user.plugin_task import PluginTask, TaskStatus  # REMOVED (2026-01-09): WebSocket architecture
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.vinted_job_stats import VintedJobStats
@@ -34,6 +34,9 @@ logger = get_logger(__name__)
 
 # Job expiration time (1 hour)
 JOB_EXPIRATION_HOURS = 1
+
+# Marketplace identifier for Vinted
+VINTED_MARKETPLACE = "vinted"
 
 
 class VintedJobService:
@@ -46,13 +49,13 @@ class VintedJobService:
 
     def __init__(self, db: Session):
         self.db = db
-        self._action_types_cache: dict[str, VintedActionType] = {}
+        self._action_types_cache: dict[str, MarketplaceActionType] = {}
 
     # =========================================================================
     # ACTION TYPES
     # =========================================================================
 
-    def get_action_type(self, code: str) -> VintedActionType | None:
+    def get_action_type(self, code: str) -> MarketplaceActionType | None:
         """
         Get action type by code (with caching).
 
@@ -60,23 +63,26 @@ class VintedJobService:
             code: Action type code (publish, sync, orders, etc.)
 
         Returns:
-            VintedActionType or None
+            MarketplaceActionType or None
         """
         if code not in self._action_types_cache:
             action_type = (
-                self.db.query(VintedActionType)
-                .filter(VintedActionType.code == code)
+                self.db.query(MarketplaceActionType)
+                .filter(
+                    MarketplaceActionType.marketplace == VINTED_MARKETPLACE,
+                    MarketplaceActionType.code == code
+                )
                 .first()
             )
             if action_type:
                 self._action_types_cache[code] = action_type
         return self._action_types_cache.get(code)
 
-    def get_action_type_by_id(self, action_type_id: int) -> VintedActionType | None:
+    def get_action_type_by_id(self, action_type_id: int) -> MarketplaceActionType | None:
         """Get action type by ID."""
         return (
-            self.db.query(VintedActionType)
-            .filter(VintedActionType.id == action_type_id)
+            self.db.query(MarketplaceActionType)
+            .filter(MarketplaceActionType.id == action_type_id)
             .first()
         )
 
