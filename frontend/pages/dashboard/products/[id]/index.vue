@@ -123,6 +123,49 @@
             </div>
           </template>
         </Card>
+
+        <!-- Pricing Section -->
+        <Card>
+          <template #title>
+            <h3 class="text-lg font-semibold">Intelligent Pricing</h3>
+          </template>
+          <template #content>
+            <div class="space-y-4">
+              <Button
+                class="w-full"
+                :disabled="isLoadingPrice || !canCalculatePrice"
+                :severity="priceResult ? 'success' : 'primary'"
+                @click="handleCalculatePrice"
+              >
+                <span v-if="!isLoadingPrice">
+                  <i class="pi pi-calculator mr-2" />
+                  {{ priceResult ? 'Recalculate Price' : 'Calculate Price' }}
+                </span>
+                <span v-else class="flex items-center justify-center">
+                  <i class="pi pi-spin pi-spinner mr-2" />
+                  Calculating...
+                </span>
+              </Button>
+
+              <!-- Error Message -->
+              <div v-if="priceError" class="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+                <i class="pi pi-exclamation-triangle mr-2" />
+                {{ priceError }}
+              </div>
+
+              <!-- Pricing Display Component -->
+              <Transition name="fade">
+                <div v-if="priceResult" class="mt-4">
+                  <ProductsPricingDisplay :pricing="priceResult" />
+                </div>
+              </Transition>
+
+              <p v-if="!canCalculatePrice" class="text-sm text-gray-500 italic">
+                Brand and category are required to calculate pricing.
+              </p>
+            </div>
+          </template>
+        </Card>
       </div>
     </div>
   </div>
@@ -130,6 +173,7 @@
 
 <script setup lang="ts">
 import { formatDate } from '~/utils/formatters'
+import type { PriceInput } from '~/composables/usePricingCalculation'
 
 definePageMeta({
   layout: 'dashboard'
@@ -139,6 +183,7 @@ const route = useRoute()
 const router = useRouter()
 const productsStore = useProductsStore()
 const { showSuccess, showError, showInfo, showWarn } = useAppToast()
+const { isLoading: isLoadingPrice, error: priceError, priceResult, calculatePrice, reset } = usePricingCalculation()
 
 const id = computed(() => parseInt(route.params.id as string))
 const product = computed(() => productsStore.getProductById(id.value))
@@ -154,8 +199,54 @@ onMounted(async () => {
   }
 })
 
+const canCalculatePrice = computed(() => {
+  return product.value?.brand && product.value?.category
+})
+
+const handleCalculatePrice = async () => {
+  if (!product.value) return
+
+  // Build PriceInput from product data
+  const input: PriceInput = {
+    brand: product.value.brand || '',
+    category: product.value.category || '',
+    materials: product.value.material ? [product.value.material] : [],
+    model_name: product.value.model || undefined,
+    condition_score: product.value.condition ? Math.round(product.value.condition / 2) : 3, // Convert 0-10 to 0-5
+    supplements: product.value.condition_sup ? [product.value.condition_sup] : [],
+    condition_sensitivity: 1.0,
+    actual_origin: product.value.origin || 'Unknown',
+    expected_origins: [], // TODO: determine from category/brand in future phase
+    actual_decade: product.value.decade || '2020s',
+    expected_decades: [],
+    actual_trends: product.value.trend ? [product.value.trend] : [],
+    expected_trends: [],
+    actual_features: [],
+    expected_features: []
+  }
+
+  try {
+    await calculatePrice(input)
+    showSuccess('Success', 'Price calculated successfully', 3000)
+  } catch (err) {
+    // Error already handled in composable
+    console.error('Price calculation failed:', err)
+  }
+}
 
 const publishToVinted = () => {
   showInfo('Fonctionnalité à venir', 'La publication sur Vinted sera disponible dans la prochaine version', 3000)
 }
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

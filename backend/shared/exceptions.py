@@ -420,20 +420,6 @@ class OutOfStockError(ServiceError):
     pass
 
 
-class ConflictError(ServiceError):
-    """
-    Erreur de conflit de ressource (resource lock, concurrent access).
-
-    Raised when:
-    - SELECT FOR UPDATE fails (resource already locked by another transaction)
-    - Two workers try to process the same job/product simultaneously
-    - Concurrent modification detected via pessimistic locking
-
-    Security Phase 2.1 (2026-01-12)
-    """
-    pass
-
-
 # ===== AI EXCEPTIONS =====
 
 class AIError(StoflowError):
@@ -448,6 +434,43 @@ class AIQuotaExceededError(AIError):
 
 class AIGenerationError(AIError):
     """Erreur lors de la génération IA."""
+    pass
+
+
+# ===== PRICING EXCEPTIONS =====
+
+class PricingError(ServiceError):
+    """Base exception for pricing-related errors."""
+    pass
+
+
+class GroupDeterminationError(PricingError):
+    """Raised when group cannot be determined from category/materials."""
+    def __init__(self, category: str, materials: list[str]):
+        self.category = category
+        self.materials = materials
+        super().__init__(f"Cannot determine group for category '{category}' with materials {materials}")
+
+
+class BrandGroupGenerationError(PricingError):
+    """Raised when BrandGroup generation fails after retries."""
+    def __init__(self, brand: str, group: str, reason: str):
+        self.brand = brand
+        self.group = group
+        super().__init__(f"Failed to generate BrandGroup for {brand}/{group}: {reason}")
+
+
+class ModelGenerationError(PricingError):
+    """Raised when Model generation fails after retries."""
+    def __init__(self, brand: str, group: str, model: str, reason: str):
+        self.brand = brand
+        self.group = group
+        self.model = model
+        super().__init__(f"Failed to generate Model for {brand}/{group}/{model}: {reason}")
+
+
+class PricingCalculationError(PricingError):
+    """Raised when price calculation fails."""
     pass
 
 
@@ -517,10 +540,16 @@ __all__ = [
     "TaskExecutionError",
     "ConcurrentModificationError",
     "OutOfStockError",
-    "ConflictError",
 
     # AI
     "AIError",
     "AIQuotaExceededError",
     "AIGenerationError",
+
+    # Pricing
+    "PricingError",
+    "GroupDeterminationError",
+    "BrandGroupGenerationError",
+    "ModelGenerationError",
+    "PricingCalculationError",
 ]
