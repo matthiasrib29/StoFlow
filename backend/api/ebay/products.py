@@ -49,6 +49,7 @@ class EbayProductResponse(BaseModel):
     ebay_listing_id: Optional[int] = None
     status: str = "active"
     image_urls: Optional[list[str]] = None
+    image_url: Optional[str] = None  # First image for preview
     ebay_listing_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -74,12 +75,17 @@ class EbayProductResponse(BaseModel):
             "ebay_listing_id": obj.ebay_listing_id,
             "status": obj.status or "active",
             "image_urls": None,
+            "image_url": None,
             "ebay_listing_url": None,
         }
         # Parse image_urls from JSON string
         if obj.image_urls:
             try:
-                data["image_urls"] = json.loads(obj.image_urls)
+                parsed_urls = json.loads(obj.image_urls)
+                data["image_urls"] = parsed_urls
+                # Set first image as preview
+                if parsed_urls and len(parsed_urls) > 0:
+                    data["image_url"] = parsed_urls[0]
             except (json.JSONDecodeError, TypeError):
                 data["image_urls"] = None
         # Build eBay listing URL if listing_id exists

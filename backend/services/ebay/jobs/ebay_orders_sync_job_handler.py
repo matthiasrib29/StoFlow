@@ -27,7 +27,7 @@ class EbayOrdersSyncJobHandler:
     Récupère les commandes depuis l'API eBay Fulfillment et les importe localement.
     """
 
-    ACTION_CODE = "sync_orders_ebay"
+    ACTION_CODE = "sync_orders"
 
     def __init__(
         self,
