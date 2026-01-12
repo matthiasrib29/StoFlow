@@ -101,17 +101,17 @@ def cleanup_jobs_for_all_users():
                 # Set schema
                 db.execute(text(f"SET LOCAL search_path TO {schema}, public"))
 
-                # Check if marketplace_job table exists
+                # Check if marketplace_jobs table exists
                 table_exists = db.execute(text(f"""
                     SELECT EXISTS (
                         SELECT 1 FROM information_schema.tables
                         WHERE table_schema = '{schema}'
-                        AND table_name = 'marketplace_job'
+                        AND table_name = 'marketplace_jobs'
                     )
                 """)).scalar()
 
                 if not table_exists:
-                    logger.debug(f"Schema {schema} has no marketplace_job table, skipping")
+                    logger.debug(f"Schema {schema} has no marketplace_jobs table, skipping")
                     continue
 
                 # Run cleanup
