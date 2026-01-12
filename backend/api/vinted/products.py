@@ -247,7 +247,7 @@ async def sync_products(
 
     # Execute immediately if requested
     if process_now:
-        processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
+        processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id, marketplace="vinted")
         result = await processor._execute_job(job)
         response["result"] = result
         response["status"] = "completed" if result.get("success") else "failed"
@@ -305,7 +305,7 @@ async def update_product(
 
         # Execute immediately if requested
         if process_now:
-            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id)
+            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=connection.vinted_user_id, marketplace="vinted")
             result = await processor._execute_job(job)
             response["result"] = result
             response["status"] = "completed" if result.get("success") else "failed"

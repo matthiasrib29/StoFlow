@@ -140,8 +140,8 @@ async def sync_orders(
 
         # Execute immediately if requested
         if process_now:
-            from services.vinted.vinted_job_processor import VintedJobProcessor
-            processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=current_user.id)
+            from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
+            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=current_user.id, marketplace="ebay")
             result = await processor._execute_job(job)
 
             if result.get("success"):

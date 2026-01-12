@@ -143,7 +143,7 @@ async def sync_conversations(
         )
         db.commit()
 
-        processor = VintedJobProcessor(db, user_id=current_user.id, shop_id=vinted_connection.vinted_user_id)
+        processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=vinted_connection.vinted_user_id, marketplace="vinted")
         result = await processor._execute_job(job)
 
         return {
