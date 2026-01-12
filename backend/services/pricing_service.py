@@ -105,9 +105,17 @@ class PricingService:
 
         # 3. Récupérer coefficient rareté
         coeff_rarity = PricingService.RARITY_COEFFICIENTS.get(rarity or "Standard", 1.0)
+        # CRITICAL: Validate rarity coefficient (Security 2026-01-12)
+        PricingService._validate_coefficient(
+            coeff_rarity, name="rarity", min_value=0.5, max_value=2.0
+        )
 
         # 4. Récupérer coefficient qualité
         coeff_quality = PricingService.QUALITY_COEFFICIENTS.get(quality or "Standard", 1.0)
+        # CRITICAL: Validate quality coefficient (Security 2026-01-12)
+        PricingService._validate_coefficient(
+            coeff_quality, name="quality", min_value=0.5, max_value=2.0
+        )
 
         # 5. Calcul prix final
         price = base_price * Decimal(str(coeff_condition)) * Decimal(str(coeff_rarity)) * Decimal(str(coeff_quality))
@@ -167,14 +175,47 @@ class PricingService:
 
         Returns:
             float: Coefficient (ex: 1.0 pour neuf, 0.9 pour bon état)
+
+        Raises:
+            ValueError: If coefficient from DB is outside acceptable range (Security 2026-01-12)
         """
         condition_obj = db.query(Condition).filter(Condition.note == condition).first()
 
         if condition_obj and condition_obj.coefficient:
-            return float(condition_obj.coefficient)
+            coeff = float(condition_obj.coefficient)
+            # CRITICAL: Validate coefficient from DB (Security 2026-01-12)
+            PricingService._validate_coefficient(
+                coeff, name="condition", min_value=0.0, max_value=2.0
+            )
+            return coeff
 
         # Fallback si non trouvé
         return 1.0
+
+    @staticmethod
+    def _validate_coefficient(
+        coeff: float,
+        name: str,
+        min_value: float = 0.0,
+        max_value: float = 2.0
+    ) -> None:
+        """
+        Validate pricing coefficient is within acceptable range.
+
+        Args:
+            coeff: Coefficient value to validate
+            name: Name of the coefficient (for error messages)
+            min_value: Minimum acceptable value
+            max_value: Maximum acceptable value
+
+        Raises:
+            ValueError: If coefficient is outside acceptable range (Security 2026-01-12)
+        """
+        if not (min_value <= coeff <= max_value):
+            raise ValueError(
+                f"{name.capitalize()} coefficient {coeff} is invalid. "
+                f"Must be between {min_value} and {max_value}.",
+            )
 
     @staticmethod
     def _round_to_nearest(value: Decimal, round_to: Decimal) -> Decimal:
@@ -190,6 +231,9 @@ class PricingService:
         Returns:
             Decimal: Valeur arrondie
 
+        Raises:
+            ValueError: If round_to is zero or negative (Security 2026-01-12)
+
         Examples:
             >>> PricingService._round_to_nearest(Decimal("24.30"), Decimal("0.50"))
             Decimal('24.50')
@@ -197,4 +241,11 @@ class PricingService:
             >>> PricingService._round_to_nearest(Decimal("24.70"), Decimal("0.50"))
             Decimal('25.00')
         """
+        # CRITICAL: Guard against division by zero (Security 2026-01-12)
+        if round_to <= 0:
+            raise ValueError(
+                f"round_to must be positive (got {round_to}). "
+                f"Cannot round to zero or negative increment."
+            )
+
         return (value / round_to).quantize(Decimal("1")) * round_to
