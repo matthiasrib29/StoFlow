@@ -9,13 +9,16 @@
 ## Progress
 
 **Phases completed**: 4/7
-**Plans completed**: 10/10
+**Plans completed**: 11/13 (Phase 5: 1/3 complete)
 
 - [x] Phase 1: Database Foundation ✅ (2026-01-09)
 - [x] Phase 2: Group Determination Logic ✅ (2026-01-09)
 - [x] Phase 3: LLM Generation Service ✅ (2026-01-12)
 - [x] Phase 4: Adjustment Calculators ✅ (2026-01-12)
-- [ ] Phase 5: Main Pricing Algorithm & API
+- [ ] Phase 5: Main Pricing Algorithm & API (1/3 complete)
+  - [x] Plan 1: Core Pricing Service ✅
+  - [ ] Plan 2: API Endpoint & Integration
+  - [ ] Plan 3: Advanced Features & Polish
 - [ ] Phase 6: Frontend UI
 - [ ] Phase 7: Testing & Polish
 
@@ -23,35 +26,36 @@
 
 ## Active Work
 
-**Current phase**: Phase 4 Complete - Ready for Phase 5
+**Current phase**: Phase 5: Main Pricing Algorithm & API (Plan 1 Complete)
 
-**Last completed**: Phase 4 Plan 3 - Trend & Feature Adjustment Calculators
-- Implemented calculateTrendAdjustment (MAX logic for best unexpected trend)
-- Implemented calculateFeatureAdjustment (SUM logic with +0.30 cap)
-- Trend coefficients: y2k (+0.20) down to athleisure (+0.02)
-- Feature coefficients: deadstock (+0.20) down to chain_stitching (+0.08)
-- 34 new unit tests (16 for trend, 18 for feature)
-- TDD cycle: RED (failing tests) → GREEN (implementation) → No refactor needed
-- 2 commits (1 test, 1 implementation)
-- Cumulative: 94 tests passing (all 6 calculators tested)
+**Current position**: Plan 1 of 3 in Phase 5
 
-**Phase 4 Summary**: All 6 adjustment calculators complete
-1. calculateModelCoefficient - Extract model coefficient (0.5-3.0)
-2. calculateConditionAdjustment - Condition score + supplements (±0.30)
-3. calculateOriginAdjustment - 4-tier origin logic (-0.10 to +0.15)
-4. calculateDecadeAdjustment - Vintage bonus (0.00 to +0.20)
-5. calculateTrendAdjustment - Best unexpected trend (0.00 to +0.20)
-6. calculateFeatureAdjustment - Sum unexpected features (0.00 to +0.30)
+**Last completed**: Phase 5 Plan 1 - Core Pricing Service
+- PricingService orchestrates all 6 calculators with LLM-powered data generation
+- Formula: PRICE = BASE_PRICE × MODEL_COEFF × (1 + ADJUSTMENTS)
+- 3 price levels: quick (×0.75), standard (×1.0), premium (×1.30)
+- Fetch-or-generate pattern for BrandGroup & Model data (auto-persists to DB)
+- Comprehensive test suite: 20 tests, 100% passing
+- Infrastructure: BrandGroupRepository, ModelRepository, determine_group()
+- Pydantic schemas: PriceInput, PriceOutput, AdjustmentBreakdown
+- 4 commits: infrastructure, data fetching, calculation, tests
+- Duration: ~45 minutes
+- Ready for API endpoint integration (Plan 05-02)
+
+**Phase 5 Progress**:
+- [x] Plan 1: Core Pricing Service (complete)
+- [ ] Plan 2: API Endpoint & Integration
+- [ ] Plan 3: Advanced Features & Polish
 
 ---
 
 ## Recent Changes
 
+*2026-01-12 12:30*: Phase 5 Plan 1 completed - Core Pricing Service with all orchestration
 *2026-01-12 14:00*: Phase 4 Plan 3 completed - Trend and feature adjustment calculators (TDD)
 *2026-01-12 13:00*: Phase 4 Plan 2 completed - Origin and decade adjustment calculators (TDD)
 *2026-01-12 12:00*: Phase 4 Plan 1 completed - Model coefficient and condition adjustment calculators (TDD)
 *2026-01-12 11:45*: Phase 3 completed - LLM generation service fully implemented (BrandGroup + Model)
-*2026-01-12 11:00*: Phase 2 completed - Group determination logic implemented with 111 tests
 
 ---
 
