@@ -1,7 +1,7 @@
 """
 Unit Tests for PricingGenerationService
 
-Tests for LLM-powered BrandGroup generation via Google Gemini API.
+Tests for LLM-powered BrandGroup and Model generation via Google Gemini API.
 Covers success paths, validation, fallbacks, and error handling.
 """
 
@@ -13,6 +13,7 @@ import pytest
 from google import genai
 
 from models.public.brand_group import BrandGroup
+from models.public.model import Model
 from services.pricing.pricing_generation_service import PricingGenerationService
 from shared.exceptions import AIGenerationError
 
@@ -405,3 +406,316 @@ class TestGenerateBrandGroupPrompt:
         config = call_args.kwargs["config"]
 
         assert config.response_mime_type == "application/json"
+
+
+# ===== MODEL GENERATION TESTS =====
+
+VALID_MODEL_RESPONSE_DATA = {
+    "coefficient": 1.5,
+    "expected_features": ["original_box", "limited_edition"],
+}
+
+VALID_MODEL_RESPONSE_JSON = json.dumps(VALID_MODEL_RESPONSE_DATA)
+
+
+# ===== TestGenerateModelSuccess =====
+
+class TestGenerateModelSuccess:
+    """Test successful Model generation."""
+
+    @pytest.mark.asyncio
+    async def test_generate_model_valid_response(self, mock_gemini_client):
+        """Test generate_model with valid LLM response."""
+        mock_gemini_client.models.generate_content.return_value.text = VALID_MODEL_RESPONSE_JSON
+
+        brand = "Nike"
+        group = "sneakers"
+        model = "Jordan 1"
+        base_price = Decimal("45.0")
+
+        result = await PricingGenerationService.generate_model(brand, group, model, base_price)
+
+        # Assertions
+        assert isinstance(result, Model)
+        assert result.brand == brand
+        assert result.group == group
+        assert result.name == model
+        assert result.coefficient == Decimal("1.5")
+        assert result.expected_features == ["original_box", "limited_edition"]
+
+        # Verify API called once
+        mock_gemini_client.models.generate_content.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_generate_model_with_base_price_context(self, mock_gemini_client):
+        """Test that base_price is included in prompt for context."""
+        mock_gemini_client.models.generate_content.return_value.text = VALID_MODEL_RESPONSE_JSON
+
+        base_price = Decimal("100.50")
+        await PricingGenerationService.generate_model("Hermès", "bags", "Birkin", base_price)
+
+        # Get the actual call arguments
+        call_args = mock_gemini_client.models.generate_content.call_args
+        prompt_text = call_args.kwargs["contents"][0]
+
+        # Verify base_price is in prompt
+        assert "100.50" in prompt_text or "100.5" in prompt_text
+
+    @pytest.mark.asyncio
+    async def test_generate_model_with_empty_features(self, mock_gemini_client):
+        """Test generate_model with empty features list (valid case)."""
+        response_data = {
+            "coefficient": 1.0,
+            "expected_features": [],
+        }
+        mock_gemini_client.models.generate_content.return_value.text = json.dumps(response_data)
+
+        result = await PricingGenerationService.generate_model(
+            "Generic", "t-shirt", "Basic", Decimal("10.0")
+        )
+
+        assert result.coefficient == Decimal("1.0")
+        assert result.expected_features == []
+
+    @pytest.mark.asyncio
+    async def test_generate_model_edge_values(self, mock_gemini_client):
+        """Test generate_model with edge valid values."""
+        response_data = {
+            "coefficient": 0.5,  # Min
+            "expected_features": ["f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10"],  # Max 10
+        }
+        mock_gemini_client.models.generate_content.return_value.text = json.dumps(response_data)
+
+        result = await PricingGenerationService.generate_model(
+            "Budget", "basics", "Entry", Decimal("5.0")
+        )
+
+        assert result.coefficient == Decimal("0.5")
+        assert len(result.expected_features) == 10
+
+
+# ===== TestGenerateModelValidation =====
+
+class TestGenerateModelValidation:
+    """Test validation logic and fallback on invalid Model responses."""
+
+    @pytest.mark.asyncio
+    async def test_coefficient_too_low(self, mock_gemini_client):
+        """Test fallback when coefficient < 0.5."""
+        response_data = VALID_MODEL_RESPONSE_DATA.copy()
+        response_data["coefficient"] = 0.4  # Too low
+        mock_gemini_client.models.generate_content.return_value.text = json.dumps(response_data)
+
+        result = await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        # Should use fallback
+        assert result.coefficient == Decimal("1.0")
+        assert result.expected_features == []
+
+    @pytest.mark.asyncio
+    async def test_coefficient_too_high(self, mock_gemini_client):
+        """Test fallback when coefficient > 3.0."""
+        response_data = VALID_MODEL_RESPONSE_DATA.copy()
+        response_data["coefficient"] = 3.1  # Too high
+        mock_gemini_client.models.generate_content.return_value.text = json.dumps(response_data)
+
+        result = await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        # Should use fallback
+        assert result.coefficient == Decimal("1.0")
+
+    @pytest.mark.asyncio
+    async def test_invalid_features_format(self, mock_gemini_client):
+        """Test fallback when expected_features is not a list."""
+        response_data = VALID_MODEL_RESPONSE_DATA.copy()
+        response_data["expected_features"] = "not_a_list"  # String instead of list
+        mock_gemini_client.models.generate_content.return_value.text = json.dumps(response_data)
+
+        result = await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        # Should use fallback
+        assert result.expected_features == []
+
+    @pytest.mark.asyncio
+    async def test_empty_string_in_features(self, mock_gemini_client):
+        """Test fallback when features list contains empty strings."""
+        response_data = VALID_MODEL_RESPONSE_DATA.copy()
+        response_data["expected_features"] = ["valid", "", "another"]  # Empty string
+        mock_gemini_client.models.generate_content.return_value.text = json.dumps(response_data)
+
+        result = await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        # Should use fallback
+        assert result.expected_features == []
+
+    @pytest.mark.asyncio
+    async def test_too_many_features(self, mock_gemini_client):
+        """Test fallback when expected_features has > 10 items."""
+        response_data = VALID_MODEL_RESPONSE_DATA.copy()
+        response_data["expected_features"] = [f"feature{i}" for i in range(11)]  # 11 items
+        mock_gemini_client.models.generate_content.return_value.text = json.dumps(response_data)
+
+        result = await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        # Should use fallback
+        assert result.expected_features == []
+
+    @pytest.mark.asyncio
+    async def test_missing_required_field(self, mock_gemini_client):
+        """Test fallback when required field is missing."""
+        response_data = {
+            "coefficient": 1.0,
+            # Missing expected_features
+        }
+        mock_gemini_client.models.generate_content.return_value.text = json.dumps(response_data)
+
+        result = await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        # Should use fallback
+        assert result.coefficient == Decimal("1.0")
+        assert result.expected_features == []
+
+
+# ===== TestGenerateModelFallback =====
+
+class TestGenerateModelFallback:
+    """Test error handling and fallback logic for Model generation."""
+
+    @pytest.mark.asyncio
+    async def test_gemini_connection_error_model(self, mock_gemini_client):
+        """Test fallback on connection errors for Model generation."""
+        mock_gemini_client.models.generate_content.side_effect = ConnectionError(
+            "Failed to connect to Gemini API"
+        )
+
+        result = await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        # Should use fallback
+        assert result.coefficient == Decimal("1.0")
+        assert result.expected_features == []
+
+    @pytest.mark.asyncio
+    async def test_unexpected_exception_model(self, mock_gemini_client):
+        """Test fallback on unexpected exception for Model."""
+        mock_gemini_client.models.generate_content.side_effect = RuntimeError(
+            "Unexpected error"
+        )
+
+        result = await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        # Should use fallback
+        assert result.coefficient == Decimal("1.0")
+
+    @pytest.mark.asyncio
+    async def test_invalid_json_response_model(self, mock_gemini_client):
+        """Test fallback when LLM returns invalid JSON for Model."""
+        mock_gemini_client.models.generate_content.return_value.text = "not valid json {{"
+
+        result = await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        # Should use fallback
+        assert result.coefficient == Decimal("1.0")
+
+    @pytest.mark.asyncio
+    async def test_fallback_coefficient_is_1_0(self):
+        """Test _get_fallback_model returns coefficient=1.0."""
+        fallback = PricingGenerationService._get_fallback_model("TestBrand", "TestGroup", "TestModel")
+
+        assert isinstance(fallback, Model)
+        assert fallback.coefficient == Decimal("1.0")
+
+    @pytest.mark.asyncio
+    async def test_fallback_features_empty_list(self):
+        """Test _get_fallback_model returns empty features list."""
+        fallback = PricingGenerationService._get_fallback_model("TestBrand", "TestGroup", "TestModel")
+
+        assert fallback.expected_features == []
+        assert fallback.brand == "TestBrand"
+        assert fallback.group == "TestGroup"
+        assert fallback.name == "TestModel"
+
+
+# ===== TestGenerateModelPrompt =====
+
+class TestGenerateModelPrompt:
+    """Test prompt construction and content for Model generation."""
+
+    @pytest.mark.asyncio
+    async def test_prompt_includes_brand_group_model(self, mock_gemini_client):
+        """Test that prompt contains brand, group, and model names."""
+        mock_gemini_client.models.generate_content.return_value.text = VALID_MODEL_RESPONSE_JSON
+
+        await PricingGenerationService.generate_model(
+            "Levi's", "jeans", "501", Decimal("25.0")
+        )
+
+        # Get the actual call arguments
+        call_args = mock_gemini_client.models.generate_content.call_args
+        prompt_text = call_args.kwargs["contents"][0]
+
+        assert "Levi's" in prompt_text
+        assert "jeans" in prompt_text
+        assert "501" in prompt_text
+
+    @pytest.mark.asyncio
+    async def test_prompt_includes_base_price(self, mock_gemini_client):
+        """Test that prompt includes base_price for context."""
+        mock_gemini_client.models.generate_content.return_value.text = VALID_MODEL_RESPONSE_JSON
+
+        await PricingGenerationService.generate_model(
+            "Nike", "sneakers", "Jordan", Decimal("75.50")
+        )
+
+        call_args = mock_gemini_client.models.generate_content.call_args
+        prompt_text = call_args.kwargs["contents"][0]
+
+        # Check base_price is mentioned
+        assert "75.5" in prompt_text or "75.50" in prompt_text
+
+    @pytest.mark.asyncio
+    async def test_prompt_explains_coefficient_meaning(self, mock_gemini_client):
+        """Test that prompt explains what coefficient means."""
+        mock_gemini_client.models.generate_content.return_value.text = VALID_MODEL_RESPONSE_JSON
+
+        await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        call_args = mock_gemini_client.models.generate_content.call_args
+        prompt_text = call_args.kwargs["contents"][0]
+
+        # Check coefficient explanation keywords
+        assert "coefficient" in prompt_text.lower()
+        assert "multiplier" in prompt_text.lower() or "1.0" in prompt_text
+
+    @pytest.mark.asyncio
+    async def test_prompt_specifies_expected_features(self, mock_gemini_client):
+        """Test that prompt specifies expected_features field."""
+        mock_gemini_client.models.generate_content.return_value.text = VALID_MODEL_RESPONSE_JSON
+
+        await PricingGenerationService.generate_model(
+            "Brand", "group", "model", Decimal("30.0")
+        )
+
+        call_args = mock_gemini_client.models.generate_content.call_args
+        prompt_text = call_args.kwargs["contents"][0]
+
+        assert "expected_features" in prompt_text
