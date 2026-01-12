@@ -57,6 +57,145 @@ class EbayOrderSyncService:
         self.fulfillment_client = EbayFulfillmentClient(db, user_id)
 
         logger.info(f"[EbayOrderSyncService] Initialized for user_id={user_id}")
+    # ===== HELPER METHODS FOR sync_orders() (Refactored 2026-01-12 Phase 3.2e) =====
+
+    @staticmethod
+    def _validate_sync_parameters(modified_since_hours: Optional[int]) -> bool:
+        """
+        Validate sync parameters and determine if syncing all orders.
+
+        Args:
+            modified_since_hours: Hours to look back (1-720, 0/None for all)
+
+        Returns:
+            True if syncing all orders, False if date range
+
+        Raises:
+            ValueError: If hours out of valid range
+        """
+        sync_all = modified_since_hours is None or modified_since_hours == 0
+
+        if not sync_all and not (1 <= modified_since_hours <= 720):
+            raise ValueError(
+                "modified_since_hours must be between 1 and 720 (30 days), or 0 for all orders"
+            )
+
+        return sync_all
+
+    def _fetch_orders_from_ebay(
+        self,
+        sync_all: bool,
+        modified_since_hours: Optional[int],
+        status_filter: Optional[str],
+    ) -> list[dict]:
+        """
+        Fetch orders from eBay API (all or date range).
+
+        Args:
+            sync_all: If True, fetch all orders (no date filter)
+            modified_since_hours: Hours to look back (ignored if sync_all)
+            status_filter: Optional fulfillment status filter
+
+        Returns:
+            List of order dicts from eBay API
+        """
+        if sync_all:
+            logger.debug("[EbayOrderSyncService] Fetching ALL orders (no date filter)")
+            return self.fulfillment_client.get_all_orders(status=status_filter)
+
+        # Date range fetch
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(hours=modified_since_hours)
+
+        logger.debug(
+            f"[EbayOrderSyncService] Fetching orders from {start_date.isoformat()} "
+            f"to {end_date.isoformat()}"
+        )
+
+        return self.fulfillment_client.get_orders_by_date_range(
+            start_date=start_date,
+            end_date=end_date,
+            status=status_filter,
+        )
+
+    def _process_orders_batch(self, api_orders: list[dict]) -> dict:
+        """
+        Process batch of orders and collect statistics.
+
+        Args:
+            api_orders: List of orders from eBay API
+
+        Returns:
+            Statistics dict with created/updated/skipped/errors counts
+        """
+        stats = {
+            "created": 0,
+            "updated": 0,
+            "skipped": 0,
+            "errors": 0,
+            "details": [],
+        }
+
+        for idx, api_order in enumerate(api_orders, start=1):
+            order_id = api_order.get("orderId", "unknown")
+
+            try:
+                result = self._process_single_order(api_order)
+
+                # Update stats
+                action = result.get("action", "error")
+                if action == "created":
+                    stats["created"] += 1
+                elif action == "updated":
+                    stats["updated"] += 1
+                elif action == "skipped":
+                    stats["skipped"] += 1
+
+                stats["details"].append(result)
+
+                # Log progress every 50 orders
+                if idx % 50 == 0:
+                    logger.info(
+                        f"[EbayOrderSyncService] Progress: {idx}/{len(api_orders)} "
+                        f"orders processed"
+                    )
+
+            except Exception as e:
+                stats["errors"] += 1
+                error_msg = str(e)
+
+                logger.error(
+                    f"[EbayOrderSyncService] Error processing order {order_id}: {e}",
+                    exc_info=True,
+                )
+
+                stats["details"].append({
+                    "order_id": order_id,
+                    "action": "error",
+                    "error": error_msg,
+                })
+
+        return stats
+
+    def _finalize_sync(self, start_time: datetime, stats: dict) -> None:
+        """
+        Commit transaction and log summary.
+
+        Args:
+            start_time: Sync start timestamp
+            stats: Statistics dict
+        """
+        self.db.commit()
+
+        elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+
+        logger.info(
+            f"[EbayOrderSyncService] Sync completed: user_id={self.user_id}, "
+            f"created={stats['created']}, updated={stats['updated']}, "
+            f"skipped={stats['skipped']}, errors={stats['errors']}, "
+            f"total_fetched={stats['total_fetched']}, duration={elapsed:.2f}s"
+        )
+
 
     def sync_orders(
         self,
@@ -65,6 +204,8 @@ class EbayOrderSyncService:
     ) -> dict:
         """
         Synchronize orders modified in the last N hours, or ALL orders if hours=0/None.
+
+        Refactored 2026-01-12 Phase 3.2e: Extracted 4 helper methods for clarity.
 
         Args:
             modified_since_hours: Number of hours to look back (1-720)
@@ -94,108 +235,28 @@ class EbayOrderSyncService:
         """
         start_time = datetime.now(timezone.utc)
 
-        # Determine if sync all or specific date range
-        sync_all = modified_since_hours is None or modified_since_hours == 0
-
-        # Validate hours range (allow 0/None for "all orders")
-        if not sync_all and not (1 <= modified_since_hours <= 720):
-            raise ValueError("modified_since_hours must be between 1 and 720 (30 days), or 0 for all orders")
+        # 1. Validate parameters
+        sync_all = self._validate_sync_parameters(modified_since_hours)
 
         logger.info(
             f"[EbayOrderSyncService] Starting sync: user_id={self.user_id}, "
             f"hours={modified_since_hours if not sync_all else 'ALL'}, status_filter={status_filter}"
         )
 
-        # Initialize statistics
-        stats = {
-            "created": 0,
-            "updated": 0,
-            "skipped": 0,
-            "errors": 0,
-            "total_fetched": 0,
-            "details": [],
-        }
-
         try:
-            # Fetch orders from eBay API
-            if sync_all:
-                logger.debug("[EbayOrderSyncService] Fetching ALL orders (no date filter)")
-                api_orders = self.fulfillment_client.get_all_orders(status=status_filter)
-            else:
-                # Calculate date range
-                end_date = datetime.now(timezone.utc)
-                start_date = end_date - timedelta(hours=modified_since_hours)
-
-                logger.debug(
-                    f"[EbayOrderSyncService] Fetching orders from {start_date.isoformat()} "
-                    f"to {end_date.isoformat()}"
-                )
-
-                api_orders = self.fulfillment_client.get_orders_by_date_range(
-                    start_date=start_date,
-                    end_date=end_date,
-                    status=status_filter,
-                )
-
-            stats["total_fetched"] = len(api_orders)
+            # 2. Fetch orders from eBay API
+            api_orders = self._fetch_orders_from_ebay(sync_all, modified_since_hours, status_filter)
 
             logger.info(
                 f"[EbayOrderSyncService] Fetched {len(api_orders)} orders from eBay API"
             )
 
-            # Process each order
-            for idx, api_order in enumerate(api_orders, start=1):
-                order_id = api_order.get("orderId", "unknown")
+            # 3. Process orders batch and collect statistics
+            stats = self._process_orders_batch(api_orders)
+            stats["total_fetched"] = len(api_orders)
 
-                try:
-                    result = self._process_single_order(api_order)
-
-                    # Update stats
-                    action = result.get("action", "error")
-                    if action == "created":
-                        stats["created"] += 1
-                    elif action == "updated":
-                        stats["updated"] += 1
-                    elif action == "skipped":
-                        stats["skipped"] += 1
-
-                    stats["details"].append(result)
-
-                    # Log progress every 50 orders
-                    if idx % 50 == 0:
-                        logger.info(
-                            f"[EbayOrderSyncService] Progress: {idx}/{len(api_orders)} "
-                            f"orders processed"
-                        )
-
-                except Exception as e:
-                    stats["errors"] += 1
-                    error_msg = str(e)
-
-                    logger.error(
-                        f"[EbayOrderSyncService] Error processing order {order_id}: {e}",
-                        exc_info=True,
-                    )
-
-                    stats["details"].append(
-                        {
-                            "order_id": order_id,
-                            "action": "error",
-                            "error": error_msg,
-                        }
-                    )
-
-            # Commit transaction
-            self.db.commit()
-
-            elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-
-            logger.info(
-                f"[EbayOrderSyncService] Sync completed: user_id={self.user_id}, "
-                f"created={stats['created']}, updated={stats['updated']}, "
-                f"skipped={stats['skipped']}, errors={stats['errors']}, "
-                f"total_fetched={stats['total_fetched']}, duration={elapsed:.2f}s"
-            )
+            # 4. Commit and log summary
+            self._finalize_sync(start_time, stats)
 
         except Exception as e:
             self.db.rollback()
@@ -206,6 +267,8 @@ class EbayOrderSyncService:
             raise
 
         return stats
+
+
 
     def _process_single_order(self, api_order: dict) -> dict:
         """
