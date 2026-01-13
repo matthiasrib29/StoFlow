@@ -55,6 +55,7 @@ class VintedConnection(Base):
         last_synced_at: Dernière synchronisation réussie
     """
     __tablename__ = "vinted_connection"
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     # Primary key: auto-increment ID
     id = Column(Integer, primary_key=True, index=True)
