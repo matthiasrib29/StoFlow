@@ -322,7 +322,10 @@
       "Bash([ -d .planning/ ])",
       "Bash(./scripts/rotate-logs.sh:*)",
       "Bash(./scripts/db-protect.sh:*)",
-      "Bash(./scripts/db-backup.sh:*)"
+      "Bash(./scripts/db-backup.sh:*)",
+      "Bash(~/StoFlow-test-flow-create-product/backend/.env)",
+      "Bash(netstat:*)",
+      "Bash(ss:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
