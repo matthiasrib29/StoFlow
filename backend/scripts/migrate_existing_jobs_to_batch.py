@@ -150,7 +150,9 @@ def migrate_schema(schema_name: str, db: Session) -> dict:
     """
     logger.info(f"🔄 Migrating schema: {schema_name}")
 
-    # Set search path
+    # Use schema_translate_map for ORM queries (survives commit/rollback)
+    db = db.execution_options(schema_translate_map={"tenant": schema_name})
+    # Also set search_path for text() queries
     db.execute(text(f"SET search_path TO {schema_name}, public"))
     db.commit()
 

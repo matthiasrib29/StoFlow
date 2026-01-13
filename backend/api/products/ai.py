@@ -11,7 +11,6 @@ Refactored: 2026-01-05 - Split from api/products.py
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
@@ -71,20 +70,8 @@ async def analyze_product_images(
         # SUPPORT ne peut pas analyser (lecture seule)
         ensure_can_modify(current_user, "produit")
 
-        # Re-set search_path before query (ensure it's applied on the actual connection)
-        # Security: schema_name already validated by get_user_db, but double-check
-        import re
-        if not re.match(r'^user_\d+$', current_user.schema_name):
-            raise HTTPException(status_code=500, detail="Invalid schema name")
-
-        # Use SET (not SET LOCAL) to ensure it persists for the entire request
-        # SET LOCAL only works within a transaction block, which might be problematic with async
-        db.execute(text(f"SET search_path TO {current_user.schema_name}, public"))
-
-        # Verify it's applied
-        result = db.execute(text("SHOW search_path"))
-        actual_path = result.scalar()
-        logger.info(f"[API:products] search_path verified: {actual_path}")
+        # Note: schema already configured via schema_translate_map in get_user_db()
+        # No need to SET search_path manually
 
         # Récupérer le produit
         product = ProductService.get_product_by_id(db, product_id)

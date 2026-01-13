@@ -18,7 +18,7 @@ Or: None (patterns établis dans la documentation SQLAlchemy)
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Préparation Modèles Tenant** - Ajouter placeholder schema "tenant" aux 20 modèles user/ ✅
-- [ ] **Phase 2: Session Factory & Dependencies** - Implémenter schema_translate_map dans get_user_db()
+- [x] **Phase 2: Session Factory & Dependencies** - Implémenter schema_translate_map dans get_user_db() ✅
 - [ ] **Phase 3: Migration Requêtes text()** - Convertir 28 fichiers avec requêtes SQL brutes
 - [ ] **Phase 4: Nettoyage Code Legacy** - Supprimer fonctions SET search_path obsolètes
 - [ ] **Phase 5: Tests & Validation** - Vérifier isolation multi-tenant et rollback
@@ -89,9 +89,9 @@ db = db.execution_options(schema_translate_map={"tenant": schema_name})
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Remove set_user_search_path from API files (6 files) — PLANNED 2026-01-13
-- [ ] 03-02: Remove schema_utils from services (8 files) — PLANNED 2026-01-13
-- [ ] 03-03: Migrate schedulers, scripts & remaining files (10+ files) — PLANNED 2026-01-13
+- [x] 03-01: Remove set_user_search_path from API files (6 files) ✅ 2026-01-13
+- [x] 03-02: Remove schema_utils from services (9 files) ✅ 2026-01-13
+- [x] 03-03: Migrate schedulers, scripts & remaining files (10 files) ✅ 2026-01-13
 
 **Strategies**:
 1. **Routes API avec get_user_db()**: Supprimer appels redundants (schema déjà configuré)
@@ -195,7 +195,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Préparation Modèles | 2/2 | ✅ Complete | 2026-01-13 |
 | 2. Session Factory | 2/2 | ✅ Complete | 2026-01-13 |
-| 3. Migration text() | 0/3 | Plans ready | - |
+| 3. Migration text() | 3/3 | ✅ Complete | 2026-01-13 |
 | 4. Nettoyage Legacy | 0/1 | Not started | - |
 | 5. Tests & Validation | 0/2 | Not started | - |
 
