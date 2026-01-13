@@ -248,10 +248,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         VintedLogger.debug(`[Stoflow] ✅ VINTED_API_CALL success:`, response);
 
+        // CRITICAL: Clean response to ensure it's JSON-safe (no functions, no circular refs)
+        // This prevents "Function object could not be cloned" error in sendResponse
+        let cleanResponse;
+        try {
+          cleanResponse = JSON.parse(JSON.stringify(response));
+        } catch (jsonError) {
+          VintedLogger.warn(`[Stoflow] ⚠️ Response not JSON-safe, using raw:`, jsonError);
+          cleanResponse = response;
+        }
+
         sendResponse({
           success: true,
           status: 200,
-          data: response
+          data: cleanResponse
         });
       } catch (error: any) {
         VintedLogger.error(`[Stoflow] ❌ VINTED_API_CALL error:`, error);

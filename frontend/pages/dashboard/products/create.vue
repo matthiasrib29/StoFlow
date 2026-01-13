@@ -1,81 +1,41 @@
 <template>
-  <div class="pb-24">
-    <!-- Page Header outside sticky container -->
-    <div class="px-6 pt-6">
-      <PageHeader
-        title="Créer un produit"
-      />
-    </div>
-
-    <!-- Sticky Photos Section -->
-    <div
-      ref="photosContainer"
-      class="sticky-photos-container bg-white z-30 transition-all duration-300"
-      :class="{ 'sticky-shrink': isScrolled }"
-    >
-        <!-- Photo Section Title (visible only when not scrolled) -->
-        <div v-if="!isScrolled" class="flex items-center justify-between mb-2">
-          <h3 class="text-base font-bold text-secondary-900 flex items-center gap-2">
-            <i class="pi pi-images"/>
-            Photos du produit * <span class="font-normal text-sm text-gray-500">(min. 1)</span>
-            <span class="text-sm font-normal text-gray-400">{{ photos.length }}/20</span>
-          </h3>
-
-          <button
-            v-if="photos.length > 0"
-            type="button"
-            class="flex items-center gap-2 bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold px-3 py-1.5 rounded-md transition-colors"
-            :disabled="photos.length >= 20"
-            @click="openPhotoSelector"
-          >
-            <i class="pi pi-plus" />
-            <span>Ajouter</span>
-          </button>
-        </div>
-
-        <!-- Photos Section -->
-        <ProductsPhotoUploader
-          ref="photoUploader"
-          v-model:photos="photos"
-          :compact="isScrolled"
-        />
-    </div>
-
-    <!-- Content with padding -->
-    <div class="px-6">
-      <!-- AI Auto-fill Section (visible when photos exist) -->
-      <ProductsAiAutoFillSection
-        v-if="photos.length > 0"
-        :ai-credits-remaining="aiCreditsRemaining"
-        :loading="isAnalyzingImages"
-        @analyze="analyzeImagesAndFill"
-      />
-
-      <!-- Form Section -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <!-- Progress Bar with Navigation -->
-        <ProductsFormProgressBar
-          :form-data="form"
-          :has-photos="photos.length > 0"
-          :sections="formSections"
-          :active-section="activeSection"
-          @navigate="scrollToSection"
-        />
-        <ProductsProductForm
-          :model-value="form"
-          :is-submitting="isSubmitting"
-          @update:model-value="handleFormUpdate"
-          @submit="handleSubmit"
-        />
-      </div>
-
+  <ProductsProductEditorPage
+    title="Créer un produit"
+    submit-label="Créer le produit"
+    :form="editor.form.value"
+    :photos="editor.images.photos.value"
+    :existing-images="[]"
+    :ai-credits-remaining="editor.aiCreditsRemaining.value"
+    :is-analyzing="editor.ai.isAnalyzing.value"
+    :filled-count="editor.filledRequiredCount.value"
+    :total-count="editor.totalRequiredCount"
+    :missing-fields="editor.missingFields.value"
+    :progress="editor.formProgress.value"
+    :can-submit="editor.canSubmit.value"
+    :form-sections="editor.formSections.value"
+    :is-scrolled="editor.isScrolled.value"
+    :is-submitting="editor.isSubmitting.value"
+    :show-progress-bar="true"
+    :show-draft="true"
+    :has-draft="editor.draft?.hasDraft.value || false"
+    :last-saved="editor.draft?.lastSaved.value || null"
+    :format-last-saved="editor.draft?.formatLastSaved || (() => '')"
+    @update:form="editor.handleFormUpdate"
+    @update:photos="handlePhotosUpdate"
+    @analyze="editor.analyzeWithAI"
+    @submit="handleSubmit"
+    @cancel="router.push('/dashboard/products')"
+    @navigate="editor.scrollToSection"
+    @clear-draft="editor.clearDraftAndReset"
+  >
+    <template #pricing>
       <!-- Pricing Section -->
-      <div v-if="priceResult || isLoadingPrice" class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div v-if="isLoadingPrice" class="flex items-center justify-center py-8">
+      <div v-if="editor.pricing.priceResult.value || editor.pricing.isLoading.value" class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div v-if="editor.pricing.isLoading.value" class="flex items-center justify-center py-8">
           <i class="pi pi-spin pi-spinner text-2xl text-primary-500 mr-3" />
           <span class="text-gray-600">Calcul du prix recommandé...</span>
         </div>
-        <template v-else-if="priceResult">
+        <template v-else-if="editor.pricing.priceResult.value">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
               <i class="pi pi-calculator text-primary-500" />
@@ -84,21 +44,21 @@
             <button
               type="button"
               class="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
-              @click="calculateProductPrice"
+              @click="editor.calculatePrice"
             >
               <i class="pi pi-refresh" />
               Recalculer
             </button>
           </div>
           <ProductsPricingDisplay
-            :pricing="priceResult"
+            :pricing="editor.pricing.priceResult.value"
           />
         </template>
       </div>
 
       <!-- Manual Pricing Button (when no result yet and form has required fields) -->
       <div
-        v-else-if="form.brand && form.category && !isLoadingPrice"
+        v-else-if="editor.form.value.brand && editor.form.value.category && !editor.pricing.isLoading.value"
         class="mt-6 bg-gradient-to-r from-green-50 to-teal-50 border border-green-200 rounded-lg p-4"
       >
         <div class="flex items-center justify-between">
@@ -116,620 +76,48 @@
             label="Calculer le prix"
             icon="pi pi-calculator"
             class="bg-green-500 hover:bg-green-600 text-white border-0 font-semibold"
-            :loading="isLoadingPrice"
-            @click="calculateProductPrice"
+            :loading="editor.pricing.isLoading.value"
+            @click="editor.calculatePrice"
           />
         </div>
       </div>
-    </div>
-
-    <!-- Sticky Footer -->
-    <div class="fixed bottom-0 left-0 right-0 md:left-64 bg-white/95 backdrop-blur-sm border-t border-gray-200 p-4 z-40 shadow-lg">
-      <div class="flex items-center justify-between max-w-4xl mx-auto">
-        <div class="flex items-center gap-4">
-          <!-- Progress indicator -->
-          <div class="flex items-center gap-2 text-sm">
-            <i class="pi pi-check-circle" :class="formProgress >= 100 ? 'text-green-500' : 'text-gray-400'" />
-            <span class="text-gray-500">{{ filledRequiredCount }}/{{ totalRequiredCount }}</span>
-            <!-- Show missing fields -->
-            <span v-if="missingFields.length > 0 || photos.length === 0" class="text-orange-500 flex items-center gap-1">
-              <i class="pi pi-exclamation-triangle text-xs" />
-              <span class="text-xs">
-                Manque :
-                <span
-                  v-if="missingFields.length > 0"
-                  v-tooltip.top="missingFields.length > 3 ? missingFields.join(', ') : undefined"
-                  :class="{ 'cursor-help': missingFields.length > 3 }"
-                >
-                  {{ missingFields.slice(0, 3).join(', ') }}
-                  <span v-if="missingFields.length > 3" class="underline decoration-dotted">+{{ missingFields.length - 3 }}</span>
-                </span>
-                <template v-if="missingFields.length > 0 && photos.length === 0">, </template>
-                <template v-if="photos.length === 0">Photo</template>
-              </span>
-            </span>
-            <!-- All complete -->
-            <span v-else class="text-green-500 flex items-center gap-1 text-xs">
-              <i class="pi pi-check text-xs" />
-              Complet
-            </span>
-          </div>
-          <!-- Draft saved indicator -->
-          <div v-if="hasDraft && lastSaved" class="flex items-center gap-2 text-xs text-gray-400">
-            <i class="pi pi-save" />
-            <span>Brouillon {{ formatLastSaved() }}</span>
-            <button
-              class="text-red-400 hover:text-red-500 underline transition-colors"
-              title="Effacer le brouillon"
-              @click="handleClearDraft"
-            >
-              Effacer
-            </button>
-          </div>
-        </div>
-        <div class="flex items-center gap-3">
-          <Button
-            type="button"
-            label="Annuler"
-            icon="pi pi-times"
-            class="bg-gray-200 hover:bg-gray-300 text-secondary-900 border-0"
-            @click="$router.push('/dashboard/products')"
-          />
-          <Button
-            type="button"
-            label="Créer le produit"
-            icon="pi pi-check"
-            class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
-            :loading="isSubmitting"
-            :disabled="!canSubmit"
-            @click="handleSubmit"
-          />
-        </div>
-      </div>
-    </div>
-  </div>
+    </template>
+  </ProductsProductEditorPage>
 </template>
 
 <script setup lang="ts">
-import { useProductsStore } from '~/stores/products'
-import { useProductDraft } from '~/composables/useProductDraft'
-import { usePricingCalculation, type PriceInput, type PriceOutput } from '~/composables/usePricingCalculation'
-import { type ProductFormData, defaultProductFormData } from '~/types/product'
-import { productLogger } from '~/utils/logger'
+import { useProductEditor } from '~/composables/useProductEditor'
+import type { Photo } from '~/composables/useProductImages'
 
 definePageMeta({
   layout: 'dashboard'
 })
 
 const router = useRouter()
-const productsStore = useProductsStore()
-const { showSuccess, showError, showWarn, showInfo } = useAppToast()
 
-// Auto-save draft functionality
-const { saveDraft, debouncedSave, loadDraft, clearDraft, hasDraft, lastSaved, formatLastSaved } = useProductDraft()
+// Initialize the product editor in create mode
+const editor = useProductEditor({ mode: 'create' })
 
-// Form data with complete ProductFormData interface
-const form = ref<ProductFormData>({ ...defaultProductFormData })
-
-// Photos management
-interface Photo {
-  file: File
-  preview: string
+// Handle photos update from component
+const handlePhotosUpdate = (newPhotos: Photo[]) => {
+  editor.images.photos.value = newPhotos
 }
 
-const photos = ref<Photo[]>([])
-const isSubmitting = ref(false)
-const isAnalyzingImages = ref(false)
-
-// Sticky photos scroll detection
-const photosContainer = ref<HTMLElement | null>(null)
-const isScrolled = ref(false)
-
-// Detect scroll to shrink photos
-const { y: scrollY } = useScroll(window)
-
-watch(scrollY, (newY) => {
-  // Shrink when scrolled more than 100px
-  isScrolled.value = newY > 100
-})
-
-// API composable
-const { post } = useApi()
-
-// AI Credits
-const { aiCreditsRemaining, fetchAICredits } = useAiCredits()
-
-// Pricing composable
-const {
-  isLoading: isLoadingPrice,
-  error: priceError,
-  priceResult,
-  calculatePrice,
-  reset: resetPricing
-} = usePricingCalculation()
-
-// Required fields for progress calculation
-const requiredFields = ['title', 'description', 'category', 'brand', 'condition', 'size_original', 'color', 'gender', 'material'] as const
-const totalRequiredCount = requiredFields.length
-
-// Human-readable field names
-const fieldLabels: Record<string, string> = {
-  title: 'Titre',
-  description: 'Description',
-  category: 'Catégorie',
-  brand: 'Marque',
-  condition: 'État',
-  size_original: 'Taille',
-  color: 'Couleur',
-  gender: 'Genre',
-  material: 'Matière'
-}
-
-// Calculate filled required fields
-const filledRequiredCount = computed(() => {
-  return requiredFields.filter(field => {
-    const value = form.value[field]
-    return value !== null && value !== undefined && value !== ''
-  }).length
-})
-
-// Get missing required fields (human-readable)
-const missingFields = computed(() => {
-  return requiredFields.filter(field => {
-    const value = form.value[field]
-    return value === null || value === undefined || value === ''
-  }).map(field => fieldLabels[field] || field)
-})
-
-// Calculate form progress percentage (including photos)
-const formProgress = computed(() => {
-  const fieldsProgress = (filledRequiredCount.value / totalRequiredCount) * 90 // 90% for fields
-  const photosProgress = photos.value.length > 0 ? 10 : 0 // 10% for photos
-  return Math.round(fieldsProgress + photosProgress)
-})
-
-// Can submit: all required fields filled + at least 1 photo
-const canSubmit = computed(() => {
-  return filledRequiredCount.value === totalRequiredCount && photos.value.length > 0
-})
-
-// Section navigation for progress bar
-const activeSection = ref('info')
-
-const formSections = computed(() => {
-  const infoFields = ['title', 'description', 'price'] as const
-  const charFields = ['category', 'brand', 'condition', 'size_original', 'color', 'gender', 'material'] as const
-  const measuresFields = ['dim1', 'dim2', 'dim3'] as const
-
-  return [
-    {
-      id: 'info',
-      label: 'Infos',
-      filled: infoFields.filter(f => form.value[f]).length,
-      total: 3,
-      isComplete: infoFields.filter(f => ['title', 'description'].includes(f)).every(f => form.value[f])
-    },
-    {
-      id: 'characteristics',
-      label: 'Caractéristiques',
-      filled: charFields.filter(f => form.value[f] !== null && form.value[f] !== undefined && form.value[f] !== '').length,
-      total: charFields.length,
-      isComplete: charFields.every(f => form.value[f] !== null && form.value[f] !== undefined && form.value[f] !== '')
-    },
-    {
-      id: 'measures',
-      label: 'Mesures',
-      filled: measuresFields.filter(f => form.value[f]).length,
-      total: 3,
-      isComplete: false
-    }
-  ]
-})
-
-const scrollToSection = (sectionId: string) => {
-  const element = document.getElementById(`section-${sectionId}`)
-  if (element) {
-    const offset = 80 // Offset pour le header de page
-    const elementPosition = element.getBoundingClientRect().top
-    const offsetPosition = elementPosition + window.pageYOffset - offset
-
-    window.scrollTo({
-      top: offsetPosition,
-      behavior: 'smooth'
-    })
-    activeSection.value = sectionId
-  }
-}
-
-// Reference to PhotoUploader component
-const photoUploader = ref<{ openFileSelector: () => void } | null>(null)
-
-// Method to open photo selector
-const openPhotoSelector = () => {
-  if (photoUploader.value) {
-    photoUploader.value.openFileSelector()
-  }
-}
-
-// ====== AI IMAGE ANALYSIS ======
-
-/**
- * Analyse les images uploadées avec l'IA et remplit le formulaire
- */
-const analyzeImagesAndFill = async () => {
-  if (photos.value.length === 0) {
-    showWarn('Pas de photos', 'Ajoutez au moins une photo pour utiliser l\'IA', 3000)
-    return
-  }
-
-  isAnalyzingImages.value = true
-
-  try {
-    // Créer FormData avec les fichiers
-    const formData = new FormData()
-    for (const photo of photos.value) {
-      formData.append('files', photo.file)
-    }
-
-    // Appeler l'endpoint d'analyse directe
-    const response = await post<{
-      attributes: {
-        title?: string | null
-        description?: string | null
-        price?: number | null
-        category?: string | null
-        brand?: string | null
-        condition?: number | null
-        label_size?: string | null
-        color?: string[] | null
-        material?: string[] | null
-        fit?: string | null
-        gender?: string | null
-        season?: string | null
-        sport?: string | null
-        neckline?: string | null
-        length?: string | null
-        pattern?: string | null
-        rise?: string | null
-        closure?: string | null
-        sleeve_length?: string | null
-        stretch?: string | null
-        lining?: string | null
-        origin?: string | null
-        decade?: string | null
-        trend?: string | null
-        model?: string | null
-        unique_feature?: string[] | null
-        marking?: string[] | null
-        condition_sup?: string[] | null
-        confidence?: number
-      }
-      images_analyzed: number
-      tokens_used: number
-    }>('/products/analyze-images-direct', formData)
-
-    if (response?.attributes) {
-      fillFormWithAIResults(response.attributes)
-      showSuccess(
-        'Analyse terminée',
-        `${response.images_analyzed} image(s) analysée(s). Formulaire pré-rempli avec confiance ${Math.round((response.attributes.confidence || 0) * 100)}%`,
-        4000
-      )
-
-      // Calculer le prix recommandé après remplissage IA
-      await calculateProductPrice()
-    }
-  } catch (error: any) {
-    productLogger.error('AI analysis error', { error: error.message })
-
-    // Gérer les erreurs spécifiques
-    if (error?.statusCode === 402) {
-      showError(
-        'Crédits insuffisants',
-        'Vous n\'avez plus de crédits IA. Passez à un abonnement supérieur.',
-        5000
-      )
-    } else {
-      showError(
-        'Erreur d\'analyse',
-        error.message || 'Impossible d\'analyser les images. Réessayez plus tard.',
-        5000
-      )
-    }
-  } finally {
-    isAnalyzingImages.value = false
-    // Refresh credits after analysis (success or failure)
-    await fetchAICredits()
-  }
-}
-
-/**
- * Remplit le formulaire avec les résultats de l'IA
- */
-const fillFormWithAIResults = (attrs: Record<string, any>) => {
-  // Mappings: attribut API -> champ formulaire
-  const mappings: [string, keyof ProductFormData][] = [
-    ['title', 'title'],
-    ['description', 'description'],
-    ['price', 'price'],
-    ['category', 'category'],
-    ['brand', 'brand'],
-    ['condition', 'condition'],
-    ['fit', 'fit'],
-    ['gender', 'gender'],
-    ['season', 'season'],
-    ['sport', 'sport'],
-    ['neckline', 'neckline'],
-    ['length', 'length'],
-    ['pattern', 'pattern'],
-    ['rise', 'rise'],
-    ['closure', 'closure'],
-    ['sleeve_length', 'sleeve_length'],
-    ['stretch', 'stretch'],
-    ['lining', 'lining'],
-    ['origin', 'origin'],
-    ['decade', 'decade'],
-    ['trend', 'trend'],
-    ['model', 'model'],
-  ]
-
-  let fieldsUpdated = 0
-
-  for (const [apiField, formField] of mappings) {
-    if (attrs[apiField] !== null && attrs[apiField] !== undefined) {
-      // @ts-expect-error - Dynamic key access
-      form.value[formField] = attrs[apiField]
-      fieldsUpdated++
-    }
-  }
-
-  // Gérer size_original (vient de label_size)
-  if (attrs.label_size) {
-    form.value.size_original = attrs.label_size
-    fieldsUpdated++
-  }
-
-  // Handle array fields (backend already converts to arrays)
-  const arrayFields = ['condition_sup', 'unique_feature', 'marking'] as const
-  for (const field of arrayFields) {
-    if (attrs[field] && Array.isArray(attrs[field]) && attrs[field].length > 0) {
-      (form.value as any)[field] = attrs[field]
-      fieldsUpdated++
-    }
-  }
-
-  // Handle color (backend returns array, form expects first value as string)
-  if (attrs.color && Array.isArray(attrs.color) && attrs.color.length > 0) {
-    form.value.color = attrs.color[0]
-    fieldsUpdated++
-  }
-
-  // Handle material (backend returns array, form expects first value as string)
-  if (attrs.material && Array.isArray(attrs.material) && attrs.material.length > 0) {
-    form.value.material = attrs.material[0]
-    fieldsUpdated++
-  }
-
-  productLogger.debug(`Filled ${fieldsUpdated} fields from AI analysis`)
-}
-
-// ====== PRICING CALCULATION ======
-
-/**
- * Calcule le prix recommandé basé sur les attributs du produit
- */
-const calculateProductPrice = async () => {
-  // Vérifier les champs requis pour le calcul de prix
-  if (!form.value.brand || !form.value.category) {
-    productLogger.debug('Missing required fields for pricing: brand or category')
-    return
-  }
-
-  try {
-    // Construire l'input pour l'API pricing
-    const priceInput: PriceInput = {
-      brand: form.value.brand,
-      category: form.value.category,
-      materials: form.value.material ? [form.value.material] : [],
-      model_name: form.value.model || undefined,
-      condition_score: form.value.condition || 5,  // 0-10 scale, 5 is baseline
-      supplements: form.value.condition_sup || [],
-      condition_sensitivity: 1.0, // Default
-      actual_origin: form.value.origin || '',
-      expected_origins: ['france', 'italie', 'usa', 'japon'],
-      actual_decade: form.value.decade || '',
-      expected_decades: ['1990s', '2000s', '2010s'],
-      actual_trends: form.value.trend ? [form.value.trend] : [],
-      expected_trends: ['vintage', 'streetwear', 'minimalist'],
-      actual_features: form.value.unique_feature || [],
-      expected_features: ['limited edition', 'collaboration', 'rare color']
-    }
-
-    await calculatePrice(priceInput)
-    productLogger.debug('Pricing calculated', { result: priceResult.value })
-  } catch (error: any) {
-    productLogger.error('Pricing calculation error', { error: error.message })
-    // Don't show error to user, pricing is optional
-  }
-}
-
-// Handle form updates from ProductForm
-const handleFormUpdate = (newForm: ProductFormData) => {
-  form.value = newForm
-}
-
+// Handle form submission
 const handleSubmit = async () => {
-  // Validation: Vérifier qu'au moins 1 photo est ajoutée
-  if (photos.value.length === 0) {
-    showWarn(
-      'Photo manquante',
-      'Veuillez ajouter au moins 1 photo pour le produit',
-      3000
-    )
-    return
-  }
-
-  isSubmitting.value = true
-
-  try {
-    // Préparer les données pour l'API (mapper size_original vers le format attendu par le backend)
-    const productData = {
-      title: form.value.title,
-      description: form.value.description,
-      price: form.value.price,
-      category: form.value.category,
-      condition: form.value.condition,
-      brand: form.value.brand || null,
-      size_original: form.value.size_original || null,
-      size_normalized: form.value.size_normalized || null,
-      color: form.value.color || null,
-      material: form.value.material || null,
-      fit: form.value.fit || null,
-      gender: form.value.gender || null,
-      season: form.value.season || null,
-      sport: form.value.sport || null,
-      neckline: form.value.neckline || null,
-      length: form.value.length || null,
-      pattern: form.value.pattern || null,
-      rise: form.value.rise || null,
-      closure: form.value.closure || null,
-      sleeve_length: form.value.sleeve_length || null,
-      stretch: form.value.stretch || null,
-      lining: form.value.lining || null,
-      origin: form.value.origin || null,
-      decade: form.value.decade || null,
-      trend: form.value.trend || null,
-      condition_sup: form.value.condition_sup || null,
-      location: form.value.location || null,
-      model: form.value.model || null,
-      unique_feature: form.value.unique_feature || null,
-      marking: form.value.marking || null,
-      dim1: form.value.dim1 || null,
-      dim2: form.value.dim2 || null,
-      dim3: form.value.dim3 || null,
-      dim4: form.value.dim4 || null,
-      dim5: form.value.dim5 || null,
-      dim6: form.value.dim6 || null,
-      pricing_rarity: form.value.pricing_rarity || null,
-      pricing_quality: form.value.pricing_quality || null,
-      pricing_style: form.value.pricing_style || null,
-      pricing_details: form.value.pricing_details || null,
-      pricing_edit: form.value.pricing_edit || null,
-      stock_quantity: form.value.stock_quantity
-    }
-
-    // Créer le produit via API
-    const newProduct = await productsStore.createProduct(productData)
-
-    // Upload images si le produit est créé avec succès
-    if (newProduct && photos.value.length > 0 && newProduct.id) {
-      try {
-        for (let i = 0; i < photos.value.length; i++) {
-          const photo = photos.value[i]
-          if (photo) {
-            await productsStore.uploadProductImage(newProduct.id, photo.file, i)
-          }
-        }
-
-        showSuccess(
-          'Produit créé',
-          `${form.value.title} a été créé avec ${photos.value.length} image(s)`,
-          3000
-        )
-      } catch (imageError: any) {
-        showWarn(
-          'Produit créé',
-          `${form.value.title} créé, mais erreur upload images: ${imageError.message}`,
-          5000
-        )
-      }
-    } else if (newProduct) {
-      showSuccess(
-        'Produit créé',
-        `${form.value.title} a été créé avec succès`,
-        3000
-      )
-    }
-
-    // Clear draft on success
-    clearDraft()
-
-    // Redirect to products list
+  const product = await editor.handleSubmit()
+  if (product) {
     router.push('/dashboard/products')
-  } catch (error: any) {
-    productLogger.error('Error creating product', { error: error.message })
-    showError(
-      'Erreur',
-      error.message || 'Impossible de créer le produit',
-      5000
-    )
-  } finally {
-    isSubmitting.value = false
   }
 }
 
-// ====== AUTO-SAVE DRAFT ======
-
-// Handle clear draft button
-const handleClearDraft = () => {
-  clearDraft()
-  form.value = { ...defaultProductFormData }
-  photos.value = []
-  resetPricing()
-  showInfo('Brouillon effacé', 'Le formulaire a été réinitialisé', 2000)
-}
-
-// Watch form changes and auto-save (debounced 2s)
-watch(form, () => {
-  debouncedSave(form.value, photos.value)
-}, { deep: true })
-
-// Also save when photos change
-watch(photos, () => {
-  debouncedSave(form.value, photos.value)
-}, { deep: true })
-
-// Restore draft on mount
+// Initialize on mount
 onMounted(async () => {
-  // Fetch AI credits for display
-  await fetchAICredits()
-
-  const draft = loadDraft()
-  if (draft) {
-    // Restore form data
-    form.value = { ...defaultProductFormData, ...draft.formData }
-    showInfo(
-      'Brouillon restauré',
-      `Votre travail précédent a été récupéré${draft.photoCount > 0 ? ' (les photos devront être ré-uploadées)' : ''}`,
-      4000
-    )
-  }
+  await editor.initialize()
 })
 
 // Cleanup on unmount
 onUnmounted(() => {
-  photos.value.forEach(photo => {
-    URL.revokeObjectURL(photo.preview)
-  })
+  editor.cleanup()
 })
 </script>
-
-<style scoped>
-.sticky-photos-container {
-  position: sticky;
-  top: 0;
-  padding: 1rem 1.5rem 0.25rem;
-  margin-bottom: 0;
-  border-bottom: 1px solid transparent;
-  transition: all 0.3s ease;
-  z-index: 30;
-}
-
-.sticky-photos-container.sticky-shrink {
-  padding: 0.5rem 1.5rem 0;
-  margin-bottom: 0;
-  border-bottom-color: #e5e7eb;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  background-color: white;
-}
-</style>
