@@ -52,7 +52,7 @@ class PublicationHistory(Base):
     # Foreign Keys
     product_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
