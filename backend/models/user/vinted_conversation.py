@@ -223,7 +223,7 @@ class VintedMessage(Base):
     # Foreign Key to conversation
     conversation_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("vinted_conversations.conversation_id", ondelete="CASCADE"),
+        ForeignKey("tenant.vinted_conversations.conversation_id", ondelete="CASCADE"),
         nullable=False,
         comment="FK to vinted_conversations"
     )
