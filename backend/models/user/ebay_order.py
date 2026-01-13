@@ -154,7 +154,7 @@ class EbayOrderProduct(Base):
     # Foreign Key to Order
     order_id: Mapped[str] = mapped_column(
         Text,
-        ForeignKey("ebay_orders.order_id", ondelete="CASCADE"),
+        ForeignKey("tenant.ebay_orders.order_id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
