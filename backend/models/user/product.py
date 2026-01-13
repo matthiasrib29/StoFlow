@@ -235,6 +235,7 @@ class Product(Base):
             ondelete="SET NULL",
             name="fk_products_stretch",
         ),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     # ===== PRIMARY KEY =====
