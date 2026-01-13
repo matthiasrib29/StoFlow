@@ -14,8 +14,8 @@ None (internal patterns, no external integrations)
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Backend Service** - Service Python de génération templates
-- [ ] **Phase 2: Backend API** - Endpoints REST génération et preview
+- [x] **Phase 1: Backend Service** - Service Python de génération templates ✅
+- [x] **Phase 2: Backend API** - Endpoints REST génération et preview ✅
 - [ ] **Phase 3: User Settings** - Préférences format/style par utilisateur
 - [ ] **Phase 4: Frontend Composable** - useProductTextGenerator.ts
 - [ ] **Phase 5: Frontend UI** - Boutons et modal dans formulaire produit
@@ -29,8 +29,8 @@ None (internal patterns, no external integrations)
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Implémentation des 3 formats de titre
-- [ ] 01-02: Implémentation des 3 styles de description
+- [x] 01-01: Implémentation des 3 formats de titre ✅
+- [x] 01-02: Implémentation des 3 styles de description ✅
 
 ### Phase 2: Backend API
 **Goal**: Exposer les endpoints REST pour générer et preview les textes
@@ -39,7 +39,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01: Endpoints generate-text et preview-text
+- [x] 02-01: Endpoints generate-text et preview-text ✅
 
 ### Phase 3: User Settings
 **Goal**: Ajouter les préférences utilisateur pour format titre et style description par défaut
@@ -76,8 +76,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Backend Service | 0/2 | Not started | - |
-| 2. Backend API | 0/1 | Not started | - |
+| 1. Backend Service | 2/2 | Complete | 2026-01-13 |
+| 2. Backend API | 1/1 | Complete | 2026-01-13 |
 | 3. User Settings | 0/1 | Not started | - |
 | 4. Frontend Composable | 0/1 | Not started | - |
 | 5. Frontend UI | 0/2 | Not started | - |
