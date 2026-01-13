@@ -346,7 +346,9 @@
       "Bash(for branch in hotfix/fix-vision-config hotfix/test-vinted-flow hotfix/test-flow-create-product hotfix/test-ebay)",
       "Bash(do echo '=== origin/$branch ===')",
       "WebFetch(domain:docs.sentry.io)",
-      "WebFetch(domain:nuxt.com)"
+      "WebFetch(domain:nuxt.com)",
+      "Bash(~/StoFlow/.claude/worktree-init.sh ~/StoFlow-fix-bdd)",
+      "WebFetch(domain:blog.logrocket.com)"
     ]
   },
   "enableAllProjectMcpServers": true,
