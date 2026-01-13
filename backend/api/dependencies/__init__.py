@@ -9,7 +9,7 @@ Date: 2025-12-08
 
 import logging
 import re
-from typing import Callable, Optional, Tuple
+from typing import Callable, Generator, Optional, Tuple
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -381,13 +381,13 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
 def get_user_db(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Tuple[Session, User]:
+) -> Generator[Tuple[Session, User], None, None]:
     """
     Dependency qui retourne une session DB avec isolation user automatique.
 
     Cette dependency:
     1. Authentifie l'utilisateur via JWT
-    2. Configure schema_translate_map pour remapper "tenant" vers le schema user
+    2. Crée une nouvelle session avec schema_translate_map configuré
     3. Vérifie que schema_translate_map est correctement appliqué
     4. Retourne la session et l'utilisateur
 
@@ -395,7 +395,7 @@ def get_user_db(
     - Uses schema_translate_map instead of SET LOCAL search_path
     - schema_translate_map survives COMMIT and ROLLBACK (unlike SET LOCAL)
     - Models with schema="tenant" are remapped to actual user schema at query time
-    - More robust for connection pooling and long transactions
+    - Creates a new session with configured engine bind (Session.connection() doesn't persist options)
 
     Usage:
         @router.get("/products")
@@ -404,42 +404,57 @@ def get_user_db(
             # db est déjà configuré pour le schema user_{id}
             products = db.query(Product).all()
 
-    Returns:
+    Yields:
         Tuple[Session, User]: (session DB isolée, utilisateur authentifié)
     """
+    from sqlalchemy.exc import SQLAlchemyError
+    from shared.database import engine
+
     # Valider strictement le schema_name (defense-in-depth contre SQL injection)
     # Passe db pour vérifier que le schema existe réellement
     schema_name = _validate_schema_name(current_user.schema_name, db)
 
-    # Use schema_translate_map for robust multi-tenant isolation
-    # This survives COMMIT and ROLLBACK (unlike SET LOCAL search_path)
-    # The "tenant" placeholder in models is remapped to actual user schema
-    # Note: Session doesn't have execution_options(), but Connection does
-    # Calling connection() with execution_options configures the underlying connection
-    db.connection(execution_options={"schema_translate_map": {"tenant": schema_name}})
+    # Close the original session - we'll create a new one with configured bind
+    # This releases the connection back to the pool
+    db.close()
 
-    # Verify schema_translate_map was applied
-    conn = db.connection()
-    schema_map = conn.get_execution_options().get("schema_translate_map", {})
-    configured_schema = schema_map.get("tenant")
-
-    logger.debug(
-        f"[get_user_db] User {current_user.id}, "
-        f"schema_translate_map={{'tenant': '{schema_name}'}}"
+    # Create engine with schema_translate_map
+    # engine.execution_options() returns a NEW engine with the options set
+    configured_engine = engine.execution_options(
+        schema_translate_map={"tenant": schema_name}
     )
 
-    # Double-check schema_translate_map is set (CRITICAL SECURITY CHECK)
-    if configured_schema != schema_name:
-        logger.critical(
-            f"🚨 SCHEMA_TRANSLATE_MAP FAILURE: Expected '{schema_name}' but got '{configured_schema}'. "
-            f"User {current_user.id} isolation compromised."
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database isolation error. Please retry your request."
+    # Create new session with the configured engine
+    configured_db = Session(bind=configured_engine)
+
+    try:
+        # Verify schema_translate_map was applied
+        schema_map = configured_db.get_bind().get_execution_options().get("schema_translate_map", {})
+        configured_schema = schema_map.get("tenant")
+
+        logger.debug(
+            f"[get_user_db] User {current_user.id}, "
+            f"schema_translate_map={{'tenant': '{schema_name}'}}"
         )
 
-    return db, current_user
+        # Double-check schema_translate_map is set (CRITICAL SECURITY CHECK)
+        if configured_schema != schema_name:
+            logger.critical(
+                f"🚨 SCHEMA_TRANSLATE_MAP FAILURE: Expected '{schema_name}' but got '{configured_schema}'. "
+                f"User {current_user.id} isolation compromised."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database isolation error. Please retry your request."
+            )
+
+        yield configured_db, current_user
+        configured_db.commit()
+    except SQLAlchemyError:
+        configured_db.rollback()
+        raise
+    finally:
+        configured_db.close()
 
 
 __all__ = [
