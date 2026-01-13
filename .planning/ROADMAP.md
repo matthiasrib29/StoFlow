@@ -17,7 +17,7 @@ Or: None (patterns établis dans la documentation SQLAlchemy)
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Préparation Modèles Tenant** - Ajouter placeholder schema "tenant" aux 20 modèles user/
+- [x] **Phase 1: Préparation Modèles Tenant** - Ajouter placeholder schema "tenant" aux 20 modèles user/ ✅
 - [ ] **Phase 2: Session Factory & Dependencies** - Implémenter schema_translate_map dans get_user_db()
 - [ ] **Phase 3: Migration Requêtes text()** - Convertir 28 fichiers avec requêtes SQL brutes
 - [ ] **Phase 4: Nettoyage Code Legacy** - Supprimer fonctions SET search_path obsolètes
@@ -32,8 +32,8 @@ Or: None (patterns établis dans la documentation SQLAlchemy)
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Modifier modèles principaux (product, vinted_*, marketplace_*)
-- [ ] 01-02: Modifier modèles secondaires (ebay_*, etsy_*, ai_*, pending_*)
+- [x] 01-01: Modifier modèles principaux (product, vinted_*, marketplace_*) ✅ 2026-01-13
+- [x] 01-02: Modifier modèles secondaires (ebay_*, etsy_*, ai_*, pending_*) ✅ 2026-01-13
 
 **Files (20)**:
 ```
@@ -192,7 +192,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Préparation Modèles | 0/2 | Not started | - |
+| 1. Préparation Modèles | 2/2 | ✅ Complete | 2026-01-13 |
 | 2. Session Factory | 0/2 | Not started | - |
 | 3. Migration text() | 0/3 | Not started | - |
 | 4. Nettoyage Legacy | 0/1 | Not started | - |
@@ -215,7 +215,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 ## Success Criteria
 
-- [ ] Tous les modèles `user/` ont `schema: "tenant"` placeholder
+- [x] Tous les modèles `user/` ont `schema: "tenant"` placeholder ✅
 - [ ] `get_user_db()` utilise `schema_translate_map` au lieu de `SET`
 - [ ] Aucun appel `SET search_path` ne reste dans le code
 - [ ] Tests prouvent que schema persiste après COMMIT et ROLLBACK
