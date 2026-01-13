@@ -188,6 +188,18 @@ class User(Base):
         comment="Code langue ISO 639-1 (fr, en, etc.)"
     )
 
+    # Text Generator Preferences (Added: 2026-01-13)
+    default_title_format: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Default title format: 1=Ultra Complete, 2=Technical, 3=Style & Trend"
+    )
+    default_description_style: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Default description style: 1=Professional, 2=Storytelling, 3=Minimalist"
+    )
+
     # Subscription Fields (moved from Tenant model)
     subscription_tier: Mapped[SubscriptionTier] = mapped_column(
         SQLEnum(SubscriptionTier, name="subscription_tier", create_type=True),
