@@ -384,7 +384,7 @@ class VintedOrderSyncService:
     async def _fetch_orders_page(
         self, db: Session, page: int
     ) -> dict | None:
-        """Fetch single page of sold orders. Returns None on error."""
+        """Fetch single page of sold orders (status=all). Returns None on error."""
         try:
             result = await PluginWebSocketHelper.call_plugin_http(
                 db=db,
@@ -392,7 +392,7 @@ class VintedOrderSyncService:
                 http_method="GET",
                 path=VintedOrderAPI.get_orders(
                     order_type="sold",
-                    status="completed",
+                    status="all",
                     page=page,
                     per_page=20
                 ),
