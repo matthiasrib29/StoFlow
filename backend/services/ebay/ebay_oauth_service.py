@@ -23,7 +23,6 @@ from services.ebay.ebay_oauth_config import (
     get_ebay_credentials,
     get_oauth_urls,
 )
-from shared.database import set_search_path_safe
 from services.ebay.ebay_account_parser import update_ebay_credentials_from_seller_info
 from shared.logging_setup import get_logger
 
@@ -269,8 +268,10 @@ def fetch_and_save_account_info(
         from services.ebay.ebay_identity_client import EbayIdentityClient
         from services.ebay.ebay_trading_client import EbayTradingClient
 
-        # SECURITY (2026-01-12): Use validated search_path setting
-        set_search_path_safe(db, user_id)
+        # Set schema for multi-tenant isolation (survives commit/rollback)
+        db = db.execution_options(
+            schema_translate_map={"tenant": f"user_{user_id}"}
+        )
 
         seller_info = {}
 
@@ -335,8 +336,10 @@ def process_oauth_callback(
     Raises:
         HTTPException: Si validation ou échange échoue
     """
-    # SECURITY (2026-01-12): Use validated search_path setting
-    set_search_path_safe(db, user_id)
+    # Set schema for multi-tenant isolation (survives commit/rollback)
+    db = db.execution_options(
+        schema_translate_map={"tenant": f"user_{user_id}"}
+    )
 
     # Validate state (CSRF protection)
     if not validate_state(state, user_id):
@@ -352,7 +355,7 @@ def process_oauth_callback(
     ebay_creds = save_tokens_to_db(db, tokens, sandbox)
 
     # Fetch and save account info (non-blocking)
-    # Note: set_search_path_safe is called inside fetch_and_save_account_info
+    # Note: execution_options already applied, fetch_and_save_account_info will reapply
     fetch_and_save_account_info(db, user_id, ebay_creds, schema_name)
 
     return {
