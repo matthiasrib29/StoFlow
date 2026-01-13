@@ -52,8 +52,7 @@ class EbayOrder(Base):
     """
 
     __tablename__ = "ebay_orders"
-    # Schema will be set dynamically via search_path
-    __table_args__ = {}
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     # Primary Key
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -147,8 +146,7 @@ class EbayOrderProduct(Base):
     """
 
     __tablename__ = "ebay_orders_products"
-    # Schema will be set dynamically via search_path
-    __table_args__ = {}
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     # Primary Key
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
