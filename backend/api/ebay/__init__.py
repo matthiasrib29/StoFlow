@@ -6,5 +6,6 @@ Exports routers for eBay integration.
 
 from api.ebay.main import router
 from api.ebay.products import router as products_router
+from api.ebay.returns import router as returns_router
 
-__all__ = ["router", "products_router"]
+__all__ = ["router", "products_router", "returns_router"]
