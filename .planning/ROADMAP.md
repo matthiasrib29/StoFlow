@@ -80,7 +80,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Backend API | 1/1 | Complete | 2026-01-13 |
 | 3. User Settings | 1/1 | Complete | 2026-01-13 |
 | 4. Frontend Composable | 1/1 | Complete | 2026-01-13 |
-| 5. Frontend UI | 0/2 | Not started | - |
+| 5. Frontend UI | 0/2 | Planned | - |
 
 ---
 
