@@ -37,8 +37,21 @@ if ! docker ps | grep -q stoflow.*postgres; then
     cd backend
     docker-compose up -d
     cd ..
-    sleep 3
 fi
+
+# Wait for PostgreSQL to be ready
+echo -e "${YELLOW}⏳ Waiting for PostgreSQL...${NC}"
+for i in {1..30}; do
+    if docker exec stoflow_postgres pg_isready -U stoflow_user >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ PostgreSQL ready${NC}"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo -e "${RED}❌ PostgreSQL not ready after 30s${NC}"
+        exit 1
+    fi
+    sleep 1
+done
 
 # Kill any existing processes on our ports (only servers, not clients)
 echo -e "${YELLOW}🧹 Cleaning up ports ${BACKEND_PORT} and ${FRONTEND_PORT}...${NC}"
@@ -85,8 +98,20 @@ if [ ! -d "venv" ]; then
     exit 1
 fi
 
-# Activate venv and start uvicorn in background
+# Activate venv
 source venv/bin/activate
+
+# Apply database migrations
+echo -e "${YELLOW}📦 Checking database migrations...${NC}"
+if alembic upgrade head 2>&1; then
+    echo -e "${GREEN}✅ Database up to date${NC}"
+else
+    echo -e "${RED}❌ Migration failed! Check alembic logs.${NC}"
+    echo -e "${YELLOW}   Run: cd backend && alembic upgrade head${NC}"
+    exit 1
+fi
+
+# Start uvicorn in background
 uvicorn main:app --reload --host 0.0.0.0 --port ${BACKEND_PORT} > ../logs/${ENV_NAME}-backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..

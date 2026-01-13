@@ -44,18 +44,59 @@ git commit -m "wip: save changes before sync"
 git fetch origin
 ```
 
-### 3. Rebase sur develop
+### 3. 🛡️ BACKUP automatique avant rebase (ajouté 2026-01-13)
+
+**Créer un point de restauration AVANT le rebase :**
+
+```bash
+# Créer un stash de sécurité avec timestamp
+BACKUP_NAME="backup-before-sync-$(date +%Y%m%d-%H%M%S)"
+BRANCH=$(git branch --show-current)
+
+# Créer une branche de backup (plus sûr que stash pour les rebases)
+git branch "${BRANCH}-backup-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
+
+echo "✅ Backup branch créée"
+echo "   En cas de problème: git checkout ${BRANCH}-backup-*"
+```
+
+### 4. Rebase sur develop
 ```bash
 git rebase origin/develop
 ```
 
-### 4. Gestion des conflits
+### 5. Gestion des conflits
 
 **Si conflits détectés** → Afficher les fichiers en conflit et DEMANDER comment procéder :
 - Option 1: Résoudre manuellement
 - Option 2: `git rebase --abort` pour annuler
 
-### 5. Rapport final
+### 6. 🗄️ Appliquer les nouvelles migrations (ajouté 2026-01-13)
+
+**Après rebase réussi**, vérifier et appliquer les migrations :
+
+```bash
+cd backend
+source .venv/bin/activate
+
+# Vérifier s'il y a de nouvelles migrations
+CURRENT=$(alembic current 2>/dev/null | grep -oP '[a-f0-9]+(?= \(head\))' || echo "none")
+HEADS=$(alembic heads 2>/dev/null | head -1 | awk '{print $1}')
+
+if [ "$CURRENT" != "$HEADS" ]; then
+  echo "📦 Nouvelles migrations détectées, application..."
+  alembic upgrade head
+  echo "✅ Migrations appliquées"
+else
+  echo "✅ DB déjà à jour"
+fi
+```
+
+**Si erreur Alembic** → Afficher l'erreur et proposer :
+- Option 1: `alembic upgrade head` manuellement après diagnostic
+- Option 2: Voir section "Migrations en Multi-Worktree" dans CLAUDE.md
+
+### 7. Rapport final
 
 ```
 ╔══════════════════════════════════════════╗
@@ -64,12 +105,13 @@ git rebase origin/develop
 ║  🌿 Branche : [nom]                      ║
 ║  📍 Worktree : [chemin]                  ║
 ║  ✅ Rebasé sur origin/develop            ║
+║  🗄️ Migrations : [à jour / X appliquées] ║
 ╚══════════════════════════════════════════╝
 ```
 
 ---
 
-## 🛡️ Règles de sécurité (ajoutées 2026-01-12)
+## 🛡️ Règles de sécurité (mises à jour 2026-01-13)
 
 > Ces règles protègent contre la perte de données lors de sync.
 

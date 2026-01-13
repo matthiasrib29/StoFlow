@@ -1,0 +1,15 @@
+# Files to copy when creating worktrees
+# Used by /X-new-feature and /X-new-hotfix skills
+#
+# Format: One path per line (relative to repo root)
+# Directories end with /
+
+# Environment files
+backend/.env
+frontend/.env
+
+# Credentials and keys
+backend/keys/
+
+# Note: .venv is symlinked, not copied (to save space)
+# Note: node_modules is installed fresh via npm install
