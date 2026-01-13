@@ -123,6 +123,7 @@ class VintedJobService:
         expires_at = now + timedelta(hours=JOB_EXPIRATION_HOURS)
 
         job = MarketplaceJob(
+            marketplace="vinted",  # Explicit marketplace for Vinted jobs
             action_type_id=action_type.id,
             product_id=product_id,
             batch_id=batch_id,

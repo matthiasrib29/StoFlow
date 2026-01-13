@@ -169,8 +169,8 @@ async def list_jobs(
     db, current_user = user_db
     service = VintedJobService(db)
 
-    # Build query
-    query = db.query(MarketplaceJob)
+    # Build query - filter by marketplace="vinted" (this is the Vinted jobs endpoint)
+    query = db.query(MarketplaceJob).filter(MarketplaceJob.marketplace == "vinted")
 
     if status_filter:
         try:
@@ -185,12 +185,13 @@ async def list_jobs(
     if batch_id:
         query = query.filter(MarketplaceJob.batch_id == batch_id)
 
-    # Get counts
-    total = query.count()
-    pending = query.filter(MarketplaceJob.status == JobStatus.PENDING).count()
-    running = query.filter(MarketplaceJob.status == JobStatus.RUNNING).count()
-    completed = query.filter(MarketplaceJob.status == JobStatus.COMPLETED).count()
-    failed = query.filter(MarketplaceJob.status == JobStatus.FAILED).count()
+    # Get counts (use fresh query for each count to avoid filter stacking)
+    base_query = db.query(MarketplaceJob).filter(MarketplaceJob.marketplace == "vinted")
+    total = base_query.count()
+    pending = base_query.filter(MarketplaceJob.status == JobStatus.PENDING).count()
+    running = base_query.filter(MarketplaceJob.status == JobStatus.RUNNING).count()
+    completed = base_query.filter(MarketplaceJob.status == JobStatus.COMPLETED).count()
+    failed = base_query.filter(MarketplaceJob.status == JobStatus.FAILED).count()
 
     # Get jobs
     jobs = (
