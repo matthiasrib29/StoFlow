@@ -116,6 +116,8 @@ class AIVisionService:
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=GeminiVisionSchema,
+                    temperature=0.0,  # Deterministic for accurate analysis
+                    mediaResolution=types.MediaResolution.MEDIA_RESOLUTION_HIGH,  # Better detail recognition (1120 tokens/image)
                 ),
             )
 
@@ -300,6 +302,7 @@ class AIVisionService:
         from models.public.origin import Origin
         from models.public.trend import Trend
         from models.public.condition_sup import ConditionSup
+        from models.public.unique_feature import UniqueFeature
 
         attributes = {}
 
@@ -335,6 +338,7 @@ class AIVisionService:
         attributes["origins"] = [o.name_en for o in db.query(Origin.name_en).order_by(Origin.name_en).all()]
         attributes["trends"] = [t.name_en for t in db.query(Trend.name_en).order_by(Trend.name_en).all()]
         attributes["condition_sups"] = [c.name_en for c in db.query(ConditionSup.name_en).order_by(ConditionSup.name_en).all()]
+        attributes["unique_features"] = [u.name_en for u in db.query(UniqueFeature.name_en).order_by(UniqueFeature.name_en).all()]
 
         return attributes
 
@@ -383,6 +387,7 @@ VALID ATTRIBUTE VALUES (MUST USE THESE):
 **Origins:** {', '.join(attributes.get('origins', []))}
 **Trends:** {', '.join(attributes.get('trends', []))}
 **Condition Details:** {', '.join(attributes.get('condition_sups', []))}
+**Unique Features:** {', '.join(attributes.get('unique_features', []))}
 
 ATTRIBUTES TO EXTRACT:
 - category: Product category (use exact name from list above)
@@ -408,7 +413,7 @@ ATTRIBUTES TO EXTRACT:
 - decade: Decade/era if vintage (use exact name from list above)
 - trend: Fashion trend (use exact name from list above)
 - model: Model reference if visible
-- unique_feature: Unique characteristics (embroidered logo, vintage, limited edition...)
+- unique_feature: Unique characteristics (use exact names from Unique Features list, comma-separated if multiple)
 - marking: Visible texts/markings (dates, codes, inscriptions...)
 
 Analyze ALL provided images for complete extraction."""
@@ -589,6 +594,8 @@ Analyze ALL provided images for complete extraction."""
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=GeminiVisionSchema,
+                    temperature=0.0,  # Deterministic for accurate analysis
+                    mediaResolution=types.MediaResolution.MEDIA_RESOLUTION_HIGH,  # Better detail recognition (1120 tokens/image)
                 ),
             )
 
