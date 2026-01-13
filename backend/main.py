@@ -37,6 +37,7 @@ from api.ebay_webhook import router as ebay_webhook_router
 # from api.plugin import router as plugin_router
 from api.pricing import router as pricing_router
 from api.products import router as products_router
+from api.text_generator import router as text_generator_router
 from api.stripe_routes import router as stripe_router
 from api.subscription import router as subscription_router
 from api.vinted import router as vinted_router  # Now from api/vinted/__init__.py
@@ -238,6 +239,7 @@ app.include_router(admin_docs_router, prefix="/api")  # Admin documentation CRUD
 app.include_router(attributes_router, prefix="/api")
 app.include_router(pricing_router, prefix="/api")  # Pricing algorithm endpoint
 app.include_router(products_router, prefix="/api")
+app.include_router(text_generator_router, prefix="/api")  # Text generation endpoint
 # REMOVED (2026-01-09): Plugin communication via WebSocket only
 # app.include_router(plugin_router, prefix="/api")
 app.include_router(stripe_router, prefix="/api")
