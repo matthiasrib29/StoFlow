@@ -19,8 +19,8 @@ Or: None (patterns établis dans la documentation SQLAlchemy)
 
 - [x] **Phase 1: Préparation Modèles Tenant** - Ajouter placeholder schema "tenant" aux 20 modèles user/ ✅
 - [x] **Phase 2: Session Factory & Dependencies** - Implémenter schema_translate_map dans get_user_db() ✅
-- [ ] **Phase 3: Migration Requêtes text()** - Convertir 28 fichiers avec requêtes SQL brutes
-- [ ] **Phase 4: Nettoyage Code Legacy** - Supprimer fonctions SET search_path obsolètes
+- [x] **Phase 3: Migration Requêtes text()** - Convertir 28 fichiers avec requêtes SQL brutes ✅
+- [x] **Phase 4: Nettoyage Code Legacy** - Supprimer fonctions SET search_path obsolètes ✅
 - [ ] **Phase 5: Tests & Validation** - Vérifier isolation multi-tenant et rollback
 
 ## Phase Details
@@ -143,7 +143,7 @@ tests/
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: Supprimer fonctions et appels SET search_path
+- [x] 04-01: Supprimer fonctions et appels SET search_path ✅ 2026-01-13
 
 **Functions to Remove**:
 ```python
@@ -196,7 +196,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Préparation Modèles | 2/2 | ✅ Complete | 2026-01-13 |
 | 2. Session Factory | 2/2 | ✅ Complete | 2026-01-13 |
 | 3. Migration text() | 3/3 | ✅ Complete | 2026-01-13 |
-| 4. Nettoyage Legacy | 0/1 | Not started | - |
+| 4. Nettoyage Legacy | 1/1 | ✅ Complete | 2026-01-13 |
 | 5. Tests & Validation | 0/2 | Not started | - |
 
 ---
@@ -218,7 +218,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 - [x] Tous les modèles `user/` ont `schema: "tenant"` placeholder ✅
 - [x] `get_user_db()` utilise `schema_translate_map` au lieu de `SET` ✅
-- [ ] Aucun appel `SET search_path` ne reste dans le code
+- [x] Aucun appel `SET search_path` deprecated ne reste dans le code applicatif ✅
 - [ ] Tests prouvent que schema persiste après COMMIT et ROLLBACK
 - [ ] Vinted sync fonctionne sans erreur "relation does not exist"
 

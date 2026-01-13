@@ -5,16 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Éliminer les bugs d'isolation multi-tenant en migrant vers schema_translate_map
-**Current focus:** Phase 4 - Nettoyage Code Legacy
+**Current focus:** Phase 5 - Tests & Validation
 
 ## Current Position
 
-Phase: 4 of 5 (Nettoyage Code Legacy)
-Plan: 0 of 1 in current phase
-Status: Ready for plan 04-01
-Last activity: 2026-01-13 — Completed Phase 3 (all 3 plans)
+Phase: 5 of 5 (Tests & Validation)
+Plan: 0 of 2 in current phase
+Status: Ready for plan 05-01
+Last activity: 2026-01-13 — Completed Phase 4 (plan 04-01)
 
-Progress: [███████████████░] 80%
+Progress: [████████████████] 90%
+
+## Phase 4 Plans (Complete)
+
+| Plan | Status | Files | Description |
+|------|--------|-------|-------------|
+| 04-01 | ✅ Complete | 4 files | Remove deprecated SET search_path functions |
 
 ## Phase 3 Plans (Complete)
 
