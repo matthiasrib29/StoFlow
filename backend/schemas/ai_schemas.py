@@ -15,6 +15,49 @@ from pydantic import BaseModel, Field
 # =============================================================================
 
 
+class GeminiVisionSchema(BaseModel):
+    """
+    Schema for Gemini Vision API response.
+
+    NOTE: No default values allowed - Gemini API doesn't support them.
+    All fields are nullable (Optional) but without defaults.
+    """
+
+    # === ATTRIBUTS PRINCIPAUX ===
+    category: Optional[str]
+    brand: Optional[str]
+    condition: Optional[int]
+    label_size: Optional[str]
+    color: Optional[str]
+    material: Optional[str]
+    fit: Optional[str]
+    gender: Optional[str]
+    season: Optional[str]
+    sport: Optional[str]
+    neckline: Optional[str]
+    length: Optional[str]
+    pattern: Optional[str]
+
+    # === ATTRIBUTS SUPPLÉMENTAIRES ===
+    condition_sup: Optional[str]
+    rise: Optional[str]
+    closure: Optional[str]
+    sleeve_length: Optional[str]
+    stretch: Optional[str]
+    lining: Optional[str]
+    origin: Optional[str]
+    decade: Optional[str]
+    trend: Optional[str]
+    model: Optional[str]
+
+    # === FEATURES DESCRIPTIFS ===
+    unique_feature: Optional[str]
+    marking: Optional[str]
+
+    # === META ===
+    confidence: Optional[float]
+
+
 class VisionExtractedAttributes(BaseModel):
     """Attributs extraits des images par Gemini Vision (mapping complet vers Product)."""
 
@@ -22,10 +65,9 @@ class VisionExtractedAttributes(BaseModel):
     category: Optional[str] = Field(None, description="Catégorie produit")
     brand: Optional[str] = Field(None, description="Marque détectée")
     condition: Optional[int] = Field(None, ge=0, le=10, description="État 0-10")
-    size: Optional[str] = Field(None, description="Taille standardisée")
     label_size: Optional[str] = Field(None, description="Taille étiquette")
-    color: Optional[str] = Field(None, description="Couleur principale")
-    material: Optional[str] = Field(None, description="Matière principale")
+    color: Optional[list[str]] = Field(None, description="Couleurs détectées")
+    material: Optional[list[str]] = Field(None, description="Matières détectées")
     fit: Optional[str] = Field(None, description="Coupe")
     gender: Optional[str] = Field(None, description="Genre: Homme/Femme/Mixte")
     season: Optional[str] = Field(None, description="Saison")
@@ -35,18 +77,20 @@ class VisionExtractedAttributes(BaseModel):
     pattern: Optional[str] = Field(None, description="Motif")
 
     # === ATTRIBUTS SUPPLÉMENTAIRES ===
-    condition_sup: Optional[str] = Field(None, description="Détails état")
+    condition_sup: Optional[list[str]] = Field(None, description="Détails état")
     rise: Optional[str] = Field(None, description="Hauteur taille (pantalons)")
     closure: Optional[str] = Field(None, description="Type fermeture")
     sleeve_length: Optional[str] = Field(None, description="Longueur manches")
+    stretch: Optional[str] = Field(None, description="Élasticité")
+    lining: Optional[str] = Field(None, description="Type de doublure")
     origin: Optional[str] = Field(None, description="Origine")
     decade: Optional[str] = Field(None, description="Décennie/époque")
     trend: Optional[str] = Field(None, description="Tendance")
     model: Optional[str] = Field(None, description="Référence modèle")
 
     # === FEATURES DESCRIPTIFS ===
-    unique_feature: Optional[str] = Field(None, description="Features uniques (CSV)")
-    marking: Optional[str] = Field(None, description="Marquages visibles (CSV)")
+    unique_feature: Optional[list[str]] = Field(None, description="Features uniques")
+    marking: Optional[list[str]] = Field(None, description="Marquages visibles")
 
     # === META ===
     confidence: float = Field(0.0, ge=0, le=1, description="Confiance globale")
@@ -57,10 +101,10 @@ class VisionExtractedAttributes(BaseModel):
                 "category": "T-shirts",
                 "brand": "Nike",
                 "condition": 8,
-                "color": "Noir",
-                "material": "Coton",
-                "gender": "Homme",
-                "size": "M",
+                "color": ["Black", "White"],
+                "material": ["Cotton", "Polyester"],
+                "gender": "Men",
+                "label_size": "M",
                 "confidence": 0.85,
             }
         }

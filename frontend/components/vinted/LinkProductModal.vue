@@ -239,7 +239,7 @@ async function fetchLinkableProducts() {
     if (searchQuery.value) params.set('search', searchQuery.value)
 
     const response = await api.get<{ products: LinkableProduct[] }>(
-      `/api/products?${params}`
+      `/products?${params}`
     )
     linkableProducts.value = response?.products || []
   } catch (e) {

@@ -85,9 +85,11 @@ export const useApi = () => {
     options: RequestInit = {}
   ): Promise<T> => {
     const token = getAccessToken()
+    const isFormData = options.body instanceof FormData
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      // Don't set Content-Type for FormData - browser will set it with boundary
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers as Record<string, string>),
     }
 
@@ -206,26 +208,29 @@ export const useApi = () => {
   }
 
   const post = <T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> => {
+    const isFormData = data instanceof FormData
     return apiCall<T>(endpoint, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? (isFormData ? data : JSON.stringify(data)) : undefined,
     })
   }
 
   const put = <T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> => {
+    const isFormData = data instanceof FormData
     return apiCall<T>(endpoint, {
       ...options,
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? (isFormData ? data : JSON.stringify(data)) : undefined,
     })
   }
 
   const patch = <T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> => {
+    const isFormData = data instanceof FormData
     return apiCall<T>(endpoint, {
       ...options,
       method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? (isFormData ? data : JSON.stringify(data)) : undefined,
     })
   }
 

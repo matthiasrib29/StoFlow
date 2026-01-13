@@ -25,46 +25,16 @@
       </span>
     </div>
 
-    <!-- ===== BOUTON REMPLIR AVEC IA ===== -->
-    <div
-      v-if="productId && hasImages"
-      class="ai-fill-section"
-    >
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="ai-fill-icon-container">
-            <i class="pi pi-sparkles" />
-          </div>
-          <div>
-            <h4 class="text-sm font-semibold text-primary-900">Remplissage automatique</h4>
-            <p class="text-xs text-primary-700">Analysez les images pour remplir le formulaire</p>
-          </div>
-        </div>
-        <Button
-          type="button"
-          label="Remplir avec l'IA"
-          icon="pi pi-sparkles"
-          class="p-button-primary"
-          :loading="isAnalyzingImages"
-          :disabled="isAnalyzingImages || isGeneratingDescription"
-          @click="analyzeAndFillForm"
-        />
-      </div>
-    </div>
-
     <!-- ===== SECTION 1: INFORMATIONS PRODUIT ===== -->
     <div id="section-info">
       <ProductsFormsProductFormInfo
         :title="modelValue.title"
         :description="modelValue.description"
         :price="modelValue.price"
-        :product-id="productId"
-        :is-generating-description="isGeneratingDescription"
         :validation="validation"
         @update:title="updateField('title', $event)"
         @update:description="updateField('description', $event)"
         @update:price="updateField('price', $event)"
-        @generate-description="generateDescription"
       />
     </div>
 
@@ -87,6 +57,8 @@
         :rise="modelValue.rise"
         :closure="modelValue.closure"
         :sleeve-length="modelValue.sleeve_length"
+        :stretch="modelValue.stretch"
+        :lining="modelValue.lining"
         :origin="modelValue.origin"
         :decade="modelValue.decade"
         :trend="modelValue.trend"
@@ -112,6 +84,8 @@
         @update:rise="updateField('rise', $event)"
         @update:closure="updateField('closure', $event)"
         @update:sleeve-length="updateField('sleeve_length', $event)"
+        @update:stretch="updateField('stretch', $event)"
+        @update:lining="updateField('lining', $event)"
         @update:origin="updateField('origin', $event)"
         @update:decade="updateField('decade', $event)"
         @update:trend="updateField('trend', $event)"
@@ -160,14 +134,12 @@ interface Props {
   isSubmitting?: boolean
   submitLabel?: string
   productId?: number
-  hasImages?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isSubmitting: false,
   submitLabel: 'Créer le produit',
-  productId: undefined,
-  hasImages: false
+  productId: undefined
 })
 
 const emit = defineEmits<{
@@ -189,10 +161,6 @@ const autoSave = props.productId ? useAutoSave({
   productId: props.productId,
   debounceMs: 2000
 }) : null
-
-// États
-const isGeneratingDescription = ref(false)
-const isAnalyzingImages = ref(false)
 
 // Flash animation pour champs remplis par IA
 const aiModifiedFields = ref<Set<string>>(new Set())
@@ -284,125 +252,4 @@ const handleSubmit = () => {
   emit('submit')
 }
 
-// Générer une description avec l'IA
-const generateDescription = async () => {
-  if (!props.productId) {
-    showError('Erreur', 'Sauvegardez d\'abord le produit avant de générer une description')
-    return
-  }
-
-  isGeneratingDescription.value = true
-
-  try {
-    const response = await post<{ description: string }>(
-      `/products/${props.productId}/generate-description`
-    )
-
-    if (response?.description) {
-      updateField('description', response.description)
-      showSuccess('Description générée', 'La description a été générée par l\'IA')
-    }
-  } catch (error: any) {
-    const message = error?.data?.detail || error?.message || 'Erreur lors de la génération'
-
-    if (message.includes('Crédits IA insuffisants') || error?.status === 402) {
-      showError('Crédits insuffisants', 'Vous n\'avez plus de crédits IA.')
-    } else {
-      showError('Erreur', message)
-    }
-  } finally {
-    isGeneratingDescription.value = false
-  }
-}
-
-// Interface pour la réponse de l'analyse d'images
-interface VisionAnalysisResponse {
-  attributes: Partial<ProductFormData> & { confidence?: number }
-  model: string
-  images_analyzed: number
-  tokens_used: number
-  cost: number
-  processing_time_ms: number
-}
-
-// Analyser les images et remplir le formulaire avec l'IA
-const analyzeAndFillForm = async () => {
-  if (!props.productId) {
-    showError('Erreur', 'Sauvegardez d\'abord le produit')
-    return
-  }
-
-  if (!props.hasImages) {
-    showError('Erreur', 'Ajoutez des images au produit')
-    return
-  }
-
-  isAnalyzingImages.value = true
-
-  try {
-    const response = await post<VisionAnalysisResponse>(
-      `/products/${props.productId}/analyze-images`
-    )
-
-    if (response?.attributes) {
-      const attrs = response.attributes
-      let fieldsUpdated = 0
-
-      // Mapper les champs de l'API vers le formulaire
-      const fieldMappings: Array<[keyof typeof attrs, keyof ProductFormData]> = [
-        ['title', 'title'],
-        ['description', 'description'],
-        ['price', 'price'],
-        ['category', 'category'],
-        ['brand', 'brand'],
-        ['condition', 'condition'],
-        ['color', 'color'],
-        ['material', 'material'],
-        ['gender', 'gender'],
-        ['season', 'season'],
-        ['fit', 'fit'],
-        ['pattern', 'pattern'],
-        ['neckline', 'neckline'],
-        ['sport', 'sport'],
-        ['unique_feature', 'unique_feature'],
-        ['marking', 'marking']
-      ]
-
-      for (const [apiField, formField] of fieldMappings) {
-        const value = attrs[apiField]
-        if (value !== null && value !== undefined) {
-          updateField(formField, value as any)
-          flashField(formField)
-          fieldsUpdated++
-        }
-      }
-
-      // Gérer size_original (peut venir de 'size' ou 'label_size' de l'API)
-      const sizeValue = (attrs as any).size || (attrs as any).label_size || (attrs as any).size_original
-      if (sizeValue) {
-        updateField('size_original', sizeValue)
-        flashField('size_original')
-        fieldsUpdated++
-      }
-
-      const confidence = attrs.confidence ? Math.round(attrs.confidence * 100) : 0
-      showSuccess(
-        'Formulaire rempli',
-        `${response.images_analyzed} image(s) analysée(s), ${fieldsUpdated} champ(s) rempli(s) (confiance: ${confidence}%)`
-      )
-    }
-  } catch (error: any) {
-    const message = error?.data?.detail || error?.message || 'Erreur lors de l\'analyse'
-
-    if (message.includes('Crédits IA insuffisants') || error?.status === 402) {
-      showError('Crédits insuffisants', 'Vous n\'avez plus de crédits IA.')
-    } else if (message.includes('pas d\'images')) {
-      showError('Pas d\'images', 'Ajoutez des images au produit.')
-    } else {
-      showError('Erreur', message)
-    }
-  } finally {
-    isAnalyzingImages.value = false
-  }
-}
 </script>
