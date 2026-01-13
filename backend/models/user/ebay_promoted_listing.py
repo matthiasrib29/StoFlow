@@ -46,8 +46,7 @@ class EbayPromotedListing(Base):
     """
 
     __tablename__ = "ebay_promoted_listings"
-    # Schema will be set dynamically via search_path
-    __table_args__ = {}
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     # Primary Key
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -64,7 +63,7 @@ class EbayPromotedListing(Base):
     # Product Info - Main FK to products
     product_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

@@ -41,7 +41,6 @@ from services.ebay.ebay_order_fulfillment_service import (
     EbayOrderFulfillmentService,
 )
 from services.ebay.ebay_order_sync_service import EbayOrderSyncService
-from shared.database import set_user_search_path
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -138,8 +137,7 @@ async def sync_orders(
         job_id = job.id
 
         db.commit()
-        set_user_search_path(db, current_user.id)  # Re-set after commit
-        db.refresh(job)  # Reload job with correct search_path
+        db.refresh(job)
 
         logger.info(
             f"[POST /orders/sync] Created job #{job_id} for user {current_user.id}"
@@ -147,10 +145,6 @@ async def sync_orders(
 
         # Execute immediately if requested
         if process_now:
-            # Re-set search_path after commit (SET LOCAL resets on COMMIT)
-            from shared.database import set_user_schema
-            set_user_schema(db, current_user.id)
-
             from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
             processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=current_user.id, marketplace="ebay")
             result = await processor._execute_job(job)

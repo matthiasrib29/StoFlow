@@ -24,7 +24,7 @@ from models.user.marketplace_task import MarketplaceTaskType, TaskStatus
 from services.vinted.vinted_link_service import VintedLinkService
 from services.file_service import FileService
 from services.product_service import ProductService
-from shared.schema_utils import get_current_schema
+from shared.database import get_tenant_schema
 from shared.logging_setup import get_logger
 from ..base_handler import BaseMarketplaceHandler
 
@@ -71,8 +71,8 @@ class LinkProductHandler(BaseMarketplaceHandler):
         try:
             self.log_start(f"Linking VintedProduct #{vinted_id}")
 
-            # Get user_id from schema (user_123 -> 123)
-            schema = get_current_schema(self.db)
+            # Get user_id from schema_translate_map (returns "user_123" -> extract 123)
+            schema = get_tenant_schema(self.db)
             if not schema or not schema.startswith("user_"):
                 self.log_error(f"Invalid schema: {schema}")
                 return {"success": False, "error": "Invalid user schema"}

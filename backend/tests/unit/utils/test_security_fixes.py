@@ -14,7 +14,6 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from main import app
-from shared.database import set_user_schema
 from shared.security_utils import redact_password, sanitize_for_log
 from services.file_service import FileService
 from services.user_schema_service import UserSchemaService
@@ -30,64 +29,17 @@ def client():
 
 
 # ===== TEST #1-2: SQL Injection Protection =====
-
-def test_sql_injection_user_id_invalid_type():
-    """Test que set_user_schema bloque les non-integers."""
-    from sqlalchemy.orm import Session
-    from shared.database import SessionLocal
-
-    db = SessionLocal()
-
-    # Test avec string (tentative injection SQL)
-    with pytest.raises(ValueError) as exc:
-        set_user_schema(db, "1; DROP TABLE users--")
-
-    assert "must be integer" in str(exc.value)
-
-    # Test avec float
-    with pytest.raises(ValueError) as exc:
-        set_user_schema(db, 1.5)
-
-    assert "must be integer" in str(exc.value)
-
-    db.close()
-
-
-def test_sql_injection_user_id_negative():
-    """Test que set_user_schema bloque les user_id négatifs."""
-    from shared.database import SessionLocal
-
-    db = SessionLocal()
-
-    with pytest.raises(ValueError) as exc:
-        set_user_schema(db, -1)
-
-    assert "must be positive" in str(exc.value)
-
-    # Test avec 0
-    with pytest.raises(ValueError) as exc:
-        set_user_schema(db, 0)
-
-    assert "must be positive" in str(exc.value)
-
-    db.close()
-
-
-def test_sql_injection_create_user_schema_validation():
-    """Test que UserSchemaService.create_user_schema valide le type user_id."""
-    # Ce test vérifie que la validation du type fonctionne correctement
-    # On ne peut pas tester directement avec la DB car ça nécessite des tables templates
-    # Au lieu de ça, on vérifie que set_user_schema bloque les types invalides
-    from shared.database import SessionLocal
-
-    db = SessionLocal()
-
-    # Test que set_user_schema bloque une string
-    with pytest.raises(ValueError) as exc:
-        set_user_schema(db, "invalid_string")
-
-    assert "must be integer" in str(exc.value)
-    db.close()
+# NOTE (2026-01-13): Tests for set_user_schema removed
+# The set_user_schema() function was deprecated and removed as part of
+# the schema_translate_map migration. See ROADMAP.md Phase 4.
+#
+# The new approach uses execution_options(schema_translate_map={"tenant": schema})
+# which eliminates SQL injection risk entirely since the schema name is never
+# interpolated into SQL strings - it's handled by SQLAlchemy's internal query
+# rewriting mechanism.
+#
+# SQL injection protection is now tested via validate_schema_name() in
+# tests/unit/shared/test_database_security.py
 
 
 # ===== TEST #3: Password Redaction =====

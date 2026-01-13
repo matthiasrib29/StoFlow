@@ -108,6 +108,7 @@ class EbayProduct(Base):
         Index("idx_ebay_products_marketplace_id", "marketplace_id"),
         Index("idx_ebay_products_brand", "brand"),
         Index("idx_ebay_products_ebay_listing_id", "ebay_listing_id"),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     # Primary Key
@@ -125,7 +126,7 @@ class EbayProduct(Base):
     # Link to Stoflow Product (1:1 relationship, optional)
     product_id: Mapped[Optional[int]] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="SET NULL", onupdate="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="SET NULL", onupdate="CASCADE"),
         unique=True,
         nullable=True,
         index=True,

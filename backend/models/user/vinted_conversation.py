@@ -60,6 +60,7 @@ class VintedConversation(Base):
         Index("idx_vinted_conversations_unread", "is_unread"),
         Index("idx_vinted_conversations_updated", "updated_at_vinted"),
         Index("idx_vinted_conversations_transaction", "transaction_id"),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     # Primary Key = Vinted conversation ID
@@ -222,7 +223,7 @@ class VintedMessage(Base):
     # Foreign Key to conversation
     conversation_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("vinted_conversations.conversation_id", ondelete="CASCADE"),
+        ForeignKey("tenant.vinted_conversations.conversation_id", ondelete="CASCADE"),
         nullable=False,
         comment="FK to vinted_conversations"
     )
