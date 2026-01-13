@@ -112,7 +112,7 @@ else
 fi
 
 # Start uvicorn in background
-uvicorn main:app --reload --host 0.0.0.0 --port ${BACKEND_PORT} > ../logs/${ENV_NAME}-backend.log 2>&1 &
+uvicorn main:socket_app --reload --host 0.0.0.0 --port ${BACKEND_PORT} > ../logs/${ENV_NAME}-backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
 

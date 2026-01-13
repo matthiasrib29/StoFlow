@@ -1,5 +1,19 @@
 """
 Alembic environment configuration with multi-tenant support.
+
+Architecture:
+- template_tenant: Template schema for user models (autogenerate target)
+- user_X: Cloned from template_tenant (synced via scripts/sync_user_schemas.py)
+- public, vinted, ebay: Fixed schemas (manual migrations only)
+
+Autogenerate Strategy:
+- Only user models (without explicit schema) are imported
+- SET search_path TO template_tenant makes autogenerate work
+- Models with explicit schema (vinted, ebay, public) require manual migrations
+
+Usage:
+    alembic revision --autogenerate -m "description"  # For template_tenant
+    alembic upgrade head                              # Apply to all schemas
 """
 import sys
 from logging.config import fileConfig
@@ -10,92 +24,116 @@ from sqlalchemy import pool, text
 
 from alembic import context
 
-# Ajouter le projet au path Python
+# Add project to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Importer configuration et models
+# Import configuration and base
 from shared.config import settings
 from shared.database import Base
 
-# Import all models here pour autodétection
-# NOTE (2025-12-09): Seuls les models actifs sont importés
-# Les tables d'attributs (brands, categories, etc.) ont été désactivées
-from models.public.user import User, SubscriptionTier
-from models.public.subscription_quota import SubscriptionQuota
-from models.public.ai_credit import AICredit
-# DISABLED: Attribute tables (do not exist in DB)
-# from models.public.brand import Brand
-# from models.public.category import Category
-# from models.public.color import Color
-# from models.public.condition import Condition
-# from models.public.fit import Fit
-# from models.public.gender import Gender
-# from models.public.material import Material
-# from models.public.season import Season
-# from models.public.size import Size
+# =============================================================================
+# IMPORT ONLY USER MODELS (no explicit schema)
+# =============================================================================
+# These models use search_path resolution (template_tenant)
+# Models with explicit schema (vinted, ebay, public) are NOT imported
+# because autogenerate doesn't work well with mixed schema declarations.
+#
+# For changes to vinted/ebay/public schemas, write manual migrations.
+# =============================================================================
+
 from models.user.product import Product
 from models.user.vinted_product import VintedProduct
 from models.user.publication_history import PublicationHistory
 from models.user.ai_generation_log import AIGenerationLog
 from models.user.batch_job import BatchJob
 from models.user.marketplace_job import MarketplaceJob
+from models.user.marketplace_task import MarketplaceTask
+from models.user.vinted_connection import VintedConnection
+from models.user.vinted_conversation import VintedConversation, VintedMessage
+from models.user.vinted_error_log import VintedErrorLog
+from models.user.vinted_job_stats import VintedJobStats
+from models.user.ebay_credentials import EbayCredentials
+from models.user.ebay_product import EbayProduct
+from models.user.ebay_product_marketplace import EbayProductMarketplace
+from models.user.ebay_order import EbayOrder, EbayOrderProduct
+from models.user.ebay_promoted_listing import EbayPromotedListing
+from models.user.etsy_credentials import EtsyCredentials
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+# Alembic Config object
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
+# Setup logging from config file
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
+# Target metadata for autogenerate
 target_metadata = Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+
+# User model table names (tables without explicit schema)
+USER_MODEL_TABLES = {
+    t.name for t in Base.metadata.tables.values() if t.schema is None
+}
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    """
+    Filter which objects to include in autogenerate.
+
+    Only include tables that:
+    1. From metadata: have no explicit schema (user models)
+    2. From database: match a user model table name
+
+    Args:
+        object: The SQLAlchemy object (Table, Column, Index, etc.)
+        name: Name of the object
+        type_: Type of object ('table', 'column', 'index', etc.)
+        reflected: True if object was reflected from database
+        compare_to: The object being compared to (or None)
+    """
+    if type_ == "table":
+        if reflected:
+            # Database table: only include if it matches a user model
+            return name in USER_MODEL_TABLES
+        else:
+            # Metadata table: only include if no explicit schema
+            schema = getattr(object, 'schema', None)
+            return schema is None
+    return True
 
 
 def get_url():
     """
     Get database URL from settings.
 
-    Priorité:
-    1. Variable d'environnement TEST_DATABASE_URL (tests)
-    2. Configuration Alembic (override via conftest.py)
-    3. Settings par défaut (dev/prod)
+    Priority:
+    1. TEST_DATABASE_URL environment variable (tests)
+    2. Alembic config (override via conftest.py)
+    3. Default settings (dev/prod)
     """
     import os
 
-    # 1. Mode test: priorité à TEST_DATABASE_URL
+    # 1. Test mode: priority to TEST_DATABASE_URL
     test_url = os.getenv("TEST_DATABASE_URL")
     if test_url:
         return test_url
 
-    # 2. Configuration Alembic (set via alembic.ini ou conftest.py)
+    # 2. Alembic config (set via alembic.ini or conftest.py)
     alembic_url = config.get_main_option("sqlalchemy.url")
     if alembic_url and alembic_url != "driver://user:pass@localhost/dbname":
         return alembic_url
 
-    # 3. Settings par défaut (dev/prod)
+    # 3. Default settings (dev/prod)
     return str(settings.database_url)
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
+    """
+    Run migrations in 'offline' mode.
 
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the
-    script output.
-
+    This configures the context with just a URL and not an Engine.
+    Calls to context.execute() emit the given string to the script output.
     """
     url = get_url()
     context.configure(
@@ -113,14 +151,14 @@ def run_migrations_online() -> None:
     """
     Run migrations in 'online' mode.
 
-    Architecture multi-tenant:
-    - public: tables partagées (users, subscriptions, etc.)
-    - template_tenant: modèle pour les nouveaux users (products, orders, etc.)
-    - user_X: schemas clonés depuis template_tenant (PAS migrés directement)
+    Best practices for multi-tenant PostgreSQL:
+    1. SET search_path to target schema (template_tenant)
+    2. Use include_schemas=False (models don't have explicit schema)
+    3. Set dialect.default_schema_name for proper reflection
 
-    Les schemas user_X sont synchronisés via scripts/sync_user_schemas.py
+    Note: user_X schemas are NOT migrated here.
+    They are synced with template_tenant via: python scripts/sync_user_schemas.py
     """
-    # Configuration engine
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = get_url()
 
@@ -131,27 +169,25 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        # Migration du schema PUBLIC uniquement
-        # Les tables user sont dans template_tenant qui est inclus via search_path
+        # Set search_path to template_tenant for autogenerate
+        # This makes all unqualified table references resolve to template_tenant
+        connection.execute(text("SET search_path TO template_tenant, public"))
+        connection.commit()
+
+        # Set default schema name for proper reflection (recommended workaround)
+        # See: https://alembic.sqlalchemy.org/en/latest/cookbook.html
+        connection.dialect.default_schema_name = "template_tenant"
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            include_schemas=False,
+            include_schemas=False,  # Required for search_path approach
+            include_object=include_object,  # Filter out tables with explicit schema
+            version_table_schema="public",  # Single version table in public
         )
 
         with context.begin_transaction():
-            # search_path inclut template_tenant pour les tables user
-            connection.execute(text("SET search_path TO public, template_tenant"))
             context.run_migrations()
-
-        # NOTE: Les schemas user_X ne sont PAS migrés ici.
-        # Ils sont synchronisés avec template_tenant via:
-        #   python scripts/sync_user_schemas.py
-        #
-        # Cela permet:
-        # 1. Des migrations plus rapides (pas de boucle sur tous les users)
-        # 2. Une seule table alembic_version (dans public)
-        # 3. Un contrôle explicite de la synchronisation des users
 
 
 if context.is_offline_mode():
