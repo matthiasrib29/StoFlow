@@ -63,7 +63,7 @@ class EbayPromotedListing(Base):
     # Product Info - Main FK to products
     product_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
