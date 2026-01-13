@@ -5,16 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Éliminer les bugs d'isolation multi-tenant en migrant vers schema_translate_map
-**Current focus:** Phase 5 - Tests & Validation
+**Current focus:** ✅ Migration Complete
 
 ## Current Position
 
-Phase: 5 of 5 (Tests & Validation)
-Plan: 0 of 2 in current phase
-Status: Ready for plan 05-01
-Last activity: 2026-01-13 — Completed Phase 4 (plan 04-01)
+Phase: 5 of 5 (Tests & Validation) - COMPLETE
+Plan: 2 of 2 in current phase
+Status: ✅ All phases complete
+Last activity: 2026-01-13 — Completed Phase 5 (plan 05-02)
 
-Progress: [████████████████] 90%
+Progress: [████████████████████] 100%
+
+## Phase 5 Plans (Complete)
+
+| Plan | Status | Files | Description |
+|------|--------|-------|-------------|
+| 05-01 | ✅ Complete | 5 files | Unit tests - Remove deprecated function tests, add schema_translate_map tests |
+| 05-02 | ✅ Complete | 5 files | Deprecated functions removed from test suite |
 
 ## Phase 4 Plans (Complete)
 
@@ -40,9 +47,9 @@ Progress: [████████████████] 90%
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 9.6 min
-- Total execution time: ~1.1 hours
+- Total plans completed: 10
+- Average duration: ~10 min
+- Total execution time: ~1.5 hours
 
 **By Phase:**
 
@@ -51,10 +58,8 @@ Progress: [████████████████] 90%
 | 1 | 2 | 8 min | 4 min |
 | 2 | 2 | 9 min | 4.5 min |
 | 3 | 3 | 49 min | 16.3 min |
-
-**Recent Trend:**
-- Last 5 plans: 4 min, 5 min, 14 min, 15 min, 20 min
-- Trend: Stable (Phase 3 involved more complex files)
+| 4 | 1 | 10 min | 10 min |
+| 5 | 2 | 20 min | 10 min |
 
 *Updated after each plan completion*
 
@@ -75,19 +80,22 @@ Recent decisions affecting current work:
 - [03-01]: API files cleaned - no more manual set_user_search_path calls after commit
 - [03-02]: Services cleaned - no more SchemaManager, commit_and_restore_path, or restore_search_path
 - [03-03]: Schedulers & scripts cleaned - execution_options pattern for schema iteration
+- [04-01]: Deprecated functions removed from shared/database.py and shared/schema_utils.py
+- [05-01]: New test file test_schema_translate_map.py created with 11 tests
+- [05-02]: Deprecated test classes removed from 4 test files
 
 ### Deferred Issues
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- Tests Vinted sync en attente après fixes précédentes (vinted_product_enricher, marketplace_job_processor, plugin JSON serialization)
+- ✅ Migration complete - Final validation needed in production environment
 
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Phase 3 completed, ready for Phase 4
+Stopped at: Migration complete
 Resume file: None
 
 ---
