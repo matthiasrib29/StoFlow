@@ -104,6 +104,104 @@ export interface EbayStats {
   impressions: number
 }
 
+// =============================================================================
+// RETURNS TYPES
+// =============================================================================
+
+/**
+ * eBay return status values
+ */
+export type EbayReturnStatus =
+  | 'RETURN_REQUESTED'
+  | 'RETURN_WAITING_FOR_RMA'
+  | 'RETURN_ACCEPTED'
+  | 'RETURN_DECLINED'
+  | 'RETURN_ITEM_SHIPPED'
+  | 'RETURN_ITEM_DELIVERED'
+  | 'RETURN_CLOSED'
+  | 'RETURN_CANCELLED'
+
+/**
+ * eBay return state (high-level)
+ */
+export type EbayReturnState = 'OPEN' | 'CLOSED'
+
+/**
+ * eBay return from API
+ */
+export interface EbayReturn {
+  id: number
+  return_id: string
+  order_id: string | null
+  state: EbayReturnState | null
+  status: EbayReturnStatus | null
+  return_type: string | null
+  reason: string | null
+  reason_detail: string | null
+  refund_amount: number | null
+  refund_currency: string | null
+  refund_status: string | null
+  buyer_username: string | null
+  buyer_comments: string | null
+  seller_comments: string | null
+  rma_number: string | null
+  return_tracking_number: string | null
+  return_carrier: string | null
+  creation_date: string | null
+  deadline_date: string | null
+  closed_date: string | null
+  received_date: string | null
+  created_at: string
+  updated_at: string
+  // Computed fields from API
+  is_open: boolean
+  needs_action: boolean
+  is_past_deadline: boolean
+}
+
+/**
+ * Paginated list of returns
+ */
+export interface EbayReturnListResponse {
+  items: EbayReturn[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+/**
+ * Return statistics
+ */
+export interface EbayReturnStatistics {
+  open: number
+  closed: number
+  needs_action: number
+  past_deadline: number
+}
+
+/**
+ * Sync returns response
+ */
+export interface EbayReturnSyncResponse {
+  created: number
+  updated: number
+  skipped: number
+  errors: number
+  total_fetched: number
+}
+
+/**
+ * Return action response (accept, decline, refund, etc.)
+ */
+export interface EbayReturnActionResponse {
+  success: boolean
+  return_id: string
+  new_status: string | null
+  refund_status: string | null
+  message: string | null
+}
+
 /**
  * State interface for the eBay store
  */
