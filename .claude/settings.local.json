@@ -331,7 +331,13 @@
       "WebFetch(domain:alembic.sqlalchemy.org)",
       "WebFetch(domain:incident.io)",
       "WebFetch(domain:dev.to)",
-      "WebFetch(domain:docs.cloud.google.com)"
+      "WebFetch(domain:docs.cloud.google.com)",
+      "Bash(~/StoFlow/.claude/worktree-init.sh ~/StoFlow-improve-ebay)",
+      "Bash(PGPASSWORD=stoflow psql:*)",
+      "WebFetch(domain:mergeboard.com)",
+      "WebFetch(domain:blog.arkency.com)",
+      "WebFetch(domain:docs.sqlalchemy.org)",
+      "Bash(npx nuxi prepare)"
     ]
   },
   "enableAllProjectMcpServers": true,
