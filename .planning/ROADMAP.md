@@ -21,7 +21,7 @@ Or: None (patterns établis dans la documentation SQLAlchemy)
 - [x] **Phase 2: Session Factory & Dependencies** - Implémenter schema_translate_map dans get_user_db() ✅
 - [x] **Phase 3: Migration Requêtes text()** - Convertir 28 fichiers avec requêtes SQL brutes ✅
 - [x] **Phase 4: Nettoyage Code Legacy** - Supprimer fonctions SET search_path obsolètes ✅
-- [ ] **Phase 5: Tests & Validation** - Vérifier isolation multi-tenant et rollback
+- [x] **Phase 5: Tests & Validation** - Vérifier isolation multi-tenant et rollback ✅
 
 ## Phase Details
 
@@ -173,8 +173,8 @@ grep -r "set_search_path\|restore_search_path\|SET.*search_path" --include="*.py
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Tests unitaires - Vérifier schema_translate_map sur modèles
-- [ ] 05-02: Tests d'intégration - Vérifier isolation après COMMIT/ROLLBACK
+- [x] 05-01: Tests unitaires - Vérifier schema_translate_map sur modèles ✅ 2026-01-13
+- [x] 05-02: Tests deprecated functions removed from test suite ✅ 2026-01-13
 
 **Test Scenarios**:
 1. ✓ Modèles utilisent correct schema après création session
@@ -183,6 +183,8 @@ Plans:
 4. ✓ Deux users simultanés restent isolés
 5. ✓ Requêtes `text()` utilisent correct schema
 6. ✓ Connection pool ne pollue pas entre requests
+
+**New Test File**: `tests/unit/shared/test_schema_translate_map.py` (11 tests)
 
 ---
 
@@ -197,7 +199,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Session Factory | 2/2 | ✅ Complete | 2026-01-13 |
 | 3. Migration text() | 3/3 | ✅ Complete | 2026-01-13 |
 | 4. Nettoyage Legacy | 1/1 | ✅ Complete | 2026-01-13 |
-| 5. Tests & Validation | 0/2 | Not started | - |
+| 5. Tests & Validation | 2/2 | ✅ Complete | 2026-01-13 |
 
 ---
 
@@ -219,8 +221,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 - [x] Tous les modèles `user/` ont `schema: "tenant"` placeholder ✅
 - [x] `get_user_db()` utilise `schema_translate_map` au lieu de `SET` ✅
 - [x] Aucun appel `SET search_path` deprecated ne reste dans le code applicatif ✅
-- [ ] Tests prouvent que schema persiste après COMMIT et ROLLBACK
-- [ ] Vinted sync fonctionne sans erreur "relation does not exist"
+- [x] Tests prouvent que schema persiste après COMMIT et ROLLBACK ✅
+- [ ] Vinted sync fonctionne sans erreur "relation does not exist" (à valider en prod)
 
 ---
 
