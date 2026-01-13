@@ -5,18 +5,26 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Éliminer les bugs d'isolation multi-tenant en migrant vers schema_translate_map
-**Current focus:** Phase 2 Complete - Ready for Phase 3
+**Current focus:** Phase 3 Planned - Ready for Execution
 
 ## Current Position
 
-Phase: 2 of 5 (Session Factory & Dependencies) ✅ COMPLETE
-Plan: 2 of 2 in current phase ✅ COMPLETE
-Status: Phase complete
-Last activity: 2026-01-13 — Completed 02-02-PLAN.md
+Phase: 3 of 5 (Migration Requêtes text())
+Plan: 0 of 3 in current phase
+Status: Plans ready for execution
+Last activity: 2026-01-13 — Created Phase 3 plans (03-01, 03-02, 03-03)
 
 Progress: [████████░░] 40%
 
-## Phase 2 Plans
+## Phase 3 Plans
+
+| Plan | Status | Files | Description |
+|------|--------|-------|-------------|
+| 03-01 | ⏳ Pending | 6 files | Remove set_user_search_path from API files |
+| 03-02 | ⏳ Pending | 8 files | Remove schema_utils from services |
+| 03-03 | ⏳ Pending | 10+ files | Migrate schedulers, scripts & remaining files |
+
+## Phase 2 Plans (Complete)
 
 | Plan | Status | Files | Description |
 |------|--------|-------|-------------|
@@ -69,7 +77,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Phase 2 complete, ready for Phase 3
+Stopped at: Phase 3 plans created, ready for execution
 Resume file: None
 
 ---

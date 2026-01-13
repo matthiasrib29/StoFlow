@@ -83,21 +83,22 @@ db = db.execution_options(schema_translate_map={"tenant": schema_name})
 ---
 
 ### Phase 3: Migration Requêtes text()
-**Goal**: Mettre à jour les 28 fichiers utilisant `text()` avec références tenant
+**Goal**: Supprimer les appels deprecated `set_user_search_path()`, `schema_utils` et `SET search_path`
 **Depends on**: Phase 2
 **Research**: Unlikely (refactoring patterns)
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Migrer fichiers API (api/vinted/*, api/ebay/*, api/products/*)
-- [ ] 03-02: Migrer fichiers services (services/marketplace/*, services/ai/*)
-- [ ] 03-03: Migrer scripts et schedulers (scripts/*, services/*_scheduler.py)
+- [ ] 03-01: Remove set_user_search_path from API files (6 files) — PLANNED 2026-01-13
+- [ ] 03-02: Remove schema_utils from services (8 files) — PLANNED 2026-01-13
+- [ ] 03-03: Migrate schedulers, scripts & remaining files (10+ files) — PLANNED 2026-01-13
 
 **Strategies**:
-1. **Préféré**: Convertir `text()` → ORM queries
-2. **Fallback**: Utiliser `get_tenant_schema(db)` pour construire les requêtes
+1. **Routes API avec get_user_db()**: Supprimer appels redundants (schema déjà configuré)
+2. **Services avec schema_utils**: Remplacer par simple commit()/rollback()
+3. **Schedulers itérant schemas**: Utiliser execution_options(schema_translate_map=...)
 
-**Files (28)**:
+**Files identified (24+)**:
 ```
 api/
 ├── vinted/messages.py
@@ -194,7 +195,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Préparation Modèles | 2/2 | ✅ Complete | 2026-01-13 |
 | 2. Session Factory | 2/2 | ✅ Complete | 2026-01-13 |
-| 3. Migration text() | 0/3 | Not started | - |
+| 3. Migration text() | 0/3 | Plans ready | - |
 | 4. Nettoyage Legacy | 0/1 | Not started | - |
 | 5. Tests & Validation | 0/2 | Not started | - |
 
