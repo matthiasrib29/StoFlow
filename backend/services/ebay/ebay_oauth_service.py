@@ -267,11 +267,10 @@ def fetch_and_save_account_info(
     try:
         from services.ebay.ebay_identity_client import EbayIdentityClient
         from services.ebay.ebay_trading_client import EbayTradingClient
+        from shared.schema_utils import configure_schema_translate_map
 
         # Set schema for multi-tenant isolation (survives commit/rollback)
-        db = db.execution_options(
-            schema_translate_map={"tenant": f"user_{user_id}"}
-        )
+        configure_schema_translate_map(db, f"user_{user_id}")
 
         seller_info = {}
 
@@ -337,9 +336,8 @@ def process_oauth_callback(
         HTTPException: Si validation ou échange échoue
     """
     # Set schema for multi-tenant isolation (survives commit/rollback)
-    db = db.execution_options(
-        schema_translate_map={"tenant": f"user_{user_id}"}
-    )
+    from shared.schema_utils import configure_schema_translate_map
+    configure_schema_translate_map(db, f"user_{user_id}")
 
     # Validate state (CSRF protection)
     if not validate_state(state, user_id):

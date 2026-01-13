@@ -1,44 +1,76 @@
 """
-Schema Utils - DEPRECATED (2026-01-13)
+Schema Utils for Multi-Tenant Isolation
 
-This entire module has been deprecated as part of the schema_translate_map migration.
+This module provides utilities for configuring schema_translate_map on SQLAlchemy sessions.
 
-Migration: SET LOCAL search_path → schema_translate_map
-=======================================================
+Migration: SET LOCAL search_path → schema_translate_map (2026-01-13)
+====================================================================
 
 BEFORE (fragile - lost after COMMIT/ROLLBACK):
     db.execute(text(f"SET LOCAL search_path TO {schema}, public"))
     # ... do work ...
     db.commit()  # search_path LOST!
-    restore_search_path(db, schema)  # Had to manually restore
 
 AFTER (robust - survives COMMIT/ROLLBACK):
-    db = db.execution_options(schema_translate_map={"tenant": schema})
+    configure_schema_translate_map(db, schema)
     # ... do work ...
     db.commit()  # schema_translate_map PRESERVED!
-    # No restoration needed
 
-Removed Functions:
-- get_current_schema() - No longer needed (schema persists in session)
-- restore_search_path() - No longer needed (schema survives commit)
-- restore_search_path_after_rollback() - No longer needed (schema survives rollback)
-- commit_and_restore_path() - Just use db.commit() now
-- SchemaManager class - No longer needed
+Important: Session doesn't have execution_options() - use this helper instead.
 
-See ROADMAP.md Phase 4 for details.
+See ROADMAP.md Phase 4 for migration details.
 
 Author: Claude
-Date: 2025-01-05 (original)
-Deprecated: 2026-01-13
+Date: 2026-01-13
 """
 
-# Raise ImportError with helpful message for any remaining imports
-def __getattr__(name):
-    raise ImportError(
-        f"'{name}' has been removed from shared.schema_utils (2026-01-13). "
-        f"Use execution_options(schema_translate_map={{'tenant': schema}}) instead. "
-        f"See ROADMAP.md Phase 4 for migration details."
-    )
+from sqlalchemy.orm import Session
 
 
-__all__ = []  # Nothing to export
+def configure_schema_translate_map(db: Session, schema_name: str) -> None:
+    """
+    Configure schema_translate_map on a Session's connection.
+
+    This configures the underlying connection to remap the "tenant" placeholder
+    to the actual user schema at query time. Models with schema="tenant" in
+    their __table_args__ will have queries executed against the specified schema.
+
+    Args:
+        db: The SQLAlchemy Session to configure
+        schema_name: The actual schema name (e.g., "user_1")
+
+    Example:
+        # Before
+        db = db.execution_options(schema_translate_map={"tenant": schema})  # WRONG!
+
+        # After
+        configure_schema_translate_map(db, schema)  # CORRECT!
+
+    Note:
+        Session doesn't have execution_options(), but Connection does.
+        Calling db.connection(execution_options=...) configures the underlying connection.
+        The schema_translate_map survives COMMIT and ROLLBACK operations.
+    """
+    db.connection(execution_options={"schema_translate_map": {"tenant": schema_name}})
+
+
+def get_schema_translate_map(db: Session) -> dict:
+    """
+    Get the current schema_translate_map from a Session's connection.
+
+    Args:
+        db: The SQLAlchemy Session to query
+
+    Returns:
+        The schema_translate_map dict, or empty dict if not configured.
+
+    Example:
+        configure_schema_translate_map(db, "user_1")
+        schema_map = get_schema_translate_map(db)
+        assert schema_map.get("tenant") == "user_1"
+    """
+    conn = db.connection()
+    return conn.get_execution_options().get("schema_translate_map", {})
+
+
+__all__ = ["configure_schema_translate_map", "get_schema_translate_map"]

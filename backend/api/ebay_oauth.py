@@ -204,9 +204,8 @@ def ebay_callback(
             )
 
         # Set schema for multi-tenant isolation (survives commit/rollback)
-        db = db.execution_options(
-            schema_translate_map={"tenant": f"user_{user_id}"}
-        )
+        from shared.schema_utils import configure_schema_translate_map
+        configure_schema_translate_map(db, f"user_{user_id}")
 
         # Define schema_name for multi-tenant isolation
         schema_name = user.schema_name

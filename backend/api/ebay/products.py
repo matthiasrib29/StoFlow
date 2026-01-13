@@ -243,7 +243,8 @@ def _run_enrichment_in_background(user_id: int, marketplace_id: str):
     db = SessionLocal()
     try:
         # Use schema_translate_map for ORM queries (survives commit/rollback)
-        db = db.execution_options(schema_translate_map={"tenant": schema_name})
+        from shared.schema_utils import configure_schema_translate_map
+        configure_schema_translate_map(db, schema_name)
         # Also set search_path for text() queries
         db.execute(text(f"SET search_path TO {schema_name}, public"))
 
@@ -429,7 +430,8 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
     db = SessionLocal()
     try:
         # Use schema_translate_map for ORM queries (survives commit/rollback)
-        db = db.execution_options(schema_translate_map={"tenant": schema_name})
+        from shared.schema_utils import configure_schema_translate_map
+        configure_schema_translate_map(db, schema_name)
         # Also set search_path for text() queries
         db.execute(text(f"SET search_path TO {schema_name}, public"))
 
