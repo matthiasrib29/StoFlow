@@ -38,10 +38,7 @@
     "https://api.stoflow.com/*",
     "https://api.stoflow.io/*",
     "https://stoflow.io/*",
-    "https://www.stoflow.io/*"
-  ],
-
-  "optional_host_permissions": [
+    "https://www.stoflow.io/*",
     "http://localhost:3000/*",
     "http://127.0.0.1:3000/*",
     "http://localhost:5173/*",
