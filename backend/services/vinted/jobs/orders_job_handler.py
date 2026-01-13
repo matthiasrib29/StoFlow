@@ -2,17 +2,20 @@
 Orders Job Handler - Synchronisation des commandes Vinted
 
 Délègue à VintedOrderSyncService pour:
-- Récupération des transactions (toutes ou par mois)
+- Récupération des transactions via /my_orders ou /wallet/invoices
 - Parsing et sauvegarde des commandes
 - Gestion des doublons
 
 Usage:
-- Sans paramètres: sync toutes les commandes récentes
-- Avec year/month dans result_data: sync un mois spécifique
-- Batch: créer plusieurs jobs avec différents mois
+- Sans paramètres: sync via /my_orders (captures ALL orders)
+- Avec year/month: sync via /wallet/invoices (wallet transactions only)
+
+Note: sync_orders() (via /my_orders) est la méthode par défaut car
+      /wallet/invoices ne capture pas les paiements par carte directe.
 
 Author: Claude
 Date: 2025-12-19
+Updated: 2026-01-13 - sync_orders() par défaut, sync_orders_by_month optionnel
 """
 
 import time
@@ -29,10 +32,11 @@ class OrdersJobHandler(BaseJobHandler):
     Handler pour la synchronisation des commandes Vinted.
 
     Modes de fonctionnement:
-    - Sync globale: job.result_data = None ou {}
-    - Sync par mois: job.result_data = {"year": 2025, "month": 12}
+    - Sans paramètres: sync_orders() via /my_orders (ALL orders)
+    - Avec year/month: sync_orders_by_month() via /wallet/invoices
 
-    Pour sync plusieurs mois, créer un batch de jobs avec différents mois.
+    sync_orders() est la méthode par défaut car /wallet/invoices
+    ne capture que les transactions wallet, pas les paiements carte.
     """
 
     ACTION_CODE = "orders"
@@ -51,7 +55,7 @@ class OrdersJobHandler(BaseJobHandler):
         """Lazy-load order sync service."""
         if self._order_sync is None:
             from services.vinted.vinted_order_sync import VintedOrderSyncService
-            self._order_sync = VintedOrderSyncService()
+            self._order_sync = VintedOrderSyncService(user_id=self.user_id)
         return self._order_sync
 
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
@@ -60,9 +64,8 @@ class OrdersJobHandler(BaseJobHandler):
 
         Args:
             job: MarketplaceJob avec result_data optionnel:
-                - {} ou None: sync toutes les commandes récentes
-                - {"year": int, "month": int}: sync un mois spécifique
-                - {"duplicate_threshold": float}: seuil de doublons (défaut 0.8)
+                - {} ou None: sync via /my_orders (DEFAULT - all orders)
+                - {"year": int, "month": int}: sync via /wallet/invoices
 
         Returns:
             dict: {
@@ -70,7 +73,7 @@ class OrdersJobHandler(BaseJobHandler):
                 "synced": int,
                 "duplicates": int,
                 "errors": int,
-                "mode": "all" | "month",
+                "mode": "classic" | "month",
                 "error": str | None
             }
         """
@@ -80,54 +83,19 @@ class OrdersJobHandler(BaseJobHandler):
         params = job.result_data if isinstance(job.result_data, dict) else {}
         year = params.get('year')
         month = params.get('month')
-        duplicate_threshold = params.get('duplicate_threshold', 0.8)
-        per_page = params.get('per_page', 20)
 
         try:
-            # Déterminer le mode
+            # With year+month: sync by month (wallet/invoices)
             if year and month:
                 return await self._sync_by_month(year, month, start_time)
-            else:
-                return await self._sync_all(duplicate_threshold, per_page, start_time)
+
+            # Default: sync all orders via /my_orders
+            return await self._sync_all(start_time)
 
         except Exception as e:
             elapsed = time.time() - start_time
             self.log_error(f"Erreur sync commandes: {e} ({elapsed:.1f}s)", exc_info=True)
             return {"success": False, "error": str(e)}
-
-    async def _sync_all(
-        self,
-        duplicate_threshold: float,
-        per_page: int,
-        start_time: float
-    ) -> dict[str, Any]:
-        """Sync toutes les commandes récentes."""
-        self.log_start("Synchronisation de toutes les commandes")
-
-        result = await self.order_sync.sync_orders(
-            self.db,
-            duplicate_threshold=duplicate_threshold,
-            per_page=per_page
-        )
-
-        elapsed = time.time() - start_time
-        synced = result.get('synced', 0)
-        duplicates = result.get('duplicates', 0)
-        errors = result.get('errors', 0)
-
-        self.log_success(
-            f"{synced} commandes sync, {duplicates} doublons, "
-            f"{errors} erreurs ({elapsed:.1f}s)"
-        )
-
-        return {
-            "success": True,
-            "mode": "all",
-            "synced": synced,
-            "duplicates": duplicates,
-            "errors": errors,
-            **result
-        }
 
     async def _sync_by_month(
         self,
@@ -154,6 +122,28 @@ class OrdersJobHandler(BaseJobHandler):
             "mode": "month",
             "year": year,
             "month": month,
+            "synced": synced,
+            **result
+        }
+
+    async def _sync_all(self, start_time: float) -> dict[str, Any]:
+        """
+        Sync all orders via /my_orders (default method).
+
+        This captures ALL completed orders, including direct card payments.
+        """
+        self.log_start("Synchronisation commandes (via /my_orders)")
+
+        result = await self.order_sync.sync_orders(self.db)
+
+        elapsed = time.time() - start_time
+        synced = result.get('synced', 0)
+
+        self.log_success(f"{synced} commandes sync ({elapsed:.1f}s)")
+
+        return {
+            "success": True,
+            "mode": "classic",
             "synced": synced,
             **result
         }

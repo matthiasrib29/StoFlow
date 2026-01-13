@@ -3,10 +3,18 @@ Vinted Orders Routes
 
 Endpoints pour la gestion des commandes Vinted:
 - GET /orders: Liste des commandes
-- POST /orders/sync: Synchroniser les commandes (optionnel: year+month)
+- POST /orders/sync: Synchroniser les commandes
+
+Methods:
+- Sans year/month: sync via /my_orders (ALL completed orders)
+- Avec year+month: sync via /wallet/invoices (wallet transactions only)
+
+/my_orders est la méthode par défaut car /wallet/invoices ne capture
+pas les paiements par carte directe.
 
 Updated: 2025-12-19 - Intégration système de jobs
 Updated: 2026-01-05 - Fusion sync/sync-month, suppression labels et deletions
+Updated: 2026-01-13 - sync_orders() par défaut, sync_orders_by_month optionnel
 
 Author: Claude
 Date: 2025-12-17
@@ -20,6 +28,7 @@ from api.dependencies import get_user_db
 from models.vinted.vinted_order import VintedOrder
 from services.vinted import VintedJobService
 from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
+from shared.database import set_user_search_path
 from .shared import get_active_vinted_connection
 
 router = APIRouter()
@@ -90,32 +99,28 @@ async def list_orders(
 @router.post("/orders/sync")
 async def sync_orders(
     user_db: tuple = Depends(get_user_db),
-    year: Optional[int] = Query(None, ge=2020, le=2100, description="Année (optionnel)"),
-    month: Optional[int] = Query(None, ge=1, le=12, description="Mois 1-12 (optionnel)"),
+    year: Optional[int] = Query(None, ge=2020, le=2100, description="Année (optionnel, défaut: actuel)"),
+    month: Optional[int] = Query(None, ge=1, le=12, description="Mois 1-12 (optionnel, défaut: actuel)"),
     process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
 ) -> dict:
     """
     Synchronise les commandes depuis Vinted.
 
-    - Sans year/month : sync toutes les commandes récentes
-    - Avec year+month : sync uniquement ce mois
+    - Sans year/month : sync via /my_orders (ALL completed orders)
+    - Avec year+month : sync via /wallet/invoices (wallet transactions only)
+
+    /my_orders est la méthode par défaut car /wallet/invoices ne capture
+    pas les paiements par carte directe.
 
     Args:
-        year: Année (optionnel, ex: 2025)
-        month: Mois 1-12 (optionnel, requiert year)
+        year: Année (optionnel, si fourni avec month: utilise /wallet/invoices)
+        month: Mois 1-12 (optionnel, si fourni avec year: utilise /wallet/invoices)
         process_now: Si True, exécute immédiatement
 
     Returns:
         {"job_id": int, "status": str, "result": dict | None}
     """
     db, current_user = user_db
-
-    # Validation: month requires year
-    if month and not year:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="month requires year parameter"
-        )
 
     connection = get_active_vinted_connection(db, current_user.id)
 
@@ -139,6 +144,8 @@ async def sync_orders(
         shop_id = connection.vinted_user_id
 
         db.commit()
+        set_user_search_path(db, current_user.id)  # Re-set after commit
+        db.refresh(job)  # Reload job with correct search_path
 
         response = {
             "job_id": job_id,

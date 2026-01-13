@@ -45,7 +45,19 @@ class VintedOrder(Base):
         comment="Vinted transaction ID (PK)"
     )
 
-    # Participants
+    # Vinted IDs (for linking to other Vinted entities)
+    conversation_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+        comment="Vinted conversation/thread ID (for messages)"
+    )
+    offer_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+        comment="Vinted offer ID"
+    )
+
+    # Participants - Buyer
     buyer_id: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
@@ -56,6 +68,28 @@ class VintedOrder(Base):
         nullable=True,
         comment="Buyer login"
     )
+    buyer_photo_url: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Buyer profile photo URL"
+    )
+    buyer_country_code: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+        comment="Buyer country code (FR, DE, etc.)"
+    )
+    buyer_city: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Buyer city"
+    )
+    buyer_feedback_reputation: Mapped[float | None] = mapped_column(
+        Numeric(3, 2),
+        nullable=True,
+        comment="Buyer reputation score (0-5)"
+    )
+
+    # Participants - Seller
     seller_id: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
@@ -67,11 +101,34 @@ class VintedOrder(Base):
         comment="Seller login"
     )
 
-    # Status
+    # Status (multiple representations)
     status: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
-        comment="Order status"
+        comment="Order status (completed/pending/refunded)"
+    )
+    vinted_status_code: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Vinted status code (230=paid, 400+=completed)"
+    )
+    vinted_status_text: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Vinted status text FR (Le paiement a été validé)"
+    )
+    transaction_user_status: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="User action status (needs_action/waiting/completed/failed)"
+    )
+
+    # Item count (for bundles)
+    item_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        server_default='1',
+        comment="Number of items in order"
     )
 
     # Amounts

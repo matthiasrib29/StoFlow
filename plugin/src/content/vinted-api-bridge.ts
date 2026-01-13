@@ -36,12 +36,13 @@ class VintedAPIBridge {
       const message = event.data;
 
       if (message.type === 'STOFLOW_API_READY') {
-        VintedLogger.debug('🛍️ [Stoflow Bridge] API Vinted prête');
+        VintedLogger.info('🛍️ [Stoflow Bridge] ✅ API Vinted prête - APIs:', message.apis);
         this.isReady = true;
       }
 
       if (message.type === 'STOFLOW_API_ERROR') {
-        VintedLogger.error('🛍️ [Stoflow Bridge] Erreur API:', message.error);
+        VintedLogger.error('🛍️ [Stoflow Bridge] ❌ Erreur init API:', message.error);
+        VintedLogger.error('🛍️ [Stoflow Bridge] → Rechargez l\'onglet Vinted (F5) pour réinitialiser');
       }
 
       if (message.type === 'STOFLOW_API_RESPONSE') {
@@ -97,9 +98,11 @@ class VintedAPIBridge {
   ): Promise<any> {
     // Wait for API to be ready
     if (!this.isReady) {
+      VintedLogger.debug('🛍️ [Stoflow Bridge] Attente STOFLOW_API_READY...');
       const ready = await this.waitForReady();
       if (!ready) {
-        throw new Error('API Vinted non disponible (timeout)');
+        VintedLogger.error('🛍️ [Stoflow Bridge] ❌ Timeout attente API - rechargez l\'onglet Vinted (F5)');
+        throw new Error('API Vinted non disponible (timeout) - rechargez l\'onglet Vinted');
       }
     }
 
