@@ -107,7 +107,7 @@ class VintedProduct(Base):
     # Link to Stoflow Product (1:1 relationship, optional)
     product_id: Mapped[Optional[int]] = mapped_column(
         Integer,
-        ForeignKey('products.id', ondelete='SET NULL', onupdate='CASCADE'),
+        ForeignKey('tenant.products.id', ondelete='SET NULL', onupdate='CASCADE'),
         unique=True,
         nullable=True,
         index=True,
