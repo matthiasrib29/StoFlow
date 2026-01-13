@@ -40,7 +40,6 @@ from models.public.user import User
 from models.user.etsy_credentials import EtsyCredentials
 from services.etsy.etsy_polling_service import EtsyPollingService
 from shared.config import settings
-from shared.database import set_user_schema
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -82,12 +81,14 @@ def get_etsy_connected_users(db: Session) -> List[tuple]:
     connected_users = []
 
     for user in users:
-        # Set schema to user's schema
-        set_user_schema(db, user.id)
+        # Use schema_translate_map for ORM queries (survives commit/rollback)
+        schema_db = db.execution_options(
+            schema_translate_map={"tenant": f"user_{user.id}"}
+        )
 
         # Check if user has Etsy credentials with valid token
         credentials = (
-            db.query(EtsyCredentials)
+            schema_db.query(EtsyCredentials)
             .filter(
                 EtsyCredentials.access_token.isnot(None),
                 EtsyCredentials.access_token_expires_at > now,
@@ -99,8 +100,7 @@ def get_etsy_connected_users(db: Session) -> List[tuple]:
         if credentials:
             connected_users.append((user.id, credentials.shop_name))
 
-    # Reset to public schema
-    db.execute(text("SET search_path TO public"))
+    # No need to reset schema - schema_translate_map is session-scoped
 
     return connected_users
 

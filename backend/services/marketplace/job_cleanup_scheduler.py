@@ -98,8 +98,8 @@ def cleanup_jobs_for_all_users():
 
         for schema in schemas:
             try:
-                # Set schema
-                db.execute(text(f"SET LOCAL search_path TO {schema}, public"))
+                # Use schema_translate_map for ORM queries (survives commit/rollback)
+                schema_db = db.execution_options(schema_translate_map={"tenant": schema})
 
                 # Check if marketplace_jobs table exists
                 table_exists = db.execute(text(f"""
@@ -114,8 +114,8 @@ def cleanup_jobs_for_all_users():
                     logger.debug(f"Schema {schema} has no marketplace_jobs table, skipping")
                     continue
 
-                # Run cleanup
-                result = JobCleanupService.cleanup_expired_jobs(db)
+                # Run cleanup with schema-aware session
+                result = JobCleanupService.cleanup_expired_jobs(schema_db)
 
                 total_pending_expired += result["pending_expired"]
                 total_processing_expired += result["processing_expired"]

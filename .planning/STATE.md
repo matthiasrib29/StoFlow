@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Éliminer les bugs d'isolation multi-tenant en migrant vers schema_translate_map
-**Current focus:** Phase 3 Planned - Ready for Execution
+**Current focus:** Phase 4 - Nettoyage Code Legacy
 
 ## Current Position
 
-Phase: 3 of 5 (Migration Requêtes text())
-Plan: 0 of 3 in current phase
-Status: Plans ready for execution
-Last activity: 2026-01-13 — Created Phase 3 plans (03-01, 03-02, 03-03)
+Phase: 4 of 5 (Nettoyage Code Legacy)
+Plan: 0 of 1 in current phase
+Status: Ready for plan 04-01
+Last activity: 2026-01-13 — Completed Phase 3 (all 3 plans)
 
-Progress: [████████░░] 40%
+Progress: [███████████████░] 80%
 
-## Phase 3 Plans
+## Phase 3 Plans (Complete)
 
 | Plan | Status | Files | Description |
 |------|--------|-------|-------------|
-| 03-01 | ⏳ Pending | 6 files | Remove set_user_search_path from API files |
-| 03-02 | ⏳ Pending | 8 files | Remove schema_utils from services |
-| 03-03 | ⏳ Pending | 10+ files | Migrate schedulers, scripts & remaining files |
+| 03-01 | ✅ Complete | 6 files | Remove set_user_search_path from API files |
+| 03-02 | ✅ Complete | 9 files | Remove schema_utils from services |
+| 03-03 | ✅ Complete | 10 files | Migrate schedulers, scripts & remaining files |
 
 ## Phase 2 Plans (Complete)
 
@@ -34,9 +34,9 @@ Progress: [████████░░] 40%
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 4.5 min
-- Total execution time: 0.3 hours
+- Total plans completed: 7
+- Average duration: 9.6 min
+- Total execution time: ~1.1 hours
 
 **By Phase:**
 
@@ -44,10 +44,11 @@ Progress: [████████░░] 40%
 |-------|-------|-------|----------|
 | 1 | 2 | 8 min | 4 min |
 | 2 | 2 | 9 min | 4.5 min |
+| 3 | 3 | 49 min | 16.3 min |
 
 **Recent Trend:**
-- Last 5 plans: 3 min, 5 min, 4 min, 5 min
-- Trend: Stable
+- Last 5 plans: 4 min, 5 min, 14 min, 15 min, 20 min
+- Trend: Stable (Phase 3 involved more complex files)
 
 *Updated after each plan completion*
 
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - [01-02]: 3 patterns handled: tuple+dict, replace empty {}, change None→"tenant"
 - [02-01]: UserBase alias + get_tenant_schema() helper added for Phase 3 readiness
 - [02-02]: get_user_db() uses execution_options(schema_translate_map={"tenant": schema_name})
+- [03-01]: API files cleaned - no more manual set_user_search_path calls after commit
+- [03-02]: Services cleaned - no more SchemaManager, commit_and_restore_path, or restore_search_path
+- [03-03]: Schedulers & scripts cleaned - execution_options pattern for schema iteration
 
 ### Deferred Issues
 
@@ -77,7 +81,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Phase 3 plans created, ready for execution
+Stopped at: Phase 3 completed, ready for Phase 4
 Resume file: None
 
 ---

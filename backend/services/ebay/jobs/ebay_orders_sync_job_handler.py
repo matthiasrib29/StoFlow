@@ -79,9 +79,7 @@ class EbayOrdersSyncJobHandler:
                 f"(shop_id={self.shop_id}, hours={hours}, status={status_filter})"
             )
 
-            # Set user schema for multi-tenant isolation
-            from shared.database import set_user_schema
-            set_user_schema(self.db, self.shop_id)
+            # Note: schema already configured via schema_translate_map in job processor
 
             # Delegate to existing EbayOrderSyncService
             from services.ebay.ebay_order_sync_service import EbayOrderSyncService
