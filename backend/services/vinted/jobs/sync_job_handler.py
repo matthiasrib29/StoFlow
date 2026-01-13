@@ -45,7 +45,7 @@ class SyncJobHandler(BaseJobHandler):
             if not self.shop_id:
                 raise ValueError("shop_id requis pour sync API")
             from services.vinted.vinted_api_sync import VintedApiSyncService
-            self._api_sync = VintedApiSyncService(shop_id=self.shop_id)
+            self._api_sync = VintedApiSyncService(shop_id=self.shop_id, user_id=self.user_id)
         return self._api_sync
 
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
