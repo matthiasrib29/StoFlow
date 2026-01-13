@@ -12,16 +12,9 @@
       <Button
         label="Importer"
         icon="pi pi-download"
-        class="btn-secondary"
+        class="btn-primary"
         :loading="isImporting"
         @click="importProducts"
-      />
-      <Button
-        label="Synchroniser"
-        icon="pi pi-sync"
-        class="btn-primary"
-        :loading="isSyncing"
-        @click="syncProducts"
       />
     </template>
 
@@ -78,11 +71,15 @@
         <DataTable
           :value="filteredProducts"
           :paginator="true"
-          :rows="20"
-          :rowsPerPageOptions="[10, 20, 50]"
+          :lazy="true"
+          :rows="pageSize"
+          :totalRecords="totalProducts"
+          :rowsPerPageOptions="[20, 50, 100]"
+          :first="(currentPage - 1) * pageSize"
           stripedRows
           class="modern-table"
           responsiveLayout="scroll"
+          @page="onPageChange"
         >
           <!-- Image + Title -->
           <Column header="Produit" style="min-width: 300px">
@@ -140,7 +137,7 @@
           </Column>
 
           <!-- Actions -->
-          <Column header="Actions" style="min-width: 120px">
+          <Column header="Actions" style="min-width: 80px">
             <template #body="{ data }">
               <div class="flex gap-2">
                 <Button
@@ -149,13 +146,6 @@
                   class="p-button-sm p-button-text"
                   v-tooltip="'Voir sur eBay'"
                   @click="openOnEbay(data.listing_url)"
-                />
-                <Button
-                  icon="pi pi-sync"
-                  class="p-button-sm p-button-text"
-                  v-tooltip="'Synchroniser'"
-                  :loading="syncingId === data.id"
-                  @click="syncProduct(data)"
                 />
               </div>
             </template>
@@ -198,11 +188,11 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const products = ref<any[]>([])
 const totalProducts = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(20)
 const searchQuery = ref('')
 const statusFilter = ref<string | null>(null)
 const isImporting = ref(false)
-const isSyncing = ref(false)
-const syncingId = ref<number | null>(null)
 
 // Status options
 const statusOptions = [
@@ -237,10 +227,13 @@ const draftCount = computed(() => products.value.filter(p => p.status === 'inact
 const outOfStockCount = computed(() => products.value.filter(p => (p.quantity || 0) === 0).length)
 
 // Methods
-const fetchProducts = async () => {
+const fetchProducts = async (page?: number, size?: number) => {
+  const targetPage = page ?? currentPage.value
+  const targetSize = size ?? pageSize.value
+
   ebayLogger.info('Fetching eBay products', {
-    page: 1,
-    pageSize: 100
+    page: targetPage,
+    pageSize: targetSize
   })
 
   loading.value = true
@@ -249,7 +242,7 @@ const fetchProducts = async () => {
     const response = await get<{
       items: any[]
       total: number
-    }>('/ebay/products?page=1&page_size=100')
+    }>(`/ebay/products?page=${targetPage}&page_size=${targetSize}`)
 
     products.value = response?.items || []
     totalProducts.value = response?.total || 0
@@ -257,9 +250,7 @@ const fetchProducts = async () => {
     ebayLogger.info('eBay products fetched successfully', {
       totalProducts: totalProducts.value,
       itemsCount: products.value.length,
-      activeCount: activeCount.value,
-      draftCount: draftCount.value,
-      outOfStockCount: outOfStockCount.value
+      page: targetPage
     })
   } catch (e: any) {
     error.value = e.message || 'Erreur lors du chargement'
@@ -270,6 +261,16 @@ const fetchProducts = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const onPageChange = async (event: { page: number; rows: number; first: number }) => {
+  const newPage = event.page + 1 // PrimeVue uses 0-based index
+  const newSize = event.rows
+
+  currentPage.value = newPage
+  pageSize.value = newSize
+
+  await fetchProducts(newPage, newSize)
 }
 
 const importProducts = async () => {
@@ -293,54 +294,6 @@ const importProducts = async () => {
     showError('Erreur', e.message || 'Impossible d\'importer les produits', 5000)
   } finally {
     isImporting.value = false
-  }
-}
-
-const syncProducts = async () => {
-  ebayLogger.info('Starting bulk products sync')
-  isSyncing.value = true
-  try {
-    await post('/ebay/products/sync')
-    ebayLogger.info('Bulk products sync completed successfully')
-    showSuccess('Synchronisation', 'Produits synchronisés', 3000)
-    await fetchProducts()
-  } catch (e: any) {
-    ebayLogger.error('Bulk products sync failed', {
-      error: e.message,
-      stack: e.stack
-    })
-    showError('Erreur', e.message || 'Erreur de synchronisation', 5000)
-  } finally {
-    isSyncing.value = false
-  }
-}
-
-const syncProduct = async (product: any) => {
-  ebayLogger.info('Syncing single product', {
-    productId: product.id,
-    ebaySku: product.ebay_sku,
-    title: product.title
-  })
-
-  syncingId.value = product.id
-  try {
-    await post(`/api/ebay/products/${product.ebay_sku}/sync`)
-    ebayLogger.info('Single product sync completed', {
-      productId: product.id,
-      ebaySku: product.ebay_sku
-    })
-    showSuccess('Synchronisé', 'Produit mis à jour', 3000)
-    await fetchProducts()
-  } catch (e: any) {
-    ebayLogger.error('Single product sync failed', {
-      productId: product.id,
-      ebaySku: product.ebay_sku,
-      error: e.message,
-      stack: e.stack
-    })
-    showError('Erreur', e.message || 'Erreur de synchronisation', 5000)
-  } finally {
-    syncingId.value = null
   }
 }
 

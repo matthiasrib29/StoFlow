@@ -4,8 +4,10 @@ eBay Products API Routes
 Endpoints for eBay product management:
 - List imported eBay products
 - Get single eBay product
-- Import products from eBay
-- Sync single product
+- Import products from eBay (with inline enrichment)
+- Enrich products with offers data
+- Delete local eBay product
+- Get eBay stats summary
 
 Author: Claude
 Date: 2025-12-19
@@ -21,7 +23,7 @@ from api.dependencies import get_current_user, get_user_db
 from models.public.user import User
 from models.user.ebay_product import EbayProduct
 from services.ebay.ebay_importer import EbayImporter
-from shared.database import SessionLocal, get_db, set_user_schema
+from shared.database import set_user_schema, SessionLocal
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -120,14 +122,6 @@ class ImportResponse(BaseModel):
     details: list[dict]
 
 
-class SyncResponse(BaseModel):
-    """Response schema for sync."""
-
-    success: bool
-    product: Optional[EbayProductResponse] = None
-    error: Optional[str] = None
-
-
 class EnrichRequest(BaseModel):
     """Request schema for enrichment."""
 
@@ -150,67 +144,6 @@ class RefreshAspectsResponse(BaseModel):
     updated: int
     errors: int
     remaining: int
-
-
-# ===== BACKGROUND TASKS =====
-
-
-def enrich_products_in_background(user_id: int, marketplace_id: str = "EBAY_FR"):
-    """
-    Enrichit les produits eBay en arrière-plan après l'import.
-
-    Cette fonction est exécutée en arrière-plan par FastAPI BackgroundTasks.
-    Elle crée sa propre session DB pour éviter les conflits.
-
-    Args:
-        user_id: ID de l'utilisateur
-        marketplace_id: Marketplace eBay
-    """
-    db = SessionLocal()
-    try:
-        set_user_schema(db, user_id)
-
-        logger.info(f"Starting background enrichment for user {user_id}")
-
-        importer = EbayImporter(
-            db=db,
-            user_id=user_id,
-            marketplace_id=marketplace_id,
-        )
-
-        # Enrichir tous les produits sans prix (par batches)
-        total_enriched = 0
-        total_errors = 0
-        remaining = 1  # Initial value to start loop
-
-        while remaining > 0:
-            result = importer.enrich_products_batch(
-                limit=50,  # Process 50 products at a time
-                only_without_price=True,
-            )
-
-            total_enriched += result["enriched"]
-            total_errors += result["errors"]
-            remaining = result["remaining"]
-
-            logger.info(
-                f"Background enrichment progress for user {user_id}: "
-                f"enriched={total_enriched}, errors={total_errors}, remaining={remaining}"
-            )
-
-            # If no more products to enrich, break
-            if remaining == 0:
-                break
-
-        logger.info(
-            f"Background enrichment completed for user {user_id}: "
-            f"total_enriched={total_enriched}, total_errors={total_errors}"
-        )
-
-    except Exception as e:
-        logger.error(f"Background enrichment failed for user {user_id}: {e}", exc_info=True)
-    finally:
-        db.close()
 
 
 # ===== ENDPOINTS =====
@@ -300,6 +233,299 @@ async def get_ebay_product(
     return EbayProductResponse.from_orm_with_parsed_images(product)
 
 
+def _run_enrichment_in_background(user_id: int, marketplace_id: str):
+    """
+    Execute enrichment in background after import completes.
+    """
+    from sqlalchemy import text
+
+    db = SessionLocal()
+    try:
+        # Set user schema - use raw SQL to ensure it's applied immediately
+        schema_name = f"user_{user_id}"
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+        importer = EbayImporter(
+            db=db,
+            user_id=user_id,
+            marketplace_id=marketplace_id,
+        )
+
+        # Enrich all products without price
+        result = importer.enrich_products_batch(limit=50000, only_without_price=True)
+
+        logger.info(
+            f"[Background Enrich] eBay enrichment for user {user_id}: "
+            f"enriched={result['enriched']}, errors={result['errors']}, "
+            f"remaining={result['remaining']}"
+        )
+
+    except Exception as e:
+        logger.error(f"[Background Enrich] eBay enrichment failed for user {user_id}: {e}")
+
+    finally:
+        db.close()
+
+
+def _update_job_progress(db, job_id: int, user_id: int, progress_data: dict):
+    """Update job progress in database."""
+    from sqlalchemy import text
+    schema_name = f"user_{user_id}"
+    db.execute(text(f"SET search_path TO {schema_name}, public"))
+    db.execute(
+        text("UPDATE marketplace_jobs SET result_data = :data WHERE id = :job_id"),
+        {"data": str(progress_data).replace("'", '"'), "job_id": job_id}
+    )
+    db.commit()
+
+
+def _enrich_products_parallel(importer, products: list, db, schema_name, max_workers: int = 10) -> int:
+    """
+    Enrich products with offers data in parallel.
+
+    API calls are made in parallel threads, but DB writes happen in main thread
+    (SQLAlchemy sessions are not thread-safe).
+
+    Args:
+        importer: EbayImporter instance
+        products: List of EbayProduct objects to enrich
+        db: Database session
+        schema_name: User schema name
+        max_workers: Number of parallel workers (default 10)
+
+    Returns:
+        int: Number of products successfully enriched
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from sqlalchemy import text
+
+    if not products:
+        return 0
+
+    # Build SKU to product mapping
+    sku_to_product = {p.ebay_sku: p for p in products}
+    skus = list(sku_to_product.keys())
+
+    def fetch_offer_for_sku(sku: str):
+        """Fetch offer for a SKU (thread-safe - only API call, no DB)."""
+        try:
+            offers = importer.fetch_offers_for_sku(sku)
+            return (sku, offers)
+        except Exception as e:
+            logger.warning(f"Failed to fetch offer for SKU {sku}: {e}")
+            return (sku, None)
+
+    # Collect results from parallel API calls
+    results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(fetch_offer_for_sku, sku): sku for sku in skus}
+
+        for future in as_completed(futures):
+            try:
+                sku, offers = future.result()
+                if offers:
+                    results.append((sku, offers))
+            except Exception as e:
+                logger.warning(f"Error fetching offer: {e}")
+
+    # Apply results in main thread (thread-safe DB access)
+    enriched_count = 0
+    for sku, offers in results:
+        product = sku_to_product.get(sku)
+        if product and offers:
+            _apply_offer_to_product(product, offers, importer.marketplace_id)
+            enriched_count += 1
+
+    # Commit all enrichments at once
+    db.execute(text(f"SET search_path TO {schema_name}, public"))
+    db.commit()
+
+    return enriched_count
+
+
+def _apply_offer_to_product(product, offers: list, marketplace_id: str):
+    """Apply offer data to a product."""
+    from shared.datetime_utils import utc_now
+
+    if not offers:
+        return
+
+    # Select best offer (prefer configured marketplace)
+    selected_offer = None
+    for offer in offers:
+        if offer.get("marketplaceId") == marketplace_id:
+            selected_offer = offer
+            break
+    if not selected_offer:
+        selected_offer = offers[0]
+
+    # Update product with offer data
+    product.ebay_offer_id = selected_offer.get("offerId")
+    product.marketplace_id = selected_offer.get("marketplaceId", marketplace_id)
+
+    # Listing details
+    listing = selected_offer.get("listing", {})
+    product.ebay_listing_id = listing.get("listingId")
+    product.sold_quantity = listing.get("soldQuantity")
+
+    # Price from offer
+    pricing = selected_offer.get("pricingSummary", {})
+    price_obj = pricing.get("price", {})
+    if price_obj:
+        product.price = float(price_obj.get("value", 0))
+        product.currency = price_obj.get("currency", "EUR")
+
+    # Listing format and duration
+    product.listing_format = selected_offer.get("format")
+    product.listing_duration = selected_offer.get("listingDuration")
+
+    # Categories
+    product.category_id = selected_offer.get("categoryId")
+    product.secondary_category_id = selected_offer.get("secondaryCategoryId")
+
+    # Location
+    product.merchant_location_key = selected_offer.get("merchantLocationKey")
+
+    # Quantity details
+    product.available_quantity = selected_offer.get("availableQuantity")
+    product.lot_size = selected_offer.get("lotSize")
+    product.quantity_limit_per_buyer = selected_offer.get("quantityLimitPerBuyer")
+
+    # Listing description
+    product.listing_description = selected_offer.get("listingDescription")
+
+    # Status from offer
+    offer_status = selected_offer.get("status")
+    if offer_status == "PUBLISHED":
+        product.status = "active"
+        product.published_at = utc_now()
+    elif offer_status == "ENDED":
+        product.status = "ended"
+
+
+def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
+    """
+    Execute import in background task with its own DB session.
+
+    Optimized: imports products first, then enriches in parallel batches of 10.
+    """
+    from models.user.marketplace_job import JobStatus, MarketplaceJob
+    from sqlalchemy import text
+
+    ENRICHMENT_BATCH_SIZE = 10  # Number of parallel API calls
+
+    db = SessionLocal()
+    try:
+        schema_name = f"user_{user_id}"
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+        # Get the job
+        job = db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
+        if not job:
+            logger.error(f"[Background Import] Job #{job_id} not found")
+            return
+
+        # Initialize progress
+        job.result_data = {"current": 0, "label": "initialisation..."}
+        db.commit()
+
+        # Create importer
+        importer = EbayImporter(
+            db=db,
+            user_id=user_id,
+            marketplace_id=marketplace_id,
+        )
+
+        # Process inventory page by page
+        imported_count = 0
+        offset = 0
+        limit = 100
+
+        while True:
+            db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+            # Fetch one page of inventory
+            result = importer.inventory_client.get_inventory_items(
+                limit=limit,
+                offset=offset
+            )
+
+            items = result.get("inventoryItems", [])
+            if not items:
+                break
+
+            # Import items WITHOUT enrichment first (fast)
+            page_products = []
+            for item in items:
+                try:
+                    import_result = importer._import_single_item(item, enrich=False)
+                    if import_result["status"] in ["imported", "updated"]:
+                        # Get the product object for enrichment
+                        product = db.query(EbayProduct).filter(
+                            EbayProduct.id == import_result["id"]
+                        ).first()
+                        if product:
+                            page_products.append(product)
+                except Exception as e:
+                    logger.warning(f"Failed to import item: {e}")
+
+            db.commit()
+
+            # Enrich in parallel batches of 10
+            for i in range(0, len(page_products), ENRICHMENT_BATCH_SIZE):
+                batch = page_products[i:i + ENRICHMENT_BATCH_SIZE]
+
+                # Parallel enrichment (10 API calls at once)
+                _enrich_products_parallel(importer, batch, db, schema_name, max_workers=ENRICHMENT_BATCH_SIZE)
+
+                # Update progress after each batch (use direct UPDATE to avoid expired object issues)
+                imported_count += len(batch)
+                db.execute(text(f"SET search_path TO {schema_name}, public"))
+                db.execute(
+                    text("UPDATE marketplace_jobs SET result_data = :data WHERE id = :job_id"),
+                    {"data": f'{{"current": {imported_count}, "label": "produits importés"}}', "job_id": job_id}
+                )
+                db.commit()
+
+                logger.info(f"[Background Import] Progress: {imported_count} products enriched")
+
+            # Check if more pages
+            total = result.get("total", 0)
+            logger.info(f"[Background Import] Processed page (offset={offset}), total={total}, imported={imported_count}")
+
+            if offset + limit >= total:
+                break
+
+            offset += limit
+
+        # Mark job as completed (use direct UPDATE)
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
+        db.execute(
+            text("UPDATE marketplace_jobs SET status = 'completed', result_data = :data WHERE id = :job_id"),
+            {"data": f'{{"current": {imported_count}, "label": "produits importés"}}', "job_id": job_id}
+        )
+        db.commit()
+
+        logger.info(f"[Background Import] eBay import completed for user {user_id}: {imported_count} products (with parallel enrichment)")
+
+    except Exception as e:
+        logger.error(f"[Background Import] eBay import failed for user {user_id}: {e}")
+
+        try:
+            db.execute(text(f"SET search_path TO {schema_name}, public"))
+            error_msg = str(e)[:500].replace("'", "''")  # Escape single quotes
+            db.execute(
+                text("UPDATE marketplace_jobs SET status = 'failed', error_message = :error WHERE id = :job_id"),
+                {"error": error_msg, "job_id": job_id}
+            )
+            db.commit()
+        except Exception as inner_e:
+            logger.error(f"[Background Import] Could not mark job as failed: {inner_e}")
+
+    finally:
+        db.close()
+
+
 @router.post("/import", response_model=ImportResponse)
 async def import_ebay_products(
     background_tasks: BackgroundTasks,
@@ -307,11 +533,10 @@ async def import_ebay_products(
     user_db: tuple = Depends(get_user_db),
 ):
     """
-    Importe les produits depuis eBay Inventory API.
+    Importe les produits depuis eBay Inventory API (en arrière-plan).
 
-    Récupère tous les inventory items de l'utilisateur et les stocke
-    dans la table ebay_products. Ensuite, lance automatiquement
-    l'enrichissement en arrière-plan pour récupérer les prix.
+    Crée un job de suivi et lance l'import en arrière-plan.
+    L'opération est suivie via un MarketplaceJob visible dans le popup tâches.
 
     Args:
         background_tasks: FastAPI background tasks
@@ -319,43 +544,59 @@ async def import_ebay_products(
         user_db: (Session DB, User) avec schema isolé
 
     Returns:
-        ImportResponse: Résultat de l'import
+        ImportResponse: Confirmation du démarrage (imported=0, status=started)
     """
     db, current_user = user_db
 
     try:
-        importer = EbayImporter(
-            db=db,
-            user_id=current_user.id,
-            marketplace_id=request.marketplace_id,
+        # Create marketplace job for tracking
+        from services.marketplace.marketplace_job_service import MarketplaceJobService
+        from models.user.marketplace_job import JobStatus
+
+        job_service = MarketplaceJobService(db)
+
+        job = job_service.create_job(
+            marketplace="ebay",
+            action_code="import",
+            product_id=None,  # Operation-level job (not product-specific)
+            input_data={
+                "marketplace_id": request.marketplace_id
+            },
         )
 
-        result = importer.import_all_products()
+        # Set job to running
+        job.status = JobStatus.RUNNING
+        job_id = job.id
+
+        db.commit()
 
         logger.info(
-            f"eBay import for user {current_user.id}: "
-            f"imported={result['imported']}, updated={result['updated']}, "
-            f"errors={result['errors']}"
+            f"[POST /products/import] Created job #{job_id} for user {current_user.id}, starting background import"
         )
 
-        # Lancer l'enrichissement en arrière-plan pour récupérer les prix
+        # Schedule background task
         background_tasks.add_task(
-            enrich_products_in_background,
+            _run_import_in_background,
+            job_id=job_id,
             user_id=current_user.id,
             marketplace_id=request.marketplace_id,
         )
 
-        logger.info(
-            f"Background enrichment task scheduled for user {current_user.id}"
+        # Return immediately with job info
+        return ImportResponse(
+            imported=0,
+            updated=0,
+            skipped=0,
+            errors=0,
+            details=[{"status": "started", "job_id": job_id, "message": "Import started in background"}],
         )
-
-        return ImportResponse(**result)
 
     except Exception as e:
-        logger.error(f"eBay import failed for user {current_user.id}: {e}")
+        logger.error(f"eBay import failed to start for user {current_user.id}: {e}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Import failed: {str(e)}",
+            detail=f"Import failed to start: {str(e)}",
         )
 
 
@@ -447,53 +688,6 @@ async def refresh_ebay_aspects(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Refresh failed: {str(e)}",
-        )
-
-
-@router.post("/{sku}/sync", response_model=SyncResponse)
-async def sync_ebay_product(
-    sku: str,
-    marketplace_id: str = Query("EBAY_FR", description="Marketplace ID"),
-    user_db: tuple = Depends(get_user_db),
-):
-    """
-    Synchronise un seul produit eBay par SKU.
-
-    Args:
-        sku: SKU eBay du produit
-        marketplace_id: Marketplace ID
-        user_db: (Session DB, User) avec schema isolé
-
-    Returns:
-        SyncResponse: Résultat de la synchronisation
-    """
-    db, current_user = user_db
-
-    try:
-        importer = EbayImporter(
-            db=db,
-            user_id=current_user.id,
-            marketplace_id=marketplace_id,
-        )
-
-        product = importer.sync_single_product(sku)
-
-        if product:
-            return SyncResponse(
-                success=True,
-                product=EbayProductResponse.from_orm_with_parsed_images(product),
-            )
-        else:
-            return SyncResponse(
-                success=False,
-                error=f"Product with SKU {sku} not found on eBay",
-            )
-
-    except Exception as e:
-        logger.error(f"eBay sync failed for SKU {sku}: {e}")
-        return SyncResponse(
-            success=False,
-            error=str(e),
         )
 
 
