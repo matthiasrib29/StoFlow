@@ -5,40 +5,40 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Éliminer les bugs d'isolation multi-tenant en migrant vers schema_translate_map
-**Current focus:** Phase 2 - Session Factory & Dependencies
+**Current focus:** Phase 2 Complete - Ready for Phase 3
 
 ## Current Position
 
-Phase: 2 of 5 (Session Factory & Dependencies)
-Plan: 1 of 2 in current phase ✅ COMPLETE
-Status: In progress
-Last activity: 2026-01-13 — Completed 02-01-PLAN.md
+Phase: 2 of 5 (Session Factory & Dependencies) ✅ COMPLETE
+Plan: 2 of 2 in current phase ✅ COMPLETE
+Status: Phase complete
+Last activity: 2026-01-13 — Completed 02-02-PLAN.md
 
-Progress: [█████░░░░░] 30%
+Progress: [████████░░] 40%
 
 ## Phase 2 Plans
 
 | Plan | Status | Files | Description |
 |------|--------|-------|-------------|
 | 02-01 | ✅ Complete | 1 file | Database helpers (UserBase, get_tenant_schema, deprecations) |
-| 02-02 | ⏳ Pending | 1 file | Implement schema_translate_map in get_user_db() |
+| 02-02 | ✅ Complete | 1 file | Implement schema_translate_map in get_user_db() |
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 4 min
-- Total execution time: 0.2 hours
+- Total plans completed: 4
+- Average duration: 4.5 min
+- Total execution time: 0.3 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 2 | 8 min | 4 min |
-| 2 | 1 | 4 min | 4 min |
+| 2 | 2 | 9 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 3 min, 5 min, 4 min
+- Last 5 plans: 3 min, 5 min, 4 min, 5 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -56,6 +56,7 @@ Recent decisions affecting current work:
 - [01-01]: Dict {"schema": "tenant"} ajouté comme dernier élément des tuples existants
 - [01-02]: 3 patterns handled: tuple+dict, replace empty {}, change None→"tenant"
 - [02-01]: UserBase alias + get_tenant_schema() helper added for Phase 3 readiness
+- [02-02]: get_user_db() uses execution_options(schema_translate_map={"tenant": schema_name})
 
 ### Deferred Issues
 
@@ -68,7 +69,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed 02-01, ready for 02-02
+Stopped at: Phase 2 complete, ready for Phase 3
 Resume file: None
 
 ---

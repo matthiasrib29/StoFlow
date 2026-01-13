@@ -68,8 +68,8 @@ models/user/
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Modifier shared/database.py - Ajouter get_tenant_schema() et helpers
-- [ ] 02-02: Modifier api/dependencies/__init__.py - Remplacer SET par schema_translate_map
+- [x] 02-01: Modifier shared/database.py - Ajouter get_tenant_schema() et helpers ✅ 2026-01-13
+- [x] 02-02: Modifier api/dependencies/__init__.py - Remplacer SET par schema_translate_map ✅ 2026-01-13
 
 **Key Change**:
 ```python
@@ -193,7 +193,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Préparation Modèles | 2/2 | ✅ Complete | 2026-01-13 |
-| 2. Session Factory | 0/2 | Not started | - |
+| 2. Session Factory | 2/2 | ✅ Complete | 2026-01-13 |
 | 3. Migration text() | 0/3 | Not started | - |
 | 4. Nettoyage Legacy | 0/1 | Not started | - |
 | 5. Tests & Validation | 0/2 | Not started | - |
@@ -216,7 +216,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 ## Success Criteria
 
 - [x] Tous les modèles `user/` ont `schema: "tenant"` placeholder ✅
-- [ ] `get_user_db()` utilise `schema_translate_map` au lieu de `SET`
+- [x] `get_user_db()` utilise `schema_translate_map` au lieu de `SET` ✅
 - [ ] Aucun appel `SET search_path` ne reste dans le code
 - [ ] Tests prouvent que schema persiste après COMMIT et ROLLBACK
 - [ ] Vinted sync fonctionne sans erreur "relation does not exist"
