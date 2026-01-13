@@ -5,39 +5,40 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Éliminer les bugs d'isolation multi-tenant en migrant vers schema_translate_map
-**Current focus:** Phase 1 - Préparation Modèles Tenant
+**Current focus:** Phase 2 - Session Factory & Dependencies
 
 ## Current Position
 
-Phase: 1 of 5 (Préparation Modèles Tenant) ✅ COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-01-13 — Completed 01-02-PLAN.md
+Phase: 2 of 5 (Session Factory & Dependencies)
+Plan: 1 of 2 in current phase ✅ COMPLETE
+Status: In progress
+Last activity: 2026-01-13 — Completed 02-01-PLAN.md
 
-Progress: [████░░░░░░] 20%
+Progress: [█████░░░░░] 30%
 
-## Phase 1 Plans
+## Phase 2 Plans
 
 | Plan | Status | Files | Description |
 |------|--------|-------|-------------|
-| 01-01 | ✅ Complete | 9 files | Modèles principaux (product, vinted_*, marketplace_*, batch_job) |
-| 01-02 | ✅ Complete | 10 files (13 classes) | Modèles secondaires (ebay_*, etsy_*, ai_*, pending_*, M2M, publication) |
+| 02-01 | ✅ Complete | 1 file | Database helpers (UserBase, get_tenant_schema, deprecations) |
+| 02-02 | ⏳ Pending | 1 file | Implement schema_translate_map in get_user_db() |
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
+- Total plans completed: 3
 - Average duration: 4 min
-- Total execution time: 0.13 hours
+- Total execution time: 0.2 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 2 | 8 min | 4 min |
+| 2 | 1 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 3 min, 5 min
+- Last 5 plans: 3 min, 5 min, 4 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -54,6 +55,7 @@ Recent decisions affecting current work:
 - [Phase 1]: 19 fichiers identifiés dans models/user/ (22 classes total avec M2M)
 - [01-01]: Dict {"schema": "tenant"} ajouté comme dernier élément des tuples existants
 - [01-02]: 3 patterns handled: tuple+dict, replace empty {}, change None→"tenant"
+- [02-01]: UserBase alias + get_tenant_schema() helper added for Phase 3 readiness
 
 ### Deferred Issues
 
@@ -66,7 +68,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Completed Phase 1, ready for Phase 2
+Stopped at: Completed 02-01, ready for 02-02
 Resume file: None
 
 ---
