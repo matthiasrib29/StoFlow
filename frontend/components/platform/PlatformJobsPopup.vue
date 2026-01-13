@@ -109,22 +109,31 @@
           </div>
         </div>
 
-        <!-- Progress bar -->
+        <!-- Progress info -->
         <div v-if="job.progress" class="mt-3">
-          <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
-            <span>Progression</span>
-            <span>{{ job.progress.completed }}/{{ job.progress.total }} ({{ job.progress.progress_percent }}%)</span>
+          <!-- New simple format: { current, label } -->
+          <div v-if="job.progress.current !== undefined" class="flex items-center gap-2 text-sm text-gray-600">
+            <i class="pi pi-spin pi-spinner text-primary-400" v-if="job.status === 'running'" />
+            <span class="font-medium">{{ job.progress.current }}</span>
+            <span>{{ job.progress.label || 'traités' }}</span>
           </div>
-          <ProgressBar
-            :value="job.progress.progress_percent"
-            :showValue="false"
-            style="height: 6px"
-            :class="{
-              'progress-running': job.status === 'running',
-              'progress-paused': job.status === 'paused',
-              'progress-pending': job.status === 'pending'
-            }"
-          />
+          <!-- Legacy format with progress bar: { completed, total, progress_percent } -->
+          <div v-else-if="job.progress.total">
+            <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+              <span>Progression</span>
+              <span>{{ job.progress.completed }}/{{ job.progress.total }} ({{ job.progress.progress_percent }}%)</span>
+            </div>
+            <ProgressBar
+              :value="job.progress.progress_percent"
+              :showValue="false"
+              style="height: 6px"
+              :class="{
+                'progress-running': job.status === 'running',
+                'progress-paused': job.status === 'paused',
+                'progress-pending': job.status === 'pending'
+              }"
+            />
+          </div>
         </div>
 
         <!-- Error message -->
@@ -170,7 +179,7 @@
           severity="secondary"
           text
           size="small"
-          @click="fetchActiveJobs"
+          @click="() => fetchActiveJobs()"
           :loading="isLoading"
           v-tooltip.top="'Actualiser'"
         />

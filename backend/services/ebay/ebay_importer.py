@@ -109,9 +109,14 @@ class EbayImporter:
             logger.warning(f"Could not fetch offers for SKU {sku}: {e}")
             return []
 
-    def import_all_products(self) -> dict:
+    def import_all_products(self, enrich: bool = False) -> dict:
         """
         Importe tous les produits eBay vers Stoflow.
+
+        Args:
+            enrich: If True, enrichit chaque produit avec les données offers (lent).
+                    If False (default), import rapide sans enrichissement.
+                    L'enrichissement peut être fait après via enrich_products_batch().
 
         Returns:
             dict: {
@@ -139,7 +144,7 @@ class EbayImporter:
 
         for item in inventory_items:
             try:
-                result = self._import_single_item(item)
+                result = self._import_single_item(item, enrich=enrich)
 
                 if result["status"] == "imported":
                     results["imported"] += 1
@@ -170,12 +175,13 @@ class EbayImporter:
 
         return results
 
-    def _import_single_item(self, inventory_item: dict) -> dict:
+    def _import_single_item(self, inventory_item: dict, enrich: bool = True) -> dict:
         """
         Importe un seul inventory item vers Stoflow.
 
         Args:
             inventory_item: Inventory item eBay
+            enrich: Si True, enrichit immédiatement avec les données offers (prix, listing_id)
 
         Returns:
             dict: Résultat de l'import
@@ -200,11 +206,17 @@ class EbayImporter:
             existing.last_synced_at = utc_now()
             existing.updated_at = utc_now()
 
+            # Enrich with offers data (price, listing_id, etc.)
+            if enrich:
+                self.enrich_with_offers(existing)
+
             return {
                 "sku": sku,
                 "status": "updated",
                 "id": existing.id,
-                "title": product_data.get("title")
+                "title": product_data.get("title"),
+                "price": existing.price,
+                "listing_id": existing.ebay_listing_id
             }
 
         # Create new
@@ -217,11 +229,17 @@ class EbayImporter:
         self.db.add(ebay_product)
         self.db.flush()  # Get ID without committing
 
+        # Enrich with offers data (price, listing_id, etc.)
+        if enrich:
+            self.enrich_with_offers(ebay_product)
+
         return {
             "sku": sku,
             "status": "imported",
             "id": ebay_product.id,
-            "title": product_data.get("title")
+            "title": product_data.get("title"),
+            "price": ebay_product.price,
+            "listing_id": ebay_product.ebay_listing_id
         }
 
     def _extract_product_data(self, inventory_item: dict) -> dict:

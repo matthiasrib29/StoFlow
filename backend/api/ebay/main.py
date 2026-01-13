@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user, get_db
 from api.ebay import orders
+from api.ebay import jobs
 from models.public.ebay_marketplace_config import MarketplaceConfig
 from models.public.user import User
 from models.user.ebay_product_marketplace import EbayProductMarketplace
@@ -34,8 +35,9 @@ from services.ebay import (
 
 router = APIRouter(prefix="/ebay", tags=["eBay"])
 
-# Include orders router
+# Include sub-routers
 router.include_router(orders.router, tags=["eBay Orders"])
+router.include_router(jobs.router, tags=["eBay Jobs"])
 
 
 # ========== PYDANTIC SCHEMAS ==========
