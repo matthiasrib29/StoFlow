@@ -17,7 +17,7 @@ None (internal patterns, no external integrations)
 - [x] **Phase 1: Backend Service** - Service Python de génération templates ✅
 - [x] **Phase 2: Backend API** - Endpoints REST génération et preview ✅
 - [x] **Phase 3: User Settings** - Préférences format/style par utilisateur ✅
-- [ ] **Phase 4: Frontend Composable** - useProductTextGenerator.ts
+- [x] **Phase 4: Frontend Composable** - useProductTextGenerator.ts ✅
 - [ ] **Phase 5: Frontend UI** - Boutons et modal dans formulaire produit
 
 ## Phase Details
@@ -57,7 +57,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: Composable avec generate, preview, state management
+- [x] 04-01: Composable avec generate, preview, state management ✅
 
 ### Phase 5: Frontend UI
 **Goal**: Intégrer les boutons de génération et modal preview dans le formulaire produit
@@ -79,7 +79,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Backend Service | 2/2 | Complete | 2026-01-13 |
 | 2. Backend API | 1/1 | Complete | 2026-01-13 |
 | 3. User Settings | 1/1 | Complete | 2026-01-13 |
-| 4. Frontend Composable | 0/1 | Not started | - |
+| 4. Frontend Composable | 1/1 | Complete | 2026-01-13 |
 | 5. Frontend UI | 0/2 | Not started | - |
 
 ---
