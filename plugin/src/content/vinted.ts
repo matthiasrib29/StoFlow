@@ -211,16 +211,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
    * Uses the vintedAPI bridge to make calls via Vinted's Axios instance
    */
   if (action === 'VINTED_API_CALL') {
-    const { method, endpoint, data, config } = message;
+    const { method, endpoint: rawEndpoint, data, config } = message;
 
-    if (!method || !endpoint) {
+    if (!method || !rawEndpoint) {
       sendResponse({ success: false, error: 'Invalid VINTED_API_CALL: missing method or endpoint' });
       return true;
     }
 
+    // Remove /api/v2 prefix if present (avoid duplication - Axios baseURL already has it)
+    let endpoint = rawEndpoint;
+    if (endpoint.startsWith('/api/v2')) {
+      endpoint = endpoint.replace('/api/v2', '');
+    }
+
     (async () => {
       try {
-        VintedLogger.debug(`[Stoflow] 🔄 VINTED_API_CALL: ${method} ${endpoint}`);
+        VintedLogger.debug(`[Stoflow] 🔄 VINTED_API_CALL: ${method} ${endpoint} (original: ${rawEndpoint})`);
 
         let response;
         switch (method.toUpperCase()) {
