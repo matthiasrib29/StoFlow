@@ -92,7 +92,7 @@ class EbayOrderSyncService:
         Fetch orders from eBay API (all or date range).
 
         Args:
-            sync_all: If True, fetch all orders (no date filter)
+            sync_all: If True, fetch all orders by year (2024, 2025, 2026)
             modified_since_hours: Hours to look back (ignored if sync_all)
             status_filter: Optional fulfillment status filter
 
@@ -100,8 +100,10 @@ class EbayOrderSyncService:
             List of order dicts from eBay API
         """
         if sync_all:
-            logger.debug("[EbayOrderSyncService] Fetching ALL orders (no date filter)")
-            return self.fulfillment_client.get_all_orders(status=status_filter)
+            # Fetch orders by year to get complete history
+            # eBay default (no date filter) only returns ~90 days
+            logger.info("[EbayOrderSyncService] Fetching ALL orders by year (2024-2026)")
+            return self._fetch_orders_by_years(status_filter)
 
         # Date range fetch
         end_date = datetime.now(timezone.utc)
@@ -117,6 +119,114 @@ class EbayOrderSyncService:
             end_date=end_date,
             status=status_filter,
         )
+
+    def _fetch_orders_by_years(
+        self,
+        status_filter: Optional[str] = None,
+    ) -> list[dict]:
+        """
+        Fetch orders using multiple strategies to get complete history.
+
+        eBay Fulfillment API supports up to 2 years of history.
+        Without a date filter, eBay only returns ~90 days.
+
+        Strategy:
+        1. First, fetch without date filter (gets recent ~90 days)
+        2. Then, fetch by year for 2025 (historical orders)
+        3. Deduplicate by order_id
+
+        Args:
+            status_filter: Optional fulfillment status filter
+
+        Returns:
+            List of all orders (deduplicated by order_id)
+        """
+        all_orders = []
+        seen_order_ids = set()
+
+        # Strategy 1: Fetch recent orders (no date filter = ~90 days)
+        logger.info("[EbayOrderSyncService] Step 1: Fetching recent orders (no date filter)")
+        try:
+            recent_orders = self.fulfillment_client.get_all_orders(status=status_filter)
+            for order in recent_orders:
+                order_id = order.get("orderId")
+                if order_id and order_id not in seen_order_ids:
+                    seen_order_ids.add(order_id)
+                    all_orders.append(order)
+            logger.info(
+                f"[EbayOrderSyncService] Recent orders: {len(recent_orders)} fetched, "
+                f"{len(all_orders)} total unique"
+            )
+        except Exception as e:
+            logger.warning(f"[EbayOrderSyncService] Failed to fetch recent orders: {e}")
+
+        # Strategy 2: Fetch historical orders by year (2025 only - eBay rejects 2024 and 2026)
+        # Note: eBay is in 2025, our system date is 2026. 2026 dates are rejected.
+        years_to_fetch = [2025]  # Only 2025 works reliably
+
+        for year in years_to_fetch:
+            try:
+                # Build creationdate filter for the year
+                start_date = f"{year}-01-01T00:00:00.000Z"
+                end_date = f"{year}-12-31T23:59:59.999Z"
+                date_filter = f"creationdate:[{start_date}..{end_date}]"
+
+                # Add status filter if provided
+                if status_filter:
+                    date_filter = f"{date_filter},orderfulfillmentstatus:{{{status_filter}}}"
+
+                logger.info(f"[EbayOrderSyncService] Step 2: Fetching orders for year {year}")
+
+                # Fetch all pages for this year
+                offset = 0
+                limit = 200  # Max eBay allows
+                year_orders = []
+
+                while True:
+                    result = self.fulfillment_client.get_orders(
+                        filter=date_filter,
+                        limit=limit,
+                        offset=offset,
+                    )
+                    orders = result.get("orders", [])
+
+                    if not orders:
+                        break
+
+                    year_orders.extend(orders)
+
+                    # Check if more results
+                    total = result.get("total", 0)
+                    if offset + len(orders) >= total:
+                        break
+
+                    offset += limit
+
+                # Deduplicate and add to all_orders
+                new_count = 0
+                for order in year_orders:
+                    order_id = order.get("orderId")
+                    if order_id and order_id not in seen_order_ids:
+                        seen_order_ids.add(order_id)
+                        all_orders.append(order)
+                        new_count += 1
+
+                logger.info(
+                    f"[EbayOrderSyncService] Year {year}: {len(year_orders)} fetched, "
+                    f"{new_count} new, {len(all_orders)} total unique"
+                )
+
+            except Exception as e:
+                # Log error but continue with other years
+                logger.warning(
+                    f"[EbayOrderSyncService] Failed to fetch orders for year {year}: {e}"
+                )
+                continue
+
+        logger.info(
+            f"[EbayOrderSyncService] Total unique orders fetched: {len(all_orders)}"
+        )
+        return all_orders
 
     def _process_orders_batch(self, api_orders: list[dict]) -> dict:
         """

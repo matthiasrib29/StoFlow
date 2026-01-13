@@ -46,7 +46,25 @@
 - **Hydration mismatch** : Contenu différent entre serveur et client (vérifier avec `<ClientOnly>`)
 - **useAsyncData dans onMounted** : Doit être appelé dans le setup, pas dans les lifecycle hooks
 - **Refresh sans key** : `useFetch` sans `key` unique peut causer des conflits de cache
-- **Nuxt 3 → 4 migration** : Certaines options ont changé, vérifier le guide de migration
+- **Conflit fichier/dossier routes** : Si `pages/foo.vue` ET `pages/foo/[id].vue` existent, utiliser `pages/foo/index.vue` au lieu de `pages/foo.vue` pour éviter les conflits de routing
+
+### 🔀 Structure de Routes avec Paramètres Dynamiques
+
+**❌ Mauvaise structure (conflit possible) :**
+```
+pages/
+├── orders.vue           # /orders
+└── orders/
+    └── [id].vue         # /orders/:id  ← Peut ne pas fonctionner !
+```
+
+**✅ Bonne structure :**
+```
+pages/
+└── orders/
+    ├── index.vue        # /orders
+    └── [id].vue         # /orders/:id  ← Fonctionne correctement
+```
 
 ## 🔗 Sources
 - [Nuxt 4 Performance Best Practices](https://nuxt.com/docs/4.x/guide/best-practices/performance)

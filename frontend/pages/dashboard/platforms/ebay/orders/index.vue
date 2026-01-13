@@ -133,6 +133,10 @@
         striped-rows
         responsive-layout="scroll"
         :global-filter-fields="['order_id', 'buyer_username']"
+        selection-mode="single"
+        :meta-key-selection="false"
+        class="cursor-pointer"
+        @row-click="onRowClick"
       >
         <Column field="order_id" header="Order ID" sortable>
           <template #body="{ data }">
@@ -189,28 +193,17 @@
           </template>
         </Column>
 
-        <Column header="Actions" style="width: 150px">
+        <Column header="Actions" style="width: 80px">
           <template #body="{ data }">
-            <div class="flex gap-2">
-              <Button
-                icon="pi pi-eye"
-                text
-                rounded
-                size="small"
-                severity="info"
-                title="Voir les détails"
-                @click="viewDetails(data)"
-              />
-              <Button
-                icon="pi pi-external-link"
-                text
-                rounded
-                size="small"
-                severity="secondary"
-                title="Voir sur eBay"
-                @click="openOnEbay(data)"
-              />
-            </div>
+            <Button
+              icon="pi pi-external-link"
+              text
+              rounded
+              size="small"
+              severity="secondary"
+              title="Voir sur eBay"
+              @click.stop="openOnEbay(data)"
+            />
           </template>
         </Column>
       </DataTable>
@@ -325,11 +318,17 @@ const fetchOrders = async () => {
       }
     })
 
-    // New format returns { items, total, page, page_size, total_pages }
+    // New format returns { items, total, page, page_size, total_pages, stats }
     orders.value = response.items || []
 
-    // Calculate stats
-    calculateStats()
+    // Use stats from API (global, not affected by pagination)
+    stats.value = {
+      total_orders: response.total || 0,
+      total_revenue: response.total_revenue || 0,
+      pending_orders: response.pending_count || 0,
+      shipped_orders: response.shipped_count || 0,
+      delivered_orders: 0
+    }
   } catch (e: any) {
     error.value = e.message || 'Erreur lors du chargement des commandes'
     ebayLogger.error('Failed to fetch eBay orders:', e)
@@ -379,9 +378,9 @@ const triggerSync = async () => {
   }
 }
 
-const calculateStats = () => {
+const calculateStats = (totalFromApi?: number) => {
   stats.value = {
-    total_orders: orders.value.length,
+    total_orders: totalFromApi ?? orders.value.length,
     total_revenue: orders.value.reduce((sum, order) => sum + (order.total_price || 0), 0),
     pending_orders: orders.value.filter(o =>
       o.order_fulfillment_status === EbayFulfillmentStatus.NOT_STARTED ||
@@ -452,6 +451,10 @@ const getFulfillmentStatusSeverity = (status: string) => {
 const viewDetails = (order: EbayOrder) => {
   // Navigate to order details page
   navigateTo(`/dashboard/platforms/ebay/orders/${order.id}`)
+}
+
+const onRowClick = (event: { data: EbayOrder }) => {
+  viewDetails(event.data)
 }
 
 const openOnEbay = (order: EbayOrder) => {
