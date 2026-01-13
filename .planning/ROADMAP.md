@@ -1,12 +1,12 @@
-# Roadmap: AI Product Generation
+# Roadmap: Improve eBay Capability - Order Management
 
 ## Overview
 
-Implémentation d'un générateur automatique de titres SEO et descriptions dynamiques pour produits vestimentaires. Templates Python déterministes avec gestion intelligente des attributs manquants. Backend service → API → User settings → Frontend composable → UI intégration.
+Implémentation complète de la gestion post-vente eBay dans StoFlow. Progression : Foundation → Returns (backend → frontend) → Cancellations → Refunds → Payment Disputes → INR Inquiries → Dashboard unifié. Chaque domaine suit le pattern : Client API → Model/Repository → Service → Endpoints REST → Frontend.
 
 ## Domain Expertise
 
-None (internal patterns, no external integrations)
+None (eBay API patterns, internal architecture established)
 
 ## Phases
 
@@ -14,73 +14,118 @@ None (internal patterns, no external integrations)
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [x] **Phase 1: Backend Service** - Service Python de génération templates ✅
-- [x] **Phase 2: Backend API** - Endpoints REST génération et preview ✅
-- [x] **Phase 3: User Settings** - Préférences format/style par utilisateur ✅
-- [x] **Phase 4: Frontend Composable** - useProductTextGenerator.ts ✅
-- [x] **Phase 5: Frontend UI** - Boutons et modal dans formulaire produit ✅
+- [ ] **Phase 1: Foundation** - Post-Order API base client, shared utilities, OAuth scope verification
+- [ ] **Phase 2: Returns Backend Core** - EbayReturnClient, EbayReturn model, repository
+- [ ] **Phase 3: Returns Backend Service** - EbayReturnService, sync service, business logic
+- [ ] **Phase 4: Returns API** - REST endpoints pour retours
+- [ ] **Phase 5: Returns Frontend** - Pages liste/détail, composants, actions
+- [ ] **Phase 6: Cancellations Backend** - Client, model, repository, service
+- [ ] **Phase 7: Cancellations API & Frontend** - Endpoints, sync, pages, actions
+- [ ] **Phase 8: Refunds** - Extend FulfillmentClient, model, service, endpoints, UI
+- [ ] **Phase 9: Payment Disputes Backend** - Client, model, repository, service
+- [ ] **Phase 10: Payment Disputes Frontend** - Pages, evidence upload, contest actions
+- [ ] **Phase 11: INR Inquiries** - Client, model, service, endpoints, UI complète
+- [ ] **Phase 12: Dashboard & Alerts** - Dashboard unifié, AlertService, notifications urgentes
 
 ## Phase Details
 
-### Phase 1: Backend Service
-**Goal**: Créer le service `ProductTextGeneratorService` avec les 3 formats de titre et 3 styles de description
+### Phase 1: Foundation
+**Goal**: Établir les bases pour Post-Order API - base client, utilities partagées, vérification OAuth scopes
 **Depends on**: Nothing (first phase)
-**Research**: Unlikely (Python templates, internal patterns)
-**Plans**: 2 plans
+**Research**: Likely (Post-Order API authentication, deprecated endpoints)
+**Research topics**: Post-Order API auth requirements, scopes needed, deprecated methods to avoid
+**Plans**: TBD
 
-Plans:
-- [x] 01-01: Implémentation des 3 formats de titre ✅
-- [x] 01-02: Implémentation des 3 styles de description ✅
-
-### Phase 2: Backend API
-**Goal**: Exposer les endpoints REST pour générer et preview les textes
+### Phase 2: Returns Backend Core
+**Goal**: Créer le client API retours, le modèle EbayReturn et le repository
 **Depends on**: Phase 1
+**Research**: Likely (Post-Order API returns endpoints)
+**Research topics**: GET /return/search, GET /return/{id}, response schemas, status values
+**Plans**: TBD
+
+### Phase 3: Returns Backend Service
+**Goal**: Implémenter EbayReturnService avec logique métier et sync
+**Depends on**: Phase 2
+**Research**: Unlikely (internal service patterns)
+**Plans**: TBD
+
+### Phase 4: Returns API
+**Goal**: Exposer les endpoints REST pour gestion des retours
+**Depends on**: Phase 3
 **Research**: Unlikely (FastAPI patterns existants)
-**Plans**: 1 plan
+**Plans**: TBD
 
-Plans:
-- [x] 02-01: Endpoints generate-text et preview-text ✅
-
-### Phase 3: User Settings
-**Goal**: Ajouter les préférences utilisateur pour format titre et style description par défaut
-**Depends on**: Phase 2
-**Research**: Unlikely (user settings pattern existant)
-**Plans**: 1 plan
-
-Plans:
-- [x] 03-01: Migration DB + API settings ✅
-
-### Phase 4: Frontend Composable
-**Goal**: Créer le composable `useProductTextGenerator.ts` pour l'intégration frontend
-**Depends on**: Phase 2
-**Research**: Unlikely (Vue composable patterns existants)
-**Plans**: 1 plan
-
-Plans:
-- [x] 04-01: Composable avec generate, preview, state management ✅
-
-### Phase 5: Frontend UI
-**Goal**: Intégrer les boutons de génération et modal preview dans le formulaire produit
+### Phase 5: Returns Frontend
+**Goal**: Créer les pages et composants frontend pour gestion des retours
 **Depends on**: Phase 4
-**Research**: Unlikely (UI patterns existants)
-**Plans**: 2 plans
+**Research**: Unlikely (Vue/Nuxt patterns existants)
+**Plans**: TBD
 
-Plans:
-- [x] 05-01: TextGeneratorButton + TextPreviewModal components ✅
-- [x] 05-02: Intégration dans pages create/edit product ✅
+### Phase 6: Cancellations Backend
+**Goal**: Implémenter client, model, repository et service pour annulations
+**Depends on**: Phase 1
+**Research**: Likely (Post-Order API cancellation endpoints)
+**Research topics**: Cancellation API methods, approval/rejection flow, seller-initiated cancellation
+**Plans**: TBD
+
+### Phase 7: Cancellations API & Frontend
+**Goal**: Endpoints REST et interface frontend pour annulations
+**Depends on**: Phase 6
+**Research**: Unlikely (patterns établis phases précédentes)
+**Plans**: TBD
+
+### Phase 8: Refunds
+**Goal**: Étendre FulfillmentClient avec issueRefund, tracking des remboursements
+**Depends on**: Phase 5, Phase 7 (retours et annulations génèrent des refunds)
+**Research**: Likely (Fulfillment API issueRefund, Digital Signatures EU/UK)
+**Research topics**: issueRefund endpoint, refund status tracking, Digital Signature requirements
+**Plans**: TBD
+
+### Phase 9: Payment Disputes Backend
+**Goal**: Client, model, repository et service pour litiges de paiement
+**Depends on**: Phase 1
+**Research**: Likely (Fulfillment API payment dispute methods)
+**Research topics**: getPaymentDispute, contestPaymentDispute, evidence upload flow
+**Plans**: TBD
+
+### Phase 10: Payment Disputes Frontend
+**Goal**: Interface frontend avec upload de preuves et actions contest/accept
+**Depends on**: Phase 9
+**Research**: Unlikely (patterns établis)
+**Plans**: TBD
+
+### Phase 11: INR Inquiries
+**Goal**: Gestion complète des réclamations "Article non reçu"
+**Depends on**: Phase 1
+**Research**: Likely (Post-Order API inquiry methods)
+**Research topics**: Inquiry search, respond with tracking, escalation to case
+**Plans**: TBD
+
+### Phase 12: Dashboard & Alerts
+**Goal**: Dashboard eBay unifié avec compteurs, AlertService pour actions urgentes
+**Depends on**: Phases 5, 7, 10, 11 (tous les domaines)
+**Research**: Unlikely (aggregation interne)
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Backend Service | 2/2 | Complete | 2026-01-13 |
-| 2. Backend API | 1/1 | Complete | 2026-01-13 |
-| 3. User Settings | 1/1 | Complete | 2026-01-13 |
-| 4. Frontend Composable | 1/1 | Complete | 2026-01-13 |
-| 5. Frontend UI | 2/2 | Complete | 2026-01-13 |
+| 1. Foundation | 0/TBD | Not started | - |
+| 2. Returns Backend Core | 0/TBD | Not started | - |
+| 3. Returns Backend Service | 0/TBD | Not started | - |
+| 4. Returns API | 0/TBD | Not started | - |
+| 5. Returns Frontend | 0/TBD | Not started | - |
+| 6. Cancellations Backend | 0/TBD | Not started | - |
+| 7. Cancellations API & Frontend | 0/TBD | Not started | - |
+| 8. Refunds | 0/TBD | Not started | - |
+| 9. Payment Disputes Backend | 0/TBD | Not started | - |
+| 10. Payment Disputes Frontend | 0/TBD | Not started | - |
+| 11. INR Inquiries | 0/TBD | Not started | - |
+| 12. Dashboard & Alerts | 0/TBD | Not started | - |
 
 ---
 
