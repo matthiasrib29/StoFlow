@@ -14,7 +14,7 @@ export interface PriceInput {
   category: string
   materials: string[]
   model_name?: string
-  condition_score: number  // 0-5
+  condition_score: number  // 0-10
   supplements: string[]
   condition_sensitivity: number  // 0.5-1.5
   actual_origin: string

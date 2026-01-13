@@ -64,6 +64,8 @@
         :rise="rise"
         :closure="closure"
         :sleeve-length="sleeveLength"
+        :stretch="stretch"
+        :lining="lining"
         :options="clothingOptions"
         @update:fit="$emit('update:fit', $event)"
         @update:season="$emit('update:season', $event)"
@@ -74,6 +76,8 @@
         @update:rise="$emit('update:rise', $event)"
         @update:closure="$emit('update:closure', $event)"
         @update:sleeve-length="$emit('update:sleeveLength', $event)"
+        @update:stretch="$emit('update:stretch', $event)"
+        @update:lining="$emit('update:lining', $event)"
       />
     </ProductsFormsCharacteristicsCollapsibleSection>
 
@@ -143,6 +147,8 @@ interface Props {
   rise: string | null
   closure: string | null
   sleeveLength: string | null
+  stretch: string | null
+  lining: string | null
   // Vintage
   origin: string | null
   decade: string | null
@@ -179,6 +185,8 @@ defineEmits<{
   'update:rise': [value: string | null]
   'update:closure': [value: string | null]
   'update:sleeveLength': [value: string | null]
+  'update:stretch': [value: string | null]
+  'update:lining': [value: string | null]
   'update:origin': [value: string | null]
   'update:decade': [value: string | null]
   'update:trend': [value: string | null]
@@ -210,7 +218,9 @@ const clothingOptions = computed(() => ({
   patterns: options.patterns,
   rises: options.rises,
   closures: options.closures,
-  sleeveLengths: options.sleeveLengths
+  sleeveLengths: options.sleeveLengths,
+  stretches: options.stretches,
+  linings: options.linings
 }))
 
 const vintageOptions = computed(() => ({
@@ -223,7 +233,8 @@ const vintageOptions = computed(() => ({
 const clothingFilledCount = computed(() => {
   const clothingFields = [
     props.fit, props.season, props.sport, props.neckline,
-    props.length, props.pattern, props.rise, props.closure, props.sleeveLength
+    props.length, props.pattern, props.rise, props.closure, props.sleeveLength,
+    props.stretch, props.lining
   ]
   return clothingFields.filter(v => v !== null && v !== undefined && v !== '').length
 })

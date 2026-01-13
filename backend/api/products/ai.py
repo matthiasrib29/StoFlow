@@ -11,6 +11,7 @@ Refactored: 2026-01-05 - Split from api/products.py
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
@@ -70,6 +71,21 @@ async def analyze_product_images(
         # SUPPORT ne peut pas analyser (lecture seule)
         ensure_can_modify(current_user, "produit")
 
+        # Re-set search_path before query (ensure it's applied on the actual connection)
+        # Security: schema_name already validated by get_user_db, but double-check
+        import re
+        if not re.match(r'^user_\d+$', current_user.schema_name):
+            raise HTTPException(status_code=500, detail="Invalid schema name")
+
+        # Use SET (not SET LOCAL) to ensure it persists for the entire request
+        # SET LOCAL only works within a transaction block, which might be problematic with async
+        db.execute(text(f"SET search_path TO {current_user.schema_name}, public"))
+
+        # Verify it's applied
+        result = db.execute(text("SHOW search_path"))
+        actual_path = result.scalar()
+        logger.info(f"[API:products] search_path verified: {actual_path}")
+
         # Récupérer le produit
         product = ProductService.get_product_by_id(db, product_id)
 
@@ -89,10 +105,12 @@ async def analyze_product_images(
                 detail="Le produit n'a pas d'images à analyser.",
             )
 
-        # Récupérer les crédits mensuels de l'abonnement
+        # Récupérer les limites de l'abonnement
         monthly_credits = 0
+        max_images = 5  # Default for users without subscription
         if hasattr(current_user, "subscription_quota") and current_user.subscription_quota:
             monthly_credits = current_user.subscription_quota.ai_credits_monthly or 0
+            max_images = current_user.subscription_quota.ai_max_images_per_analysis or 5
 
         # Analyser les images
         attributes, tokens_used, cost, images_analyzed = await AIVisionService.analyze_images(
@@ -100,6 +118,7 @@ async def analyze_product_images(
             product=product,
             user_id=current_user.id,
             monthly_credits=monthly_credits,
+            max_images=max_images,
         )
 
         logger.info(
@@ -198,15 +217,25 @@ async def analyze_images_direct(
                 detail="Aucune image valide fournie. Formats acceptés: JPEG, PNG, GIF, WebP.",
             )
 
-        # Récupérer les crédits mensuels de l'abonnement
+        # Récupérer les limites de l'abonnement
         monthly_credits = 0
+        max_images = 5  # Default for users without subscription
         if hasattr(current_user, "subscription_quota") and current_user.subscription_quota:
             monthly_credits = current_user.subscription_quota.ai_credits_monthly or 0
+            max_images = current_user.subscription_quota.ai_max_images_per_analysis or 5
+
+        # Limiter les images selon l'abonnement
+        image_files_limited = image_files[:max_images]
+
+        logger.info(
+            f"[API:products] analyze_images_direct: limiting to {len(image_files_limited)}/{len(image_files)} images "
+            f"(max_images={max_images} for user subscription)"
+        )
 
         # Analyser les images
         attributes, tokens_used, cost, images_analyzed = await AIVisionService.analyze_images_direct(
             db=db,
-            image_files=image_files,
+            image_files=image_files_limited,
             user_id=current_user.id,
             monthly_credits=monthly_credits,
         )

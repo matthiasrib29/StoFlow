@@ -64,13 +64,20 @@
         />
       </div>
 
+      <!-- AI Auto-fill Section (visible when photos exist) -->
+      <ProductsAiAutoFillSection
+        v-if="existingImages.length > 0 || newPhotos.length > 0"
+        :ai-credits-remaining="aiCreditsRemaining"
+        :loading="isAnalyzingImages"
+        @analyze="analyzeImagesAndFill"
+      />
+
       <!-- Form Section -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
         <ProductsProductForm
           v-model="form"
           :is-submitting="isSubmitting"
           :product-id="id"
-          :has-images="existingImages.length > 0 || newPhotos.length > 0"
           submit-label="Enregistrer les modifications"
           @submit="handleSubmit"
           @cancel="$router.push('/dashboard/products')"
@@ -91,8 +98,9 @@ definePageMeta({
 
 const route = useRoute()
 const router = useRouter()
-const { showSuccess, showError, showWarn } = useAppToast()
+const { showSuccess, showError, showWarn, showInfo } = useAppToast()
 const productsStore = useProductsStore()
+const { post } = useApi()
 
 const id = parseInt(route.params.id as string)
 
@@ -100,6 +108,10 @@ const id = parseInt(route.params.id as string)
 const loading = ref(true)
 const product = ref<Product | null>(null)
 const isSubmitting = ref(false)
+const isAnalyzingImages = ref(false)
+
+// AI Credits
+const { aiCreditsRemaining, fetchAICredits } = useAiCredits()
 
 // Form data with complete ProductFormData interface
 const form = ref<ProductFormData>({ ...defaultProductFormData })
@@ -144,8 +156,147 @@ const handleReorder = (_order: { existingImages: ExistingImage[], photos: Photo[
   imagesReordered.value = true
 }
 
+// ====== AI IMAGE ANALYSIS ======
+
+/**
+ * Analyse les images avec l'IA et remplit le formulaire
+ */
+const analyzeImagesAndFill = async () => {
+  // Vérifier qu'il y a des images
+  if (existingImages.value.length === 0 && newPhotos.value.length === 0) {
+    showWarn('Pas de photos', 'Ajoutez au moins une photo pour utiliser l\'IA', 3000)
+    return
+  }
+
+  isAnalyzingImages.value = true
+
+  try {
+    // Créer FormData avec les fichiers
+    const formData = new FormData()
+
+    // Pour les images existantes, on utilise l'endpoint avec product_id
+    // Pour les nouvelles photos, on les envoie directement
+    if (newPhotos.value.length > 0) {
+      // Analyser les nouvelles photos
+      for (const photo of newPhotos.value) {
+        formData.append('files', photo.file)
+      }
+    } else if (existingImages.value.length > 0 && product.value) {
+      // Utiliser l'endpoint qui analyse les images existantes du produit
+      const response = await post<{
+        attributes: Record<string, any>
+        images_analyzed: number
+        tokens_used: number
+      }>(`/products/${product.value.id}/analyze-images`)
+
+      if (response?.attributes) {
+        fillFormWithAIResults(response.attributes)
+        showSuccess(
+          'Analyse terminée',
+          `${response.images_analyzed} image(s) analysée(s). Formulaire pré-rempli.`,
+          4000
+        )
+      }
+      return
+    }
+
+    // Appeler l'endpoint d'analyse directe pour les nouvelles photos
+    const response = await post<{
+      attributes: Record<string, any>
+      images_analyzed: number
+      tokens_used: number
+    }>('/products/analyze-images-direct', formData)
+
+    if (response?.attributes) {
+      fillFormWithAIResults(response.attributes)
+      showSuccess(
+        'Analyse terminée',
+        `${response.images_analyzed} image(s) analysée(s). Formulaire pré-rempli.`,
+        4000
+      )
+    }
+  } catch (error: any) {
+    productLogger.error('AI analysis error', { error: error.message })
+
+    if (error?.statusCode === 402) {
+      showError(
+        'Crédits insuffisants',
+        'Vous n\'avez plus de crédits IA. Passez à un abonnement supérieur.',
+        5000
+      )
+    } else {
+      showError(
+        'Erreur d\'analyse',
+        error.message || 'Impossible d\'analyser les images. Réessayez plus tard.',
+        5000
+      )
+    }
+  } finally {
+    isAnalyzingImages.value = false
+    await fetchAICredits()
+  }
+}
+
+/**
+ * Remplit le formulaire avec les résultats de l'IA
+ */
+const fillFormWithAIResults = (attrs: Record<string, any>) => {
+  const mappings: [string, keyof ProductFormData][] = [
+    ['category', 'category'],
+    ['brand', 'brand'],
+    ['condition', 'condition'],
+    ['label_size', 'size_original'],
+    ['fit', 'fit'],
+    ['gender', 'gender'],
+    ['season', 'season'],
+    ['sport', 'sport'],
+    ['neckline', 'neckline'],
+    ['length', 'length'],
+    ['pattern', 'pattern'],
+    ['rise', 'rise'],
+    ['closure', 'closure'],
+    ['sleeve_length', 'sleeve_length'],
+    ['stretch', 'stretch'],
+    ['lining', 'lining'],
+    ['origin', 'origin'],
+    ['decade', 'decade'],
+    ['trend', 'trend'],
+    ['model', 'model']
+  ]
+
+  for (const [aiKey, formKey] of mappings) {
+    const value = attrs[aiKey]
+    if (value !== null && value !== undefined) {
+      (form.value as any)[formKey] = value
+    }
+  }
+
+  // Handle array fields (backend already converts to arrays)
+  const arrayFields = ['condition_sup', 'unique_feature', 'marking'] as const
+  for (const field of arrayFields) {
+    if (attrs[field] && Array.isArray(attrs[field]) && attrs[field].length > 0) {
+      (form.value as any)[field] = attrs[field]
+    }
+  }
+
+  // Handle color (backend returns array, form expects first value as string)
+  if (attrs.color && Array.isArray(attrs.color) && attrs.color.length > 0) {
+    form.value.color = attrs.color[0]
+  }
+
+  // Handle material (backend returns array, form expects first value as string)
+  if (attrs.material && Array.isArray(attrs.material) && attrs.material.length > 0) {
+    form.value.material = attrs.material[0]
+  }
+
+  productLogger.info('Form filled with AI results', { attrs })
+}
+
 // Fetch product on mount
 onMounted(async () => {
+  // Fetch AI credits for display
+  await fetchAICredits()
+
   try {
     loading.value = true
 
@@ -181,6 +332,8 @@ onMounted(async () => {
         rise: product.value.rise || null,
         closure: product.value.closure || null,
         sleeve_length: product.value.sleeve_length || null,
+        stretch: product.value.stretch || null,
+        lining: product.value.lining || null,
 
         // Section 2: Vintage & Tendance
         origin: product.value.origin || null,
@@ -271,6 +424,8 @@ const handleSubmit = async () => {
       rise: form.value.rise || null,
       closure: form.value.closure || null,
       sleeve_length: form.value.sleeve_length || null,
+      stretch: form.value.stretch || null,
+      lining: form.value.lining || null,
       origin: form.value.origin || null,
       decade: form.value.decade || null,
       trend: form.value.trend || null,

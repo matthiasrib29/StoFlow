@@ -98,6 +98,28 @@
       filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:sleeveLength', $event)"
     />
+
+    <!-- Stretch -->
+    <ProductsFormsCharacteristicsAttributeField
+      type="select"
+      label="Élasticité"
+      :model-value="stretch"
+      :options="options.stretches"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
+      @update:model-value="$emit('update:stretch', $event)"
+    />
+
+    <!-- Lining -->
+    <ProductsFormsCharacteristicsAttributeField
+      type="select"
+      label="Doublure"
+      :model-value="lining"
+      :options="options.linings"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
+      @update:model-value="$emit('update:lining', $event)"
+    />
   </UiFormSection>
 </template>
 
@@ -114,6 +136,8 @@ interface Props {
   rise: string | null
   closure: string | null
   sleeveLength: string | null
+  stretch: string | null
+  lining: string | null
   options: {
     fits: AttributeOption[]
     seasons: AttributeOption[]
@@ -124,6 +148,8 @@ interface Props {
     rises: AttributeOption[]
     closures: AttributeOption[]
     sleeveLengths: AttributeOption[]
+    stretches: AttributeOption[]
+    linings: AttributeOption[]
   }
 }
 
@@ -139,5 +165,7 @@ defineEmits<{
   'update:rise': [value: string | string[] | null]
   'update:closure': [value: string | string[] | null]
   'update:sleeveLength': [value: string | string[] | null]
+  'update:stretch': [value: string | string[] | null]
+  'update:lining': [value: string | string[] | null]
 }>()
 </script>

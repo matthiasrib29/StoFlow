@@ -34,7 +34,7 @@ class PriceInput(BaseModel):
     model_name: Optional[str] = Field(None, description="Model name (e.g., 'Air Max 90', '501')")
 
     # Adjustment inputs
-    condition_score: int = Field(..., ge=0, le=5, description="Condition score (0-5, where 3 is baseline)")
+    condition_score: int = Field(..., ge=0, le=10, description="Condition score (0-10, where 5 is baseline)")
     supplements: list[str] = Field(
         default_factory=list,
         description="List of supplement keys (e.g., ['original_box', 'tags'])"
