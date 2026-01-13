@@ -60,6 +60,7 @@ class VintedConversation(Base):
         Index("idx_vinted_conversations_unread", "is_unread"),
         Index("idx_vinted_conversations_updated", "updated_at_vinted"),
         Index("idx_vinted_conversations_transaction", "transaction_id"),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     # Primary Key = Vinted conversation ID
