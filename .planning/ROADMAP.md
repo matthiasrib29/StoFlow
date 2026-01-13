@@ -14,7 +14,7 @@ None (eBay API patterns, internal architecture established)
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Foundation** - Post-Order API base client, shared utilities, OAuth scope verification
+- [x] **Phase 1: Foundation** - Post-Order API base client, shared utilities, OAuth scope verification
 - [ ] **Phase 2: Returns Backend Core** - EbayReturnClient, EbayReturn model, repository
 - [ ] **Phase 3: Returns Backend Service** - EbayReturnService, sync service, business logic
 - [ ] **Phase 4: Returns API** - REST endpoints pour retours
@@ -114,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 1/1 | Complete | 2026-01-13 |
 | 2. Returns Backend Core | 0/TBD | Not started | - |
 | 3. Returns Backend Service | 0/TBD | Not started | - |
 | 4. Returns API | 0/TBD | Not started | - |
