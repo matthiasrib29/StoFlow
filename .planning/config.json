@@ -1,11 +1,13 @@
 {
-  "project_name": "AI Product Generation",
-  "mode": "interactive",
-  "depth": "standard",
+  "project_name": "Improve eBay Capability",
+  "mode": "yolo",
+  "depth": "comprehensive",
   "created_at": "2026-01-13",
   "settings": {
-    "auto_commit": false,
+    "auto_commit": true,
     "require_tests": true,
-    "max_phases": 8
+    "max_phases": 12,
+    "phases_range": [8, 12],
+    "tasks_per_plan": [2, 3]
   }
 }

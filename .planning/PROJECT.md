@@ -1,10 +1,10 @@
-# AI Product Generation - Titre & Description
+# Improve eBay Capability - Order Management
 
 ## Vision
 
-Générateur automatique de **titres SEO** et **descriptions dynamiques** pour produits vestimentaires secondhand, basé sur les attributs produit. Les phrases/segments avec attributs manquants sont automatiquement supprimés.
+Implémenter la gestion complète des commandes eBay dans StoFlow : **retours**, **annulations**, **remboursements**, et **litiges**. Permettre aux vendeurs de gérer tout le cycle de vie post-vente directement depuis l'application.
 
-**One-liner**: Templates Python déterministes pour générer titres et descriptions optimisés SEO, configurables par l'utilisateur.
+**One-liner**: Gestion complète du cycle post-vente eBay (retours, annulations, remboursements, litiges) via API REST + UI frontend.
 
 ---
 
@@ -12,148 +12,205 @@ Générateur automatique de **titres SEO** et **descriptions dynamiques** pour p
 
 ### Validated (Existing Capabilities)
 
-- ✓ **Product model with 30+ attributes** - brand, category, materials, condition, etc.
-- ✓ **Product attributes tables** - All values in `product_attributes` schema
-- ✓ **FastAPI service architecture** - Clean Architecture with services/repositories
-- ✓ **Nuxt frontend with composables** - Vue 3 Composition API
-- ✓ **User settings system** - Pour stocker les préférences utilisateur
+- ✓ **Synchronisation des commandes eBay** - `getOrders`, `getOrder` via Fulfillment API
+- ✓ **Gestion du fulfillment** - Ajout de tracking, mise à jour statut
+- ✓ **Modèles DB** - `EbayOrder`, `EbayOrderProduct` dans schema user
+- ✓ **OAuth2 eBay** - Flow complet avec token refresh
+- ✓ **Architecture Clean** - Services, Repositories, Clients API
+- ✓ **Frontend orders** - Liste, détails, sync, tracking
 
 ### Active (To Be Built)
 
-#### Backend - Service de Génération
+#### Phase 1: Returns Management (Retours)
 
-- [ ] **Créer `ProductTextGeneratorService`** - Service principal de génération
-  - Méthode `generate_title(product, format)` → str
-  - Méthode `generate_description(product, style)` → str
-  - Méthode `generate_all(product)` → dict avec tous les formats/styles
-  - Gestion intelligente des attributs manquants (skip silencieux)
+**Backend:**
+- [ ] Créer `EbayReturnClient` - Client API Post-Order pour retours
+- [ ] Créer modèle `EbayReturn` avec statuts (OPEN, WAITING_SELLER, CLOSED, etc.)
+- [ ] Créer `EbayReturnRepository` - CRUD + queries
+- [ ] Créer `EbayReturnService` - Logique métier retours
+- [ ] Créer `EbayReturnSyncService` - Sync retours depuis eBay
+- [ ] Endpoints REST:
+  - `GET /ebay/returns` - Lister retours avec filtres
+  - `GET /ebay/returns/{id}` - Détails retour
+  - `POST /ebay/returns/{id}/accept` - Accepter retour
+  - `POST /ebay/returns/{id}/decline` - Refuser retour
+  - `POST /ebay/returns/{id}/refund` - Émettre remboursement
+  - `POST /ebay/returns/{id}/message` - Envoyer message
+  - `POST /ebay/returns/sync` - Synchroniser retours
 
-- [ ] **Implémenter 3 formats de TITRE**
-  - Format 1: Ultra Complet `{brand} {category} {gender} {size} {color} {material} {fit} {condition} {decade}`
-  - Format 2: Détails Techniques `{brand} {category} {size} {color} {material} {fit} {rise} {closure} {unique_feature} {condition}`
-  - Format 3: Style & Tendance `{brand} {category} {gender} {size} {color} {pattern} {material} {fit} {trend} {season} {origin} {condition}`
+**Frontend:**
+- [ ] Page `/dashboard/platforms/ebay/returns` - Liste retours
+- [ ] Page `/dashboard/platforms/ebay/returns/[id]` - Détails retour
+- [ ] Composants: `ReturnCard`, `ReturnActions`, `ReturnTimeline`
+- [ ] Intégration dans navigation eBay
 
-- [ ] **Implémenter 3 styles de DESCRIPTION**
-  - Style 1: Professionnel / E-commerce (phrases fluides, ton commercial)
-  - Style 2: Storytelling / Lifestyle (narratif, émotionnel, paragraphes)
-  - Style 3: Minimaliste / Fiche Technique (liste structurée, scan rapide)
+#### Phase 2: Cancellations Management (Annulations)
 
-- [ ] **Mapping condition score → texte français**
-  - 10: "Neuf", 9: "Comme neuf", 8: "Excellent état", 7: "Très bon état"
-  - 6: "Bon état", 5: "État correct", 4: "État acceptable"
-  - 3: "État passable", 2: "Mauvais état", 1: "Pour pièces", 0: "Défauts majeurs"
+**Backend:**
+- [ ] Créer `EbayCancellationClient` - Client API Post-Order
+- [ ] Créer modèle `EbayCancellation` avec statuts
+- [ ] Créer `EbayCancellationRepository`
+- [ ] Créer `EbayCancellationService`
+- [ ] Endpoints REST:
+  - `GET /ebay/cancellations` - Lister annulations
+  - `GET /ebay/cancellations/{id}` - Détails
+  - `POST /ebay/cancellations/{id}/approve` - Approuver
+  - `POST /ebay/cancellations/{id}/reject` - Rejeter
+  - `POST /ebay/orders/{id}/cancel` - Initier annulation vendeur
+  - `POST /ebay/cancellations/sync` - Synchroniser
 
-- [ ] **Créer endpoint API** - `POST /api/products/{id}/generate-text`
-  - Input: `product_id`, `title_format` (optionnel), `description_style` (optionnel)
-  - Output: `{ title: str, description: str, all_titles: dict, all_descriptions: dict }`
-  - Utilise les préférences user si format/style non spécifiés
+**Frontend:**
+- [ ] Page `/dashboard/platforms/ebay/cancellations` - Liste
+- [ ] Composants: `CancellationCard`, `CancellationActions`
+- [ ] Modal d'annulation depuis détail commande
 
-- [ ] **Créer endpoint preview** - `POST /api/products/preview-text`
-  - Input: Attributs produit (pas besoin d'ID, pour preview avant save)
-  - Output: Même format que ci-dessus
-  - Pour générer en temps réel pendant l'édition du formulaire
+#### Phase 3: Refunds Management (Remboursements)
 
-#### Backend - User Settings
+**Backend:**
+- [ ] Étendre `EbayFulfillmentClient` avec `issueRefund`
+- [ ] Créer modèle `EbayRefund` pour tracking
+- [ ] Créer `EbayRefundService`
+- [ ] Endpoints REST:
+  - `GET /ebay/refunds` - Lister remboursements
+  - `GET /ebay/refunds/{id}` - Détails
+  - `POST /ebay/orders/{id}/refund` - Initier remboursement
+- [ ] Intégration avec returns (auto-refund après retour reçu)
 
-- [ ] **Ajouter préférences génération dans user settings**
-  - `preferred_title_format`: 1, 2, ou 3 (défaut: 1)
-  - `preferred_description_style`: 1, 2, ou 3 (défaut: 1)
-  - Stocké dans `public.users` ou table `user_settings`
+**Frontend:**
+- [ ] Section remboursements dans détail commande
+- [ ] Historique des remboursements
+- [ ] Modal de remboursement manuel
 
-#### Frontend - Composable
+#### Phase 4: Payment Disputes (Litiges de paiement)
 
-- [ ] **Créer `useProductTextGenerator.ts`**
-  - `generateTitle(productId)` - Génère avec préférences user
-  - `generateDescription(productId)` - Génère avec préférences user
-  - `generatePreview(attributes)` - Preview temps réel
-  - `generateAll(productId)` - Tous les formats/styles
-  - State: `loading`, `error`, `generatedTitle`, `generatedDescription`
+**Backend:**
+- [ ] Créer `EbayPaymentDisputeClient` - Client Fulfillment API disputes
+- [ ] Créer modèle `EbayPaymentDispute`
+- [ ] Créer `EbayPaymentDisputeService`
+- [ ] Endpoints REST:
+  - `GET /ebay/disputes` - Lister litiges
+  - `GET /ebay/disputes/{id}` - Détails
+  - `POST /ebay/disputes/{id}/accept` - Accepter
+  - `POST /ebay/disputes/{id}/contest` - Contester
+  - `POST /ebay/disputes/{id}/evidence` - Ajouter preuve
+  - `POST /ebay/disputes/sync` - Synchroniser
 
-#### Frontend - UI Components
+**Frontend:**
+- [ ] Page `/dashboard/platforms/ebay/disputes` - Liste
+- [ ] Page `/dashboard/platforms/ebay/disputes/[id]` - Détails avec upload preuves
+- [ ] Alertes pour litiges urgents
 
-- [ ] **Créer `TextGeneratorButton.vue`**
-  - Bouton "Générer" avec icône magic wand
-  - Loading state pendant génération
-  - Placement: À côté des champs title et description dans le formulaire
+#### Phase 5: INR Inquiries (Item Not Received)
 
-- [ ] **Créer `TextPreviewModal.vue`**
-  - Modal affichant les 3 formats de titre + 3 styles de description
-  - User peut cliquer pour sélectionner celui qu'il préfère
-  - Bouton "Appliquer" pour copier dans le formulaire
+**Backend:**
+- [ ] Créer `EbayInquiryClient` - Client Post-Order inquiries
+- [ ] Créer modèle `EbayInquiry`
+- [ ] Créer `EbayInquiryService`
+- [ ] Endpoints REST:
+  - `GET /ebay/inquiries` - Lister INR
+  - `GET /ebay/inquiries/{id}` - Détails
+  - `POST /ebay/inquiries/{id}/respond` - Répondre (tracking)
+  - `POST /ebay/inquiries/{id}/refund` - Rembourser
+  - `POST /ebay/inquiries/sync` - Synchroniser
 
-- [ ] **Intégrer dans formulaire produit**
-  - Page create: `pages/dashboard/products/create.vue`
-  - Page edit: `pages/dashboard/products/[id]/edit.vue`
-  - Boutons à côté de title et description
+**Frontend:**
+- [ ] Page `/dashboard/platforms/ebay/inquiries` - Liste
+- [ ] Actions rapides (fournir tracking, rembourser)
 
-#### Frontend - Settings UI
+#### Phase 6: Dashboard & Notifications
 
-- [ ] **Ajouter section "Génération de texte" dans settings**
-  - Dropdown pour choisir format titre par défaut (1, 2, 3)
-  - Dropdown pour choisir style description par défaut (1, 2, 3)
-  - Preview en temps réel avec un produit exemple
+**Backend:**
+- [ ] Créer `EbayAlertService` - Détection d'actions urgentes
+- [ ] Job de sync périodique pour tous les types
+- [ ] Endpoints stats agrégées
+
+**Frontend:**
+- [ ] Dashboard eBay unifié avec tous les compteurs
+- [ ] Notifications pour actions urgentes (délais)
+- [ ] Badges dans navigation
 
 ### Out of Scope (v1)
 
-- **Génération par LLM (Gemini)** - Templates Python uniquement pour v1
-- **Génération batch** - Un produit à la fois
-- **Personnalisation des templates** - Templates fixes, pas éditables par user
-- **Multi-langue** - Français uniquement pour v1
-- **A/B testing des descriptions** - Pas de tracking de performance
+- **Case Management (escalades)** - Géré manuellement sur eBay pour v1
+- **Messages buyer complets** - Conversation complète (partiellement implémenté)
+- **Shipping labels auto** - Génération automatique d'étiquettes
+- **Bulk operations** - Actions en masse sur retours/annulations
+- **Webhooks eBay** - Notifications push (polling pour v1)
+- **Multi-compte eBay** - Un seul compte par user pour v1
 
 ---
 
 ## Context
 
-### Attributs Obligatoires (pour PUBLISH)
+### APIs eBay Utilisées
 
-| Attribut | Type | Description |
-|----------|------|-------------|
-| `brand` | str | Marque ("Unbranded" accepté) |
-| `category` | str | Type de vêtement |
-| `gender` | str | Men, Women, Unisex |
-| `size_normalized` | str | Taille standardisée |
-| `colors` | list[str] | Au moins 1 couleur |
-| `condition` | int | 0-10 |
+| API | Usage |
+|-----|-------|
+| **Fulfillment API** | Orders, shipping fulfillment, refunds, payment disputes |
+| **Post-Order API** | Cancellations, returns, inquiries |
 
-### Attributs Optionnels
+### Modèles de Données à Créer
 
-| Attribut | Type | Utilisé dans |
-|----------|------|--------------|
-| `material` | str | Titre + Description |
-| `fit` | str | Titre + Description |
-| `rise` | str | Titre Format 2, Description |
-| `closure` | str | Titre Format 2, Description |
-| `stretch` | str | Description |
-| `length` | str | Description |
-| `neckline` | str | Description |
-| `sleeve_length` | str | Description |
-| `lining` | str | Description |
-| `unique_feature` | list[str] | Titre Format 2, Description |
-| `trend` | str | Titre Format 3, Description |
-| `season` | str | Titre Format 3, Description |
-| `origin` | str | Titre Format 3, Description |
-| `decade` | str | Titre Format 1, Description |
-| `condition_sup` | list[str] | Description |
-| `pattern` | str | Titre Format 3, Description |
-| `sport` | str | Description |
+```
+EbayReturn
+├── id, return_id (eBay), order_id (FK)
+├── status (RETURN_REQUESTED, WAITING_FOR_RETURN_SHIPMENT, ITEM_SHIPPED, ITEM_DELIVERED, REFUND_ISSUED, CLOSED)
+├── reason, reason_detail
+├── refund_amount, refund_status
+├── buyer_comments, seller_comments
+├── return_tracking_number, return_carrier
+├── created_at, updated_at, closed_at
 
-### Condition Mapping
+EbayCancellation
+├── id, cancellation_id (eBay), order_id (FK)
+├── status (CANCEL_REQUESTED, CANCEL_PENDING, CANCEL_CLOSED)
+├── cancel_reason, cancel_initiator (BUYER, SELLER)
+├── refund_status
+├── created_at, updated_at
 
-```python
-CONDITION_MAP = {
-    10: "Neuf",
-    9: "Comme neuf",
-    8: "Excellent état",
-    7: "Très bon état",
-    6: "Bon état",
-    5: "État correct avec usure visible",
-    4: "État acceptable",
-    3: "État passable",
-    2: "Mauvais état",
-    1: "Pour pièces uniquement",
-    0: "Défauts majeurs"
-}
+EbayRefund
+├── id, refund_id (eBay), order_id (FK)
+├── amount, currency
+├── reason, status (PENDING, COMPLETED, FAILED)
+├── refund_type (FULL, PARTIAL)
+├── created_at
+
+EbayPaymentDispute
+├── id, dispute_id (eBay), order_id (FK)
+├── status (OPEN, WAITING_SELLER, ACTION_NEEDED, CLOSED)
+├── reason (INR, SNAD, UNAUTHORIZED)
+├── amount, currency
+├── seller_response, evidence_files
+├── deadline
+├── created_at, updated_at
+
+EbayInquiry
+├── id, inquiry_id (eBay), order_id (FK)
+├── status (OPEN, WAITING_SELLER, CLOSED)
+├── inquiry_type (INR)
+├── buyer_message
+├── created_at, escalation_date
+```
+
+### Statuts et Workflows
+
+**Return Flow:**
+```
+RETURN_REQUESTED → (accept) → WAITING_FOR_RETURN_SHIPMENT → ITEM_SHIPPED → ITEM_DELIVERED → REFUND_ISSUED → CLOSED
+                 → (decline) → CLOSED
+```
+
+**Cancellation Flow:**
+```
+CANCEL_REQUESTED → (approve) → CANCEL_CLOSED (+ refund)
+                 → (reject) → CANCEL_CLOSED
+                 → (timeout 3 days) → auto-approve
+```
+
+**Dispute Flow:**
+```
+OPEN → (accept) → CLOSED (seller loses)
+     → (contest + evidence) → WAITING_RESOLUTION → CLOSED (win/lose)
 ```
 
 ---
@@ -162,23 +219,22 @@ CONDITION_MAP = {
 
 ### Technical
 
-- **Templates Python uniquement** - Pas de LLM, déterministe et rapide
-- **Gestion attributs manquants** - Skip silencieux, pas d'erreur
-- **Limite longueur titre** - Max 80 caractères (Vinted/eBay)
-- **Limite longueur description** - Max 5000 caractères
-- **Endpoint rapide** - < 100ms response time (pas d'I/O externe)
+- **Post-Order API** - Certains endpoints deprecated en 2026, utiliser les alternatives
+- **Rate Limits** - eBay limite les appels API, implémenter retry avec backoff
+- **OAuth Scopes** - Vérifier que les scopes actuels couvrent Post-Order API
+- **Digital Signatures** - Requis pour `issueRefund` sur EU/UK (à implémenter si nécessaire)
 
 ### Business
 
-- **Ordre SEO respecté** - Brand > Category > Gender > Size > Color > Material > ...
-- **Texte propre** - Pas de doubles espaces, pas de virgules orphelines
-- **Français correct** - Accords, conjugaisons
+- **Délais de réponse** - 3 jours pour annulations, 5 jours pour retours
+- **Métriques vendeur** - Certaines actions impactent le seller rating
+- **Remboursements SNAD** - Frais retour toujours à charge vendeur
 
 ### UX
 
-- **Preview temps réel** - Génération pendant l'édition du formulaire
-- **Tous les styles accessibles** - Modal pour voir/comparer les 3 options
-- **Settings persistants** - Préférences sauvegardées par utilisateur
+- **Alertes urgentes** - Mettre en avant les actions avec deadline proche
+- **Actions rapides** - Pouvoir agir depuis la liste sans ouvrir le détail
+- **Historique clair** - Timeline des événements pour chaque case
 
 ---
 
@@ -186,42 +242,25 @@ CONDITION_MAP = {
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Templates Python vs LLM | Déterministe, rapide, gratuit, prévisible | Templates uniquement pour v1 |
-| 3 formats titre + 3 styles description | Flexibilité sans complexité | User choisit son préféré |
-| Settings par user | Chaque vendeur a son style | Préférences persistantes |
-| Génération à la demande | Pas d'auto-génération intempestive | Bouton explicite |
-| Preview sans save | Voir avant de valider | Endpoint séparé |
-
----
-
-## Implementation Summary
-
-### Files to Create
-
-**Backend:**
-- `backend/services/product_text_generator.py` - Service principal
-- `backend/api/products/text_generation.py` - Endpoints API
-- `backend/schemas/text_generation_schemas.py` - Pydantic schemas
-
-**Frontend:**
-- `frontend/composables/useProductTextGenerator.ts` - Composable
-- `frontend/components/products/TextGeneratorButton.vue` - Bouton
-- `frontend/components/products/TextPreviewModal.vue` - Modal preview
-
-**Database:**
-- Migration pour ajouter `preferred_title_format` et `preferred_description_style` à users
+| Post-Order API pour returns/cancellations | API officielle eBay, pas d'alternative | Post-Order API v2 |
+| Fulfillment API pour refunds/disputes | Méthodes disponibles dans Fulfillment | Fulfillment API |
+| Polling vs Webhooks | Webhooks complexes à setup, polling suffisant pour v1 | Polling avec jobs |
+| Modèles DB séparés | Clarté, queries spécialisées | 5 nouveaux modèles |
+| Sync périodique | Détection rapide des nouvelles demandes | Job toutes les 15min |
+| UI pages dédiées | Gestion complexe, pas dans la page orders | Pages séparées |
 
 ---
 
 ## Success Criteria
 
-- [ ] User peut générer titre + description en 1 clic
-- [ ] Les 3 formats de titre fonctionnent correctement
-- [ ] Les 3 styles de description fonctionnent correctement
-- [ ] Attributs manquants = segments supprimés proprement
-- [ ] Préférences user sauvegardées et respectées
-- [ ] Preview temps réel dans le formulaire
-- [ ] Response time < 100ms
+- [ ] Vendeur peut voir et traiter les retours depuis StoFlow
+- [ ] Vendeur peut approuver/rejeter les annulations
+- [ ] Vendeur peut émettre des remboursements
+- [ ] Vendeur peut voir et contester les litiges de paiement
+- [ ] Vendeur peut répondre aux INR avec tracking
+- [ ] Alertes visibles pour actions urgentes
+- [ ] Sync automatique toutes les 15 minutes
+- [ ] Pas de dégradation des performances existantes
 
 ---
 
