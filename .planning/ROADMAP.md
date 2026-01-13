@@ -18,7 +18,7 @@ None (eBay API patterns, internal architecture established)
 - [x] **Phase 2: Returns Backend Core** - EbayReturnClient, EbayReturn model, repository
 - [x] **Phase 3: Returns Backend Service** - EbayReturnService, sync service, business logic
 - [x] **Phase 4: Returns API** - REST endpoints pour retours
-- [ ] **Phase 5: Returns Frontend** - Pages liste/détail, composants, actions
+- [x] **Phase 5: Returns Frontend** - Pages liste/détail, composants, actions
 - [ ] **Phase 6: Cancellations Backend** - Client, model, repository, service
 - [ ] **Phase 7: Cancellations API & Frontend** - Endpoints, sync, pages, actions
 - [ ] **Phase 8: Refunds** - Extend FulfillmentClient, model, service, endpoints, UI
@@ -118,7 +118,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Returns Backend Core | 1/1 | Complete | 2026-01-13 |
 | 3. Returns Backend Service | 1/1 | Complete | 2026-01-13 |
 | 4. Returns API | 1/1 | Complete | 2026-01-13 |
-| 5. Returns Frontend | 0/TBD | Not started | - |
+| 5. Returns Frontend | 1/1 | Complete | 2026-01-13 |
 | 6. Cancellations Backend | 0/TBD | Not started | - |
 | 7. Cancellations API & Frontend | 0/TBD | Not started | - |
 | 8. Refunds | 0/TBD | Not started | - |
