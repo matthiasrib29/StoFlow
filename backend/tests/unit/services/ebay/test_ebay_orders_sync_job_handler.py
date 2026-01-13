@@ -6,10 +6,14 @@ Tests the eBay orders synchronization job handler including:
 - Delegation to EbayOrderSyncService
 - Input data extraction from jobs
 - Error handling and reporting
-- Multi-tenant schema setup
+
+NOTE (2026-01-13): Multi-tenant schema setup is now handled by the job processor
+via schema_translate_map, not by the handler itself. Tests for set_user_schema
+were removed as part of the schema_translate_map migration (Phase 5).
 
 Author: Claude
 Date: 2026-01-08
+Updated: 2026-01-13
 """
 
 from unittest.mock import MagicMock, Mock, patch
@@ -92,30 +96,26 @@ class TestEbayOrdersSyncJobHandlerExecute:
         }
 
         with patch(
-            "shared.database.set_user_schema"
-        ) as mock_set_schema:
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.return_value = mock_sync_stats
-                MockSyncService.return_value = mock_service_instance
+            "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
+        ) as MockSyncService:
+            mock_service_instance = MagicMock()
+            mock_service_instance.sync_orders.return_value = mock_sync_stats
+            MockSyncService.return_value = mock_service_instance
 
-                result = await mock_handler.execute(mock_job)
+            result = await mock_handler.execute(mock_job)
 
-                assert result["success"] is True
-                assert result["created"] == 5
-                assert result["updated"] == 3
-                assert result["skipped"] == 2
-                assert result["errors"] == 0
-                assert result["total_fetched"] == 10
-                assert len(result["details"]) == 2
+            assert result["success"] is True
+            assert result["created"] == 5
+            assert result["updated"] == 3
+            assert result["skipped"] == 2
+            assert result["errors"] == 0
+            assert result["total_fetched"] == 10
+            assert len(result["details"]) == 2
 
-                mock_set_schema.assert_called_once_with(mock_handler.db, 1)
-                MockSyncService.assert_called_once_with(mock_handler.db, 1)
-                mock_service_instance.sync_orders.assert_called_once_with(
-                    modified_since_hours=24, status_filter=None
-                )
+            MockSyncService.assert_called_once_with(mock_handler.db, 1)
+            mock_service_instance.sync_orders.assert_called_once_with(
+                modified_since_hours=24, status_filter=None
+            )
 
     @pytest.mark.asyncio
     async def test_execute_with_custom_hours(self, mock_handler):
@@ -133,20 +133,17 @@ class TestEbayOrdersSyncJobHandlerExecute:
         }
 
         with patch(
-            "shared.database.set_user_schema"
-        ):
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.return_value = mock_sync_stats
-                MockSyncService.return_value = mock_service_instance
+            "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
+        ) as MockSyncService:
+            mock_service_instance = MagicMock()
+            mock_service_instance.sync_orders.return_value = mock_sync_stats
+            MockSyncService.return_value = mock_service_instance
 
-                result = await mock_handler.execute(mock_job)
+            result = await mock_handler.execute(mock_job)
 
-                mock_service_instance.sync_orders.assert_called_once_with(
-                    modified_since_hours=48, status_filter=None
-                )
+            mock_service_instance.sync_orders.assert_called_once_with(
+                modified_since_hours=48, status_filter=None
+            )
 
     @pytest.mark.asyncio
     async def test_execute_with_status_filter(self, mock_handler):
@@ -164,20 +161,17 @@ class TestEbayOrdersSyncJobHandlerExecute:
         }
 
         with patch(
-            "shared.database.set_user_schema"
-        ):
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.return_value = mock_sync_stats
-                MockSyncService.return_value = mock_service_instance
+            "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
+        ) as MockSyncService:
+            mock_service_instance = MagicMock()
+            mock_service_instance.sync_orders.return_value = mock_sync_stats
+            MockSyncService.return_value = mock_service_instance
 
-                result = await mock_handler.execute(mock_job)
+            result = await mock_handler.execute(mock_job)
 
-                mock_service_instance.sync_orders.assert_called_once_with(
-                    modified_since_hours=24, status_filter="NOT_STARTED"
-                )
+            mock_service_instance.sync_orders.assert_called_once_with(
+                modified_since_hours=24, status_filter="NOT_STARTED"
+            )
 
     @pytest.mark.asyncio
     async def test_execute_with_fulfilled_status_filter(self, mock_handler):
@@ -195,20 +189,17 @@ class TestEbayOrdersSyncJobHandlerExecute:
         }
 
         with patch(
-            "shared.database.set_user_schema"
-        ):
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.return_value = mock_sync_stats
-                MockSyncService.return_value = mock_service_instance
+            "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
+        ) as MockSyncService:
+            mock_service_instance = MagicMock()
+            mock_service_instance.sync_orders.return_value = mock_sync_stats
+            MockSyncService.return_value = mock_service_instance
 
-                result = await mock_handler.execute(mock_job)
+            result = await mock_handler.execute(mock_job)
 
-                mock_service_instance.sync_orders.assert_called_once_with(
-                    modified_since_hours=12, status_filter="FULFILLED"
-                )
+            mock_service_instance.sync_orders.assert_called_once_with(
+                modified_since_hours=12, status_filter="FULFILLED"
+            )
 
     @pytest.mark.asyncio
     async def test_execute_without_shop_id(self, mock_job):
@@ -241,41 +232,35 @@ class TestEbayOrdersSyncJobHandlerExecute:
         }
 
         with patch(
-            "shared.database.set_user_schema"
-        ):
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.return_value = mock_sync_stats
-                MockSyncService.return_value = mock_service_instance
+            "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
+        ) as MockSyncService:
+            mock_service_instance = MagicMock()
+            mock_service_instance.sync_orders.return_value = mock_sync_stats
+            MockSyncService.return_value = mock_service_instance
 
-                result = await mock_handler.execute(mock_job)
+            result = await mock_handler.execute(mock_job)
 
-                # Default hours should be 24, status_filter should be None
-                mock_service_instance.sync_orders.assert_called_once_with(
-                    modified_since_hours=24, status_filter=None
-                )
+            # Default hours should be 24, status_filter should be None
+            mock_service_instance.sync_orders.assert_called_once_with(
+                modified_since_hours=24, status_filter=None
+            )
 
     @pytest.mark.asyncio
     async def test_execute_exception_returns_error(self, mock_handler, mock_job):
         """Test execution exception returns error dict."""
         with patch(
-            "shared.database.set_user_schema"
-        ):
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.side_effect = Exception(
-                    "API connection failed"
-                )
-                MockSyncService.return_value = mock_service_instance
+            "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
+        ) as MockSyncService:
+            mock_service_instance = MagicMock()
+            mock_service_instance.sync_orders.side_effect = Exception(
+                "API connection failed"
+            )
+            MockSyncService.return_value = mock_service_instance
 
-                result = await mock_handler.execute(mock_job)
+            result = await mock_handler.execute(mock_job)
 
-                assert result["success"] is False
-                assert "API connection failed" in result["error"]
+            assert result["success"] is False
+            assert "API connection failed" in result["error"]
 
     @pytest.mark.asyncio
     async def test_execute_value_error_returns_error(self, mock_handler, mock_job):
@@ -283,50 +268,23 @@ class TestEbayOrdersSyncJobHandlerExecute:
         mock_job.input_data = {"hours": 1000}  # Invalid hours
 
         with patch(
-            "shared.database.set_user_schema"
-        ):
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.side_effect = ValueError(
-                    "modified_since_hours must be between 1 and 720"
-                )
-                MockSyncService.return_value = mock_service_instance
+            "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
+        ) as MockSyncService:
+            mock_service_instance = MagicMock()
+            mock_service_instance.sync_orders.side_effect = ValueError(
+                "modified_since_hours must be between 1 and 720"
+            )
+            MockSyncService.return_value = mock_service_instance
 
-                result = await mock_handler.execute(mock_job)
+            result = await mock_handler.execute(mock_job)
 
-                assert result["success"] is False
-                assert "720" in result["error"]
+            assert result["success"] is False
+            assert "720" in result["error"]
 
-    @pytest.mark.asyncio
-    async def test_execute_sets_user_schema_for_multi_tenant(
-        self, mock_handler, mock_job
-    ):
-        """Test that user schema is correctly set for multi-tenant isolation."""
-        mock_sync_stats = {
-            "created": 0,
-            "updated": 0,
-            "skipped": 0,
-            "errors": 0,
-            "total_fetched": 0,
-            "details": [],
-        }
-
-        with patch(
-            "shared.database.set_user_schema"
-        ) as mock_set_schema:
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.return_value = mock_sync_stats
-                MockSyncService.return_value = mock_service_instance
-
-                await mock_handler.execute(mock_job)
-
-                # Verify set_user_schema was called before sync
-                mock_set_schema.assert_called_once_with(mock_handler.db, 1)
+    # NOTE (2026-01-13): test_execute_sets_user_schema_for_multi_tenant removed
+    # Multi-tenant schema is now configured by MarketplaceJobProcessor via
+    # schema_translate_map before calling the handler. The handler no longer
+    # calls set_user_schema() directly.
 
     @pytest.mark.asyncio
     async def test_execute_empty_results(self, mock_handler, mock_job):
@@ -341,21 +299,18 @@ class TestEbayOrdersSyncJobHandlerExecute:
         }
 
         with patch(
-            "shared.database.set_user_schema"
-        ):
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.return_value = mock_sync_stats
-                MockSyncService.return_value = mock_service_instance
+            "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
+        ) as MockSyncService:
+            mock_service_instance = MagicMock()
+            mock_service_instance.sync_orders.return_value = mock_sync_stats
+            MockSyncService.return_value = mock_service_instance
 
-                result = await mock_handler.execute(mock_job)
+            result = await mock_handler.execute(mock_job)
 
-                assert result["success"] is True
-                assert result["created"] == 0
-                assert result["updated"] == 0
-                assert result["total_fetched"] == 0
+            assert result["success"] is True
+            assert result["created"] == 0
+            assert result["updated"] == 0
+            assert result["total_fetched"] == 0
 
     @pytest.mark.asyncio
     async def test_execute_partial_errors(self, mock_handler, mock_job):
@@ -373,18 +328,15 @@ class TestEbayOrdersSyncJobHandlerExecute:
         }
 
         with patch(
-            "shared.database.set_user_schema"
-        ):
-            with patch(
-                "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
-            ) as MockSyncService:
-                mock_service_instance = MagicMock()
-                mock_service_instance.sync_orders.return_value = mock_sync_stats
-                MockSyncService.return_value = mock_service_instance
+            "services.ebay.ebay_order_sync_service.EbayOrderSyncService"
+        ) as MockSyncService:
+            mock_service_instance = MagicMock()
+            mock_service_instance.sync_orders.return_value = mock_sync_stats
+            MockSyncService.return_value = mock_service_instance
 
-                result = await mock_handler.execute(mock_job)
+            result = await mock_handler.execute(mock_job)
 
-                # Should still be successful even with partial errors
-                assert result["success"] is True
-                assert result["errors"] == 3
-                assert result["created"] == 8
+            # Should still be successful even with partial errors
+            assert result["success"] is True
+            assert result["errors"] == 3
+            assert result["created"] == 8
