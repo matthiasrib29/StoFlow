@@ -23,7 +23,7 @@ from api.dependencies import get_current_user, get_user_db
 from models.public.user import User
 from models.user.ebay_product import EbayProduct
 from services.ebay.ebay_importer import EbayImporter
-from shared.database import set_user_schema, SessionLocal
+from shared.database import SessionLocal
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
