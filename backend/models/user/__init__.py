@@ -26,6 +26,7 @@ from models.user.vinted_product import VintedProduct
 # Vinted schema models (re-exported for compatibility)
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from models.vinted.vinted_deletion import VintedDeletion
+from models.user.batch_job import BatchJob
 from models.user.marketplace_job import MarketplaceJob, JobStatus
 from models.user.vinted_job_stats import VintedJobStats
 
@@ -55,6 +56,7 @@ __all__ = [
     "VintedOrder",
     "VintedOrderProduct",
     "VintedDeletion",
+    "BatchJob",
     "MarketplaceJob",
     "JobStatus",
     "VintedJobStats",

@@ -144,6 +144,10 @@ async def sync_orders(
 
         # Execute immediately if requested
         if process_now:
+            # Re-set search_path after commit (SET LOCAL resets on COMMIT)
+            from shared.database import set_user_schema
+            set_user_schema(db, current_user.id)
+
             from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
             processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=current_user.id, marketplace="ebay")
             result = await processor._execute_job(job)
