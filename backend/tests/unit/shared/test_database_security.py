@@ -8,10 +8,8 @@ Date: 2026-01-12
 """
 
 import pytest
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
-from shared.database import validate_schema_name, set_search_path_safe
+from shared.database import validate_schema_name
 
 
 class TestValidateSchemaName:
@@ -79,47 +77,12 @@ class TestValidateSchemaName:
             validate_schema_name("PG_CATALOG")
 
 
-class TestSetSearchPathSafe:
-    """Test safe search path setting."""
-
-    def test_set_search_path_safe_with_valid_user_id(self, db_session: Session):
-        """Valid user_id should set search_path successfully."""
-        # Valid positive integer
-        set_search_path_safe(db_session, 1)
-
-        # Verify search_path was set
-        result = db_session.execute(text("SHOW search_path")).scalar()
-        assert "user_1" in result
-        assert "public" in result
-
-    def test_set_search_path_safe_with_invalid_user_id(self):
-        """Invalid user_id (zero, negative) should raise ValueError."""
-        from sqlalchemy.orm import Session
-        from unittest.mock import Mock
-
-        # Mock session (we don't need real DB for validation-only test)
-        mock_session = Mock(spec=Session)
-
-        # Zero user_id
-        with pytest.raises(ValueError, match="Invalid user_id: 0"):
-            set_search_path_safe(mock_session, 0)
-
-        # Negative user_id
-        with pytest.raises(ValueError, match="Invalid user_id: -1"):
-            set_search_path_safe(mock_session, -1)
-
-    def test_set_search_path_safe_with_string_user_id_raises_error(self):
-        """String user_id should raise ValueError (type check)."""
-        from sqlalchemy.orm import Session
-        from unittest.mock import Mock
-
-        # Mock session
-        mock_session = Mock(spec=Session)
-
-        # String instead of int
-        with pytest.raises(ValueError, match="Invalid user_id"):
-            set_search_path_safe(mock_session, "1")  # type: ignore
-
-        # SQL injection attempt via user_id
-        with pytest.raises(ValueError, match="Invalid user_id"):
-            set_search_path_safe(mock_session, "1; DROP SCHEMA public")  # type: ignore
+# NOTE (2026-01-13): TestSetSearchPathSafe class removed
+# The set_search_path_safe() function was deprecated and removed as part of
+# the schema_translate_map migration. See ROADMAP.md Phase 4.
+#
+# The new approach uses execution_options(schema_translate_map={"tenant": schema})
+# which doesn't require user_id validation at the database layer since the schema
+# name is never interpolated into SQL strings.
+#
+# Tests for schema_translate_map behavior are in test_schema_translate_map.py
