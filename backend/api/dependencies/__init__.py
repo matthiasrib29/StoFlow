@@ -387,15 +387,15 @@ def get_user_db(
 
     Cette dependency:
     1. Authentifie l'utilisateur via JWT
-    2. Configure automatiquement le search_path PostgreSQL vers le schema de l'utilisateur
-    3. Vérifie et garantit que le search_path est correctement appliqué
+    2. Configure schema_translate_map pour remapper "tenant" vers le schema user
+    3. Vérifie que schema_translate_map est correctement appliqué
     4. Retourne la session et l'utilisateur
 
-    Business Rules (2025-12-11):
-    - Élimine la duplication du SET search_path dans chaque route
-    - Garantit que l'isolation est toujours appliquée
-    - Vérifie le search_path après application (fix connection pooling issues)
-    - Simplifie le code des routes
+    Technical Details (2026-01-13):
+    - Uses schema_translate_map instead of SET LOCAL search_path
+    - schema_translate_map survives COMMIT and ROLLBACK (unlike SET LOCAL)
+    - Models with schema="tenant" are remapped to actual user schema at query time
+    - More robust for connection pooling and long transactions
 
     Usage:
         @router.get("/products")
@@ -411,26 +411,26 @@ def get_user_db(
     # Passe db pour vérifier que le schema existe réellement
     schema_name = _validate_schema_name(current_user.schema_name, db)
 
-    # Use SET LOCAL to ensure search_path is transaction-scoped
-    # SET LOCAL automatically resets on COMMIT or ROLLBACK, preventing pool pollution
-    # This is the recommended PostgreSQL practice for multi-tenant isolation
-    # Note: schema_name is safe after double validation (regex + existence check)
-    db.execute(text(f"SET LOCAL search_path TO {schema_name}, public"))
+    # Use schema_translate_map for robust multi-tenant isolation
+    # This survives COMMIT and ROLLBACK (unlike SET LOCAL search_path)
+    # The "tenant" placeholder in models is remapped to actual user schema
+    db = db.execution_options(schema_translate_map={"tenant": schema_name})
 
-    # Verify search_path was applied
-    result = db.execute(text("SHOW search_path"))
-    actual_path = result.scalar()
+    # Verify schema_translate_map was applied
+    schema_map = db.get_bind().execution_options.get("schema_translate_map", {})
+    configured_schema = schema_map.get("tenant")
 
-    logger.debug(f"[get_user_db] User {current_user.id}, schema={schema_name}, search_path={actual_path}")
+    logger.debug(
+        f"[get_user_db] User {current_user.id}, "
+        f"schema_translate_map={{'tenant': '{schema_name}'}}"
+    )
 
-    # Double-check schema is in path (CRITICAL SECURITY CHECK)
-    if schema_name not in actual_path:
+    # Double-check schema_translate_map is set (CRITICAL SECURITY CHECK)
+    if configured_schema != schema_name:
         logger.critical(
-            f"🚨 SEARCH_PATH FAILURE: Expected '{schema_name}' not in actual path '{actual_path}'. "
-            f"User {current_user.id} isolation compromised. Closing connection."
+            f"🚨 SCHEMA_TRANSLATE_MAP FAILURE: Expected '{schema_name}' but got '{configured_schema}'. "
+            f"User {current_user.id} isolation compromised."
         )
-        # NE PAS continuer avec mauvais search_path - force client retry
-        db.close()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database isolation error. Please retry your request."
