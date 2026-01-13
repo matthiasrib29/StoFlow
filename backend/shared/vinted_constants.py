@@ -95,11 +95,11 @@ class VintedOrderAPI:
     @staticmethod
     def get_orders(
         order_type: str = "sold",
-        status: str = "completed",
+        status: str = "all",
         page: int = 1,
         per_page: int = 20
     ) -> str:
-        """GET - Récupère les commandes"""
+        """GET - Récupère les commandes (status=all pour tout récupérer)"""
         return f"{VINTED_BASE_URL}/api/v2/my_orders?type={order_type}&status={status}&page={page}&per_page={per_page}"
 
     # Détails d'une transaction
