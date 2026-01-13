@@ -29,6 +29,7 @@ class VintedJobStats(Base):
     __tablename__ = "vinted_job_stats"
     __table_args__ = (
         UniqueConstraint("action_type_id", "date", name="uq_vinted_job_stats_action_date"),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

@@ -152,17 +152,18 @@ class MarketplaceJobProcessor:
                 # Operation returned success=False
                 error_msg = result.get("error", "Operation failed")
                 return await self._handle_job_failure(
-                    job, full_action_code, error_msg, start_time
+                    job_id, marketplace, full_action_code, error_msg, start_time
                 )
 
         except Exception as e:
             return await self._handle_job_failure(
-                job, full_action_code, str(e), start_time
+                job_id, marketplace, full_action_code, str(e), start_time
             )
 
     async def _handle_job_failure(
         self,
-        job: MarketplaceJob,
+        job_id: int,
+        marketplace: str,
         action_code: str,
         error_msg: str,
         start_time: float
@@ -171,7 +172,8 @@ class MarketplaceJobProcessor:
         Handle job failure with retry logic.
 
         Args:
-            job: The MarketplaceJob that failed
+            job_id: The ID of the MarketplaceJob that failed
+            marketplace: The marketplace name (vinted, ebay, etsy)
             action_code: Full action code (e.g., "publish_ebay")
             error_msg: Error message
             start_time: Job start timestamp
@@ -181,8 +183,15 @@ class MarketplaceJobProcessor:
         """
         elapsed = time.time() - start_time
 
+        # schema_translate_map survives rollback - no need to restore search_path
+        # Just rollback any failed transaction before checking retry
+        try:
+            self.db.rollback()
+        except Exception:
+            pass  # Ignore if no transaction active
+
         # Check if we can retry
-        updated_job, can_retry = self.job_service.increment_retry(job.id)
+        updated_job, can_retry = self.job_service.increment_retry(job_id)
 
         if can_retry:
             # Reset to pending for retry
@@ -190,13 +199,13 @@ class MarketplaceJobProcessor:
             self.db.commit()
 
             logger.warning(
-                f"[JobProcessor] Job #{job.id} failed, will retry "
+                f"[JobProcessor] Job #{job_id} failed, will retry "
                 f"(attempt {updated_job.retry_count}): {error_msg}"
             )
 
             return {
-                "job_id": job.id,
-                "marketplace": job.marketplace,
+                "job_id": job_id,
+                "marketplace": marketplace,
                 "action": action_code,
                 "success": False,
                 "error": error_msg,
@@ -206,15 +215,15 @@ class MarketplaceJobProcessor:
             }
         else:
             # Max retries reached, job is now FAILED
-            self.job_service.fail_job(job.id, error_msg)
+            self.job_service.fail_job(job_id, error_msg)
 
             logger.error(
-                f"[JobProcessor] Job #{job.id} failed permanently: {error_msg}"
+                f"[JobProcessor] Job #{job_id} failed permanently: {error_msg}"
             )
 
             return {
-                "job_id": job.id,
-                "marketplace": job.marketplace,
+                "job_id": job_id,
+                "marketplace": marketplace,
                 "action": action_code,
                 "success": False,
                 "error": error_msg,

@@ -426,7 +426,11 @@ def main():
         target_session.execute(text("SELECT 1"))
         print("  Connexions établies")
 
-        # Set search path for target
+        # Use schema_translate_map for ORM queries (survives commit/rollback)
+        target_session = target_session.execution_options(
+            schema_translate_map={"tenant": "user_1"}
+        )
+        # Also set search_path for text() queries
         target_session.execute(text("SET search_path TO user_1, public"))
 
         # Fetch source data

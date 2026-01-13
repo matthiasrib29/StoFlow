@@ -91,8 +91,10 @@ def get_connected_vinted_users(db: Session, schema: str) -> List[VintedConnectio
         List of VintedConnection objects with is_connected=True
     """
     try:
-        # Set schema
-        db.execute(text(f"SET LOCAL search_path TO {schema}, public"))
+        # Use schema_translate_map for ORM queries (survives commit/rollback)
+        from shared.schema_utils import configure_schema_translate_map
+        configure_schema_translate_map(db, schema)
+        schema_db = db  # Use same session (connection is now configured)
 
         # Check if table exists
         table_exists = db.execute(text(f"""
@@ -106,8 +108,8 @@ def get_connected_vinted_users(db: Session, schema: str) -> List[VintedConnectio
         if not table_exists:
             return []
 
-        # Query connected users
-        connections = db.query(VintedConnection).filter(
+        # Query connected users with schema-aware session
+        connections = schema_db.query(VintedConnection).filter(
             VintedConnection.is_connected == True
         ).all()
 

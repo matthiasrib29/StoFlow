@@ -45,8 +45,8 @@ def get_user_schemas(db):
 
 def migrate_ebay_tokens(db, schema: str):
     """Migrate eBay tokens for a specific schema."""
-    # Set search_path to user schema
-    db.execute(text(f"SET search_path TO {schema}, public"))
+    # Use schema_translate_map for ORM queries (survives commit/rollback)
+    db = db.execution_options(schema_translate_map={"tenant": schema})
 
     # Get credentials with plaintext tokens
     credentials = db.execute(
@@ -84,8 +84,8 @@ def migrate_ebay_tokens(db, schema: str):
 
 def migrate_etsy_tokens(db, schema: str):
     """Migrate Etsy tokens for a specific schema."""
-    # Set search_path to user schema
-    db.execute(text(f"SET search_path TO {schema}, public"))
+    # Use schema_translate_map for ORM queries (survives commit/rollback)
+    db = db.execution_options(schema_translate_map={"tenant": schema})
 
     # Get credentials with plaintext tokens
     credentials = db.execute(

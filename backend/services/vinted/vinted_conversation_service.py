@@ -29,7 +29,6 @@ from repositories.vinted_conversation_repository import (
 )
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_inbox_sync_service import VintedInboxSyncService
-from shared.schema_utils import SchemaManager, commit_and_restore_path
 from shared.vinted_constants import VintedConversationAPI, VintedReferers
 from shared.logging_setup import get_logger
 from shared.config import settings
@@ -56,7 +55,6 @@ class VintedConversationService:
             user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
         """
         self.user_id = user_id
-        self._schema_manager = SchemaManager()
         self._inbox_sync_service = VintedInboxSyncService(user_id=user_id)
 
     # =========================================================================
@@ -113,8 +111,6 @@ class VintedConversationService:
             - messages_new: Number of new messages
             - transaction_id: Linked transaction ID (if any)
         """
-        self._schema_manager.capture(db)
-
         result = {
             "conversation_id": conversation_id,
             "messages_synced": 0,
@@ -185,7 +181,7 @@ class VintedConversationService:
 
         except Exception as e:
             logger.error(f"[VintedConversationService] sync_conversation error: {e}")
-            self._schema_manager.restore_after_rollback(db)
+            # schema_translate_map survives rollback - no need to restore
             raise
 
     def _update_conversation_metadata(
@@ -215,7 +211,7 @@ class VintedConversationService:
             conversation.item_photo_url = item_photo.get("url")
 
         conversation.last_synced_at = datetime.utcnow()
-        commit_and_restore_path(db)
+        db.commit()
 
     def _get_current_user_id(self, conv_data: dict) -> Optional[int]:
         """Get current user ID from conversation data."""

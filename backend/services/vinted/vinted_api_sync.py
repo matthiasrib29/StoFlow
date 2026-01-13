@@ -48,7 +48,6 @@ from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_data_extractor import VintedDataExtractor
 from services.vinted.vinted_product_enricher import VintedProductEnricher
-from shared.schema_utils import restore_search_path_after_rollback, commit_and_restore_path
 from shared.vinted_constants import VintedProductAPI
 from shared.logging_setup import get_logger
 from shared.config import settings
@@ -126,7 +125,7 @@ class VintedApiSyncService:
             for item in items:
                 try:
                     processed = await self._process_api_product(db, item)
-                    commit_and_restore_path(db)
+                    db.commit()
 
                     if processed == 'created':
                         created += 1
@@ -135,7 +134,7 @@ class VintedApiSyncService:
                 except Exception as e:
                     logger.error(f"Erreur sync produit {item.get('id')}: {e}")
                     errors += 1
-                    restore_search_path_after_rollback(db)
+                    db.rollback()
 
             pagination = result.get('pagination', {})
             if page >= pagination.get('total_pages', 1):

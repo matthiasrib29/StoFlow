@@ -11,7 +11,13 @@ Business Rules Tested:
 - Data extraction from transaction response
 - Invoice amount parsing
 
+NOTE (2026-01-13): Tests for commit_and_restore_path and SchemaManager were
+removed as part of the schema_translate_map migration. Multi-tenant schema
+isolation is now handled by execution_options(schema_translate_map=...) which
+survives COMMIT and ROLLBACK automatically.
+
 Created: 2026-01-08
+Updated: 2026-01-13
 Phase 2.2: Unit testing
 """
 
@@ -137,9 +143,8 @@ class TestSyncOrders:
 
     @pytest.mark.asyncio
     @patch('services.vinted.vinted_order_sync.create_and_wait')
-    @patch('services.vinted.vinted_order_sync.commit_and_restore_path')
     async def test_sync_orders_success(
-        self, mock_commit, mock_create_and_wait, service, mock_db, mock_transaction
+        self, mock_create_and_wait, service, mock_db, mock_transaction
     ):
         """Should sync orders successfully."""
         # Mock API responses
@@ -231,9 +236,8 @@ class TestSyncOrdersByMonth:
 
     @pytest.mark.asyncio
     @patch('services.vinted.vinted_order_sync.create_and_wait')
-    @patch('services.vinted.vinted_order_sync.commit_and_restore_path')
     async def test_sync_orders_by_month_success(
-        self, mock_commit, mock_create_and_wait, service, mock_db, mock_invoice_line, mock_transaction
+        self, mock_create_and_wait, service, mock_db, mock_invoice_line, mock_transaction
     ):
         """Should sync orders for specific month."""
         mock_create_and_wait.side_effect = [
@@ -581,34 +585,14 @@ class TestSaveOrder:
 
 
 # =============================================================================
-# SCHEMA MANAGER TESTS
+# NOTE (2026-01-13): TestSchemaManager class removed
 # =============================================================================
-
-
-class TestSchemaManager:
-    """Tests for schema management after rollback."""
-
-    @pytest.mark.asyncio
-    @patch('services.vinted.vinted_order_sync.create_and_wait')
-    @patch('services.vinted.vinted_order_sync.commit_and_restore_path')
-    async def test_sync_restores_schema_after_rollback(
-        self, mock_commit, mock_create_and_wait, service, mock_db
-    ):
-        """Should restore schema after rollback."""
-        # Mock API to fail on transaction fetch
-        mock_create_and_wait.side_effect = [
-            {'my_orders': [{'transaction_id': 12345}]},
-            Exception("Transaction error"),
-            {'my_orders': []}
-        ]
-
-        mock_db.query.return_value.filter.return_value.first.return_value = None
-
-        # Capture schema
-        service._schema_manager.capture(mock_db)
-
-        result = await service.sync_orders(mock_db)
-
-        # Should have called rollback
-        mock_db.rollback.assert_called()
-        assert result['errors'] == 1
+# The TestSchemaManager class was removed as part of the schema_translate_map
+# migration (Phase 5). The service no longer uses SchemaManager or
+# commit_and_restore_path() because:
+#
+# 1. schema_translate_map survives COMMIT and ROLLBACK automatically
+# 2. No need for explicit schema capture/restore logic
+# 3. Multi-tenant schema is configured at session creation via get_user_db()
+#
+# Schema isolation tests are now in tests/unit/shared/test_schema_translate_map.py

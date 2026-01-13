@@ -51,6 +51,7 @@ class MarketplaceJob(Base):
     """
 
     __tablename__ = "marketplace_jobs"
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
@@ -66,7 +67,7 @@ class MarketplaceJob(Base):
     # Batch reference (NEW - FK to BatchJob)
     batch_job_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("batch_jobs.id", ondelete="SET NULL"),
+        ForeignKey("tenant.batch_jobs.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="Parent BatchJob (for batch operations)"
@@ -91,7 +92,7 @@ class MarketplaceJob(Base):
     # Product reference (optional, for product-specific jobs)
     product_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="SET NULL"),
+        ForeignKey("tenant.products.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="Product being processed (if applicable)"

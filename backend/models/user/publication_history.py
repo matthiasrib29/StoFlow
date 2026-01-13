@@ -44,6 +44,7 @@ class PublicationHistory(Base):
     """
 
     __tablename__ = "publication_history"
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     # Primary Key
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -51,7 +52,7 @@ class PublicationHistory(Base):
     # Foreign Keys
     product_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )

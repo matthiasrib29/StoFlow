@@ -22,7 +22,6 @@ from sqlalchemy.orm import Session
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_data_extractor import VintedDataExtractor
-from shared.schema_utils import SchemaManager, commit_and_restore_path
 from shared.vinted_constants import VintedOrderAPI, VintedConversationAPI
 from shared.logging_setup import get_logger
 from shared.config import settings
@@ -51,7 +50,6 @@ class VintedOrderSyncService:
         """
         self.user_id = user_id
         self.extractor = VintedDataExtractor()
-        self._schema_manager = SchemaManager()
 
     def _order_exists(self, db: Session, transaction_id: int) -> bool:
         """Check if order already exists in database."""
@@ -183,7 +181,7 @@ class VintedOrderSyncService:
 
             if order_data:
                 self._save_order(db, order_data, products_data)
-                commit_and_restore_path(db)
+                db.commit()
                 logger.info(f"  [OK] Saved order #{order_data['transaction_id']}")
                 return True
 
@@ -196,8 +194,7 @@ class VintedOrderSyncService:
         except Exception as e:
             logger.error(f"Erreur save order: {type(e).__name__}: {e}")
             db.rollback()
-            self._schema_manager.restore_after_rollback(db)
-            logger.debug(f"Search path restored to {self._schema_manager.schema}")
+            # schema_translate_map survives rollback - no need to restore
             return False
 
 
@@ -217,7 +214,6 @@ class VintedOrderSyncService:
         month_str = f"{year}-{month:02d}"
         logger.info(f"Sync commandes: {month_str}")
 
-        self._schema_manager.capture(db)
         stats = {"synced": 0, "duplicates": 0, "errors": 0, "pages": 0}
         processed_ids = set()
         page = 1
@@ -322,7 +318,6 @@ class VintedOrderSyncService:
         """
         logger.info("Sync commandes (via /my_orders)")
 
-        self._schema_manager.capture(db)
         stats = {"synced": 0, "updated": 0, "errors": 0, "pages": 0}
         page = 1
 
@@ -370,7 +365,7 @@ class VintedOrderSyncService:
                 if transaction:
                     self._enrich_order_from_transaction(db, basic_order, transaction)
 
-                commit_and_restore_path(db)
+                db.commit()
                 stats["synced"] += 1
                 logger.info(f"  [NEW] TX {transaction_id} saved")
 
@@ -461,7 +456,7 @@ class VintedOrderSyncService:
         except Exception as e:
             logger.error(f"Error creating order from my_orders: {e}")
             db.rollback()
-            self._schema_manager.restore_after_rollback(db)
+            # schema_translate_map survives rollback - no need to restore
             return None
 
     def _update_order_from_my_orders(
@@ -486,7 +481,7 @@ class VintedOrderSyncService:
             # Only update if status changed
             if order.status != new_status:
                 order.status = new_status
-                commit_and_restore_path(db)
+                db.commit()
                 return True
 
             return False
@@ -494,7 +489,7 @@ class VintedOrderSyncService:
         except Exception as e:
             logger.error(f"Error updating order: {e}")
             db.rollback()
-            self._schema_manager.restore_after_rollback(db)
+            # schema_translate_map survives rollback - no need to restore
             return False
 
     def _enrich_order_from_transaction(

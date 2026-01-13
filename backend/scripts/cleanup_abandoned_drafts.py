@@ -66,7 +66,9 @@ def cleanup_abandoned_drafts(dry_run: bool = False, days: int = 7):
 
         # 2. Pour chaque schema, supprimer les drafts abandonnés
         for schema in user_schemas:
-            # Set search_path to user schema
+            # Use schema_translate_map for this schema iteration
+            # Also set search_path for text() queries
+            schema_db = db.execution_options(schema_translate_map={"tenant": schema})
             db.execute(text(f"SET search_path TO {schema}, public"))
 
             # Compter les drafts abandonnés
@@ -121,8 +123,7 @@ def cleanup_abandoned_drafts(dry_run: bool = False, days: int = 7):
 
                 total_deleted += count
 
-        # Reset search_path
-        db.execute(text("SET search_path TO public"))
+        # Note: no need to reset search_path with schema_translate_map
 
         if dry_run:
             logger.info(

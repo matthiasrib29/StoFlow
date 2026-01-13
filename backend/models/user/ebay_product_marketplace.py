@@ -41,8 +41,7 @@ class EbayProductMarketplace(Base):
     """
 
     __tablename__ = "ebay_products_marketplace"
-    # Schema will be set dynamically via search_path in multi-tenant context
-    __table_args__ = {}
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     # Primary Key
     sku_derived: Mapped[str] = mapped_column(
@@ -52,7 +51,7 @@ class EbayProductMarketplace(Base):
     # Foreign Keys
     product_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

@@ -51,7 +51,7 @@ class PendingInstruction(UserBase):
 
     __table_args__ = (
         Index('idx_pending_instructions_user_status', 'user_id', 'status'),
-        {'schema': None}  # Sera défini dynamiquement selon le schema user
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     def __repr__(self):

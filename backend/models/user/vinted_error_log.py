@@ -45,6 +45,7 @@ class VintedErrorLog(Base):
         Index('idx_vinted_error_logs_product_id', 'product_id'),
         Index('idx_vinted_error_logs_error_type', 'error_type'),
         Index('idx_vinted_error_logs_created_at', 'created_at'),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     # Primary Key
@@ -53,7 +54,7 @@ class VintedErrorLog(Base):
     # Foreign Keys
     product_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="ID du produit concerné"

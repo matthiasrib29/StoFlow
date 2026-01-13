@@ -42,6 +42,7 @@ class AIGenerationLog(Base):
     """
 
     __tablename__ = "ai_generation_logs"
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     # Primary Key
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -49,7 +50,7 @@ class AIGenerationLog(Base):
     # Foreign Keys
     product_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
         comment="Product ID (nullable for direct image analysis without product)"

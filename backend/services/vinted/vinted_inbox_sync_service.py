@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 
 from repositories.vinted_conversation_repository import VintedConversationRepository
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
-from shared.schema_utils import SchemaManager
 from shared.vinted_constants import VintedConversationAPI, VintedReferers
 from shared.logging_setup import get_logger
 from shared.config import settings
@@ -36,7 +35,6 @@ class VintedInboxSyncService:
             user_id: ID utilisateur (requis pour WebSocket) (2026-01-12)
         """
         self.user_id = user_id
-        self._schema_manager = SchemaManager()
 
     async def sync_inbox(
         self,
@@ -64,8 +62,6 @@ class VintedInboxSyncService:
             - total: Total conversations in inbox
             - unread: Number of unread conversations
         """
-        self._schema_manager.capture(db)
-
         result = {
             "synced": 0,
             "created": 0,
@@ -147,7 +143,7 @@ class VintedInboxSyncService:
 
         except Exception as e:
             logger.error(f"[VintedInboxSyncService] sync_inbox error: {e}")
-            self._schema_manager.restore_after_rollback(db)
+            # schema_translate_map survives rollback - no need to restore
             raise
 
     def _parse_conversation(self, data: dict) -> dict:

@@ -24,7 +24,7 @@ from api.dependencies import get_current_user, get_user_db
 from models.public.user import User
 from models.user.ebay_product import EbayProduct
 from services.ebay.ebay_importer import EbayImporter
-from shared.database import set_user_schema, SessionLocal
+from shared.database import SessionLocal
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -266,10 +266,13 @@ def _run_enrichment_in_background(user_id: int, marketplace_id: str):
     """
     from sqlalchemy import text
 
+    schema_name = f"user_{user_id}"
     db = SessionLocal()
     try:
-        # Set user schema - use raw SQL to ensure it's applied immediately
-        schema_name = f"user_{user_id}"
+        # Use schema_translate_map for ORM queries (survives commit/rollback)
+        from shared.schema_utils import configure_schema_translate_map
+        configure_schema_translate_map(db, schema_name)
+        # Also set search_path for text() queries
         db.execute(text(f"SET search_path TO {schema_name}, public"))
 
         importer = EbayImporter(
@@ -297,8 +300,7 @@ def _run_enrichment_in_background(user_id: int, marketplace_id: str):
 def _update_job_progress(db, job_id: int, user_id: int, progress_data: dict):
     """Update job progress in database."""
     from sqlalchemy import text
-    schema_name = f"user_{user_id}"
-    db.execute(text(f"SET search_path TO {schema_name}, public"))
+    # Note: schema already configured via schema_translate_map or SET search_path
     db.execute(
         text("UPDATE marketplace_jobs SET result_data = :data WHERE id = :job_id"),
         {"data": str(progress_data).replace("'", '"'), "job_id": job_id}
@@ -332,12 +334,10 @@ def _enrich_products_parallel(importer, products: list, db, schema_name, max_wor
     # IMPORTANT: Pre-fetch access token BEFORE parallel threads
     # This ensures token refresh (which does db.commit) happens in main thread
     # SQLAlchemy sessions are NOT thread-safe!
+    # Note: schema_translate_map persists across commits - no need to re-SET
     try:
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
         _ = importer.offer_client.get_access_token()
-        # Re-set search_path after potential token refresh commit
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
-        logger.debug("[Enrich Parallel] Token pre-fetched, search_path reset")
+        logger.debug("[Enrich Parallel] Token pre-fetched")
     except Exception as e:
         logger.warning(f"[Enrich Parallel] Token pre-fetch failed: {e}")
 
@@ -376,7 +376,7 @@ def _enrich_products_parallel(importer, products: list, db, schema_name, max_wor
             enriched_count += 1
 
     # Commit all enrichments at once
-    db.execute(text(f"SET search_path TO {schema_name}, public"))
+    # Note: schema_translate_map persists - no need to re-SET search_path
     db.commit()
 
     return enriched_count
@@ -453,15 +453,16 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
 
     ENRICHMENT_BATCH_SIZE = 10  # Number of parallel API calls
 
+    schema_name = f"user_{user_id}"
     db = SessionLocal()
     try:
-        schema_name = f"user_{user_id}"
+        # Use schema_translate_map for ORM queries (survives commit/rollback)
+        from shared.schema_utils import configure_schema_translate_map
+        configure_schema_translate_map(db, schema_name)
+        # Also set search_path for text() queries
         db.execute(text(f"SET search_path TO {schema_name}, public"))
 
-        # Debug: verify search_path is set
-        result = db.execute(text("SHOW search_path"))
-        current_path = result.scalar()
-        logger.info(f"[Background Import] search_path set to: {current_path}")
+        logger.info(f"[Background Import] Schema configured: {schema_name}")
 
         # Get the job
         job = db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
@@ -472,13 +473,7 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
         # Initialize progress
         job.result_data = {"current": 0, "label": "initialisation..."}
         db.commit()
-
-        # Re-set search_path after commit (commit resets SET LOCAL)
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-        # Debug: verify search_path after commit
-        result = db.execute(text("SHOW search_path"))
-        logger.info(f"[Background Import] search_path after commit: {result.scalar()}")
+        # Note: schema_translate_map persists after commit - no need to re-SET
 
         # Create importer
         importer = EbayImporter(
@@ -493,20 +488,12 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
         limit = 100
 
         while True:
-            db.execute(text(f"SET search_path TO {schema_name}, public"))
-
             # Fetch one page of inventory
             result = importer.inventory_client.get_inventory_items(
                 limit=limit,
                 offset=offset
             )
-
-            # Re-set search_path (API call may have triggered token refresh which does a commit)
-            db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-            # Debug: verify search_path after API call
-            sp_result = db.execute(text("SHOW search_path"))
-            logger.info(f"[Background Import] search_path after API call: {sp_result.scalar()}")
+            # Note: schema_translate_map persists even after token refresh commits
 
             items = result.get("inventoryItems", [])
             if not items:
@@ -521,11 +508,6 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
                 logger.debug(f"[Background Import] Item {idx+1}/{len(items)}: SKU={sku}")
 
                 try:
-                    # Re-set search_path before import
-                    db.execute(text(f"SET search_path TO {schema_name}, public"))
-                    sp_check = db.execute(text("SHOW search_path")).scalar()
-                    logger.debug(f"[Background Import] search_path before _import_single_item: {sp_check}")
-
                     import_result = importer._import_single_item(item, enrich=False)
                     logger.debug(f"[Background Import] _import_single_item result: status={import_result['status']}, id={import_result.get('id')}")
 
@@ -552,7 +534,6 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
 
                 # Update progress after each batch (use direct UPDATE to avoid expired object issues)
                 imported_count += len(batch)
-                db.execute(text(f"SET search_path TO {schema_name}, public"))
                 db.execute(
                     text("UPDATE marketplace_jobs SET result_data = :data WHERE id = :job_id"),
                     {"data": f'{{"current": {imported_count}, "label": "produits importés"}}', "job_id": job_id}
@@ -582,7 +563,6 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
             logger.info(f"[Background Import] Cleanup: deleted {deleted_count} products without listing_id")
 
         # Mark job as completed (use direct UPDATE)
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
         final_count = imported_count - deleted_count
         db.execute(
             text("UPDATE marketplace_jobs SET status = 'completed', result_data = :data WHERE id = :job_id"),
@@ -596,7 +576,6 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
         logger.error(f"[Background Import] eBay import failed for user {user_id}: {e}")
 
         try:
-            db.execute(text(f"SET search_path TO {schema_name}, public"))
             error_msg = str(e)[:500].replace("'", "''")  # Escape single quotes
             db.execute(
                 text("UPDATE marketplace_jobs SET status = 'failed', error_message = :error WHERE id = :job_id"),

@@ -51,6 +51,7 @@ class MarketplaceTask(Base):
     within a MarketplaceJob. Each job can have multiple tasks.
     """
     __tablename__ = "marketplace_tasks"
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
@@ -104,7 +105,7 @@ class MarketplaceTask(Base):
     # Optional relations
     product_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="CASCADE"),
         nullable=True,
         index=True
     )
@@ -112,7 +113,7 @@ class MarketplaceTask(Base):
     # Job reference (parent MarketplaceJob)
     job_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("marketplace_jobs.id", ondelete="SET NULL"),
+        ForeignKey("tenant.marketplace_jobs.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="Parent MarketplaceJob for this task"
