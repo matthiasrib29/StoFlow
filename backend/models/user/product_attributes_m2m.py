@@ -42,7 +42,7 @@ class ProductColor(Base):
     __table_args__ = (
         ForeignKeyConstraint(
             ["product_id"],
-            ["products.id"],
+            ["tenant.products.id"],
             ondelete="CASCADE",
             name="fk_product_colors_product_id"
         ),
@@ -62,6 +62,7 @@ class ProductColor(Base):
         ),
         Index("idx_product_colors_product_id", "product_id"),
         Index("idx_product_colors_color", "color"),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     product_id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -101,7 +102,7 @@ class ProductMaterial(Base):
     __table_args__ = (
         ForeignKeyConstraint(
             ["product_id"],
-            ["products.id"],
+            ["tenant.products.id"],
             ondelete="CASCADE",
             name="fk_product_materials_product_id"
         ),
@@ -114,6 +115,7 @@ class ProductMaterial(Base):
         ),
         Index("idx_product_materials_product_id", "product_id"),
         Index("idx_product_materials_material", "material"),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     product_id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -155,7 +157,7 @@ class ProductConditionSup(Base):
     __table_args__ = (
         ForeignKeyConstraint(
             ["product_id"],
-            ["products.id"],
+            ["tenant.products.id"],
             ondelete="CASCADE",
             name="fk_product_condition_sups_product_id"
         ),
@@ -168,6 +170,7 @@ class ProductConditionSup(Base):
         ),
         Index("idx_product_condition_sups_product_id", "product_id"),
         Index("idx_product_condition_sups_condition_sup", "condition_sup"),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     product_id: Mapped[int] = mapped_column(Integer, primary_key=True)

@@ -220,6 +220,9 @@ class OrderListResponse(BaseModel):
         page: Page actuelle (1-indexed)
         page_size: Taille de page
         total_pages: Nombre total de pages
+        total_revenue: Revenu total (toutes commandes)
+        pending_count: Commandes à expédier (NOT_STARTED + IN_PROGRESS)
+        shipped_count: Commandes expédiées (FULFILLED)
     """
 
     items: List[EbayOrderDetailResponse]
@@ -227,6 +230,10 @@ class OrderListResponse(BaseModel):
     page: int = Field(..., ge=1, description="Page actuelle")
     page_size: int = Field(..., ge=1, description="Taille de page")
     total_pages: int = Field(..., ge=0, description="Nombre total de pages")
+    # Global stats (not affected by pagination)
+    total_revenue: float = Field(default=0, description="Revenu total")
+    pending_count: int = Field(default=0, description="Commandes à expédier")
+    shipped_count: int = Field(default=0, description="Commandes expédiées")
 
 
 class AddTrackingResponse(BaseModel):

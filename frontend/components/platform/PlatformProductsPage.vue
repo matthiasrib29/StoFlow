@@ -26,45 +26,38 @@
         <slot name="stats" />
       </div>
 
-      <!-- Main content card -->
-      <Card class="shadow-sm modern-rounded border border-gray-100">
-        <template #content>
-          <!-- Toolbar slot -->
-          <div v-if="$slots.toolbar" class="mb-6">
-            <slot name="toolbar" />
-          </div>
+      <!-- Toolbar slot -->
+      <div v-if="$slots.toolbar" class="mb-6">
+        <slot name="toolbar" />
+      </div>
 
-          <!-- Loading state -->
-          <div v-if="loading" class="text-center py-12">
-            <ProgressSpinner style="width: 50px; height: 50px" />
-            <p class="mt-4 text-gray-500">Chargement des produits...</p>
-          </div>
+      <!-- Loading state -->
+      <div v-if="loading" class="text-center py-12">
+        <ProgressSpinner style="width: 50px; height: 50px" />
+        <p class="mt-4 text-gray-500">Chargement des produits...</p>
+      </div>
 
-          <!-- Error state -->
-          <div v-else-if="error" class="text-center py-12">
-            <i class="pi pi-exclamation-triangle text-4xl text-red-400 mb-4"/>
-            <p class="text-red-600">{{ error }}</p>
-            <Button
-              label="Réessayer"
-              icon="pi pi-refresh"
-              class="mt-4"
-              @click="$emit('retry')"
-            />
-          </div>
+      <!-- Error state -->
+      <div v-else-if="error" class="text-center py-12">
+        <i class="pi pi-exclamation-triangle text-4xl text-red-400 mb-4"/>
+        <p class="text-red-600">{{ error }}</p>
+        <Button
+          label="Réessayer"
+          icon="pi pi-refresh"
+          class="mt-4"
+          @click="$emit('retry')"
+        />
+      </div>
 
-          <!-- Empty state -->
-          <div v-else-if="isEmpty" class="text-center py-12">
-            <i class="pi pi-box text-4xl text-gray-300 mb-4"/>
-            <p class="text-gray-500">{{ emptyMessage }}</p>
-            <slot name="empty-actions" />
-          </div>
+      <!-- Empty state -->
+      <div v-else-if="isEmpty" class="text-center py-12">
+        <i class="pi pi-box text-4xl text-gray-300 mb-4"/>
+        <p class="text-gray-500">{{ emptyMessage }}</p>
+        <slot name="empty-actions" />
+      </div>
 
-          <!-- Products table/list -->
-          <div v-else>
-            <slot name="content" />
-          </div>
-        </template>
-      </Card>
+      <!-- Products table/list -->
+      <slot v-else name="content" />
     </template>
   </div>
 </template>

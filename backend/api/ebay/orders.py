@@ -311,6 +311,25 @@ def list_orders(
         # Convert to response models
         items = [EbayOrderDetailResponse.model_validate(order) for order in orders]
 
+        # Calculate global stats (not affected by pagination filters)
+        from models.user.ebay_order import EbayOrder
+        from sqlalchemy import func
+
+        stats_query = db.query(EbayOrder)
+
+        # Total revenue
+        total_revenue = db.query(func.coalesce(func.sum(EbayOrder.total_price), 0)).scalar() or 0
+
+        # Pending count (NOT_STARTED + IN_PROGRESS)
+        pending_count = stats_query.filter(
+            EbayOrder.order_fulfillment_status.in_(["NOT_STARTED", "IN_PROGRESS"])
+        ).count()
+
+        # Shipped count (FULFILLED)
+        shipped_count = stats_query.filter(
+            EbayOrder.order_fulfillment_status == "FULFILLED"
+        ).count()
+
         logger.debug(
             f"[GET /orders] Returned {len(items)} orders for user {current_user.id} "
             f"(page {page}/{total_pages})"
@@ -322,6 +341,9 @@ def list_orders(
             page=page,
             page_size=page_size,
             total_pages=total_pages,
+            total_revenue=float(total_revenue),
+            pending_count=pending_count,
+            shipped_count=shipped_count,
         )
 
     except Exception as e:

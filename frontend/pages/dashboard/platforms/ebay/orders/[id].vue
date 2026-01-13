@@ -304,7 +304,7 @@ const fetchOrder = async () => {
 
   try {
     const api = useApi()
-    order.value = await api.get(`/api/ebay/orders/${orderId.value}`)
+    order.value = await api.get(`/ebay/orders/${orderId.value}`)
   } catch (e: any) {
     error.value = e.message || 'Erreur lors du chargement de la commande'
     ebayLogger.error('Failed to fetch order:', e)

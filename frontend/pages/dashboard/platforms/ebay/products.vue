@@ -60,6 +60,17 @@
             optionValue="value"
             placeholder="Tous les statuts"
             class="w-48"
+            @change="onStatusChange"
+          />
+
+          <Select
+            v-model="marketplaceFilter"
+            :options="marketplaceOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Toutes les marketplaces"
+            class="w-52"
+            @change="onMarketplaceChange"
           />
         </div>
       </div>
@@ -192,6 +203,7 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const searchQuery = ref('')
 const statusFilter = ref<string | null>(null)
+const marketplaceFilter = ref<string | null>(null)
 const isImporting = ref(false)
 
 // Status options
@@ -203,7 +215,20 @@ const statusOptions = [
   { label: 'Hors stock', value: 'out_of_stock' }
 ]
 
-// Computed
+// Marketplace options
+const marketplaceOptions = [
+  { label: 'Toutes les marketplaces', value: null },
+  { label: 'eBay France', value: 'EBAY_FR' },
+  { label: 'eBay Allemagne', value: 'EBAY_DE' },
+  { label: 'eBay Royaume-Uni', value: 'EBAY_GB' },
+  { label: 'eBay Italie', value: 'EBAY_IT' },
+  { label: 'eBay Espagne', value: 'EBAY_ES' },
+  { label: 'eBay Pays-Bas', value: 'EBAY_NL' },
+  { label: 'eBay Pologne', value: 'EBAY_PL' },
+  { label: 'eBay États-Unis', value: 'EBAY_US' }
+]
+
+// Computed - only search filter (status filter is server-side)
 const filteredProducts = computed(() => {
   let result = products.value
 
@@ -215,16 +240,13 @@ const filteredProducts = computed(() => {
     )
   }
 
-  if (statusFilter.value) {
-    result = result.filter(p => p.status === statusFilter.value)
-  }
-
   return result
 })
 
-const activeCount = computed(() => products.value.filter(p => p.status === 'active').length)
-const draftCount = computed(() => products.value.filter(p => p.status === 'inactive' || p.status === 'draft').length)
-const outOfStockCount = computed(() => products.value.filter(p => (p.quantity || 0) === 0).length)
+// Stats from API (global, not affected by pagination)
+const activeCount = ref(0)
+const draftCount = ref(0)
+const outOfStockCount = ref(0)
 
 // Methods
 const fetchProducts = async (page?: number, size?: number) => {
@@ -233,19 +255,39 @@ const fetchProducts = async (page?: number, size?: number) => {
 
   ebayLogger.info('Fetching eBay products', {
     page: targetPage,
-    pageSize: targetSize
+    pageSize: targetSize,
+    marketplace: marketplaceFilter.value
   })
 
   loading.value = true
   error.value = null
   try {
+    const params = new URLSearchParams({
+      page: targetPage.toString(),
+      page_size: targetSize.toString()
+    })
+
+    if (marketplaceFilter.value) {
+      params.append('marketplace_id', marketplaceFilter.value)
+    }
+
+    if (statusFilter.value) {
+      params.append('status', statusFilter.value)
+    }
+
     const response = await get<{
       items: any[]
       total: number
-    }>(`/ebay/products?page=${targetPage}&page_size=${targetSize}`)
+      active_count: number
+      inactive_count: number
+      out_of_stock_count: number
+    }>(`/ebay/products?${params.toString()}`)
 
     products.value = response?.items || []
     totalProducts.value = response?.total || 0
+    activeCount.value = response?.active_count || 0
+    draftCount.value = response?.inactive_count || 0
+    outOfStockCount.value = response?.out_of_stock_count || 0
 
     ebayLogger.info('eBay products fetched successfully', {
       totalProducts: totalProducts.value,
@@ -271,6 +313,16 @@ const onPageChange = async (event: { page: number; rows: number; first: number }
   pageSize.value = newSize
 
   await fetchProducts(newPage, newSize)
+}
+
+const onMarketplaceChange = async () => {
+  currentPage.value = 1
+  await fetchProducts(1, pageSize.value)
+}
+
+const onStatusChange = async () => {
+  currentPage.value = 1
+  await fetchProducts(1, pageSize.value)
 }
 
 const importProducts = async () => {
