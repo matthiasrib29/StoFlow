@@ -330,7 +330,8 @@
       "mcp__playwright__browser_network_requests",
       "WebFetch(domain:alembic.sqlalchemy.org)",
       "WebFetch(domain:incident.io)",
-      "WebFetch(domain:dev.to)"
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:docs.cloud.google.com)"
     ]
   },
   "enableAllProjectMcpServers": true,
