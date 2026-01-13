@@ -51,6 +51,7 @@ class MarketplaceTask(Base):
     within a MarketplaceJob. Each job can have multiple tasks.
     """
     __tablename__ = "marketplace_tasks"
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
