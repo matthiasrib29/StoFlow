@@ -84,15 +84,27 @@ function announceToFrontend() {
 async function handleVintedAction(data: any, origin: string) {
   const { action, requestId, payload } = data;
 
-  log.debug('Vinted action received:', action, requestId);
+  log.info('═══════════════════════════════════════════════');
+  log.info('🎯 VINTED_ACTION received from frontend');
+  log.info(`   Action: ${action}`);
+  log.info(`   Request ID: ${requestId}`);
+  if (payload) {
+    log.debug(`   Payload: ${JSON.stringify(payload).substring(0, 200)}`);
+  }
+
+  const startTime = Date.now();
 
   try {
+    log.info('📤 Forwarding to background script...');
+
     // Forward to background script
     const response = await chrome.runtime.sendMessage({
       action,
       requestId,
       payload
     });
+
+    const duration = Date.now() - startTime;
 
     // Send response back to frontend via postMessage
     window.postMessage({
@@ -102,12 +114,15 @@ async function handleVintedAction(data: any, origin: string) {
     }, origin);
 
     if (response?.success) {
-      log.debug('Vinted action completed:', action);
+      log.info(`✅ Action ${action} completed in ${duration}ms`);
     } else {
-      log.warn('Vinted action failed:', action, response?.error);
+      log.warn(`❌ Action ${action} failed in ${duration}ms: ${response?.error}`);
     }
+    log.info('═══════════════════════════════════════════════');
   } catch (error: any) {
-    log.error('Error forwarding Vinted action:', error);
+    const duration = Date.now() - startTime;
+    log.error(`💥 Error forwarding ${action} after ${duration}ms:`, error);
+    log.info('═══════════════════════════════════════════════');
 
     // Send error response back to frontend
     window.postMessage({

@@ -22,15 +22,10 @@ from models.public.user import User
 logger = get_logger(__name__)
 
 # Create SocketIO server
+# Note: cors_allowed_origins="*" in dev, specific origins in prod (env-based)
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://localhost:3003",
-        "https://app.stoflow.com",
-    ],
+    cors_allowed_origins="*",  # Allow all origins in dev (TODO: configure via env)
 )
 
 # Store pending requests awaiting responses
@@ -131,23 +126,30 @@ async def connect(sid, environ, auth):
     Returns:
         bool: True if authenticated, False otherwise
     """
+    logger.info(f"[WebSocket] ═══ CONNECTION ATTEMPT ═══")
+    logger.info(f"[WebSocket] SID: {sid}")
+    logger.info(f"[WebSocket] Auth type: {type(auth).__name__}, has auth: {auth is not None}")
+
     # 1. Extract token from auth dict
     if not auth or not isinstance(auth, dict):
-        logger.warning(f"[WebSocket] Connection rejected: no auth dict (sid={sid})")
+        logger.info(f"[WebSocket] Connection rejected: no auth dict (sid={sid}, auth={auth})")
         return False
 
     token = auth.get("token")
     claimed_user_id = auth.get("user_id")  # Optional, for logging
+    logger.info(f"[WebSocket] Token present: {bool(token)}, claimed_user_id: {claimed_user_id}")
 
     if not token:
-        logger.warning(f"[WebSocket] Connection rejected: no token (sid={sid})")
+        logger.info(f"[WebSocket] Connection rejected: no token (sid={sid}, keys={list(auth.keys()) if auth else None})")
         return False
 
     # 2. Verify JWT token
+    logger.debug(f"[WebSocket] Verifying token (first 20 chars): {token[:20] if token else 'N/A'}...")
     payload = AuthService.verify_token(token, token_type="access")
     if not payload:
         logger.warning(f"[WebSocket] Connection rejected: invalid token (sid={sid})")
         return False
+    logger.info(f"[WebSocket] Token verified, payload user_id: {payload.get('user_id')}")
 
     # 3. Extract user_id from verified token (trusted source)
     user_id = payload.get("user_id")
@@ -185,7 +187,8 @@ async def connect(sid, environ, auth):
 
     # 6. Authentication successful - join user room
     await sio.enter_room(sid, f"user_{user_id}")
-    logger.info(f"[WebSocket] User {user_id} authenticated and connected (sid={sid})")
+    logger.info(f"[WebSocket] ✓ SUCCESS: User {user_id} joined room 'user_{user_id}' (sid={sid})")
+    logger.info(f"[WebSocket] ═══ CONNECTION ESTABLISHED ═══")
 
     return True
 
@@ -193,7 +196,7 @@ async def connect(sid, environ, auth):
 @sio.event
 async def disconnect(sid):
     """Client disconnected."""
-    logger.info(f"[WebSocket] Client disconnected (sid={sid})")
+    logger.info(f"[WebSocket] ═══ DISCONNECTION ═══ (sid={sid})")
 
 
 @sio.event

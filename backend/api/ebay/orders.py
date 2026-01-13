@@ -41,6 +41,7 @@ from services.ebay.ebay_order_fulfillment_service import (
     EbayOrderFulfillmentService,
 )
 from services.ebay.ebay_order_sync_service import EbayOrderSyncService
+from shared.database import set_user_search_path
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -137,6 +138,8 @@ async def sync_orders(
         job_id = job.id
 
         db.commit()
+        set_user_search_path(db, current_user.id)  # Re-set after commit
+        db.refresh(job)  # Reload job with correct search_path
 
         logger.info(
             f"[POST /orders/sync] Created job #{job_id} for user {current_user.id}"

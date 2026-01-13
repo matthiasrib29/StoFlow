@@ -6,33 +6,67 @@
  *
  * Author: Claude
  * Date: 2026-01-08
+ * Updated: 2026-01-12 - Singleton pattern + debug logging
  */
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { io, Socket } from 'socket.io-client'
 import { useAuthStore } from '~/stores/auth'
 import { useVintedBridge } from './useVintedBridge'
+
+// Singleton state (shared across all composable instances)
+const socket = ref<Socket | null>(null)
+const isConnected = ref(false)
+const error = ref<string | null>(null)
+
+// Debug logger for WebSocket
+const wsLog = {
+  debug: (msg: string, ...args: any[]) => console.log(`%c[WS] ${msg}`, 'color: #888', ...args),
+  info: (msg: string, ...args: any[]) => console.log(`%c[WS] ${msg}`, 'color: #0ea5e9', ...args),
+  success: (msg: string, ...args: any[]) => console.log(`%c[WS] ✓ ${msg}`, 'color: #22c55e', ...args),
+  warn: (msg: string, ...args: any[]) => console.warn(`[WS] ⚠ ${msg}`, ...args),
+  error: (msg: string, ...args: any[]) => console.error(`[WS] ✗ ${msg}`, ...args),
+}
 
 export function useWebSocket() {
   const authStore = useAuthStore()
   const vintedBridge = useVintedBridge()
 
-  const socket = ref<Socket | null>(null)
-  const isConnected = ref(false)
-  const error = ref<string | null>(null)
-
   // Connect to backend WebSocket
   const connect = () => {
+    wsLog.info('connect() called')
+    wsLog.debug('Auth state:', {
+      isAuthenticated: authStore.isAuthenticated,
+      userId: authStore.user?.id,
+      hasToken: !!authStore.accessToken
+    })
+
     if (!authStore.isAuthenticated || !authStore.user?.id) {
-      console.warn('[WebSocket] Not authenticated, skipping connection')
+      wsLog.warn('Not authenticated, skipping connection')
       return
     }
 
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    // Avoid duplicate connections
+    if (socket.value?.connected) {
+      wsLog.debug('Already connected, skipping')
+      return
+    }
+
+    // Clean up existing socket if disconnected
+    if (socket.value) {
+      wsLog.debug('Cleaning up existing disconnected socket')
+      socket.value.disconnect()
+      socket.value = null
+    }
+
+    const config = useRuntimeConfig()
+    const backendUrl = config.public.apiUrl || 'http://localhost:8000'
+    wsLog.info(`Connecting to ${backendUrl} as user ${authStore.user.id}`)
+    wsLog.debug('Token available:', !!authStore.token)
 
     socket.value = io(backendUrl, {
       auth: {
         user_id: authStore.user.id,
-        token: authStore.accessToken
+        token: authStore.token  // Fixed: was accessToken, should be token
       },
       transports: ['websocket'],
       reconnection: true,
@@ -44,22 +78,22 @@ export function useWebSocket() {
     socket.value.on('connect', () => {
       isConnected.value = true
       error.value = null
-      console.log('[WebSocket] Connected to backend')
+      wsLog.success(`Connected! Socket ID: ${socket.value?.id}`)
     })
 
-    socket.value.on('disconnect', () => {
+    socket.value.on('disconnect', (reason) => {
       isConnected.value = false
-      console.log('[WebSocket] Disconnected from backend')
+      wsLog.warn(`Disconnected: ${reason}`)
     })
 
     socket.value.on('connect_error', (err) => {
       error.value = err.message
-      console.error('[WebSocket] Connection error:', err)
+      wsLog.error(`Connection error: ${err.message}`, err)
     })
 
     // Listen for plugin commands from backend
     socket.value.on('plugin_command', async (data) => {
-      console.log('[WebSocket] Received plugin command:', data.action)
+      wsLog.info(`Received command: ${data.action} (req: ${data.request_id})`)
       await handlePluginCommand(data)
     })
   }
@@ -70,6 +104,8 @@ export function useWebSocket() {
     action: string
     payload: any
   }) => {
+    wsLog.debug(`Processing ${data.action}...`, data.payload)
+
     try {
       // Execute via plugin bridge
       let result: any
@@ -106,6 +142,8 @@ export function useWebSocket() {
           throw new Error(`Unknown action: ${data.action}`)
       }
 
+      wsLog.success(`Command ${data.action} completed`, { success: result.success })
+
       // Send response back to backend
       socket.value?.emit('plugin_response', {
         request_id: data.request_id,
@@ -113,34 +151,29 @@ export function useWebSocket() {
         data: result.data,
         error: result.error
       })
-    } catch (error: any) {
-      console.error('[WebSocket] Plugin command failed:', error)
+    } catch (err: any) {
+      wsLog.error(`Command ${data.action} failed: ${err.message}`)
 
       socket.value?.emit('plugin_response', {
         request_id: data.request_id,
         success: false,
         data: null,
-        error: error.message
+        error: err.message
       })
     }
   }
 
   // Disconnect
   const disconnect = () => {
+    wsLog.info('disconnect() called')
     socket.value?.disconnect()
     socket.value = null
     isConnected.value = false
   }
 
-  // Auto-connect on mount
-  onMounted(() => {
-    connect()
-  })
-
-  // Auto-disconnect on unmount
-  onUnmounted(() => {
-    disconnect()
-  })
+  // Note: Connection is now managed by the websocket.client.ts plugin
+  // which watches authStore.isAuthenticated and connects/disconnects accordingly.
+  // The singleton pattern ensures all components share the same connection.
 
   return {
     socket,
