@@ -173,101 +173,11 @@ def validate_schema_name(schema_name: str) -> str:
     return schema_name
 
 
-def set_search_path_safe(db: Session, user_id: int) -> None:
-    """
-    Safely set search path for multi-tenant isolation.
-
-    .. deprecated:: 2026-01-13
-        Use `execution_options(schema_translate_map={"tenant": schema_name})` instead.
-        This function will be removed in Phase 4 of schema migration.
-
-    Security: SQL injection protection via user_id validation (2026-01-12)
-
-    Args:
-        db: SQLAlchemy session
-        user_id: User ID (must be positive integer)
-
-    Raises:
-        ValueError: If user_id is invalid or schema name validation fails
-    """
-    if not isinstance(user_id, int) or user_id <= 0:
-        raise ValueError(f"Invalid user_id: {user_id}")
-
-    schema_name = f"user_{user_id}"
-    validate_schema_name(schema_name)
-
-    # Safe: schema_name validated, user_id is integer
-    db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-
-def set_user_schema(db: Session, user_id: int) -> None:
-    """
-    Configure le search_path PostgreSQL pour isoler l'utilisateur.
-
-    .. deprecated:: 2026-01-13
-        Use `execution_options(schema_translate_map={"tenant": schema_name})` instead.
-        This function will be removed in Phase 4 of schema migration.
-
-    DEPRECATED (2025-12-17): Use `get_user_db` dependency from api.dependencies instead.
-    This function is kept for unit tests only.
-
-    For production code, use:
-        from api.dependencies import get_user_db
-
-        @router.get("/endpoint")
-        def my_endpoint(user_db: tuple = Depends(get_user_db)):
-            db, current_user = user_db
-            # db is already configured with search_path
-
-    Args:
-        db: Session SQLAlchemy
-        user_id: ID de l'utilisateur
-
-    Raises:
-        ValueError: Si user_id n'est pas un entier valide (Security: 2025-12-07)
-    """
-    # Delegate to new secure function (2026-01-12)
-    set_search_path_safe(db, user_id)
-
-
-def set_user_search_path(db: Session, user_id: int) -> None:
-    """
-    Re-set search_path to user schema after a commit.
-
-    .. deprecated:: 2026-01-13
-        Use `execution_options(schema_translate_map={"tenant": schema_name})` instead.
-        This function will be removed in Phase 4 of schema migration.
-
-    IMPORTANT: Use this function when you need to continue using the session
-    after a commit. Uses SET (not SET LOCAL) because after commit the session
-    may not have started a new transaction yet.
-
-    The search_path will be reset when the connection is returned to the pool
-    or when get_user_db() is called on the next request.
-
-    Example:
-        db.commit()
-        set_user_search_path(db, current_user.id)  # Re-set after commit
-        processor = MarketplaceJobProcessor(db, ...)
-        result = await processor._execute_job(job)
-
-    Args:
-        db: SQLAlchemy session
-        user_id: User ID to build schema name (user_{id})
-
-    Raises:
-        ValueError: If user_id is invalid
-    """
-    if not isinstance(user_id, int) or user_id <= 0:
-        raise ValueError(f"Invalid user_id: {user_id}")
-
-    schema_name = f"user_{user_id}"
-    validate_schema_name(schema_name)
-
-    # Use SET (not SET LOCAL) because after commit the transaction state is unclear
-    # SET persists for the connection lifetime, which is fine as it will be
-    # reconfigured on the next request via get_user_db()
-    db.execute(text(f"SET search_path TO {schema_name}, public"))
+# REMOVED (2026-01-13): Deprecated functions removed as part of schema_translate_map migration
+# - set_search_path_safe() - Use execution_options(schema_translate_map={"tenant": schema}) instead
+# - set_user_schema() - Use execution_options(schema_translate_map={"tenant": schema}) instead
+# - set_user_search_path() - Use execution_options(schema_translate_map={"tenant": schema}) instead
+# See ROADMAP.md Phase 4 for details
 
 
 # NOTE (2025-12-08): La fonction create_user_schema() a été déplacée vers

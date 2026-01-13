@@ -203,9 +203,10 @@ def ebay_callback(
                 detail="User not found",
             )
 
-        # SECURITY (2026-01-12): Use validated search_path setting
-        from shared.database import set_search_path_safe
-        set_search_path_safe(db, user_id)
+        # Set schema for multi-tenant isolation (survives commit/rollback)
+        db = db.execution_options(
+            schema_translate_map={"tenant": f"user_{user_id}"}
+        )
 
         # Define schema_name for multi-tenant isolation
         schema_name = user.schema_name
