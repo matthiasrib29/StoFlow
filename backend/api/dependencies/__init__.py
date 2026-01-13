@@ -414,10 +414,13 @@ def get_user_db(
     # Use schema_translate_map for robust multi-tenant isolation
     # This survives COMMIT and ROLLBACK (unlike SET LOCAL search_path)
     # The "tenant" placeholder in models is remapped to actual user schema
-    db = db.execution_options(schema_translate_map={"tenant": schema_name})
+    # Note: Session doesn't have execution_options(), but Connection does
+    # Calling connection() with execution_options configures the underlying connection
+    db.connection(execution_options={"schema_translate_map": {"tenant": schema_name}})
 
     # Verify schema_translate_map was applied
-    schema_map = db.get_bind().execution_options.get("schema_translate_map", {})
+    conn = db.connection()
+    schema_map = conn.get_execution_options().get("schema_translate_map", {})
     configured_schema = schema_map.get("tenant")
 
     logger.debug(

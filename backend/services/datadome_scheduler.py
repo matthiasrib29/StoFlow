@@ -92,7 +92,9 @@ def get_connected_vinted_users(db: Session, schema: str) -> List[VintedConnectio
     """
     try:
         # Use schema_translate_map for ORM queries (survives commit/rollback)
-        schema_db = db.execution_options(schema_translate_map={"tenant": schema})
+        from shared.schema_utils import configure_schema_translate_map
+        configure_schema_translate_map(db, schema)
+        schema_db = db  # Use same session (connection is now configured)
 
         # Check if table exists
         table_exists = db.execute(text(f"""

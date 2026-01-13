@@ -82,9 +82,9 @@ def get_etsy_connected_users(db: Session) -> List[tuple]:
 
     for user in users:
         # Use schema_translate_map for ORM queries (survives commit/rollback)
-        schema_db = db.execution_options(
-            schema_translate_map={"tenant": f"user_{user.id}"}
-        )
+        from shared.schema_utils import configure_schema_translate_map
+        configure_schema_translate_map(db, f"user_{user.id}")
+        schema_db = db  # Use same session (connection is now configured)
 
         # Check if user has Etsy credentials with valid token
         credentials = (
