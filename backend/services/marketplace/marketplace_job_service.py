@@ -233,7 +233,7 @@ class MarketplaceJobService:
 
         job.status = JobStatus.RUNNING
         job.started_at = datetime.now(timezone.utc)
-        self.db.commit()
+        self.db.flush()  # Use flush, not commit (preserve search_path)
 
         logger.debug(f"[MarketplaceJobService] Started job #{job_id}")
         return job
@@ -258,7 +258,7 @@ class MarketplaceJobService:
 
         job.status = JobStatus.COMPLETED
         job.completed_at = datetime.now(timezone.utc)
-        self.db.commit()
+        self.db.flush()  # Use flush, not commit (preserve search_path)
 
         # Update stats
         self._update_job_stats(job, success=True)
@@ -295,7 +295,7 @@ class MarketplaceJobService:
         job.status = JobStatus.FAILED
         job.error_message = error_message
         job.completed_at = datetime.now(timezone.utc)
-        self.db.commit()
+        self.db.flush()  # Use flush, not commit (preserve search_path)
 
         # Update stats
         self._update_job_stats(job, success=False)
@@ -329,7 +329,7 @@ class MarketplaceJobService:
             return None
 
         job.status = JobStatus.PAUSED
-        self.db.commit()
+        self.db.flush()  # Use flush, not commit (preserve search_path)
 
         logger.info(f"[MarketplaceJobService] Paused job #{job_id}")
         return job
@@ -355,7 +355,7 @@ class MarketplaceJobService:
         job.expires_at = datetime.now(timezone.utc) + timedelta(
             hours=JOB_EXPIRATION_HOURS
         )
-        self.db.commit()
+        self.db.flush()  # Use flush, not commit (preserve search_path)
 
         logger.info(f"[MarketplaceJobService] Resumed job #{job_id}")
         return job
@@ -378,7 +378,7 @@ class MarketplaceJobService:
 
         job.status = JobStatus.CANCELLED
         job.completed_at = datetime.now(timezone.utc)
-        self.db.commit()
+        self.db.flush()  # Use flush, not commit (preserve search_path)
 
         # Cancel associated pending tasks
         self._cancel_job_tasks(job_id)
@@ -421,7 +421,7 @@ class MarketplaceJobService:
                 batch_service = BatchJobService(self.db)
                 batch_service.update_batch_progress(job.batch_job_id)
 
-        self.db.commit()
+        self.db.flush()  # Use flush, not commit (preserve search_path)
         return job, can_retry
 
     # =========================================================================
@@ -595,7 +595,7 @@ class MarketplaceJobService:
             job.error_message = "Job expired (pending > 1h)"
 
         if expired_jobs:
-            self.db.commit()
+            self.db.flush()  # Use flush, not commit (preserve search_path)
             logger.info(
                 f"[MarketplaceJobService] Expired {len(expired_jobs)} jobs"
             )
@@ -656,7 +656,7 @@ class MarketplaceJobService:
                     / stats.total_jobs
                 )
 
-        self.db.commit()
+        self.db.flush()  # Use flush, not commit (preserve search_path)
 
     def get_stats(self, days: int = 7) -> list[dict]:
         """
@@ -724,7 +724,7 @@ class MarketplaceJobService:
             task.completed_at = datetime.now(timezone.utc)
 
         if pending_tasks:
-            self.db.commit()
+            self.db.flush()  # Use flush, not commit (preserve search_path)
 
         return len(pending_tasks)
 

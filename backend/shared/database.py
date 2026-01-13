@@ -191,6 +191,42 @@ def set_user_schema(db: Session, user_id: int) -> None:
     set_search_path_safe(db, user_id)
 
 
+def set_user_search_path(db: Session, user_id: int) -> None:
+    """
+    Re-set search_path to user schema after a commit.
+
+    IMPORTANT: Use this function when you need to continue using the session
+    after a commit. Uses SET (not SET LOCAL) because after commit the session
+    may not have started a new transaction yet.
+
+    The search_path will be reset when the connection is returned to the pool
+    or when get_user_db() is called on the next request.
+
+    Example:
+        db.commit()
+        set_user_search_path(db, current_user.id)  # Re-set after commit
+        processor = MarketplaceJobProcessor(db, ...)
+        result = await processor._execute_job(job)
+
+    Args:
+        db: SQLAlchemy session
+        user_id: User ID to build schema name (user_{id})
+
+    Raises:
+        ValueError: If user_id is invalid
+    """
+    if not isinstance(user_id, int) or user_id <= 0:
+        raise ValueError(f"Invalid user_id: {user_id}")
+
+    schema_name = f"user_{user_id}"
+    validate_schema_name(schema_name)
+
+    # Use SET (not SET LOCAL) because after commit the transaction state is unclear
+    # SET persists for the connection lifetime, which is fine as it will be
+    # reconfigured on the next request via get_user_db()
+    db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+
 # NOTE (2025-12-08): La fonction create_user_schema() a été déplacée vers
 # services/user_schema_service.py pour une meilleure organisation et fonctionnalités étendues.
 # Utiliser UserSchemaService.create_user_schema() à la place.

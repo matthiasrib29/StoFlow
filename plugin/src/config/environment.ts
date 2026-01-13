@@ -27,6 +27,13 @@ export const ENV = {
   VINTED_REQUEST_TIMEOUT: Number(import.meta.env.VITE_VINTED_REQUEST_TIMEOUT) || 30000,
 
   /**
+   * Délai minimum entre chaque requête Vinted (en ms)
+   * Protection anti-ban : évite les requêtes trop rapprochées
+   * @default 1000 (1 seconde)
+   */
+  VINTED_MIN_REQUEST_DELAY: Number(import.meta.env.VITE_VINTED_MIN_REQUEST_DELAY) || 1000,
+
+  /**
    * Activer les logs de debug
    * @default true en dev, false en prod
    */

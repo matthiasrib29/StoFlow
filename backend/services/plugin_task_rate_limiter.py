@@ -15,7 +15,6 @@ Refactored: 2026-01-05
 
 import asyncio
 import random
-import re
 import time
 
 from shared.logging_setup import get_logger
@@ -27,44 +26,38 @@ class VintedRateLimiter:
     """
     Rate limiter avec délais aléatoires pour éviter la détection bot.
 
-    Configuration:
-    - Délais différents selon le type d'opération
+    Configuration simplifiée:
+    - Délais uniformes par type de requête HTTP (GET, POST, PUT, DELETE)
+    - Minimum 1 seconde pour toutes les requêtes
     - Randomisation pour simuler comportement humain
-    - Tracking du dernier appel pour espacement minimum
     """
 
-    # Configuration des délais par pattern d'URL (min_delay, max_delay en secondes)
-    DELAY_CONFIG = {
-        # Opérations sensibles - délais longs
-        "item_upload": (3.0, 6.0),  # Création de produit
-        "items/.*/delete": (2.5, 5.0),  # Suppression
-        "photos": (2.0, 4.0),  # Upload d'images
-        # Opérations de lecture - délais courts
-        "wardrobe": (0.5, 1.5),  # Liste produits
-        "my_orders": (0.5, 1.5),  # Commandes
-        "users": (0.3, 1.0),  # Info utilisateur
-        # Par défaut
-        "default": (0.3, 1.0),
+    # Configuration des délais par méthode HTTP (min_delay, max_delay en secondes)
+    # Minimum 1 seconde pour tout
+    METHOD_DELAYS = {
+        "GET": (1.0, 2.5),      # Lecture
+        "POST": (2.0, 4.0),     # Création
+        "PUT": (2.0, 4.0),      # Modification
+        "DELETE": (3.0, 5.0),   # Suppression
     }
 
-    # Multiplicateur pour les opérations d'écriture (PUT/DELETE)
-    WRITE_MULTIPLIER = 1.8
-
     # Espacement minimum entre requêtes (en secondes)
-    MIN_SPACING = 0.5
+    MIN_SPACING = 1.0
+
+    # Pause périodique (simule pause humaine)
+    PAUSE_INTERVAL_MIN = 8   # Pause après 8-14 requêtes (aléatoire)
+    PAUSE_INTERVAL_MAX = 14
+    PAUSE_DURATION_MIN = 5.0   # Durée de la pause: 5-15 secondes
+    PAUSE_DURATION_MAX = 15.0
 
     _last_request_time: float = 0
     _request_count: int = 0
+    _next_pause_at: int = 0  # Prochain seuil pour pause (0 = non initialisé)
 
     @classmethod
-    def _get_delay_config(cls, path: str) -> tuple[float, float]:
-        """Retourne (min_delay, max_delay) pour une URL donnée."""
-        for pattern, delays in cls.DELAY_CONFIG.items():
-            if pattern == "default":
-                continue
-            if re.search(pattern, path, re.IGNORECASE):
-                return delays
-        return cls.DELAY_CONFIG["default"]
+    def _get_delay_for_method(cls, http_method: str) -> tuple[float, float]:
+        """Retourne (min_delay, max_delay) pour une méthode HTTP."""
+        return cls.METHOD_DELAYS.get(http_method.upper(), cls.METHOD_DELAYS["GET"])
 
     @classmethod
     async def wait_before_request(cls, path: str, http_method: str = "GET") -> float:
@@ -72,18 +65,13 @@ class VintedRateLimiter:
         Attend un délai aléatoire avant d'exécuter une requête.
 
         Args:
-            path: URL de la requête
+            path: URL de la requête (unused, kept for compatibility)
             http_method: GET, POST, PUT, DELETE
 
         Returns:
             float: Délai effectif appliqué en secondes
         """
-        min_delay, max_delay = cls._get_delay_config(path)
-
-        # Augmenter le délai pour les opérations d'écriture
-        if http_method in ("POST", "PUT", "DELETE"):
-            min_delay *= cls.WRITE_MULTIPLIER
-            max_delay *= cls.WRITE_MULTIPLIER
+        min_delay, max_delay = cls._get_delay_for_method(http_method)
 
         # Calculer délai aléatoire
         delay = random.uniform(min_delay, max_delay)
@@ -94,13 +82,29 @@ class VintedRateLimiter:
             extra_wait = cls.MIN_SPACING - time_since_last
             delay = max(delay, extra_wait)
 
-        # Ajouter une variation supplémentaire tous les 10 appels
+        # Pause périodique aléatoire (simule une pause humaine)
         cls._request_count += 1
-        if cls._request_count % 10 == 0:
-            # Pause plus longue périodiquement (simule une pause humaine)
-            delay += random.uniform(1.0, 3.0)
-            logger.debug(
-                f"[RateLimiter] Pause périodique ajoutée (requête #{cls._request_count})"
+
+        # Initialiser le prochain seuil de pause si nécessaire
+        if cls._next_pause_at == 0:
+            cls._next_pause_at = random.randint(
+                cls.PAUSE_INTERVAL_MIN, cls.PAUSE_INTERVAL_MAX
+            )
+
+        # Déclencher la pause si on atteint le seuil
+        if cls._request_count >= cls._next_pause_at:
+            pause_duration = random.uniform(
+                cls.PAUSE_DURATION_MIN, cls.PAUSE_DURATION_MAX
+            )
+            delay += pause_duration
+            logger.info(
+                f"[RateLimiter] Pause périodique de {pause_duration:.1f}s "
+                f"(après {cls._request_count} requêtes)"
+            )
+            # Réinitialiser le compteur et définir le prochain seuil
+            cls._request_count = 0
+            cls._next_pause_at = random.randint(
+                cls.PAUSE_INTERVAL_MIN, cls.PAUSE_INTERVAL_MAX
             )
 
         if delay > 0:
@@ -117,6 +121,7 @@ class VintedRateLimiter:
         """Reset le compteur (utile pour les tests)."""
         cls._last_request_time = 0
         cls._request_count = 0
+        cls._next_pause_at = 0
 
 
 __all__ = ["VintedRateLimiter"]

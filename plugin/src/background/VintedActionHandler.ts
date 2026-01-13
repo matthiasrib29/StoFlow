@@ -10,6 +10,9 @@
 
 import { BackgroundLogger } from '../utils/logger';
 
+// Note: Rate limiting is handled at the backend level (VintedRateLimiter)
+// The plugin only executes requests as instructed by the backend
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -69,15 +72,18 @@ export function isAllowedOrigin(senderUrl: string | undefined): boolean {
  * Find an open Vinted tab
  */
 async function findVintedTab(): Promise<VintedTab | null> {
+  BackgroundLogger.debug('[VintedHandler] 🔍 Searching for Vinted tab...');
   try {
     const tabs = await chrome.tabs.query({
       url: ['*://www.vinted.fr/*', '*://www.vinted.com/*']
     });
 
     if (tabs.length > 0 && tabs[0].id) {
+      BackgroundLogger.info(`[VintedHandler] ✅ Found Vinted tab: id=${tabs[0].id}, url=${tabs[0].url}`);
       return { id: tabs[0].id, url: tabs[0].url || '' };
     }
 
+    BackgroundLogger.warn('[VintedHandler] ❌ No Vinted tab found');
     return null;
   } catch (error) {
     BackgroundLogger.error('[VintedHandler] Error finding Vinted tab:', error);
@@ -146,6 +152,13 @@ async function ensureVintedTab(): Promise<{ tab: VintedTab | null; error?: Exter
 
 /**
  * Send a message to the Vinted content script and wait for response
+ *
+ * Note: Rate limiting is handled at the backend level (VintedRateLimiter)
+ *
+ * @param tabId - Target tab ID
+ * @param action - Action to perform
+ * @param payload - Optional payload (may contain 'method' for HTTP method)
+ * @param timeout - Request timeout in ms
  */
 async function sendToContentScript(
   tabId: number,
@@ -153,8 +166,16 @@ async function sendToContentScript(
   payload?: any,
   timeout: number = 30000
 ): Promise<any> {
+  const httpMethod = payload?.method?.toUpperCase() || 'GET';
+
+  BackgroundLogger.info(`[VintedHandler] 📤 Sending to content script: tabId=${tabId}, action=${action}, method=${httpMethod}`);
+  if (payload) {
+    BackgroundLogger.debug('[VintedHandler] 📤 Payload:', JSON.stringify(payload).substring(0, 500));
+  }
+
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
+      BackgroundLogger.error(`[VintedHandler] ⏱️ Content script timeout after ${timeout}ms`);
       reject(new Error('Content script timeout'));
     }, timeout);
 
@@ -162,8 +183,17 @@ async function sendToContentScript(
       clearTimeout(timeoutId);
 
       if (chrome.runtime.lastError) {
+        BackgroundLogger.error('[VintedHandler] ❌ chrome.runtime.lastError:', chrome.runtime.lastError.message);
         reject(new Error(chrome.runtime.lastError.message));
         return;
+      }
+
+      BackgroundLogger.info(`[VintedHandler] 📥 Response from content script: success=${response?.success}`);
+      if (response?.error) {
+        BackgroundLogger.warn('[VintedHandler] 📥 Response error:', response.error);
+      }
+      if (response?.data) {
+        BackgroundLogger.debug('[VintedHandler] 📥 Response data:', JSON.stringify(response.data).substring(0, 500));
       }
 
       resolve(response);
@@ -579,60 +609,91 @@ async function handlePing(requestId?: string): Promise<ExternalResponse> {
 export async function handleExternalMessage(message: ExternalMessage): Promise<ExternalResponse> {
   const { action, requestId, payload } = message;
 
-  BackgroundLogger.debug(`[VintedHandler] Processing action: ${action}`, { requestId });
+  BackgroundLogger.info(`[VintedHandler] ═══════════════════════════════════════════════`);
+  BackgroundLogger.info(`[VintedHandler] 🎯 Processing action: ${action}`);
+  BackgroundLogger.info(`[VintedHandler] 📋 Request ID: ${requestId || 'none'}`);
+  if (payload) {
+    BackgroundLogger.debug(`[VintedHandler] 📦 Payload:`, JSON.stringify(payload).substring(0, 300));
+  }
+
+  const startTime = Date.now();
 
   try {
+    let result: ExternalResponse;
+
     switch (action) {
       // ============ STATUS & DETECTION ============
       case 'PING':
-        return handlePing(requestId);
+        result = await handlePing(requestId);
+        break;
 
       case 'CHECK_VINTED_TAB':
-        return handleCheckVintedTab(requestId);
+        result = await handleCheckVintedTab(requestId);
+        break;
 
       case 'OPEN_VINTED_TAB':
-        return handleOpenVintedTab(requestId, payload?.url);
+        result = await handleOpenVintedTab(requestId, payload?.url);
+        break;
 
       // ============ USER INFO ============
       case 'VINTED_GET_USER_INFO':
-        return handleGetUserInfo(requestId);
+        result = await handleGetUserInfo(requestId);
+        break;
 
       case 'VINTED_GET_USER_PROFILE':
-        return handleGetUserProfile(requestId);
+        result = await handleGetUserProfile(requestId);
+        break;
 
       // ============ VINTED API ============
       case 'VINTED_API_CALL':
-        return handleVintedApiCall(requestId, payload);
+        result = await handleVintedApiCall(requestId, payload);
+        break;
 
       case 'VINTED_GET_WARDROBE':
-        return handleGetWardrobe(requestId, payload);
+        result = await handleGetWardrobe(requestId, payload);
+        break;
 
       // ============ PRODUCT OPERATIONS ============
       case 'VINTED_PUBLISH':
-        return handlePublishProduct(requestId, payload);
+        result = await handlePublishProduct(requestId, payload);
+        break;
 
       case 'VINTED_UPDATE':
-        return handleUpdateProduct(requestId, payload);
+        result = await handleUpdateProduct(requestId, payload);
+        break;
 
       case 'VINTED_DELETE':
-        return handleDeleteProduct(requestId, payload);
+        result = await handleDeleteProduct(requestId, payload);
+        break;
 
       // ============ BATCH ============
       case 'VINTED_BATCH':
-        return handleBatchExecute(requestId, payload);
+        result = await handleBatchExecute(requestId, payload);
+        break;
 
       // ============ UNKNOWN ============
       default:
-        // Return null to indicate this action should be handled elsewhere
-        return {
+        result = {
           success: false,
           requestId,
           errorCode: 'UNKNOWN_ACTION',
           error: `Unknown action: ${action}`
         };
     }
+
+    const duration = Date.now() - startTime;
+    if (result.success) {
+      BackgroundLogger.info(`[VintedHandler] ✅ Action ${action} completed in ${duration}ms`);
+    } else {
+      BackgroundLogger.error(`[VintedHandler] ❌ Action ${action} failed in ${duration}ms: ${result.error}`);
+    }
+    BackgroundLogger.info(`[VintedHandler] ═══════════════════════════════════════════════`);
+
+    return result;
   } catch (error: any) {
-    BackgroundLogger.error(`[VintedHandler] Error handling ${action}:`, error);
+    const duration = Date.now() - startTime;
+    BackgroundLogger.error(`[VintedHandler] 💥 Exception in ${action} after ${duration}ms:`, error);
+    BackgroundLogger.info(`[VintedHandler] ═══════════════════════════════════════════════`);
 
     return {
       success: false,

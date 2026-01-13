@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from services.plugin_task_rate_limiter import VintedRateLimiter
 from services.websocket_service import WebSocketService
 from shared.logging_setup import get_logger
 
@@ -78,6 +79,8 @@ class PluginWebSocketHelper:
         """
         Execute raw HTTP call via plugin.
 
+        Includes rate limiting to prevent Vinted ban.
+
         Args:
             db: SQLAlchemy session
             user_id: User ID
@@ -91,6 +94,10 @@ class PluginWebSocketHelper:
         Returns:
             dict: HTTP response data
         """
+        # Apply rate limiting before calling plugin (anti-ban protection)
+        delay = await VintedRateLimiter.wait_before_request(path, http_method)
+        logger.info(f"[PluginWS] Rate limit applied: {delay:.2f}s delay for {http_method} {path[:50]}")
+
         return await PluginWebSocketHelper.call_plugin(
             db=db,
             user_id=user_id,

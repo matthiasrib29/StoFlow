@@ -93,22 +93,31 @@ export class NoVintedTabError extends Error {
 }
 
 // ============================================================
+// SINGLETON STATE (shared across all composable instances)
+// ============================================================
+
+// These must be outside the function to be shared across all instances
+const isInstalled = ref<boolean | null>(null)
+const hasVintedTab = ref(false)
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+const lastError = ref<BridgeResponse | null>(null)
+
+// Firefox fallback: plugin origin for postMessage (SINGLETON)
+let pluginOrigin: string | null = null
+
+// Pending requests for Firefox fallback (SINGLETON)
+const pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (error: any) => void; timeout: NodeJS.Timeout }>()
+
+// Track if global listener is already installed
+let listenerInstalled = false
+
+// ============================================================
 // COMPOSABLE
 // ============================================================
 
 export function useVintedBridge() {
-  // State
-  const isInstalled = ref<boolean | null>(null)
-  const hasVintedTab = ref(false)
-  const isLoading = ref(false)
-  const error = ref<string | null>(null)
-  const lastError = ref<BridgeResponse | null>(null)
-
-  // Firefox fallback: plugin origin for postMessage
-  let pluginOrigin: string | null = null
-
-  // Pending requests for Firefox fallback
-  const pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (error: any) => void; timeout: NodeJS.Timeout }>()
+  // No local state - using singleton state above
 
   // Flag for logs (ALWAYS ENABLED for debugging plugin communication)
   const DEBUG_ENABLED = true
@@ -173,7 +182,8 @@ export function useVintedBridge() {
       hasChromeRuntime: hasChromeRuntime(),
       isFirefox: isFirefox(),
       hasPluginOrigin: !!pluginOrigin,
-      pluginOrigin
+      pluginOrigin,
+      listenerInstalled
     })
 
     // Try chrome.runtime.sendMessage first (works on Chrome)
@@ -642,10 +652,17 @@ export function useVintedBridge() {
   function init() {
     if (!import.meta.client) return
 
-    log.debug('Initializing VintedBridge...')
+    // Only install listener once (singleton pattern)
+    if (listenerInstalled) {
+      log.debug('VintedBridge already initialized (singleton)')
+      return
+    }
+
+    log.debug('Initializing VintedBridge (singleton)...')
 
     // Listen for plugin messages (Firefox fallback + plugin announcement)
     window.addEventListener('message', handlePluginMessage)
+    listenerInstalled = true
 
     // Check if plugin is installed
     checkInstalled()
@@ -655,23 +672,18 @@ export function useVintedBridge() {
 
   /**
    * Cleanup (call on app unmount)
+   * Note: With singleton pattern, we don't cleanup to keep the listener active
    */
   function cleanup() {
-    if (!import.meta.client) return
-
-    window.removeEventListener('message', handlePluginMessage)
-
-    // Clear pending requests
-    for (const [requestId, pending] of pendingRequests) {
-      clearTimeout(pending.timeout)
-      pending.reject(new Error('Bridge cleanup'))
-    }
-    pendingRequests.clear()
+    // Don't cleanup - we want to keep the listener active for the singleton
+    // The listener will be removed when the page is closed
+    log.debug('VintedBridge cleanup skipped (singleton)')
   }
 
   // Auto-init on mount if used in component
   if (import.meta.client) {
     onMounted(init)
+    // Note: cleanup is now a no-op for singleton pattern
     onUnmounted(cleanup)
   }
 
