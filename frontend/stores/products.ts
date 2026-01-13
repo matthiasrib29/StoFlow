@@ -18,23 +18,39 @@ export interface Product {
   label_size: string  // Renamed from 'size' to match API
   color: string
 
+  // Size fields
+  size_original?: string | null
+  size_normalized?: string | null
+
   // Attributs optionnels avec FK
   material?: string | null
   fit?: string | null
   gender?: string | null
   season?: string | null
 
-  // Attributs supplémentaires
-  condition_sup?: string | null
+  // Attributs supplémentaires - Vêtements
+  sport?: string | null
+  neckline?: string | null
+  length?: string | null
+  pattern?: string | null
   rise?: string | null
   closure?: string | null
   sleeve_length?: string | null
+  stretch?: string | null
+  lining?: string | null
+
+  // Vintage & Tendance
   origin?: string | null
   decade?: string | null
   trend?: string | null
+
+  // Détails
+  condition_sup?: string[] | null
   name_sup?: string | null
   location?: string | null
   model?: string | null
+  unique_feature?: string[] | null
+  marking?: string | null
 
   // Dimensions (cm)
   dim1?: number | null  // Tour de poitrine/Épaules
@@ -43,6 +59,13 @@ export interface Product {
   dim4?: number | null  // Tour de taille
   dim5?: number | null  // Tour de hanches
   dim6?: number | null  // Entrejambe
+
+  // Pricing
+  pricing_rarity?: string | null
+  pricing_quality?: string | null
+  pricing_style?: string | null
+  pricing_details?: string | null
+  pricing_edit?: string | null
 
   // Stock
   stock_quantity: number  // Default: 1
@@ -76,7 +99,7 @@ export interface Product {
 export const getProductImageUrl = (product: Product): string => {
   if (!product.images || product.images.length === 0) {
     // Image placeholder par défaut
-    return '/images/placeholder-product.png'
+    return '/images/placeholder-product.svg'
   }
 
   // Trier par order et prendre la première
@@ -84,7 +107,7 @@ export const getProductImageUrl = (product: Product): string => {
   const firstImage = sortedImages[0]
 
   if (!firstImage || !firstImage.url) {
-    return '/images/placeholder-product.png'
+    return '/images/placeholder-product.svg'
   }
 
   // Les images sont stockées avec URL absolue (R2/CDN)
