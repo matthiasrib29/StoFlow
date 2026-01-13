@@ -51,6 +51,7 @@ class MarketplaceJob(Base):
     """
 
     __tablename__ = "marketplace_jobs"
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
