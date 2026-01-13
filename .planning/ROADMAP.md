@@ -1,250 +1,226 @@
-# Roadmap: Pricing Algorithm Feature
+# Roadmap: Multi-Tenant Schema Migration
 
-**Project**: Add intelligent pricing system with LLM-generated data and "expected vs actual" logic
+## Overview
 
-**Current milestone**: v1.0 - Complete pricing system (backend + frontend + tests)
+Migration de l'architecture multi-tenant StoFlow depuis `SET LOCAL search_path` (fragile, perdu après COMMIT/ROLLBACK) vers `schema_translate_map` (robuste, persistant). Cette migration élimine une source majeure de bugs d'isolation tenant et améliore la compatibilité avec les pools de connexions.
 
----
+## Domain Expertise
+
+- ./.claude/skills/expertise/sqlalchemy/SKILL.md (si existe)
+- Backend CLAUDE.md pour patterns multi-tenant
+
+Or: None (patterns établis dans la documentation SQLAlchemy)
 
 ## Phases
 
-### Phase 1: Database Foundation ✅ COMPLETED (2026-01-09)
-**Goal**: Create database schema for brand_groups and models tables
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-**Why this phase**: Need storage for LLM-generated data (Brand×Group base prices, Model coefficients) that will be cached and reused. Must be in place before any pricing logic can work.
+- [ ] **Phase 1: Préparation Modèles Tenant** - Ajouter placeholder schema "tenant" aux 20 modèles user/
+- [ ] **Phase 2: Session Factory & Dependencies** - Implémenter schema_translate_map dans get_user_db()
+- [ ] **Phase 3: Migration Requêtes text()** - Convertir 28 fichiers avec requêtes SQL brutes
+- [ ] **Phase 4: Nettoyage Code Legacy** - Supprimer fonctions SET search_path obsolètes
+- [ ] **Phase 5: Tests & Validation** - Vérifier isolation multi-tenant et rollback
 
-**Deliverables**: ✅ All completed
-- ✅ Migration to create `brand_groups` table (public schema) - revision 2f3a9708b420
-- ✅ Migration to create `models` table (public schema) - revision 68a6d6ef6f65
-- ✅ SQLAlchemy models for BrandGroup and Model
-- ✅ Repositories for data access (BrandGroupRepository, ModelRepository)
+## Phase Details
 
-**Dependencies**: None (foundation phase)
+### Phase 1: Préparation Modèles Tenant
+**Goal**: Ajouter `__table_args__ = {"schema": "tenant"}` à tous les modèles dans `models/user/`
+**Depends on**: Nothing (foundation phase)
+**Research**: Unlikely (established SQLAlchemy pattern)
+**Plans**: 2 plans
 
-**Research needed**: No - database patterns well established in StoFlow
+Plans:
+- [ ] 01-01: Modifier modèles principaux (product, vinted_*, marketplace_*)
+- [ ] 01-02: Modifier modèles secondaires (ebay_*, etsy_*, ai_*, pending_*)
 
-**Estimated complexity**: Low (standard CRUD with indexes)
-
-**Execution Summary**: See `.planning/phases/01-database-foundation/phase1-plan1-SUMMARY.md`
-- 6 files created (2 migrations, 2 models, 2 repositories)
-- 8 commits (6 features + 2 fixes)
-- All verification tests passed
-- Migrations reversible and idempotent
-
----
-
-### Phase 2: Group Determination Logic
-**Goal**: Implement category + materials → group mapping for 69 groups
-
-**Why this phase**: Core business logic that determines which "group" a product belongs to (e.g., "jacket_leather" vs "jacket_denim"). Required before any pricing calculations can start.
-
-**Deliverables**:
-- `determineGroup(category, materials)` function with material priority logic
-- Constants for 69 groups and category mappings
-- Unit tests for all group combinations
-- Edge case handling (unknown category, multiple materials)
-
-**Dependencies**: None (pure logic, no DB needed yet)
-
-**Research needed**: No - specification is complete in documentation
-
-**Estimated complexity**: Medium (69 groups, priority logic, extensive testing)
-
----
-
-### Phase 3: LLM Generation Service
-**Goal**: Generate Brand×Group and Model data via Google Gemini
-
-**Why this phase**: Need to populate brand_groups and models tables dynamically when data is missing. This enables the pricing system to work for any brand without manual data entry.
-
-**Deliverables**:
-- `PricingGenerationService.generateBrandGroup(brand, group)` using Gemini
-- `PricingGenerationService.generateModel(brand, group, model, basePrice)` using Gemini
-- LLM prompts for secondhand pricing context
-- Response validation (check ranges, reject outliers)
-- Fallback logic for LLM failures
-- Integration with existing `services/ai/gemini_service.py`
-
-**Dependencies**: Phase 1 (needs tables to store generated data)
-
-**Research needed**: No - Gemini integration exists, prompts are specified
-
-**Estimated complexity**: Medium (LLM validation, fallback logic, async handling)
-
----
-
-### Phase 4: Adjustment Calculators ✅ COMPLETED (2026-01-12)
-**Goal**: Implement 6 adjustment calculation functions
-
-**Why this phase**: Core pricing logic that calculates bonuses/malus based on product attributes. Each calculator is independent and testable. These feed into the main pricing algorithm.
-
-**Deliverables**: ✅ All completed
-- ✅ `calculateConditionAdjustment(score, supplements, sensitivity)` - Score + supplements with caps
-- ✅ `calculateOriginAdjustment(actualOrigin, expectedOrigins)` - Tier-based comparison
-- ✅ `calculateDecadeAdjustment(actualDecade, expectedDecades)` - Bonus if unexpected
-- ✅ `calculateTrendAdjustment(actualTrends, expectedTrends)` - Best unexpected trend
-- ✅ `calculateFeatureAdjustment(actualFeatures, expectedFeatures)` - Sum unexpected features
-- ✅ `calculateModelCoefficient(modelData)` - Simple multiplier
-- ✅ Unit tests for each calculator with edge cases (94 tests total)
-- ✅ Constants for DECADE_COEFFICIENTS, TREND_COEFFICIENTS, FEATURE_COEFFICIENTS, ORIGIN_TIERS
-
-**Dependencies**: Phase 2 (needs group determination for context)
-
-**Research needed**: No - formulas are fully specified
-
-**Estimated complexity**: Medium (6 functions, caps, edge cases, extensive tests)
-
-**Execution Summary**: See `.planning/phases/04-adjustment-calculators/` (3 plans)
-- 3 TDD plans executed (RED-GREEN-REFACTOR cycle)
-- 94 unit tests (100% passing)
-- All 6 calculators implemented in `backend/services/pricing/adjustment_calculators.py`
-- Clean code with comprehensive docstrings and validation
-
----
-
-### Phase 5: Main Pricing Algorithm & API ✅ COMPLETED (2026-01-12)
-**Goal**: Orchestrate all calculations and expose pricing endpoint
-
-**Why this phase**: Brings everything together - fetches/generates Brand×Group, fetches/generates Model, calculates all adjustments, returns 3 price levels. This is the complete pricing system.
-
-**Deliverables**: ✅ All completed
-- ✅ `PricingService.calculate_price(input: PriceInput) -> PriceOutput`
-- ✅ Formula orchestration: `PRICE = BASE_PRICE × MODEL_COEFF × (1 + ADJUSTMENTS)`
-- ✅ 3 price levels: quick (×0.75), standard (×1.0), premium (×1.30)
-- ✅ Detailed breakdown in response (base_price, model_coeff, adjustments)
-- ✅ API endpoint: `POST /api/pricing/calculate`
-- ✅ Error handling (custom exceptions, database rollback)
-- ✅ Performance logging (elapsed_time_ms tracking)
-- ✅ Integration tests for full flow (19 tests)
-- ✅ Unit tests updated (20 tests passing)
-
-**Dependencies**:
-- Phase 1 (database tables)
-- Phase 2 (group determination)
-- Phase 3 (LLM generation)
-- Phase 4 (adjustment calculators)
-
-**Research needed**: No - integration of existing components
-
-**Estimated complexity**: High (orchestration, error handling, full integration)
-
-**Execution Summary**: See `.planning/phases/05-main-pricing-algorithm/` (3 plans)
-- Plan 1: Core Pricing Service (orchestration logic)
-- Plan 2: API Endpoint & Integration (REST API + tests)
-- Plan 3: Error Handling & Polish (exceptions + logging)
-- 6 commits total
-- Production-ready backend pricing system complete
-
----
-
-### Phase 6: Frontend UI ✅ COMPLETED (2026-01-12)
-**Goal**: Display 3 pricing suggestions with breakdown on product page
-
-**Why this phase**: User-facing interface to trigger pricing and view results. Make the algorithm transparent and useful.
-
-**Deliverables**: ✅ All completed
-- ✅ `composables/usePricingCalculation.ts` - Composable for pricing logic
-- ✅ "Calculate Price" button in product detail page
-- ✅ Loading states during calculation
-- ✅ Error messages for failures (400/500/504 handling)
-- ✅ `components/products/PricingDisplay.vue` - Professional display component
-- ✅ 3 price levels with color-coded badges (quick/standard/premium)
-- ✅ Expandable adjustment breakdown visualization
-- ✅ All 6 adjustments displayed with color coding (green/red/gray)
-- ✅ Formula transparency section
-- ✅ Mobile-first responsive design
-- ✅ Fade transitions and smooth interactions
-
-**Dependencies**: Phase 5 (needs working API endpoint)
-
-**Research needed**: No - UI patterns established in StoFlow
-
-**Estimated complexity**: Medium (Vue components, async handling, UX polish)
-
-**Execution Summary**: See `.planning/phases/06-frontend-ui/` (2 plans)
-- Plan 1: Pricing Composable & API Integration
-- Plan 2: PricingDisplay Component
-- 6 commits total (3 per plan)
-- Production-ready frontend UI complete
-- Full end-to-end pricing flow operational
-
----
-
-### Phase 7: Testing & Polish (IN PROGRESS - 1/2 plans complete)
-**Goal**: Comprehensive tests, bug fixes, documentation
-
-**Why this phase**: Ensure production quality, catch edge cases, document usage for future maintenance.
-
-**Deliverables**:
-- ✅ Frontend composable tests (usePricingCalculation - 11 tests, 100% coverage)
-- ✅ Vitest configuration with Nuxt auto-import mocking
-- Unit tests for all pricing logic (>80% coverage) - backend tests exist from Phase 5
-- Integration tests for API endpoint - exists from Phase 5
-- End-to-end test: create product → calculate price → verify output
-- Manual testing with real brand data
-- Bug fixes from testing
-- Update PROJECT.md with implementation notes
-- Code review readiness
-
-**Dependencies**: All previous phases (testing the complete system)
-
-**Research needed**: No - testing patterns established
-
-**Estimated complexity**: Medium (comprehensive coverage, edge cases)
-
-**Execution Summary**: See `.planning/phases/07-testing-polish/07-01-SUMMARY.md`
-- Plan 1 COMPLETE ✅: Frontend test configuration (3 commits, 11 tests)
-- Plan 2 PENDING: Documentation & validation
-
----
-
-## Phase Dependencies
-
+**Files (20)**:
 ```
-Phase 1 (Database Foundation)
-  │
-  ├─→ Phase 3 (LLM Generation Service)
-  │     │
-  │     └─→ Phase 5 (Main Algorithm & API)
-  │           │
-  │           └─→ Phase 6 (Frontend UI)
-  │                 │
-  │                 └─→ Phase 7 (Testing & Polish)
-  │
-  └─→ Phase 2 (Group Determination)
-        │
-        └─→ Phase 4 (Adjustment Calculators)
-              │
-              └─→ Phase 5 (Main Algorithm & API)
+models/user/
+├── product.py
+├── vinted_product.py
+├── vinted_connection.py
+├── vinted_conversation.py
+├── vinted_error_log.py
+├── vinted_job_stats.py
+├── marketplace_job.py
+├── marketplace_task.py
+├── batch_job.py
+├── ebay_product.py
+├── ebay_credentials.py
+├── ebay_order.py
+├── ebay_product_marketplace.py
+├── ebay_promoted_listing.py
+├── etsy_credentials.py
+├── ai_generation_log.py
+├── pending_instruction.py
+├── product_attributes_m2m.py
+└── publication_history.py
 ```
 
-**Critical path**: 1 → 3 → 5 → 6 → 7 (LLM + API + UI)
-**Parallel track**: 1 → 2 → 4 → 5 (Logic + calculators)
+---
+
+### Phase 2: Session Factory & Dependencies
+**Goal**: Implémenter `schema_translate_map` dans la création de sessions
+**Depends on**: Phase 1
+**Research**: Unlikely (SQLAlchemy documentation clear)
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01: Modifier shared/database.py - Ajouter get_tenant_schema() et helpers
+- [ ] 02-02: Modifier api/dependencies/__init__.py - Remplacer SET par schema_translate_map
+
+**Key Change**:
+```python
+# AVANT (fragile)
+db.execute(text(f"SET LOCAL search_path TO {schema_name}, public"))
+
+# APRÈS (robuste)
+db = db.execution_options(schema_translate_map={"tenant": schema_name})
+```
 
 ---
 
-## Success Metrics
+### Phase 3: Migration Requêtes text()
+**Goal**: Mettre à jour les 28 fichiers utilisant `text()` avec références tenant
+**Depends on**: Phase 2
+**Research**: Unlikely (refactoring patterns)
+**Plans**: 3 plans
 
-**Phase 1-4 (Backend Core)**:
-- All tables created and indexed
-- All calculators tested with >80% coverage
-- LLM generation works with validation
+Plans:
+- [ ] 03-01: Migrer fichiers API (api/vinted/*, api/ebay/*, api/products/*)
+- [ ] 03-02: Migrer fichiers services (services/marketplace/*, services/ai/*)
+- [ ] 03-03: Migrer scripts et schedulers (scripts/*, services/*_scheduler.py)
 
-**Phase 5 (Integration)**:
-- API endpoint returns valid PriceOutput for any product
-- Handles missing data gracefully (generates via LLM)
-- Response time <10s (including LLM calls)
+**Strategies**:
+1. **Préféré**: Convertir `text()` → ORM queries
+2. **Fallback**: Utiliser `get_tenant_schema(db)` pour construire les requêtes
 
-**Phase 6 (Frontend)**:
-- User can trigger pricing with one click
-- 3 prices displayed clearly
-- Breakdown is transparent and understandable
+**Files (28)**:
+```
+api/
+├── vinted/messages.py
+├── vinted/orders.py
+├── vinted/products.py
+├── vinted/publishing.py
+├── products/ai.py
+├── ebay/orders.py
+├── ebay/products.py
+└── dependencies/__init__.py
 
-**Phase 7 (Quality)**:
-- All tests pass
-- No critical bugs
-- Code reviewed and approved
+services/
+├── marketplace/job_cleanup_scheduler.py
+├── marketplace/marketplace_job_processor.py
+├── etsy_polling_cron.py
+├── ai/vision_service.py
+├── datadome_scheduler.py
+└── vinted/vinted_product_enricher.py
+
+scripts/
+├── cleanup_abandoned_drafts.py
+├── migrate_existing_jobs_to_batch.py
+├── migrate_from_pythonapiwoo.py
+└── migrate_oauth_tokens_encryption.py
+
+migrations/
+├── versions/20260106_*.py
+└── env.py
+
+tests/
+├── conftest.py
+├── unit/api/test_dependencies.py
+└── integration/api/*.py
+```
 
 ---
 
-*Roadmap created: 2026-01-09*
+### Phase 4: Nettoyage Code Legacy
+**Goal**: Supprimer tout le code `SET search_path` obsolète
+**Depends on**: Phase 3
+**Research**: Unlikely (deletion task)
+**Plans**: 1 plan
+
+Plans:
+- [ ] 04-01: Supprimer fonctions et appels SET search_path
+
+**Functions to Remove**:
+```python
+# shared/database.py
+- set_search_path_safe()
+- set_user_schema()
+- set_user_search_path()
+
+# shared/schema_utils.py
+- restore_search_path()
+- restore_search_path_after_rollback()
+- commit_and_restore_path()
+- SchemaManager class
+```
+
+**Grep pattern for verification**:
+```bash
+grep -r "set_search_path\|restore_search_path\|SET.*search_path" --include="*.py" backend/
+```
+
+---
+
+### Phase 5: Tests & Validation
+**Goal**: Vérifier que l'isolation multi-tenant fonctionne parfaitement
+**Depends on**: Phase 4
+**Research**: Unlikely (testing patterns established)
+**Plans**: 2 plans
+
+Plans:
+- [ ] 05-01: Tests unitaires - Vérifier schema_translate_map sur modèles
+- [ ] 05-02: Tests d'intégration - Vérifier isolation après COMMIT/ROLLBACK
+
+**Test Scenarios**:
+1. ✓ Modèles utilisent correct schema après création session
+2. ✓ Schema persiste après `db.commit()`
+3. ✓ Schema persiste après `db.rollback()`
+4. ✓ Deux users simultanés restent isolés
+5. ✓ Requêtes `text()` utilisent correct schema
+6. ✓ Connection pool ne pollue pas entre requests
+
+---
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Préparation Modèles | 0/2 | Not started | - |
+| 2. Session Factory | 0/2 | Not started | - |
+| 3. Migration text() | 0/3 | Not started | - |
+| 4. Nettoyage Legacy | 0/1 | Not started | - |
+| 5. Tests & Validation | 0/2 | Not started | - |
+
+---
+
+## Comparison: Before vs After
+
+| Aspect | SET search_path (Before) | schema_translate_map (After) |
+|--------|--------------------------|------------------------------|
+| Survie COMMIT | ❌ Perdu | ✅ Persistant |
+| Survie ROLLBACK | ❌ Perdu | ✅ Persistant |
+| PgBouncer | ❌ Transaction mode only | ✅ Tous modes |
+| Sécurité | ⚠️ SQL injection risk | ✅ Paramétré |
+| Debug | ❌ Invisible dans SQL | ✅ Schema visible |
+| Maintenabilité | ❌ restore_* partout | ✅ Déclaratif |
+
+---
+
+## Success Criteria
+
+- [ ] Tous les modèles `user/` ont `schema: "tenant"` placeholder
+- [ ] `get_user_db()` utilise `schema_translate_map` au lieu de `SET`
+- [ ] Aucun appel `SET search_path` ne reste dans le code
+- [ ] Tests prouvent que schema persiste après COMMIT et ROLLBACK
+- [ ] Vinted sync fonctionne sans erreur "relation does not exist"
+
+---
+
+*Roadmap created: 2026-01-13*
