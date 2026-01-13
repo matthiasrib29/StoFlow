@@ -94,6 +94,7 @@ class VintedProduct(Base):
         Index('idx_vinted_products_brand', 'brand'),
         Index('idx_vinted_products_catalog_id', 'catalog_id'),
         Index('idx_vinted_products_seller_id', 'seller_id'),
+        {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
     # Primary Key (Vinted ID)
