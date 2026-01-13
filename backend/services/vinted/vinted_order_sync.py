@@ -3,12 +3,16 @@ Vinted Order Sync Service - Synchronisation des commandes Vinted
 
 Service dedie a la synchronisation des commandes depuis l'API Vinted.
 
-Deux methodes disponibles:
-- sync_orders(): Sync tout l'historique via /my_orders
-- sync_orders_by_month(): Sync un mois via /wallet/invoices + /conversations
+Methodes disponibles:
+- sync_orders(): DEFAULT - Sync via /my_orders (captures ALL orders)
+- sync_orders_by_month(): OPTIONAL - Sync via /wallet/invoices (wallet only)
+
+sync_orders() is the default because /wallet/invoices only shows wallet
+transactions, not direct card payments.
 
 Author: Claude
 Date: 2025-12-17
+Updated: 2026-01-13 - Restauration sync_orders() comme methode par defaut
 """
 
 from typing import Any
@@ -35,9 +39,7 @@ class VintedOrderSyncService:
     """
     Service de synchronisation des commandes Vinted.
 
-    Methodes:
-    - sync_orders: Parcourt /my_orders (tout l'historique)
-    - sync_orders_by_month: Utilise /wallet/invoices (mois specifique)
+    Utilise /wallet/invoices pour recuperer les commandes avec le prix reel.
     """
 
     def __init__(self, user_id: int | None = None):
@@ -56,115 +58,6 @@ class VintedOrderSyncService:
         return db.query(VintedOrder).filter(
             VintedOrder.transaction_id == transaction_id
         ).first() is not None
-
-    # =========================================================================
-    # SYNC ALL HISTORY (via /my_orders)
-    # =========================================================================
-
-    async def sync_orders(
-        self,
-        db: Session,
-        duplicate_threshold: float = 0.8,
-        per_page: int = 20
-    ) -> dict[str, Any]:
-        """
-        Synchronise tout l'historique des commandes.
-
-        Flow:
-        1. GET /my_orders?type=sold&status=completed
-        2. Pour chaque order: GET /transactions/{transaction_id}
-        3. Sauvegarde en BDD
-
-        Args:
-            db: Session SQLAlchemy
-            duplicate_threshold: Stop si % doublons >= threshold
-            per_page: Commandes par page
-
-        Returns:
-            {"synced": int, "duplicates": int, "errors": int}
-        """
-        logger.info("Sync commandes: demarrage (historique complet)")
-
-        # Capture schema for restoration after potential rollbacks
-        self._schema_manager.capture(db)
-
-        stats = {"synced": 0, "duplicates": 0, "errors": 0, "pages": 0}
-        page = 1
-
-        while True:
-            # 1. Get orders page
-            try:
-                result = await PluginWebSocketHelper.call_plugin_http(
-                    db=db,
-                    user_id=self.user_id,
-                    http_method="GET",
-                    path=VintedOrderAPI.get_orders("sold", "completed", page, per_page),
-                    timeout=settings.plugin_timeout_order,
-                    description=f"Sync orders page {page}"
-                )
-            except Exception as e:
-                logger.error(f"Erreur page {page}: {type(e).__name__}: {e}")
-                break
-
-            orders = result.get('my_orders', [])
-            if not orders:
-                break
-
-            page_duplicates = 0
-
-            # 2. Process each order
-            for order in orders:
-                transaction_id = order.get('transaction_id')
-                if not transaction_id:
-                    stats["errors"] += 1
-                    continue
-
-                if self._order_exists(db, transaction_id):
-                    page_duplicates += 1
-                    stats["duplicates"] += 1
-                    continue
-
-                # 3. Get transaction details
-                try:
-                    transaction = await PluginWebSocketHelper.call_plugin_http(
-                        db=db,
-                        user_id=self.user_id,
-                        http_method="GET",
-                        path=VintedOrderAPI.get_transaction(transaction_id),
-                        timeout=settings.plugin_timeout_order,
-                        description=f"Get transaction {transaction_id}"
-                    )
-
-                    order_data = self.extractor.extract_order_data(transaction)
-                    products_data = self.extractor.extract_order_products(
-                        transaction, transaction_id
-                    )
-
-                    if order_data:
-                        self._save_order(db, order_data, products_data)
-                        commit_and_restore_path(db)
-                        stats["synced"] += 1
-
-                except Exception as e:
-                    logger.error(f"Erreur tx {transaction_id}: {type(e).__name__}: {e}")
-                    stats["errors"] += 1
-                    db.rollback()
-                    self._schema_manager.restore_after_rollback(db)
-                    logger.debug(f"Search path restored to {self._schema_manager.schema}")
-
-            # Check duplicate threshold
-            if len(orders) > 0 and page_duplicates / len(orders) >= duplicate_threshold:
-                logger.info(f"Seuil doublons atteint p{page}")
-                break
-
-            page += 1
-
-        stats["pages"] = page
-        logger.info(
-            f"Sync terminee: {stats['synced']} new, "
-            f"{stats['duplicates']} dup, {stats['errors']} err"
-        )
-        return stats
 
     # =========================================================================
     # SYNC BY MONTH (via /wallet/invoices + /conversations)
@@ -207,17 +100,16 @@ class VintedOrderSyncService:
 
         return invoice_price, invoice_currency
 
-    async def _fetch_conversation_and_transaction(
+    async def _fetch_transaction_id_from_conversation(
         self, db: Session, conversation_id: int
-    ) -> tuple[dict | None, int | None]:
+    ) -> int | None:
         """
-        Fetch conversation and transaction details.
+        Fetch transaction_id from conversation (1 API call).
 
         Returns:
-            Tuple of (transaction_dict, transaction_id) or (None, None) on error
+            transaction_id or None on error
         """
         try:
-            # Get conversation to extract transaction_id
             conv_result = await PluginWebSocketHelper.call_plugin_http(
                 db=db,
                 user_id=self.user_id,
@@ -233,9 +125,26 @@ class VintedOrderSyncService:
 
             if not transaction_id:
                 logger.warning(f"Conv {conversation_id}: pas de transaction_id")
-                return None, None
+                return None
 
-            # Get full transaction details
+            return transaction_id
+
+        except Exception as e:
+            logger.error(f"Erreur conv {conversation_id}: {type(e).__name__}: {e}")
+            return None
+
+    async def _fetch_transaction_details(
+        self, db: Session, transaction_id: int
+    ) -> dict | None:
+        """
+        Fetch full transaction details (1 API call).
+
+        Only call this AFTER checking for duplicates to save API calls.
+
+        Returns:
+            Transaction dict or None on error
+        """
+        try:
             tx_result = await PluginWebSocketHelper.call_plugin_http(
                 db=db,
                 user_id=self.user_id,
@@ -246,11 +155,16 @@ class VintedOrderSyncService:
             )
 
             transaction = tx_result.get('transaction', {})
-            return transaction, transaction_id
+
+            if not transaction.get('id'):
+                logger.warning(f"  [WARN] TX {transaction_id}: transaction dict has no 'id' field")
+                return None
+
+            return transaction
 
         except Exception as e:
-            logger.error(f"Erreur conv {conversation_id}: {type(e).__name__}: {e}")
-            return None, None
+            logger.error(f"Erreur tx {transaction_id}: {type(e).__name__}: {e}")
+            return None
 
     def _process_and_save_order(
         self, db: Session, transaction: dict, invoice_price: float | None, invoice_currency: str
@@ -270,7 +184,13 @@ class VintedOrderSyncService:
             if order_data:
                 self._save_order(db, order_data, products_data)
                 commit_and_restore_path(db)
+                logger.info(f"  [OK] Saved order #{order_data['transaction_id']}")
                 return True
+
+            # Debug: Log why extraction failed
+            tx_id = transaction.get('id') if isinstance(transaction, dict) else None
+            logger.warning(f"  [SKIP] Transaction {tx_id}: extraction returned None")
+            logger.debug(f"  [DEBUG] Transaction keys: {list(transaction.keys()) if isinstance(transaction, dict) else type(transaction)}")
             return False
 
         except Exception as e:
@@ -335,24 +255,32 @@ class VintedOrderSyncService:
 
                 processed_ids.add(conversation_id)
 
-                # Extract invoice pricing
-                invoice_price, invoice_currency = self._extract_invoice_pricing(line)
-
-                # Fetch conversation and transaction
-                transaction, transaction_id = await self._fetch_conversation_and_transaction(
+                # Step 1: Get transaction_id from conversation (1 API call)
+                transaction_id = await self._fetch_transaction_id_from_conversation(
                     db, conversation_id
                 )
 
-                if not transaction or not transaction_id:
+                if not transaction_id:
                     stats["errors"] += 1
                     continue
 
-                # Check duplicate
+                # Step 2: Check duplicate BEFORE fetching transaction details
+                # This saves 1 API call per duplicate!
                 if self._order_exists(db, transaction_id):
                     stats["duplicates"] += 1
+                    logger.debug(f"  [SKIP] TX {transaction_id} already exists (saved 1 API call)")
                     continue
 
-                # Process and save
+                # Step 3: Only fetch transaction details if not a duplicate (1 API call)
+                transaction = await self._fetch_transaction_details(db, transaction_id)
+
+                if not transaction:
+                    stats["errors"] += 1
+                    continue
+
+                # Step 4: Extract invoice pricing and save
+                invoice_price, invoice_currency = self._extract_invoice_pricing(line)
+
                 if self._process_and_save_order(db, transaction, invoice_price, invoice_currency):
                     stats["synced"] += 1
                 else:
@@ -371,6 +299,110 @@ class VintedOrderSyncService:
             f"{stats['duplicates']} dup, {stats['errors']} err"
         )
         return stats
+
+    # =========================================================================
+    # SYNC CLASSIC (via /my_orders - DEFAULT)
+    # =========================================================================
+
+    async def sync_orders(self, db: Session) -> dict[str, Any]:
+        """
+        Synchronise les commandes vendues depuis /my_orders (default method).
+
+        Flow:
+        1. GET /my_orders?type=sold&status=completed (paginated)
+        2. For each order, check if exists (duplicate)
+        3. If not duplicate, GET /transactions/{id} for details
+        4. Save order with products
+
+        This method captures ALL completed orders, including direct card payments.
+        Use sync_orders_by_month() only for wallet/invoice-specific data.
+
+        Returns:
+            {"synced": int, "duplicates": int, "errors": int, "pages": int}
+        """
+        logger.info("Sync commandes (via /my_orders)")
+
+        self._schema_manager.capture(db)
+        stats = {"synced": 0, "duplicates": 0, "errors": 0, "pages": 0}
+        page = 1
+
+        while True:
+            # Fetch orders page
+            result = await self._fetch_orders_page(db, page)
+            if not result:
+                break
+
+            orders = result.get('my_orders', [])
+            if not orders:
+                logger.info(f"  Page {page}: no orders")
+                break
+
+            logger.info(f"  Page {page}: {len(orders)} orders")
+
+            # Process each order
+            for order in orders:
+                transaction_id = order.get('transaction_id')
+
+                if not transaction_id:
+                    logger.warning("  [SKIP] Order without transaction_id")
+                    stats["errors"] += 1
+                    continue
+
+                # Check duplicate BEFORE fetching transaction details
+                if self._order_exists(db, transaction_id):
+                    stats["duplicates"] += 1
+                    logger.debug(f"  [SKIP] TX {transaction_id} already exists")
+                    continue
+
+                # Fetch transaction details (1 API call)
+                transaction = await self._fetch_transaction_details(db, transaction_id)
+
+                if not transaction:
+                    stats["errors"] += 1
+                    continue
+
+                # Save order (no invoice pricing for classic sync)
+                if self._process_and_save_order(db, transaction, None, 'EUR'):
+                    stats["synced"] += 1
+                else:
+                    stats["errors"] += 1
+
+            # Pagination check
+            pagination = result.get('pagination', {})
+            total_pages = pagination.get('total_pages', 1)
+            if page >= total_pages:
+                break
+            page += 1
+
+        stats["pages"] = page
+        logger.info(
+            f"Sync orders: {stats['synced']} new, "
+            f"{stats['duplicates']} dup, {stats['errors']} err"
+        )
+        return stats
+
+    async def _fetch_orders_page(
+        self, db: Session, page: int
+    ) -> dict | None:
+        """Fetch single page of sold orders. Returns None on error."""
+        try:
+            result = await PluginWebSocketHelper.call_plugin_http(
+                db=db,
+                user_id=self.user_id,
+                http_method="GET",
+                path=VintedOrderAPI.get_orders(
+                    order_type="sold",
+                    status="completed",
+                    page=page,
+                    per_page=20
+                ),
+                timeout=settings.plugin_timeout_order,
+                description=f"Sync orders page {page}"
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Erreur orders p{page}: {type(e).__name__}: {e}")
+            return None
 
 
     # =========================================================================

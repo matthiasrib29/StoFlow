@@ -27,6 +27,7 @@ class BackgroundService {
   private setupListeners(): void {
     // Listen to messages from popup/content scripts (internal)
     chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
+      BackgroundLogger.info(`[Background] 📨 Internal message: action=${message.action}, from=${sender.tab?.url || 'popup'}`);
       this.handleInternalMessage(message, sender).then(sendResponse);
       return true; // Keep channel open for async response
     });
@@ -34,15 +35,12 @@ class BackgroundService {
     // Listen to EXTERNAL messages from stoflow.io (externally_connectable)
     if (chrome.runtime.onMessageExternal) {
       chrome.runtime.onMessageExternal.addListener((message: ExternalMessage, sender, sendResponse) => {
-        BackgroundLogger.debug('[Background] External message received', {
-          action: message.action,
-          requestId: message.requestId,
-          from: sender.url
-        });
+        BackgroundLogger.info(`[Background] 🌐 EXTERNAL message: action=${message.action}, requestId=${message.requestId}`);
+        BackgroundLogger.info(`[Background] 🌐 From: ${sender.url}`);
 
         // Verify the message comes from an allowed origin
         if (!isAllowedOrigin(sender.url)) {
-          BackgroundLogger.warn('[Background] External message rejected (unauthorized origin)', sender.url);
+          BackgroundLogger.warn('[Background] ⛔ External message rejected (unauthorized origin)', sender.url);
           sendResponse({
             success: false,
             error: 'Unauthorized origin',
@@ -51,14 +49,15 @@ class BackgroundService {
           return true;
         }
 
+        BackgroundLogger.info('[Background] ✅ Origin verified, forwarding to VintedActionHandler...');
         // Handle the message
         this.handleExternalMessage(message, sender).then(sendResponse);
         return true;
       });
 
-      BackgroundLogger.debug('[Background] onMessageExternal listener configured for stoflow.io');
+      BackgroundLogger.info('[Background] ✅ onMessageExternal listener configured for stoflow.io');
     } else {
-      BackgroundLogger.debug('[Background] onMessageExternal not available (Firefox uses content script fallback)');
+      BackgroundLogger.info('[Background] ⚠️ onMessageExternal not available (Firefox uses content script fallback)');
     }
 
     // FIREFOX WORKAROUND: Inject content script manually on localhost tabs
@@ -109,11 +108,25 @@ class BackgroundService {
 
     BackgroundLogger.debug('[Background] Permission verified for:', origin);
 
+    // Get the correct content script filename from manifest (hash changes on each build)
+    const manifest = chrome.runtime.getManifest();
+    const stoflowContentScript = manifest.content_scripts?.find(
+      cs => cs.matches?.some(m => m.includes('stoflow.io') || m.includes('localhost'))
+    );
+    const contentScriptFile = stoflowContentScript?.js?.[0];
+
+    if (!contentScriptFile) {
+      BackgroundLogger.error('[Background] ❌ Could not find stoflow-web content script in manifest');
+      return;
+    }
+
+    BackgroundLogger.debug('[Background] Content script file from manifest:', contentScriptFile);
+
     // Inject the content script manually
     try {
       const results = await chrome.scripting.executeScript({
         target: { tabId },
-        files: ['/assets/stoflow-web.ts-h6NQ0vQk.js']
+        files: [contentScriptFile]
       });
 
       BackgroundLogger.info('[Background] ✅ Content script injected successfully on:', url);
@@ -158,7 +171,7 @@ class BackgroundService {
     message: Message,
     sender: chrome.runtime.MessageSender
   ): Promise<any> {
-    BackgroundLogger.debug('[Background] Internal message received', { action: message.action });
+    BackgroundLogger.info(`[Background] 📬 Processing internal message: ${message.action}`);
 
     switch (message.action) {
       // ============ VINTED COOKIES (legacy, kept for popup) ============

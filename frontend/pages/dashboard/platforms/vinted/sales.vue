@@ -215,6 +215,11 @@ definePageMeta({
 // Platform connection
 const { isConnected, fetchStatus } = usePlatformConnection('vinted')
 
+// IMPORTANT: Call composables at setup level, not inside async functions
+// This fixes "inject() can only be used inside setup()" error
+const api = useApi()
+const { showSuccess, showError, showInfo } = useAppToast()
+
 // State
 const loading = ref(false)
 const syncing = ref(false)
@@ -270,43 +275,80 @@ const fetchOrders = async () => {
 
   loading.value = true
   error.value = null
+  vintedLogger.debug('[Sales] Fetching orders...')
 
   try {
-    const api = useApi()
     const response = await api.get('/vinted/orders')
 
     orders.value = response.orders || []
+    vintedLogger.info(`[Sales] Fetched ${orders.value.length} orders`)
 
     // Calculate stats
     calculateStats()
   } catch (e: any) {
     error.value = e.message || 'Erreur lors du chargement des commandes'
-    vintedLogger.error('Failed to fetch Vinted orders:', e)
+    vintedLogger.error('[Sales] Failed to fetch orders:', e)
   } finally {
     loading.value = false
   }
 }
 
+// Polling interval ref for cleanup
+const pollingInterval = ref<ReturnType<typeof setInterval> | null>(null)
+
 const syncOrders = async () => {
-  if (!isConnected.value) return
+  if (!isConnected.value) {
+    vintedLogger.warn('[Sales] Cannot sync: platform not connected')
+    return
+  }
 
   syncing.value = true
   error.value = null
+  vintedLogger.info('[Sales] Starting orders sync (fire-and-forget mode)...')
 
-  try {
-    const api = useApi()
-    await api.post('/vinted/orders/sync')
+  showSuccess('Synchronisation lancée en arrière-plan')
 
-    const toast = useAppToast()
-    toast.success('Synchronisation des commandes lancée')
+  // Start polling immediately to show updates as they come in
+  startPolling()
 
-    // Refresh orders after sync
+  // Fire-and-forget: launch sync but don't wait for completion
+  api.post('/vinted/orders/sync')
+    .then((response: any) => {
+      vintedLogger.info('[Sales] Sync completed:', response)
+      stopPolling()
+      syncing.value = false
+      fetchOrders() // Final refresh
+      showSuccess('Synchronisation terminée')
+    })
+    .catch((e: any) => {
+      vintedLogger.error('[Sales] Sync failed:', e)
+      stopPolling()
+      syncing.value = false
+      error.value = e.message || 'Erreur lors de la synchronisation'
+      showError('Erreur de synchronisation')
+    })
+}
+
+const startPolling = () => {
+  // Clear any existing polling
+  stopPolling()
+
+  vintedLogger.debug('[Sales] Starting polling for order updates...')
+
+  // Refresh immediately
+  fetchOrders()
+
+  // Then poll every 5 seconds to show new orders as they arrive
+  pollingInterval.value = setInterval(async () => {
+    vintedLogger.debug('[Sales] Polling for new orders...')
     await fetchOrders()
-  } catch (e: any) {
-    error.value = e.message || 'Erreur lors de la synchronisation'
-    vintedLogger.error('Failed to sync Vinted orders:', e)
-  } finally {
-    syncing.value = false
+  }, 5000)
+}
+
+const stopPolling = () => {
+  if (pollingInterval.value) {
+    clearInterval(pollingInterval.value)
+    pollingInterval.value = null
   }
 }
 
@@ -383,5 +425,10 @@ onMounted(async () => {
   if (isConnected.value) {
     await fetchOrders()
   }
+})
+
+onUnmounted(() => {
+  // Cleanup polling interval to prevent memory leaks
+  stopPolling()
 })
 </script>
