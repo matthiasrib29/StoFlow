@@ -18,7 +18,7 @@ None (internal patterns, no external integrations)
 - [x] **Phase 2: Backend API** - Endpoints REST génération et preview ✅
 - [x] **Phase 3: User Settings** - Préférences format/style par utilisateur ✅
 - [x] **Phase 4: Frontend Composable** - useProductTextGenerator.ts ✅
-- [ ] **Phase 5: Frontend UI** - Boutons et modal dans formulaire produit
+- [x] **Phase 5: Frontend UI** - Boutons et modal dans formulaire produit ✅
 
 ## Phase Details
 
@@ -67,7 +67,7 @@ Plans:
 
 Plans:
 - [x] 05-01: TextGeneratorButton + TextPreviewModal components ✅
-- [ ] 05-02: Intégration dans pages create/edit product
+- [x] 05-02: Intégration dans pages create/edit product ✅
 
 ## Progress
 
@@ -80,7 +80,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Backend API | 1/1 | Complete | 2026-01-13 |
 | 3. User Settings | 1/1 | Complete | 2026-01-13 |
 | 4. Frontend Composable | 1/1 | Complete | 2026-01-13 |
-| 5. Frontend UI | 1/2 | In progress | - |
+| 5. Frontend UI | 2/2 | Complete | 2026-01-13 |
 
 ---
 
