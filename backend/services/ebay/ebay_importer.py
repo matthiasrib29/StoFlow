@@ -194,9 +194,19 @@ class EbayImporter:
         product_data = self._extract_product_data(inventory_item)
 
         # Check if already exists
-        existing = self.db.query(EbayProduct).filter(
+        # Use noload to avoid JOIN with relations (search_path safety)
+        from sqlalchemy.orm import noload
+        from sqlalchemy import text
+
+        # Debug: check search_path before query
+        sp_before = self.db.execute(text("SHOW search_path")).scalar()
+        logger.debug(f"[EbayImporter] search_path before SKU query: {sp_before}")
+
+        existing = self.db.query(EbayProduct).options(noload('*')).filter(
             EbayProduct.ebay_sku == sku
         ).first()
+
+        logger.debug(f"[EbayImporter] SKU query result: existing={existing is not None}")
 
         if existing:
             # Update existing
@@ -216,7 +226,8 @@ class EbayImporter:
                 "id": existing.id,
                 "title": product_data.get("title"),
                 "price": existing.price,
-                "listing_id": existing.ebay_listing_id
+                "listing_id": existing.ebay_listing_id,
+                "product": existing,  # Return object to avoid extra ORM query
             }
 
         # Create new
@@ -239,7 +250,8 @@ class EbayImporter:
             "id": ebay_product.id,
             "title": product_data.get("title"),
             "price": ebay_product.price,
-            "listing_id": ebay_product.ebay_listing_id
+            "listing_id": ebay_product.ebay_listing_id,
+            "product": ebay_product,  # Return object to avoid extra ORM query
         }
 
     def _extract_product_data(self, inventory_item: dict) -> dict:

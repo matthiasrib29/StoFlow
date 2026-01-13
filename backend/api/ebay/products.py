@@ -302,6 +302,18 @@ def _enrich_products_parallel(importer, products: list, db, schema_name, max_wor
     if not products:
         return 0
 
+    # IMPORTANT: Pre-fetch access token BEFORE parallel threads
+    # This ensures token refresh (which does db.commit) happens in main thread
+    # SQLAlchemy sessions are NOT thread-safe!
+    try:
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
+        _ = importer.offer_client.get_access_token()
+        # Re-set search_path after potential token refresh commit
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
+        logger.debug("[Enrich Parallel] Token pre-fetched, search_path reset")
+    except Exception as e:
+        logger.warning(f"[Enrich Parallel] Token pre-fetch failed: {e}")
+
     # Build SKU to product mapping
     sku_to_product = {p.ebay_sku: p for p in products}
     skus = list(sku_to_product.keys())
@@ -419,6 +431,11 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
         schema_name = f"user_{user_id}"
         db.execute(text(f"SET search_path TO {schema_name}, public"))
 
+        # Debug: verify search_path is set
+        result = db.execute(text("SHOW search_path"))
+        current_path = result.scalar()
+        logger.info(f"[Background Import] search_path set to: {current_path}")
+
         # Get the job
         job = db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         if not job:
@@ -428,6 +445,13 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
         # Initialize progress
         job.result_data = {"current": 0, "label": "initialisation..."}
         db.commit()
+
+        # Re-set search_path after commit (commit resets SET LOCAL)
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+        # Debug: verify search_path after commit
+        result = db.execute(text("SHOW search_path"))
+        logger.info(f"[Background Import] search_path after commit: {result.scalar()}")
 
         # Create importer
         importer = EbayImporter(
@@ -450,24 +474,45 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
                 offset=offset
             )
 
+            # Re-set search_path (API call may have triggered token refresh which does a commit)
+            db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+            # Debug: verify search_path after API call
+            sp_result = db.execute(text("SHOW search_path"))
+            logger.info(f"[Background Import] search_path after API call: {sp_result.scalar()}")
+
             items = result.get("inventoryItems", [])
             if not items:
                 break
 
             # Import items WITHOUT enrichment first (fast)
             page_products = []
-            for item in items:
+            logger.info(f"[Background Import] Processing {len(items)} items from API")
+
+            for idx, item in enumerate(items):
+                sku = item.get("sku", "unknown")
+                logger.debug(f"[Background Import] Item {idx+1}/{len(items)}: SKU={sku}")
+
                 try:
+                    # Re-set search_path before import
+                    db.execute(text(f"SET search_path TO {schema_name}, public"))
+                    sp_check = db.execute(text("SHOW search_path")).scalar()
+                    logger.debug(f"[Background Import] search_path before _import_single_item: {sp_check}")
+
                     import_result = importer._import_single_item(item, enrich=False)
+                    logger.debug(f"[Background Import] _import_single_item result: status={import_result['status']}, id={import_result.get('id')}")
+
                     if import_result["status"] in ["imported", "updated"]:
-                        # Get the product object for enrichment
-                        product = db.query(EbayProduct).filter(
-                            EbayProduct.id == import_result["id"]
-                        ).first()
+                        # Use the product object returned directly (no extra ORM query)
+                        product = import_result.get("product")
                         if product:
                             page_products.append(product)
+                            logger.debug(f"[Background Import] Added product ID={product.id} to batch")
+                        else:
+                            logger.warning(f"[Background Import] No product object in result for SKU={sku}")
+
                 except Exception as e:
-                    logger.warning(f"Failed to import item: {e}")
+                    logger.error(f"[Background Import] Failed to import item SKU={sku}: {type(e).__name__}: {e}")
 
             db.commit()
 

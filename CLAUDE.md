@@ -7,24 +7,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## 🛡️ Git Worktree Safety Rules (CRITIQUE - 2026-01-12)
+## 🛡️ Git Worktree - Règles StoFlow (CRITIQUE)
 
-> **Contexte** : Ces règles ont été ajoutées après une perte de ~8000 lignes de code
-> causée par un `git reset --hard origin/develop` accidentel lors de sessions parallèles.
+> **Contexte** : Règles ajoutées après perte de ~8000 lignes de code (2026-01-12).
+> Les règles Git générales sont dans `~/.claude/CLAUDE.md` (commandes interdites, protection contre perte de données).
 
 ### Règle Principale
 
 **`~/StoFlow` (repo principal) est READ-ONLY pour le développement.**
 
 Tout le travail doit se faire dans des **worktrees** (`~/StoFlow-*`).
-
-### Commandes Interdites sur develop
-
-| Commande | Danger | Alternative |
-|----------|--------|-------------|
-| `git reset --hard` | Perte de commits locaux | `git pull --no-rebase` |
-| `git checkout -- .` | Perte de modifications | Commit d'abord |
-| `git clean -fd` | Suppression fichiers | Vérifier avant |
 
 ### Workflow Obligatoire
 
@@ -41,12 +33,6 @@ Avant toute opération sur `~/StoFlow`, les skills vérifient :
 1. ✅ Pas de changements non commités
 2. ✅ Pas de commits locaux non poussés
 3. ✅ Confirmation utilisateur si problème détecté
-
-### En cas de doute
-
-```
-⛔ ARRÊTER et DEMANDER à l'utilisateur
-```
 
 ---
 
