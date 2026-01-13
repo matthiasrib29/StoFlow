@@ -1,250 +1,87 @@
-# Roadmap: Pricing Algorithm Feature
+# Roadmap: AI Product Generation
 
-**Project**: Add intelligent pricing system with LLM-generated data and "expected vs actual" logic
+## Overview
 
-**Current milestone**: v1.0 - Complete pricing system (backend + frontend + tests)
+Implémentation d'un générateur automatique de titres SEO et descriptions dynamiques pour produits vestimentaires. Templates Python déterministes avec gestion intelligente des attributs manquants. Backend service → API → User settings → Frontend composable → UI intégration.
 
----
+## Domain Expertise
+
+None (internal patterns, no external integrations)
 
 ## Phases
 
-### Phase 1: Database Foundation ✅ COMPLETED (2026-01-09)
-**Goal**: Create database schema for brand_groups and models tables
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-**Why this phase**: Need storage for LLM-generated data (Brand×Group base prices, Model coefficients) that will be cached and reused. Must be in place before any pricing logic can work.
+- [x] **Phase 1: Backend Service** - Service Python de génération templates ✅
+- [x] **Phase 2: Backend API** - Endpoints REST génération et preview ✅
+- [x] **Phase 3: User Settings** - Préférences format/style par utilisateur ✅
+- [x] **Phase 4: Frontend Composable** - useProductTextGenerator.ts ✅
+- [x] **Phase 5: Frontend UI** - Boutons et modal dans formulaire produit ✅
 
-**Deliverables**: ✅ All completed
-- ✅ Migration to create `brand_groups` table (public schema) - revision 2f3a9708b420
-- ✅ Migration to create `models` table (public schema) - revision 68a6d6ef6f65
-- ✅ SQLAlchemy models for BrandGroup and Model
-- ✅ Repositories for data access (BrandGroupRepository, ModelRepository)
+## Phase Details
 
-**Dependencies**: None (foundation phase)
+### Phase 1: Backend Service
+**Goal**: Créer le service `ProductTextGeneratorService` avec les 3 formats de titre et 3 styles de description
+**Depends on**: Nothing (first phase)
+**Research**: Unlikely (Python templates, internal patterns)
+**Plans**: 2 plans
 
-**Research needed**: No - database patterns well established in StoFlow
+Plans:
+- [x] 01-01: Implémentation des 3 formats de titre ✅
+- [x] 01-02: Implémentation des 3 styles de description ✅
 
-**Estimated complexity**: Low (standard CRUD with indexes)
+### Phase 2: Backend API
+**Goal**: Exposer les endpoints REST pour générer et preview les textes
+**Depends on**: Phase 1
+**Research**: Unlikely (FastAPI patterns existants)
+**Plans**: 1 plan
 
-**Execution Summary**: See `.planning/phases/01-database-foundation/phase1-plan1-SUMMARY.md`
-- 6 files created (2 migrations, 2 models, 2 repositories)
-- 8 commits (6 features + 2 fixes)
-- All verification tests passed
-- Migrations reversible and idempotent
+Plans:
+- [x] 02-01: Endpoints generate-text et preview-text ✅
 
----
+### Phase 3: User Settings
+**Goal**: Ajouter les préférences utilisateur pour format titre et style description par défaut
+**Depends on**: Phase 2
+**Research**: Unlikely (user settings pattern existant)
+**Plans**: 1 plan
 
-### Phase 2: Group Determination Logic
-**Goal**: Implement category + materials → group mapping for 69 groups
+Plans:
+- [x] 03-01: Migration DB + API settings ✅
 
-**Why this phase**: Core business logic that determines which "group" a product belongs to (e.g., "jacket_leather" vs "jacket_denim"). Required before any pricing calculations can start.
+### Phase 4: Frontend Composable
+**Goal**: Créer le composable `useProductTextGenerator.ts` pour l'intégration frontend
+**Depends on**: Phase 2
+**Research**: Unlikely (Vue composable patterns existants)
+**Plans**: 1 plan
 
-**Deliverables**:
-- `determineGroup(category, materials)` function with material priority logic
-- Constants for 69 groups and category mappings
-- Unit tests for all group combinations
-- Edge case handling (unknown category, multiple materials)
+Plans:
+- [x] 04-01: Composable avec generate, preview, state management ✅
 
-**Dependencies**: None (pure logic, no DB needed yet)
+### Phase 5: Frontend UI
+**Goal**: Intégrer les boutons de génération et modal preview dans le formulaire produit
+**Depends on**: Phase 4
+**Research**: Unlikely (UI patterns existants)
+**Plans**: 2 plans
 
-**Research needed**: No - specification is complete in documentation
+Plans:
+- [x] 05-01: TextGeneratorButton + TextPreviewModal components ✅
+- [x] 05-02: Intégration dans pages create/edit product ✅
 
-**Estimated complexity**: Medium (69 groups, priority logic, extensive testing)
+## Progress
 
----
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
-### Phase 3: LLM Generation Service
-**Goal**: Generate Brand×Group and Model data via Google Gemini
-
-**Why this phase**: Need to populate brand_groups and models tables dynamically when data is missing. This enables the pricing system to work for any brand without manual data entry.
-
-**Deliverables**:
-- `PricingGenerationService.generateBrandGroup(brand, group)` using Gemini
-- `PricingGenerationService.generateModel(brand, group, model, basePrice)` using Gemini
-- LLM prompts for secondhand pricing context
-- Response validation (check ranges, reject outliers)
-- Fallback logic for LLM failures
-- Integration with existing `services/ai/gemini_service.py`
-
-**Dependencies**: Phase 1 (needs tables to store generated data)
-
-**Research needed**: No - Gemini integration exists, prompts are specified
-
-**Estimated complexity**: Medium (LLM validation, fallback logic, async handling)
-
----
-
-### Phase 4: Adjustment Calculators ✅ COMPLETED (2026-01-12)
-**Goal**: Implement 6 adjustment calculation functions
-
-**Why this phase**: Core pricing logic that calculates bonuses/malus based on product attributes. Each calculator is independent and testable. These feed into the main pricing algorithm.
-
-**Deliverables**: ✅ All completed
-- ✅ `calculateConditionAdjustment(score, supplements, sensitivity)` - Score + supplements with caps
-- ✅ `calculateOriginAdjustment(actualOrigin, expectedOrigins)` - Tier-based comparison
-- ✅ `calculateDecadeAdjustment(actualDecade, expectedDecades)` - Bonus if unexpected
-- ✅ `calculateTrendAdjustment(actualTrends, expectedTrends)` - Best unexpected trend
-- ✅ `calculateFeatureAdjustment(actualFeatures, expectedFeatures)` - Sum unexpected features
-- ✅ `calculateModelCoefficient(modelData)` - Simple multiplier
-- ✅ Unit tests for each calculator with edge cases (94 tests total)
-- ✅ Constants for DECADE_COEFFICIENTS, TREND_COEFFICIENTS, FEATURE_COEFFICIENTS, ORIGIN_TIERS
-
-**Dependencies**: Phase 2 (needs group determination for context)
-
-**Research needed**: No - formulas are fully specified
-
-**Estimated complexity**: Medium (6 functions, caps, edge cases, extensive tests)
-
-**Execution Summary**: See `.planning/phases/04-adjustment-calculators/` (3 plans)
-- 3 TDD plans executed (RED-GREEN-REFACTOR cycle)
-- 94 unit tests (100% passing)
-- All 6 calculators implemented in `backend/services/pricing/adjustment_calculators.py`
-- Clean code with comprehensive docstrings and validation
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Backend Service | 2/2 | Complete | 2026-01-13 |
+| 2. Backend API | 1/1 | Complete | 2026-01-13 |
+| 3. User Settings | 1/1 | Complete | 2026-01-13 |
+| 4. Frontend Composable | 1/1 | Complete | 2026-01-13 |
+| 5. Frontend UI | 2/2 | Complete | 2026-01-13 |
 
 ---
 
-### Phase 5: Main Pricing Algorithm & API ✅ COMPLETED (2026-01-12)
-**Goal**: Orchestrate all calculations and expose pricing endpoint
-
-**Why this phase**: Brings everything together - fetches/generates Brand×Group, fetches/generates Model, calculates all adjustments, returns 3 price levels. This is the complete pricing system.
-
-**Deliverables**: ✅ All completed
-- ✅ `PricingService.calculate_price(input: PriceInput) -> PriceOutput`
-- ✅ Formula orchestration: `PRICE = BASE_PRICE × MODEL_COEFF × (1 + ADJUSTMENTS)`
-- ✅ 3 price levels: quick (×0.75), standard (×1.0), premium (×1.30)
-- ✅ Detailed breakdown in response (base_price, model_coeff, adjustments)
-- ✅ API endpoint: `POST /api/pricing/calculate`
-- ✅ Error handling (custom exceptions, database rollback)
-- ✅ Performance logging (elapsed_time_ms tracking)
-- ✅ Integration tests for full flow (19 tests)
-- ✅ Unit tests updated (20 tests passing)
-
-**Dependencies**:
-- Phase 1 (database tables)
-- Phase 2 (group determination)
-- Phase 3 (LLM generation)
-- Phase 4 (adjustment calculators)
-
-**Research needed**: No - integration of existing components
-
-**Estimated complexity**: High (orchestration, error handling, full integration)
-
-**Execution Summary**: See `.planning/phases/05-main-pricing-algorithm/` (3 plans)
-- Plan 1: Core Pricing Service (orchestration logic)
-- Plan 2: API Endpoint & Integration (REST API + tests)
-- Plan 3: Error Handling & Polish (exceptions + logging)
-- 6 commits total
-- Production-ready backend pricing system complete
-
----
-
-### Phase 6: Frontend UI ✅ COMPLETED (2026-01-12)
-**Goal**: Display 3 pricing suggestions with breakdown on product page
-
-**Why this phase**: User-facing interface to trigger pricing and view results. Make the algorithm transparent and useful.
-
-**Deliverables**: ✅ All completed
-- ✅ `composables/usePricingCalculation.ts` - Composable for pricing logic
-- ✅ "Calculate Price" button in product detail page
-- ✅ Loading states during calculation
-- ✅ Error messages for failures (400/500/504 handling)
-- ✅ `components/products/PricingDisplay.vue` - Professional display component
-- ✅ 3 price levels with color-coded badges (quick/standard/premium)
-- ✅ Expandable adjustment breakdown visualization
-- ✅ All 6 adjustments displayed with color coding (green/red/gray)
-- ✅ Formula transparency section
-- ✅ Mobile-first responsive design
-- ✅ Fade transitions and smooth interactions
-
-**Dependencies**: Phase 5 (needs working API endpoint)
-
-**Research needed**: No - UI patterns established in StoFlow
-
-**Estimated complexity**: Medium (Vue components, async handling, UX polish)
-
-**Execution Summary**: See `.planning/phases/06-frontend-ui/` (2 plans)
-- Plan 1: Pricing Composable & API Integration
-- Plan 2: PricingDisplay Component
-- 6 commits total (3 per plan)
-- Production-ready frontend UI complete
-- Full end-to-end pricing flow operational
-
----
-
-### Phase 7: Testing & Polish (IN PROGRESS - 1/2 plans complete)
-**Goal**: Comprehensive tests, bug fixes, documentation
-
-**Why this phase**: Ensure production quality, catch edge cases, document usage for future maintenance.
-
-**Deliverables**:
-- ✅ Frontend composable tests (usePricingCalculation - 11 tests, 100% coverage)
-- ✅ Vitest configuration with Nuxt auto-import mocking
-- Unit tests for all pricing logic (>80% coverage) - backend tests exist from Phase 5
-- Integration tests for API endpoint - exists from Phase 5
-- End-to-end test: create product → calculate price → verify output
-- Manual testing with real brand data
-- Bug fixes from testing
-- Update PROJECT.md with implementation notes
-- Code review readiness
-
-**Dependencies**: All previous phases (testing the complete system)
-
-**Research needed**: No - testing patterns established
-
-**Estimated complexity**: Medium (comprehensive coverage, edge cases)
-
-**Execution Summary**: See `.planning/phases/07-testing-polish/07-01-SUMMARY.md`
-- Plan 1 COMPLETE ✅: Frontend test configuration (3 commits, 11 tests)
-- Plan 2 PENDING: Documentation & validation
-
----
-
-## Phase Dependencies
-
-```
-Phase 1 (Database Foundation)
-  │
-  ├─→ Phase 3 (LLM Generation Service)
-  │     │
-  │     └─→ Phase 5 (Main Algorithm & API)
-  │           │
-  │           └─→ Phase 6 (Frontend UI)
-  │                 │
-  │                 └─→ Phase 7 (Testing & Polish)
-  │
-  └─→ Phase 2 (Group Determination)
-        │
-        └─→ Phase 4 (Adjustment Calculators)
-              │
-              └─→ Phase 5 (Main Algorithm & API)
-```
-
-**Critical path**: 1 → 3 → 5 → 6 → 7 (LLM + API + UI)
-**Parallel track**: 1 → 2 → 4 → 5 (Logic + calculators)
-
----
-
-## Success Metrics
-
-**Phase 1-4 (Backend Core)**:
-- All tables created and indexed
-- All calculators tested with >80% coverage
-- LLM generation works with validation
-
-**Phase 5 (Integration)**:
-- API endpoint returns valid PriceOutput for any product
-- Handles missing data gracefully (generates via LLM)
-- Response time <10s (including LLM calls)
-
-**Phase 6 (Frontend)**:
-- User can trigger pricing with one click
-- 3 prices displayed clearly
-- Breakdown is transparent and understandable
-
-**Phase 7 (Quality)**:
-- All tests pass
-- No critical bugs
-- Code reviewed and approved
-
----
-
-*Roadmap created: 2026-01-09*
+*Roadmap created: 2026-01-13*
