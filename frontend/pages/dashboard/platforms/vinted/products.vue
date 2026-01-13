@@ -19,30 +19,27 @@
       </template>
     </PageHeader>
 
-    <!-- Content -->
-    <Card class="shadow-sm modern-rounded border border-gray-100">
-      <template #content>
-        <!-- Bannière offline -->
-        <InfoBox v-if="!isConnected" type="warning" icon="pi pi-exclamation-triangle" class="mb-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="font-semibold">Mode hors ligne</p>
-              <p class="text-sm mt-1">
-                Vous consultez vos produits importés. Reconnectez-vous pour synchroniser, publier ou modifier.
-              </p>
-            </div>
-            <Button
-              label="Connecter"
-              icon="pi pi-link"
-              size="small"
-              class="btn-primary ml-4"
-              @click="$router.push('/dashboard/platforms/vinted')"
-            />
-          </div>
-        </InfoBox>
-
-        <!-- Contenu principal (toujours visible) -->
+    <!-- Bannière offline -->
+    <InfoBox v-if="!isConnected" type="warning" icon="pi pi-exclamation-triangle" class="mb-4">
+      <div class="flex items-center justify-between">
         <div>
+          <p class="font-semibold">Mode hors ligne</p>
+          <p class="text-sm mt-1">
+            Vous consultez vos produits importés. Reconnectez-vous pour synchroniser, publier ou modifier.
+          </p>
+        </div>
+        <Button
+          label="Connecter"
+          icon="pi pi-link"
+          size="small"
+          class="btn-primary ml-4"
+          @click="$router.push('/dashboard/platforms/vinted')"
+        />
+      </div>
+    </InfoBox>
+
+    <!-- Contenu principal -->
+    <div>
           <!-- Toolbar -->
           <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
             <!-- Search -->
@@ -267,8 +264,6 @@
             </Column>
           </DataTable>
         </div>
-      </template>
-    </Card>
 
     <!-- Link Product Modal -->
     <LinkProductModal

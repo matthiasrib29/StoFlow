@@ -17,6 +17,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user, get_user_db
@@ -104,6 +105,10 @@ class EbayProductListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+    # Global stats (not affected by pagination)
+    active_count: int = 0
+    inactive_count: int = 0
+    out_of_stock_count: int = 0
 
 
 class ImportRequest(BaseModel):
@@ -178,7 +183,13 @@ async def list_ebay_products(
 
     # Apply filters
     if status:
-        query = query.filter(EbayProduct.status == status)
+        if status == "out_of_stock":
+            # Handle both NULL and 0 as out of stock
+            query = query.filter(
+                or_(EbayProduct.quantity == 0, EbayProduct.quantity.is_(None))
+            )
+        else:
+            query = query.filter(EbayProduct.status == status)
 
     if marketplace_id:
         query = query.filter(EbayProduct.marketplace_id == marketplace_id)
@@ -196,12 +207,28 @@ async def list_ebay_products(
     # Fetch items
     items = query.order_by(EbayProduct.created_at.desc()).offset(offset).limit(page_size).all()
 
+    # Calculate global stats (with marketplace filter only, not status/search)
+    stats_query = db.query(EbayProduct)
+    if marketplace_id:
+        stats_query = stats_query.filter(EbayProduct.marketplace_id == marketplace_id)
+
+    active_count = stats_query.filter(EbayProduct.status == "active").count()
+    inactive_count = stats_query.filter(
+        EbayProduct.status.in_(["inactive", "draft", "ended"])
+    ).count()
+    out_of_stock_count = stats_query.filter(
+        or_(EbayProduct.quantity == 0, EbayProduct.quantity.is_(None))
+    ).count()
+
     return EbayProductListResponse(
         items=[EbayProductResponse.from_orm_with_parsed_images(item) for item in items],
         total=total,
         page=page,
         page_size=page_size,
         total_pages=total_pages,
+        active_count=active_count,
+        inactive_count=inactive_count,
+        out_of_stock_count=out_of_stock_count,
     )
 
 
@@ -543,15 +570,27 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
 
             offset += limit
 
+        # Cleanup: delete products without listing_id (inventory items without active listings)
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
+        cleanup_result = db.execute(
+            text("DELETE FROM ebay_products WHERE ebay_listing_id IS NULL")
+        )
+        deleted_count = cleanup_result.rowcount
+        db.commit()
+
+        if deleted_count > 0:
+            logger.info(f"[Background Import] Cleanup: deleted {deleted_count} products without listing_id")
+
         # Mark job as completed (use direct UPDATE)
         db.execute(text(f"SET search_path TO {schema_name}, public"))
+        final_count = imported_count - deleted_count
         db.execute(
             text("UPDATE marketplace_jobs SET status = 'completed', result_data = :data WHERE id = :job_id"),
-            {"data": f'{{"current": {imported_count}, "label": "produits importés"}}', "job_id": job_id}
+            {"data": f'{{"current": {final_count}, "label": "produits importés"}}', "job_id": job_id}
         )
         db.commit()
 
-        logger.info(f"[Background Import] eBay import completed for user {user_id}: {imported_count} products (with parallel enrichment)")
+        logger.info(f"[Background Import] eBay import completed for user {user_id}: {final_count} products (deleted {deleted_count} without listing)")
 
     except Exception as e:
         logger.error(f"[Background Import] eBay import failed for user {user_id}: {e}")
