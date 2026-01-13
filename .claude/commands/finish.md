@@ -51,13 +51,64 @@ git commit -m "feat/fix/chore: [déduis du contexte]
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
 
 # Push
 git push -u origin $(git branch --show-current)
 ```
 
 **Si push rejeté** → `git pull --no-rebase && git push` (retry auto)
+
+### 2.5 Validation pre-merge (optionnel mais recommandé)
+
+```bash
+cd ~/StoFlow-[nom]
+
+# Run backend tests
+echo "🧪 Running backend tests..."
+cd backend
+source .venv/bin/activate 2>/dev/null || source venv/bin/activate
+pytest tests/ -x --tb=short -q 2>/dev/null
+BACKEND_TESTS=$?
+cd ..
+
+# Run frontend type check
+echo "🔍 Running frontend type check..."
+cd frontend
+npm run typecheck 2>/dev/null
+FRONTEND_TYPES=$?
+cd ..
+```
+
+**Si tests échouent** (BACKEND_TESTS != 0) :
+```
+╔══════════════════════════════════════════════════════════════╗
+║  ⚠️ TESTS BACKEND ÉCHOUÉS                                    ║
+╠══════════════════════════════════════════════════════════════╣
+║  Les tests unitaires ont échoué.                             ║
+║                                                              ║
+║  Options:                                                    ║
+║  1. Corriger les tests avant de merger                       ║
+║  2. Continuer quand même (non recommandé)                    ║
+║                                                              ║
+║  Que voulez-vous faire?                                      ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+**Si typecheck échoue** (FRONTEND_TYPES != 0) :
+```
+╔══════════════════════════════════════════════════════════════╗
+║  ⚠️ ERREURS TYPESCRIPT                                       ║
+╠══════════════════════════════════════════════════════════════╣
+║  Le type check frontend a échoué.                            ║
+║                                                              ║
+║  Options:                                                    ║
+║  1. Corriger les erreurs TypeScript avant de merger          ║
+║  2. Continuer quand même (non recommandé)                    ║
+║                                                              ║
+║  Que voulez-vous faire?                                      ║
+╚══════════════════════════════════════════════════════════════╝
+```
 
 ### 3. PR & Merge
 ```bash
@@ -67,7 +118,29 @@ gh pr merge --merge --delete-branch  # Depuis ~/StoFlow si erreur worktree
 
 **Si conflit merge** → ⛔ ARRÊTER et DEMANDER à l'utilisateur comment résoudre
 
-### 4. ⚠️ PROTECTION: Vérifier ~/StoFlow avant update (CRITIQUE)
+### 4. 🛡️ BACKUP automatique avant opérations critiques (ajouté 2026-01-13)
+
+**Créer un point de restauration AVANT de toucher à ~/StoFlow :**
+
+```bash
+cd ~/StoFlow
+
+# Créer un stash de sécurité avec timestamp
+BACKUP_NAME="backup-before-finish-$(date +%Y%m%d-%H%M%S)"
+
+# Sauvegarder l'état actuel (même si pas de changements)
+git stash push -m "$BACKUP_NAME" --include-untracked 2>/dev/null
+
+# Afficher confirmation
+if [ $? -eq 0 ]; then
+  echo "✅ Backup créé: $BACKUP_NAME"
+  echo "   Pour restaurer: git stash apply stash@{0}"
+else
+  echo "ℹ️ Aucun changement à sauvegarder"
+fi
+```
+
+### 5. ⚠️ PROTECTION: Vérifier ~/StoFlow avant update (CRITIQUE)
 
 **AVANT de toucher à ~/StoFlow, TOUJOURS exécuter ces vérifications :**
 
@@ -117,7 +190,7 @@ fi
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
-### 5. Update develop (seulement après vérifications OK)
+### 6. Update develop (seulement après vérifications OK)
 ```bash
 cd ~/StoFlow
 git checkout develop
@@ -125,7 +198,7 @@ git pull --no-rebase origin develop  # Auto-merge si divergence
 git push origin develop  # Push le merge commit si créé
 ```
 
-### 6. Alembic check & auto-merge
+### 7. Alembic check & auto-merge
 ```bash
 cd ~/StoFlow/backend
 HEADS=$(alembic heads 2>/dev/null | grep -c "head")
@@ -142,7 +215,7 @@ git push origin develop
 
 **Si erreur Alembic** → ⛔ ARRÊTER et DEMANDER
 
-### 7. Cleanup automatique
+### 8. Cleanup automatique
 ```bash
 BRANCH=$(git branch --show-current)
 WORKTREE=$(git worktree list | grep $BRANCH | awk '{print $1}')

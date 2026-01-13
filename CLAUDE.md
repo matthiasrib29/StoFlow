@@ -14,9 +14,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Règle Principale
 
-**`~/StoFlow` (repo principal) est READ-ONLY pour le développement.**
+**`~/StoFlow` (repo principal) est READ-ONLY pour le développement manuel.**
 
 Tout le travail doit se faire dans des **worktrees** (`~/StoFlow-*`).
+
+> **Note** : Les skills `/finish` et `/sync` peuvent automatiquement modifier `~/StoFlow` (pull, merge) mais avec des vérifications de sécurité préalables.
 
 ### Workflow Obligatoire
 
@@ -92,6 +94,55 @@ cd plugin
 npm install                      # Install dependencies
 npm run dev                      # Start dev build with watch
 npm run build                    # Production build
+```
+
+---
+
+## 🔄 Serveurs de Dev - Hot Reload (IMPORTANT)
+
+> **Règle ajoutée 2026-01-13** : Éviter les processus dupliqués
+
+### Principe
+
+Les serveurs lancés par `/X-dev` sont en **mode hot-reload** :
+- **Backend (uvicorn)** : `--reload` → redémarre automatiquement après modification `.py`
+- **Frontend (Nuxt)** : hot-reload natif → met à jour automatiquement après modification
+
+### ⛔ INTERDIT après lancement de `/X-dev`
+
+| Action | Pourquoi c'est interdit |
+|--------|------------------------|
+| Relancer `uvicorn` manuellement | Crée un processus dupliqué, conflit de port |
+| Relancer `npm run dev` manuellement | Crée un processus dupliqué, conflit de port |
+| Lancer le backend "pour voir les logs" | Utiliser `tail -f logs/devX-backend.log` à la place |
+| Lancer le frontend "pour voir les erreurs" | Utiliser `tail -f logs/devX-frontend.log` à la place |
+
+### ✅ Comportement attendu
+
+```
+Après /X-dev lancé :
+1. Modifier le code → Le serveur se recharge AUTOMATIQUEMENT
+2. Besoin des logs → tail -f logs/devX-backend.log
+3. Besoin de redémarrer complètement → /stop puis /X-dev
+```
+
+### Si erreur de syntaxe bloque le serveur
+
+Le hot-reload peut échouer si le code a une erreur de syntaxe. Dans ce cas :
+1. **Corriger l'erreur** dans le code
+2. **Sauvegarder** → le serveur redémarre automatiquement
+3. **NE PAS** relancer manuellement uvicorn/npm
+
+### Si vraiment besoin de redémarrer
+
+```bash
+# Option 1 : Utiliser /stop
+/stop  # puis /X-dev
+
+# Option 2 : Kill manuel du port spécifique
+lsof -ti:8000 -sTCP:LISTEN | xargs -r kill -9  # Backend
+lsof -ti:3000 -sTCP:LISTEN | xargs -r kill -9  # Frontend
+# Puis /X-dev
 ```
 
 ---
@@ -225,6 +276,134 @@ class EbayError(MarketplaceError): ...
 - Claude can help execute them
 - Always verify content before `upgrade`
 
+### 🚨 Protection des Migrations (CRITIQUE - ajouté 2026-01-13)
+
+> **Contexte** : Claude Code supprime parfois des fichiers de migration par erreur.
+
+**RÈGLES STRICTES :**
+
+| Action | Règle |
+|--------|-------|
+| Supprimer un fichier `migrations/versions/*.py` | ⛔ **INTERDIT** sans confirmation explicite |
+| Modifier un fichier de migration existant | ⚠️ **DEMANDER** avant (sauf typos/commentaires) |
+| Créer une nouvelle migration | ✅ OK (utiliser `alembic revision`) |
+| Exécuter `alembic downgrade` | ⚠️ **DEMANDER** avant (peut perdre des données) |
+
+**Avant toute suppression de migration :**
+```
+⛔ ATTENTION: Tu vas supprimer une migration Alembic!
+
+Fichier: migrations/versions/xxxx_nom.py
+
+Cette action est IRRÉVERSIBLE et peut casser la base de données.
+
+Confirmes-tu vouloir supprimer ce fichier? (oui/non)
+```
+
+**En cas de "multiple heads" Alembic :**
+- Utiliser `alembic merge heads` pour fusionner (pas supprimer)
+- Le skill `/finish` gère automatiquement ce cas
+
+### 🔀 Migrations en Multi-Worktree (IMPORTANT - ajouté 2026-01-13)
+
+> **Contexte** : Tous les worktrees partagent la même base PostgreSQL (Docker).
+> Cela peut causer des problèmes de synchronisation des migrations.
+
+#### Le Problème
+
+```
+Worktree A (feature/add-ebay)     Worktree B (feature/add-etsy)
+         │                                  │
+         │ crée migration_001               │
+         │ alembic upgrade head             │
+         │                                  │
+         │         DB = migration_001       │
+         │                                  │
+         │                                  │ ❌ N'a PAS migration_001
+         │                                  │ ❌ DB "ahead" du code
+         │                                  │ ❌ Erreurs possibles
+```
+
+#### Symptômes Courants
+
+| Symptôme | Cause probable |
+|----------|----------------|
+| `Target database is not up to date` | La DB a des migrations que le worktree n'a pas |
+| `Can't locate revision` | Le worktree référence une migration qui n'existe pas dans ses fichiers |
+| `Multiple heads` | Deux worktrees ont créé des migrations en parallèle |
+| Erreur de colonne manquante | La DB a été migrée par un autre worktree |
+
+#### Solutions
+
+**1. Avant de créer une migration dans un worktree :**
+```bash
+# Synchroniser avec develop pour avoir toutes les migrations récentes
+cd ~/StoFlow-[nom]
+git fetch origin develop
+git merge origin/develop  # ou /sync
+alembic upgrade head
+```
+
+**2. Si erreur "Target database is not up to date" :**
+```bash
+# Option A : Synchroniser le worktree avec develop
+/sync  # Récupère les nouvelles migrations
+
+# Option B : Vérifier l'état actuel de la DB
+cd backend
+alembic current          # Montre la révision actuelle de la DB
+alembic heads            # Montre les heads disponibles dans le code
+alembic history --verbose  # Historique complet
+```
+
+**3. Si "Multiple heads" après /finish :**
+```bash
+# Le skill /finish gère automatiquement, mais si manuel :
+cd ~/StoFlow/backend
+alembic merge -m "merge: unify migration heads" heads
+alembic upgrade head
+git add migrations/
+git commit -m "chore: merge alembic heads"
+git push
+```
+
+**4. Si la DB est "ahead" du code (migrations appliquées mais fichiers manquants) :**
+```bash
+# ⚠️ ATTENTION : Ces commandes peuvent perdre des données !
+
+# Option A (recommandée) : Synchroniser le code
+git fetch origin develop
+git merge origin/develop
+
+# Option B (dangereux) : Réinitialiser la DB
+# ⛔ DEMANDER confirmation avant !
+cd backend
+alembic downgrade base  # Supprime toutes les tables !
+alembic upgrade head    # Recrée avec les migrations du worktree
+```
+
+#### Bonnes Pratiques
+
+| Pratique | Pourquoi |
+|----------|----------|
+| `/sync` régulièrement | Récupère les nouvelles migrations de develop |
+| `alembic upgrade head` après `/sync` | Applique les nouvelles migrations |
+| Une seule feature avec migrations à la fois | Évite les conflits de heads |
+| Créer migrations en fin de feature | Réduit les risques de conflits |
+
+#### Au Lancement d'un Worktree
+
+Le script `/X-new-feature` ne fait PAS automatiquement `alembic upgrade head` car :
+- La DB est peut-être déjà à jour
+- Un autre worktree peut avoir des migrations non encore mergées
+
+**Si erreur au démarrage du backend** → Exécuter :
+```bash
+cd ~/StoFlow-[nom]/backend
+source .venv/bin/activate
+alembic upgrade head
+```
+
 ### Conventions
 - Tables in plural: `users`, `products`, `orders`
 - Foreign keys with `ondelete` defined
@@ -277,11 +456,6 @@ frontend/
 ---
 
 ## 🏛️ Architecture Overview
-
-### Multi-Tenant (PostgreSQL Schemas)
-- `public` schema: shared data (users, categories, brands)
-- `user_X` schema: user-specific data (products, orders)
-- Isolation via `SET search_path` per request
 
 ### Marketplace Integration Flow
 ```
@@ -343,4 +517,4 @@ from services.etsy import EtsyBaseClient
 
 ---
 
-*Last updated: 2026-01-12*
+*Last updated: 2026-01-13*

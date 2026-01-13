@@ -4,7 +4,31 @@ Cree un nouveau worktree pour une feature avec env dev 2 (ports 8001/3001).
 
 1. Demande le nom de la feature (ex: add-ebay)
 
-2. Execute TOUT en sequence sans demander de validation :
+2. ⚠️ PROTECTION OBLIGATOIRE avant checkout (ajoutée 2026-01-13) :
+
+   ```bash
+   cd ~/StoFlow
+
+   # 1. Vérifier les changements non commités
+   if [ -n "$(git status --porcelain)" ]; then
+     echo "⚠️ ~/StoFlow a des changements non commités!"
+     git status --short
+     # ⛔ ARRÊTER et DEMANDER : stash, commit, ou abandonner?
+   fi
+
+   # 2. Vérifier les commits locaux non poussés (sur la branche actuelle)
+   CURRENT_BRANCH=$(git branch --show-current)
+   LOCAL_COMMITS=$(git log origin/$CURRENT_BRANCH..$CURRENT_BRANCH --oneline 2>/dev/null)
+   if [ -n "$LOCAL_COMMITS" ]; then
+     echo "⚠️ ~/StoFlow a des commits locaux NON POUSSÉS sur $CURRENT_BRANCH!"
+     echo "$LOCAL_COMMITS"
+     # ⛔ ARRÊTER et DEMANDER : push, sauvegarder branche, ou abandonner?
+   fi
+   ```
+
+   **Si problème détecté** → ARRÊTER et DEMANDER à l'utilisateur quoi faire.
+
+3. Execute TOUT en sequence (seulement si étape 2 OK) :
    - Bash: cd ~/StoFlow && git checkout develop && git pull
    - Bash: git worktree add ~/StoFlow-[nom] -b feature/[nom]
    - Bash: cp ~/StoFlow/backend/.env ~/StoFlow-[nom]/backend/.env && cp ~/StoFlow/frontend/.env ~/StoFlow-[nom]/frontend/.env
@@ -12,10 +36,10 @@ Cree un nouveau worktree pour une feature avec env dev 2 (ports 8001/3001).
    - Bash: cd ~/StoFlow-[nom]/backend && ln -s .venv venv
    - Bash: cp -r ~/StoFlow/backend/keys ~/StoFlow-[nom]/backend/
    - Bash: mkdir -p ~/StoFlow-[nom]/logs
-   - Bash: cd ~/StoFlow-[nom]/frontend && npm install (timeout 120000)
+   - Bash: ~/StoFlow/.claude/worktree-init.sh ~/StoFlow-[nom] (initialise dépendances + migrations)
    - Bash: cd ~/StoFlow-[nom] && ./2-dev.sh (run_in_background: true)
 
-3. Affiche ce message :
+4. Affiche ce message :
 
 ╔══════════════════════════════════════════════════════════════╗
 ║  ✅ WORKTREE CREE + DEV 2 LANCE                              ║
@@ -45,13 +69,13 @@ Cree un nouveau worktree pour une feature avec env dev 2 (ports 8001/3001).
 ║  Quand fini : /finish                                        ║
 ╚══════════════════════════════════════════════════════════════╝
 
-4. REGLE OBLIGATOIRE pour la suite de cette session :
+5. REGLE OBLIGATOIRE pour la suite de cette session :
    - Tous les Read() → ~/StoFlow-[nom]/...
    - Tous les Write() → ~/StoFlow-[nom]/...
    - Tous les Edit() → ~/StoFlow-[nom]/...
    - Tous les Bash() → cd ~/StoFlow-[nom] && ...
 
-5. Integration GSD automatique :
+6. Integration GSD automatique :
 
    a) Copier .planning/codebase/ depuis repo principal (si existe) :
    ```bash
@@ -81,6 +105,6 @@ Cree un nouveau worktree pour une feature avec env dev 2 (ports 8001/3001).
 ║    Cela va créer le ROADMAP avec les phases de travail.     ║
 ╚══════════════════════════════════════════════════════════════╝
 
-6. ATTENDRE que l'utilisateur lance /gsd:create-roadmap ou donne d'autres instructions.
+7. ATTENDRE que l'utilisateur lance /gsd:create-roadmap ou donne d'autres instructions.
 
-7. REGLE : Tous les chemins utilisent ~/StoFlow-[nom]/...
+8. REGLE : Tous les chemins utilisent ~/StoFlow-[nom]/...
