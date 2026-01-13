@@ -434,10 +434,11 @@ class VintedOrderSyncService:
             photo = order_data.get('photo', {}) or {}
             photo_url = photo.get('url')
 
-            # Create order
+            # Create order with basic data from /my_orders
             vinted_order = VintedOrder(
                 transaction_id=int(transaction_id),
                 status=status,
+                transaction_user_status=user_status,  # Store original status
                 total_price=total_price,
                 currency=currency,
                 created_at_vinted=created_at_vinted,
@@ -502,13 +503,30 @@ class VintedOrderSyncService:
         """
         Enrich order with detailed data from /transactions/{id}.
 
-        Adds: buyer, seller, shipment, service_fee, items (for bundles)
+        Adds: buyer (with photo, country, city, reputation), seller, shipment,
+        service_fee, items (for bundles), conversation_id, offer_id, status codes
         """
         try:
-            # Buyer info
+            # Vinted IDs
+            order.conversation_id = transaction.get('msg_thread_id')
+            offer = transaction.get('offer', {}) or {}
+            order.offer_id = offer.get('id')
+
+            # Status codes
+            order.vinted_status_code = transaction.get('status')
+            order.vinted_status_text = transaction.get('status_title')
+
+            # Buyer info (extended)
             buyer = transaction.get('buyer', {}) or {}
             order.buyer_id = buyer.get('id')
             order.buyer_login = buyer.get('login')
+            order.buyer_country_code = buyer.get('country_code')
+            order.buyer_city = buyer.get('city')
+            order.buyer_feedback_reputation = buyer.get('feedback_reputation')
+
+            # Buyer photo URL
+            buyer_photo = buyer.get('photo', {}) or {}
+            order.buyer_photo_url = buyer_photo.get('full_size_url') or buyer_photo.get('url')
 
             # Seller info
             seller = transaction.get('seller', {}) or {}
@@ -557,6 +575,11 @@ class VintedOrderSyncService:
             order.completed_at = VintedDataExtractor.parse_date(
                 transaction.get('status_updated_at')
             )
+
+            # Item count (for bundles)
+            order_obj = transaction.get('order', {}) or {}
+            items = order_obj.get('items', [])
+            order.item_count = len(items) if items else 1
 
             # Update products for bundles (order.items[])
             self._update_products_from_transaction(db, order.transaction_id, transaction)
@@ -660,9 +683,12 @@ class VintedOrderSyncService:
             if not transaction_id:
                 return None
 
-            # Buyer and seller info
+            # Buyer and seller info (extended)
             buyer = transaction.get('buyer', {}) or {}
             seller = transaction.get('seller', {}) or {}
+
+            # Buyer photo
+            buyer_photo = buyer.get('photo', {}) or {}
 
             # Shipment info (tracking, carrier, shipping dates)
             shipment = transaction.get('shipment', {}) or {}
@@ -672,6 +698,11 @@ class VintedOrderSyncService:
             offer = transaction.get('offer', {}) or {}
             offer_price = offer.get('price', {})
             total_price = self._parse_amount(offer_price)
+
+            # Item count from order.items
+            order_obj = transaction.get('order', {}) or {}
+            items = order_obj.get('items', [])
+            item_count = len(items) if items else 1
 
             # Shipping price from shipment
             shipping_price = self._parse_amount(shipment.get('price'))
@@ -701,19 +732,37 @@ class VintedOrderSyncService:
 
             return {
                 'transaction_id': int(transaction_id),
+                # Vinted IDs
+                'conversation_id': transaction.get('msg_thread_id'),
+                'offer_id': offer.get('id'),
+                # Buyer info (extended)
                 'buyer_id': buyer.get('id'),
                 'buyer_login': buyer.get('login'),
+                'buyer_photo_url': buyer_photo.get('full_size_url') or buyer_photo.get('url'),
+                'buyer_country_code': buyer.get('country_code'),
+                'buyer_city': buyer.get('city'),
+                'buyer_feedback_reputation': buyer.get('feedback_reputation'),
+                # Seller info
                 'seller_id': seller.get('id'),
                 'seller_login': seller.get('login'),
+                # Status
                 'status': status,
+                'vinted_status_code': status_code,
+                'vinted_status_text': transaction.get('status_title'),
+                'transaction_user_status': transaction.get('transaction_user_status'),
+                # Item count
+                'item_count': item_count,
+                # Prices
                 'total_price': total_price,
                 'currency': invoice_currency,
                 'shipping_price': shipping_price,
                 'service_fee': service_fee,
                 'buyer_protection_fee': buyer_protection_fee,
                 'seller_revenue': invoice_price,
+                # Shipping
                 'tracking_number': tracking_number,
                 'carrier': carrier,
+                # Dates
                 'created_at_vinted': transaction.get('debit_processed_at'),
                 'shipped_at': shipped_at,
                 'delivered_at': delivered_at,
@@ -822,20 +871,37 @@ class VintedOrderSyncService:
         """
         vinted_order = VintedOrder(
             transaction_id=order_data['transaction_id'],
+            # Vinted IDs
+            conversation_id=order_data.get('conversation_id'),
+            offer_id=order_data.get('offer_id'),
+            # Buyer info (extended)
             buyer_id=order_data.get('buyer_id'),
             buyer_login=order_data.get('buyer_login'),
+            buyer_photo_url=order_data.get('buyer_photo_url'),
+            buyer_country_code=order_data.get('buyer_country_code'),
+            buyer_city=order_data.get('buyer_city'),
+            buyer_feedback_reputation=order_data.get('buyer_feedback_reputation'),
+            # Seller info
             seller_id=order_data.get('seller_id'),
             seller_login=order_data.get('seller_login'),
+            # Status
             status=order_data.get('status'),
+            vinted_status_code=order_data.get('vinted_status_code'),
+            vinted_status_text=order_data.get('vinted_status_text'),
+            transaction_user_status=order_data.get('transaction_user_status'),
+            # Item count
+            item_count=order_data.get('item_count', 1),
+            # Prices
             total_price=order_data.get('total_price'),
             currency=order_data.get('currency', 'EUR'),
             shipping_price=order_data.get('shipping_price'),
             service_fee=order_data.get('service_fee'),
             buyer_protection_fee=order_data.get('buyer_protection_fee'),
             seller_revenue=order_data.get('seller_revenue'),
+            # Shipping
             tracking_number=order_data.get('tracking_number'),
             carrier=order_data.get('carrier'),
-            # shipping_tracking_code: deprecated, use tracking_number
+            # Dates
             created_at_vinted=VintedDataExtractor.parse_date(
                 order_data.get('created_at_vinted')
             ),
