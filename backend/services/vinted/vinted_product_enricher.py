@@ -23,7 +23,6 @@ from sqlalchemy.orm import Session
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_item_upload_parser import VintedItemUploadParser
-from shared.schema_utils import restore_search_path_after_rollback, commit_and_restore_path
 from shared.logging_setup import get_logger
 from shared.config import settings
 
@@ -125,7 +124,7 @@ class VintedProductEnricher:
                     exc_info=True
                 )
                 db.rollback()
-                restore_search_path_after_rollback(db)
+                # schema_translate_map survives rollback - no need to restore
 
         logger.info(f"Enrichissement termine: {enriched} enrichis, {errors} erreurs")
 
@@ -186,7 +185,7 @@ class VintedProductEnricher:
                 return False
 
             self._update_product_from_extracted(product, extracted)
-            commit_and_restore_path(db)
+            db.commit()
 
             return True
 
