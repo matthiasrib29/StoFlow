@@ -65,9 +65,9 @@
         <span class="text-gray-600">Base Price:</span>
         <span class="font-semibold text-gray-900">{{ formatPrice(pricing.base_price) }}</span>
       </div>
-      <div v-if="pricing.model_coefficient !== 1.0" class="flex items-center justify-between text-sm mt-1">
+      <div v-if="hasModelCoefficient" class="flex items-center justify-between text-sm mt-1">
         <span class="text-gray-600">Model Coefficient:</span>
-        <span class="font-semibold text-gray-900">×{{ pricing.model_coefficient.toFixed(2) }}</span>
+        <span class="font-semibold text-gray-900">×{{ formatCoefficient(pricing.model_coefficient) }}</span>
       </div>
     </div>
 
@@ -174,7 +174,7 @@
           <div class="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
             <p class="font-mono">
               Standard = Base ({{ formatPrice(pricing.base_price) }})
-              × Model ({{ pricing.model_coefficient.toFixed(2) }})
+              × Model ({{ formatCoefficient(pricing.model_coefficient) }})
               × (1 + {{ formatAdjustment(pricing.adjustments.total) }})
             </p>
           </div>
@@ -200,29 +200,47 @@ const toggleBreakdown = () => {
 }
 
 // Format price for display (add currency symbol)
-const formatPrice = (price: string) => {
-  return `€${parseFloat(price).toFixed(2)}`
+const formatPrice = (price: string | number) => {
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price
+  return `€${numPrice.toFixed(2)}`
+}
+
+// Format coefficient for display
+const formatCoefficient = (coef: string | number) => {
+  const numCoef = typeof coef === 'string' ? parseFloat(coef) : coef
+  return numCoef.toFixed(2)
 }
 
 // Percentage formatter for adjustments
-const formatAdjustment = (value: number) => {
-  const percent = (value * 100).toFixed(1)
-  return value >= 0 ? `+${percent}%` : `${percent}%`
+const formatAdjustment = (value: string | number) => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  const percent = (numValue * 100).toFixed(1)
+  return numValue >= 0 ? `+${percent}%` : `${percent}%`
 }
 
 // Get color class based on adjustment value
-const getAdjustmentColor = (value: number) => {
-  if (value > 0) return 'text-green-600'
-  if (value < 0) return 'text-red-600'
+const getAdjustmentColor = (value: string | number) => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  if (numValue > 0) return 'text-green-600'
+  if (numValue < 0) return 'text-red-600'
   return 'text-gray-600'
 }
 
 // Get icon based on adjustment value
-const getAdjustmentIcon = (value: number) => {
-  if (value > 0) return '↑'
-  if (value < 0) return '↓'
+const getAdjustmentIcon = (value: string | number) => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  if (numValue > 0) return '↑'
+  if (numValue < 0) return '↓'
   return '='
 }
+
+// Check if coefficient is not 1.0
+const hasModelCoefficient = computed(() => {
+  const coef = typeof props.pricing.model_coefficient === 'string'
+    ? parseFloat(props.pricing.model_coefficient)
+    : props.pricing.model_coefficient
+  return coef !== 1.0
+})
 </script>
 
 <style scoped>

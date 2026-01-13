@@ -33,22 +33,10 @@
 
       <!-- Description -->
       <div class="md:col-span-2">
-        <div class="flex items-center justify-between mb-1">
-          <label for="description" class="block text-xs font-semibold text-secondary-900 flex items-center gap-1">
-            Description *
-            <i v-if="validation?.isFieldValid?.('description')" class="pi pi-check-circle text-green-500 text-xs" />
-          </label>
-          <Button
-            v-if="productId"
-            type="button"
-            label="Générer avec IA"
-            icon="pi pi-sparkles"
-            class="p-button-sm p-button-outlined p-button-secondary"
-            :loading="isGeneratingDescription"
-            :disabled="isGeneratingDescription"
-            @click="$emit('generateDescription')"
-          />
-        </div>
+        <label for="description" class="block text-xs font-semibold mb-1 text-secondary-900 flex items-center gap-1">
+          Description *
+          <i v-if="validation?.isFieldValid?.('description')" class="pi pi-check-circle text-green-500 text-xs" />
+        </label>
         <Textarea
           id="description"
           :model-value="description"
@@ -100,15 +88,11 @@ interface Props {
   title: string
   description: string
   price: number | null
-  productId?: number
-  isGeneratingDescription?: boolean
   suggestedPrice?: number | null
   validation?: any
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  productId: undefined,
-  isGeneratingDescription: false,
   suggestedPrice: null,
   validation: undefined
 })
@@ -117,7 +101,6 @@ const emit = defineEmits<{
   'update:title': [value: string]
   'update:description': [value: string]
   'update:price': [value: number | null]
-  'generateDescription': []
 }>()
 
 // Handle title change with validation

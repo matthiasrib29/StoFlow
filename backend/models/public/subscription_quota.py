@@ -68,6 +68,12 @@ class SubscriptionQuota(Base):
         default=15,
         comment="Crédits IA mensuels"
     )
+    ai_max_images_per_analysis = Column(
+        Integer,
+        nullable=False,
+        default=5,
+        comment="Nombre max d'images par analyse IA Vision"
+    )
     price = Column(
         DECIMAL(10, 2),
         nullable=False,
@@ -125,7 +131,8 @@ class SubscriptionQuota(Base):
             f"<SubscriptionQuota(tier={self.tier.value}, "
             f"max_products={self.max_products}, "
             f"max_platforms={self.max_platforms}, "
-            f"ai_credits_monthly={self.ai_credits_monthly})>"
+            f"ai_credits_monthly={self.ai_credits_monthly}, "
+            f"ai_max_images={self.ai_max_images_per_analysis})>"
         )
 
     def to_dict(self):
@@ -135,6 +142,7 @@ class SubscriptionQuota(Base):
             "max_products": self.max_products,
             "max_platforms": self.max_platforms,
             "ai_credits_monthly": self.ai_credits_monthly,
+            "ai_max_images_per_analysis": self.ai_max_images_per_analysis,
             "price": float(self.price) if self.price else 0.0,
         }
 
@@ -152,6 +160,7 @@ class SubscriptionQuota(Base):
             "max_products": self.max_products,
             "max_platforms": self.max_platforms,
             "ai_credits_monthly": self.ai_credits_monthly,
+            "ai_max_images_per_analysis": self.ai_max_images_per_analysis,
             "features": [f.to_dict() for f in self.features] if self.features else [],
         }
 
@@ -162,6 +171,7 @@ DEFAULT_QUOTAS = {
         "max_products": 50,
         "max_platforms": 1,
         "ai_credits_monthly": 100,
+        "ai_max_images_per_analysis": 5,
         "price": Decimal("0"),
         "display_name": "Gratuit",
         "description": "Pour découvrir Stoflow",
@@ -174,6 +184,7 @@ DEFAULT_QUOTAS = {
         "max_products": 500,
         "max_platforms": 2,
         "ai_credits_monthly": 1000,
+        "ai_max_images_per_analysis": 10,
         "price": Decimal("19"),
         "display_name": "Pro",
         "description": "Pour les vendeurs actifs",
@@ -186,6 +197,7 @@ DEFAULT_QUOTAS = {
         "max_products": 2000,
         "max_platforms": 5,
         "ai_credits_monthly": 5000,
+        "ai_max_images_per_analysis": 20,
         "price": Decimal("49"),
         "display_name": "Business",
         "description": "Pour les professionnels",
@@ -198,6 +210,7 @@ DEFAULT_QUOTAS = {
         "max_products": 999999,  # Illimité
         "max_platforms": 999,  # Illimité
         "ai_credits_monthly": 50000,  # Illimité
+        "ai_max_images_per_analysis": 20,
         "price": Decimal("199"),
         "display_name": "Enterprise",
         "description": "Pour les grandes équipes",

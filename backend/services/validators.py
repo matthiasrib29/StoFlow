@@ -15,6 +15,7 @@ Business Rules (2025-12-11):
 
 from typing import Any, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from models.public.brand import Brand
@@ -27,6 +28,7 @@ from models.public.material import Material
 from models.public.season import Season
 from models.public.size_normalized import SizeNormalized
 from models.public.stretch import Stretch
+from models.public.lining import Lining
 
 
 class AttributeValidator:
@@ -75,7 +77,8 @@ class AttributeValidator:
             'model': Brand,
             'field': 'name',
             'required': False,
-            'display_name': 'Brand'
+            'display_name': 'Brand',
+            'case_insensitive': True  # Match "lee", "Lee", "LEE" → returns DB value
         },
         'color': {
             'model': Color,
@@ -119,6 +122,12 @@ class AttributeValidator:
             'required': False,
             'display_name': 'Stretch'
         },
+        'lining': {
+            'model': Lining,
+            'field': 'name_en',
+            'required': False,
+            'display_name': 'Lining'
+        },
     }
 
     @staticmethod
@@ -126,7 +135,7 @@ class AttributeValidator:
         db: Session,
         attr_name: str,
         attr_value: Optional[Any]
-    ) -> None:
+    ) -> Optional[Any]:
         """
         Valide un attribut produit unique.
 
@@ -135,13 +144,20 @@ class AttributeValidator:
             attr_name: Nom de l'attribut (ex: 'brand', 'category')
             attr_value: Valeur à valider (peut être None)
 
+        Returns:
+            The normalized value from DB (for case_insensitive attrs) or original value.
+            Returns None if attr_value is None.
+
         Raises:
             ValueError: Si attribut requis est None, ou si valeur n'existe pas
             KeyError: Si attr_name n'est pas dans ATTRIBUTE_CONFIGS
 
         Example:
             >>> AttributeValidator.validate_attribute(db, 'brand', 'Nike')
-            # OK si Nike existe
+            # OK si Nike existe, returns 'Nike' (as stored in DB)
+
+            >>> AttributeValidator.validate_attribute(db, 'brand', 'lee')
+            # Returns 'Lee' if DB stores it as 'Lee' (case-insensitive match)
 
             >>> AttributeValidator.validate_attribute(db, 'brand', 'InvalidBrand')
             ValueError: Brand 'InvalidBrand' does not exist. Use /api/attributes/brands...
@@ -162,14 +178,19 @@ class AttributeValidator:
                     f"{config['display_name']} is required and cannot be None"
                 )
             # Attribut optionnel avec valeur None → OK
-            return
+            return None
 
         # Valeur non-None → vérifier qu'elle existe en DB
         model = config['model']
         field_name = config['field']
         field = getattr(model, field_name)
 
-        exists = db.query(model).filter(field == attr_value).first()
+        # Case-insensitive matching for configured attributes (e.g., brand)
+        case_insensitive = config.get('case_insensitive', False)
+        if case_insensitive and isinstance(attr_value, str):
+            exists = db.query(model).filter(func.lower(field) == attr_value.lower()).first()
+        else:
+            exists = db.query(model).filter(field == attr_value).first()
 
         if not exists:
             # Message d'erreur avec suggestion d'API endpoint
@@ -178,6 +199,9 @@ class AttributeValidator:
                 f"{config['display_name']} '{attr_value}' does not exist. "
                 f"Use /api/attributes/{table_name} to get valid {table_name}."
             )
+
+        # Return the DB value (normalized case for case_insensitive attributes)
+        return getattr(exists, field_name)
 
     @staticmethod
     def validate_product_attributes(
@@ -188,9 +212,11 @@ class AttributeValidator:
         """
         Valide tous les attributs produits d'un coup (batch validation).
 
+        Note: This method mutates `data` in place to normalize values (e.g., brand case).
+
         Args:
             db: Session SQLAlchemy
-            data: Dictionnaire contenant les données produit
+            data: Dictionnaire contenant les données produit (mutated in place)
             partial: Si True, ignore les attributs absents (pour updates partiels)
 
         Raises:
@@ -198,13 +224,9 @@ class AttributeValidator:
 
         Example:
             >>> # Validation complète (create)
-            >>> AttributeValidator.validate_product_attributes(db, {
-            ...     'category': 'Jeans',
-            ...     'condition': 'GOOD',
-            ...     'brand': 'Levi\\'s',
-            ...     'color': 'Blue',
-            ...     'size_original': 'M'
-            ... })
+            >>> data = {'category': 'Jeans', 'brand': 'lee'}
+            >>> AttributeValidator.validate_product_attributes(db, data)
+            >>> print(data['brand'])  # 'Lee' (normalized to DB value)
 
             >>> # Validation partielle (update)
             >>> AttributeValidator.validate_product_attributes(db, {
@@ -224,9 +246,13 @@ class AttributeValidator:
                     )
                 continue
 
-            # Attribut présent → valider
+            # Attribut présent → valider et normaliser
             attr_value = data[attr_name]
-            AttributeValidator.validate_attribute(db, attr_name, attr_value)
+            normalized_value = AttributeValidator.validate_attribute(db, attr_name, attr_value)
+
+            # Update data with normalized value (e.g., "lee" → "Lee" for brand)
+            if normalized_value is not None:
+                data[attr_name] = normalized_value
 
     @staticmethod
     def get_attribute_list(db: Session, attribute_type: str) -> list[str]:

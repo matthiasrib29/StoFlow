@@ -319,6 +319,9 @@ class Product(Base):
     stretch: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Stretch/Elasticity (FK product_attributes.stretches)"
     )
+    lining: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="Lining type (FK product_attributes.linings)"
+    )
 
     # ===== ATTRIBUTS TEXTE LIBRE (SANS FK) =====
     # Removed: condition_sup (column dropped, replaced by product_condition_sups M2M table)
