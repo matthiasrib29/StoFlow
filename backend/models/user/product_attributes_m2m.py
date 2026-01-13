@@ -42,7 +42,7 @@ class ProductColor(Base):
     __table_args__ = (
         ForeignKeyConstraint(
             ["product_id"],
-            ["products.id"],
+            ["tenant.products.id"],
             ondelete="CASCADE",
             name="fk_product_colors_product_id"
         ),
@@ -102,7 +102,7 @@ class ProductMaterial(Base):
     __table_args__ = (
         ForeignKeyConstraint(
             ["product_id"],
-            ["products.id"],
+            ["tenant.products.id"],
             ondelete="CASCADE",
             name="fk_product_materials_product_id"
         ),
@@ -157,7 +157,7 @@ class ProductConditionSup(Base):
     __table_args__ = (
         ForeignKeyConstraint(
             ["product_id"],
-            ["products.id"],
+            ["tenant.products.id"],
             ondelete="CASCADE",
             name="fk_product_condition_sups_product_id"
         ),
