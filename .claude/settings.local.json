@@ -325,7 +325,12 @@
       "Bash(./scripts/db-backup.sh:*)",
       "Bash(~/StoFlow-test-flow-create-product/backend/.env)",
       "Bash(netstat:*)",
-      "Bash(ss:*)"
+      "Bash(ss:*)",
+      "Bash(env)",
+      "mcp__playwright__browser_network_requests",
+      "WebFetch(domain:alembic.sqlalchemy.org)",
+      "WebFetch(domain:incident.io)",
+      "WebFetch(domain:dev.to)"
     ]
   },
   "enableAllProjectMcpServers": true,
