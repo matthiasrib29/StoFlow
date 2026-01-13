@@ -20,6 +20,7 @@ export function useEbayProducts() {
   const currentPage = ref(1)
   const pageSize = ref(20)
   const totalPages = ref(0)
+  const marketplaceFilter = ref<string | null>(null)
 
   // Computed stats
   const productStats = computed(() => ({
@@ -35,13 +36,22 @@ export function useEbayProducts() {
   const loadProducts = async (page: number = 1): Promise<void> => {
     isLoading.value = true
     try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        page_size: pageSize.value.toString()
+      })
+
+      if (marketplaceFilter.value) {
+        params.append('marketplace_id', marketplaceFilter.value)
+      }
+
       const response = await get<{
         items: any[]
         total: number
         page: number
         page_size: number
         total_pages: number
-      }>(`/api/ebay/products?page=${page}&page_size=${pageSize.value}`)
+      }>(`/api/ebay/products?${params.toString()}`)
 
       products.value = response?.items || []
       totalProducts.value = response?.total || 0
@@ -175,6 +185,7 @@ export function useEbayProducts() {
     pageSize,
     totalPages: readonly(totalPages),
     productStats,
+    marketplaceFilter,
 
     // Methods
     loadProducts,
