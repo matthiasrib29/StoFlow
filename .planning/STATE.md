@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-13)
 
 **Core value:** Gestion complète du cycle post-vente eBay (retours, annulations, remboursements, litiges)
-**Current focus:** Phase 2 — Returns Backend Core
+**Current focus:** Phase 3 — Returns Backend Service
 
 ## Current Position
 
-Phase: 2 of 12 (Returns Backend Core)
+Phase: 3 of 12 (Returns Backend Service)
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-01-13 — Phase 1 Foundation complete
+Last activity: 2026-01-13 — Phase 2 Returns Backend Core complete
 
-Progress: █░░░░░░░░░ 8%
+Progress: ██░░░░░░░░ 17%
 
 ## Performance Metrics
 
