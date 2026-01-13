@@ -44,31 +44,12 @@
     <!-- Content with padding -->
     <div class="px-6">
       <!-- AI Auto-fill Section (visible when photos exist) -->
-      <div
+      <ProductsAiAutoFillSection
         v-if="photos.length > 0"
-        class="bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-lg p-4 mb-4"
-      >
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="bg-primary-100 rounded-full p-2">
-              <i class="pi pi-sparkles text-primary-600 text-lg" />
-            </div>
-            <div>
-              <h4 class="text-sm font-semibold text-primary-900">Remplissage automatique</h4>
-              <p class="text-xs text-primary-700">L'IA analyse vos photos et remplit le formulaire</p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            label="Remplir avec l'IA"
-            icon="pi pi-sparkles"
-            class="bg-primary-500 hover:bg-primary-600 text-white border-0 font-semibold"
-            :loading="isAnalyzingImages"
-            :disabled="isAnalyzingImages"
-            @click="analyzeImagesAndFill"
-          />
-        </div>
-      </div>
+        :ai-credits-remaining="aiCreditsRemaining"
+        :loading="isAnalyzingImages"
+        @analyze="analyzeImagesAndFill"
+      />
 
       <!-- Form Section -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -86,6 +67,59 @@
           @update:model-value="handleFormUpdate"
           @submit="handleSubmit"
         />
+      </div>
+
+      <!-- Pricing Section -->
+      <div v-if="priceResult || isLoadingPrice" class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div v-if="isLoadingPrice" class="flex items-center justify-center py-8">
+          <i class="pi pi-spin pi-spinner text-2xl text-primary-500 mr-3" />
+          <span class="text-gray-600">Calcul du prix recommandé...</span>
+        </div>
+        <template v-else-if="priceResult">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <i class="pi pi-calculator text-primary-500" />
+              Prix recommandé
+            </h3>
+            <button
+              type="button"
+              class="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+              @click="calculateProductPrice"
+            >
+              <i class="pi pi-refresh" />
+              Recalculer
+            </button>
+          </div>
+          <ProductsPricingDisplay
+            :pricing="priceResult"
+          />
+        </template>
+      </div>
+
+      <!-- Manual Pricing Button (when no result yet and form has required fields) -->
+      <div
+        v-else-if="form.brand && form.category && !isLoadingPrice"
+        class="mt-6 bg-gradient-to-r from-green-50 to-teal-50 border border-green-200 rounded-lg p-4"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="bg-green-100 rounded-full p-2">
+              <i class="pi pi-calculator text-green-600 text-lg" />
+            </div>
+            <div>
+              <h4 class="text-sm font-semibold text-green-900">Estimation de prix</h4>
+              <p class="text-xs text-green-700">Calculer le prix recommandé basé sur les attributs</p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            label="Calculer le prix"
+            icon="pi pi-calculator"
+            class="bg-green-500 hover:bg-green-600 text-white border-0 font-semibold"
+            :loading="isLoadingPrice"
+            @click="calculateProductPrice"
+          />
+        </div>
       </div>
     </div>
 
@@ -159,6 +193,7 @@
 <script setup lang="ts">
 import { useProductsStore } from '~/stores/products'
 import { useProductDraft } from '~/composables/useProductDraft'
+import { usePricingCalculation, type PriceInput, type PriceOutput } from '~/composables/usePricingCalculation'
 import { type ProductFormData, defaultProductFormData } from '~/types/product'
 import { productLogger } from '~/utils/logger'
 
@@ -200,6 +235,18 @@ watch(scrollY, (newY) => {
 
 // API composable
 const { post } = useApi()
+
+// AI Credits
+const { aiCreditsRemaining, fetchAICredits } = useAiCredits()
+
+// Pricing composable
+const {
+  isLoading: isLoadingPrice,
+  error: priceError,
+  priceResult,
+  calculatePrice,
+  reset: resetPricing
+} = usePricingCalculation()
 
 // Required fields for progress calculation
 const requiredFields = ['title', 'description', 'category', 'brand', 'condition', 'size_original', 'color', 'gender', 'material'] as const
@@ -333,10 +380,9 @@ const analyzeImagesAndFill = async () => {
         category?: string | null
         brand?: string | null
         condition?: number | null
-        size?: string | null
         label_size?: string | null
-        color?: string | null
-        material?: string | null
+        color?: string[] | null
+        material?: string[] | null
         fit?: string | null
         gender?: string | null
         season?: string | null
@@ -347,13 +393,15 @@ const analyzeImagesAndFill = async () => {
         rise?: string | null
         closure?: string | null
         sleeve_length?: string | null
+        stretch?: string | null
+        lining?: string | null
         origin?: string | null
         decade?: string | null
         trend?: string | null
         model?: string | null
-        unique_feature?: string | null
-        marking?: string | null
-        condition_sup?: string | null
+        unique_feature?: string[] | null
+        marking?: string[] | null
+        condition_sup?: string[] | null
         confidence?: number
       }
       images_analyzed: number
@@ -367,6 +415,9 @@ const analyzeImagesAndFill = async () => {
         `${response.images_analyzed} image(s) analysée(s). Formulaire pré-rempli avec confiance ${Math.round((response.attributes.confidence || 0) * 100)}%`,
         4000
       )
+
+      // Calculer le prix recommandé après remplissage IA
+      await calculateProductPrice()
     }
   } catch (error: any) {
     productLogger.error('AI analysis error', { error: error.message })
@@ -387,6 +438,8 @@ const analyzeImagesAndFill = async () => {
     }
   } finally {
     isAnalyzingImages.value = false
+    // Refresh credits after analysis (success or failure)
+    await fetchAICredits()
   }
 }
 
@@ -402,8 +455,6 @@ const fillFormWithAIResults = (attrs: Record<string, any>) => {
     ['category', 'category'],
     ['brand', 'brand'],
     ['condition', 'condition'],
-    ['color', 'color'],
-    ['material', 'material'],
     ['fit', 'fit'],
     ['gender', 'gender'],
     ['season', 'season'],
@@ -414,6 +465,8 @@ const fillFormWithAIResults = (attrs: Record<string, any>) => {
     ['rise', 'rise'],
     ['closure', 'closure'],
     ['sleeve_length', 'sleeve_length'],
+    ['stretch', 'stretch'],
+    ['lining', 'lining'],
     ['origin', 'origin'],
     ['decade', 'decade'],
     ['trend', 'trend'],
@@ -430,35 +483,74 @@ const fillFormWithAIResults = (attrs: Record<string, any>) => {
     }
   }
 
-  // Gérer size_original (peut venir de 'size' ou 'label_size')
-  if (attrs.size || attrs.label_size) {
-    form.value.size_original = attrs.size || attrs.label_size
+  // Gérer size_original (vient de label_size)
+  if (attrs.label_size) {
+    form.value.size_original = attrs.label_size
     fieldsUpdated++
   }
 
-  // Gérer les arrays: condition_sup, unique_feature, marking
-  if (attrs.condition_sup) {
-    const items = attrs.condition_sup.split(',').map((s: string) => s.trim()).filter(Boolean)
-    if (items.length > 0) {
-      form.value.condition_sup = items
+  // Handle array fields (backend already converts to arrays)
+  const arrayFields = ['condition_sup', 'unique_feature', 'marking'] as const
+  for (const field of arrayFields) {
+    if (attrs[field] && Array.isArray(attrs[field]) && attrs[field].length > 0) {
+      (form.value as any)[field] = attrs[field]
       fieldsUpdated++
     }
   }
 
-  if (attrs.unique_feature) {
-    const items = attrs.unique_feature.split(',').map((s: string) => s.trim()).filter(Boolean)
-    if (items.length > 0) {
-      form.value.unique_feature = items
-      fieldsUpdated++
-    }
+  // Handle color (backend returns array, form expects first value as string)
+  if (attrs.color && Array.isArray(attrs.color) && attrs.color.length > 0) {
+    form.value.color = attrs.color[0]
+    fieldsUpdated++
   }
 
-  if (attrs.marking) {
-    form.value.marking = attrs.marking
+  // Handle material (backend returns array, form expects first value as string)
+  if (attrs.material && Array.isArray(attrs.material) && attrs.material.length > 0) {
+    form.value.material = attrs.material[0]
     fieldsUpdated++
   }
 
   productLogger.debug(`Filled ${fieldsUpdated} fields from AI analysis`)
+}
+
+// ====== PRICING CALCULATION ======
+
+/**
+ * Calcule le prix recommandé basé sur les attributs du produit
+ */
+const calculateProductPrice = async () => {
+  // Vérifier les champs requis pour le calcul de prix
+  if (!form.value.brand || !form.value.category) {
+    productLogger.debug('Missing required fields for pricing: brand or category')
+    return
+  }
+
+  try {
+    // Construire l'input pour l'API pricing
+    const priceInput: PriceInput = {
+      brand: form.value.brand,
+      category: form.value.category,
+      materials: form.value.material ? [form.value.material] : [],
+      model_name: form.value.model || undefined,
+      condition_score: form.value.condition || 5,  // 0-10 scale, 5 is baseline
+      supplements: form.value.condition_sup || [],
+      condition_sensitivity: 1.0, // Default
+      actual_origin: form.value.origin || '',
+      expected_origins: ['france', 'italie', 'usa', 'japon'],
+      actual_decade: form.value.decade || '',
+      expected_decades: ['1990s', '2000s', '2010s'],
+      actual_trends: form.value.trend ? [form.value.trend] : [],
+      expected_trends: ['vintage', 'streetwear', 'minimalist'],
+      actual_features: form.value.unique_feature || [],
+      expected_features: ['limited edition', 'collaboration', 'rare color']
+    }
+
+    await calculatePrice(priceInput)
+    productLogger.debug('Pricing calculated', { result: priceResult.value })
+  } catch (error: any) {
+    productLogger.error('Pricing calculation error', { error: error.message })
+    // Don't show error to user, pricing is optional
+  }
 }
 
 // Handle form updates from ProductForm
@@ -502,6 +594,8 @@ const handleSubmit = async () => {
       rise: form.value.rise || null,
       closure: form.value.closure || null,
       sleeve_length: form.value.sleeve_length || null,
+      stretch: form.value.stretch || null,
+      lining: form.value.lining || null,
       origin: form.value.origin || null,
       decade: form.value.decade || null,
       trend: form.value.trend || null,
@@ -581,6 +675,7 @@ const handleClearDraft = () => {
   clearDraft()
   form.value = { ...defaultProductFormData }
   photos.value = []
+  resetPricing()
   showInfo('Brouillon effacé', 'Le formulaire a été réinitialisé', 2000)
 }
 
@@ -595,7 +690,10 @@ watch(photos, () => {
 }, { deep: true })
 
 // Restore draft on mount
-onMounted(() => {
+onMounted(async () => {
+  // Fetch AI credits for display
+  await fetchAICredits()
+
   const draft = loadDraft()
   if (draft) {
     // Restore form data

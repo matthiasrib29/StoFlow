@@ -102,11 +102,11 @@ def calculateConditionAdjustment(
     """
     Calculate condition-based price adjustment with supplement bonuses and caps.
 
-    Formula: (score - 3.0) / 10.0 * sensitivity + supplement_sum
+    Formula: (score - 5.0) * 0.06 * sensitivity + supplement_sum
     Result is capped at ±0.30
 
     Args:
-        condition_score: Condition score (0-5, where 3 is baseline).
+        condition_score: Condition score (0-10, where 5 is baseline).
         supplements: List of supplement keys (e.g., ["original_box", "tags"]).
         condition_sensitivity: Sensitivity multiplier (0.5-1.5 range).
 
@@ -114,18 +114,19 @@ def calculateConditionAdjustment(
         Adjustment as Decimal, capped at ±0.30 and rounded to 2 decimal places.
 
     Raises:
-        ValueError: If score not in [0-5] or sensitivity not in [0.5-1.5].
+        ValueError: If score not in [0-10] or sensitivity not in [0.5-1.5].
     """
     # Validate inputs
-    if not (0 <= condition_score <= 5):
-        raise ValueError("Condition score must be between 0 and 5")
+    if not (0 <= condition_score <= 10):
+        raise ValueError("Condition score must be between 0 and 10")
 
     if not (Decimal("0.5") <= condition_sensitivity <= Decimal("1.5")):
         raise ValueError("Condition sensitivity must be between 0.5 and 1.5")
 
-    # Base calculation: (score - 3.0) / 10.0 * sensitivity
+    # Base calculation: (score - 5.0) * 0.06 * sensitivity
+    # Score 0 → -0.30, Score 5 → 0, Score 10 → +0.30 (before sensitivity)
     score_decimal = Decimal(str(condition_score))
-    base_adjustment = (score_decimal - Decimal("3.0")) / Decimal("10.0") * condition_sensitivity
+    base_adjustment = (score_decimal - Decimal("5.0")) * Decimal("0.06") * condition_sensitivity
 
     # Sum supplement bonuses (ignore unknown supplements)
     supplement_sum = sum(
@@ -154,24 +155,22 @@ def calculateOriginAdjustment(
     Calculate origin-based price adjustment using 4-tier system.
 
     Tier logic (order matters):
+    - Unknown/empty: actual is None or empty → 0.00 (neutral)
     - Tier 1 (expected): actual in expected_origins → 0.00
     - Tier 3 (premium): actual in PREMIUM_ORIGINS and not expected → +0.15
     - Tier 2 (neighbor): actual is neighbor of any expected → 0.00
     - Tier 4 (other): fallback → -0.10
 
     Args:
-        actual_origin: The actual product origin country.
+        actual_origin: The actual product origin country (can be None/empty).
         expected_origins: List of expected origin countries.
 
     Returns:
-        Adjustment as Decimal (-0.10 to +0.15).
-
-    Raises:
-        ValueError: If actual_origin is None or empty.
+        Adjustment as Decimal (-0.10 to +0.15), or 0.00 if origin unknown.
     """
-    # Validate inputs
+    # If origin is unknown, return neutral adjustment
     if not actual_origin or (isinstance(actual_origin, str) and not actual_origin.strip()):
-        raise ValueError("Actual origin cannot be None or empty")
+        return Decimal("0.00")
 
     # Tier 1: Expected match
     if actual_origin in expected_origins:
@@ -200,27 +199,25 @@ def calculateDecadeAdjustment(
     Calculate decade-based price adjustment with vintage bonuses.
 
     Logic:
+    - Unknown/empty: actual is None or empty → 0.00 (neutral)
     - If actual in expected_decades → 0.00 (as expected, no bonus)
     - If actual NOT in expected_decades → bonus from DECADE_COEFFICIENTS
     - Vintage items (older decades) have higher bonuses
 
     Args:
-        actual_decade: The actual product decade (e.g., "1990s").
+        actual_decade: The actual product decade (e.g., "1990s"). Can be None/empty.
         expected_decades: List of expected decades.
 
     Returns:
-        Adjustment as Decimal (0.00 to +0.20).
-
-    Raises:
-        ValueError: If actual_decade is None, empty, or unknown.
+        Adjustment as Decimal (0.00 to +0.20), or 0.00 if decade unknown.
     """
-    # Validate inputs
+    # If decade is unknown or empty, return neutral adjustment
     if not actual_decade or (isinstance(actual_decade, str) and not actual_decade.strip()):
-        raise ValueError("Actual decade cannot be None or empty")
+        return Decimal("0.00")
 
-    # Check if decade is known
+    # If decade is not in our known coefficients, return neutral
     if actual_decade not in DECADE_COEFFICIENTS:
-        raise ValueError(f"Unknown decade: {actual_decade}")
+        return Decimal("0.00")
 
     # If actual is in expected list, no bonus (as expected)
     if actual_decade in expected_decades:

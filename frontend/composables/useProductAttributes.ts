@@ -25,6 +25,8 @@ export interface ProductAttributesState {
   rises: AttributeOption[]
   closures: AttributeOption[]
   sleeveLengths: AttributeOption[]
+  stretches: AttributeOption[]
+  linings: AttributeOption[]
   // Vintage options
   origins: AttributeOption[]
   decades: AttributeOption[]
@@ -71,6 +73,8 @@ export const useProductAttributes = () => {
     rises: [],
     closures: [],
     sleeveLengths: [],
+    stretches: [],
+    linings: [],
     origins: [],
     decades: [],
     trends: [],
@@ -96,8 +100,8 @@ export const useProductAttributes = () => {
 
     const [
       genders, sizes, fits, seasons, sports, necklines, lengths,
-      patterns, rises, closures, sleeves, origins, decades, trends,
-      categories, colors, materials
+      patterns, rises, closures, sleeves, stretches, linings,
+      origins, decades, trends, categories, colors, materials
     ] = await Promise.all([
       fetchAttribute('genders', lang),
       fetchAttribute('sizes', lang),
@@ -110,6 +114,8 @@ export const useProductAttributes = () => {
       fetchAttribute('rises', lang),
       fetchAttribute('closures', lang),
       fetchAttribute('sleeve_lengths', lang),
+      fetchAttribute('stretches', lang),
+      fetchAttribute('linings', lang),
       fetchAttribute('origins', lang),
       fetchAttribute('decades', lang),
       fetchAttribute('trends', lang),
@@ -130,6 +136,8 @@ export const useProductAttributes = () => {
     options.rises = rises
     options.closures = closures
     options.sleeveLengths = sleeves
+    options.stretches = stretches
+    options.linings = linings
     options.origins = origins
     options.decades = decades
     options.trends = trends

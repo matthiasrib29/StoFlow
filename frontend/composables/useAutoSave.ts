@@ -10,7 +10,7 @@ export interface AutoSaveOptions {
 }
 
 export function useAutoSave(options: AutoSaveOptions) {
-  const { patch } = useApi()
+  const { put } = useApi()
   const { showSuccess, showError } = useAppToast()
 
   const isSaving = ref(false)
@@ -24,7 +24,7 @@ export function useAutoSave(options: AutoSaveOptions) {
     saveError.value = null
 
     try {
-      await patch(`/api/products/${options.productId}`, formData)
+      await put(`/products/${options.productId}`, formData)
 
       lastSaved.value = new Date()
       showSuccess('Sauvegardé', 'Modifications enregistrées', 2000)
@@ -44,9 +44,29 @@ export function useAutoSave(options: AutoSaveOptions) {
   }, options.debounceMs || 2000)
 
   const triggerSave = (formData: Partial<ProductFormData>) => {
-    const cleanData = Object.fromEntries(
-      Object.entries(formData).filter(([_, v]) => v !== null && v !== undefined)
-    )
+    // Clean data to match backend ProductUpdate schema
+    const cleanData: Record<string, any> = {}
+
+    for (const [key, value] of Object.entries(formData)) {
+      // Skip null/undefined values
+      if (value === null || value === undefined) continue
+
+      // Skip price if 0 (backend requires gt=0)
+      if (key === 'price' && (value === 0 || value === '')) continue
+
+      // Convert unique_feature to array if string
+      if (key === 'unique_feature') {
+        if (typeof value === 'string' && value.trim()) {
+          cleanData[key] = [value]
+        } else if (Array.isArray(value) && value.length > 0) {
+          cleanData[key] = value
+        }
+        continue
+      }
+
+      cleanData[key] = value
+    }
+
     debouncedSave(cleanData)
   }
 

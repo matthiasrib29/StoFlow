@@ -37,6 +37,8 @@ export interface ProductFormData {
   rise: string | null
   closure: string | null
   sleeve_length: string | null
+  stretch: string | null
+  lining: string | null
 
   // Optionnels - Vintage/Tendance
   origin: string | null
@@ -97,6 +99,8 @@ export const defaultProductFormData: ProductFormData = {
   rise: null,
   closure: null,
   sleeve_length: null,
+  stretch: null,
+  lining: null,
 
   // Section 2 - Vintage/Tendance
   origin: null,

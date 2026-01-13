@@ -115,6 +115,7 @@ class ProductCreate(BaseModel):
     decade: str | None = Field(None, max_length=100, description="Décennie")
     trend: str | None = Field(None, max_length=100, description="Tendance")
     stretch: str | None = Field(None, max_length=100, description="Stretch/Elasticity level (FK product_attributes.stretches)")
+    lining: str | None = Field(None, max_length=100, description="Lining type (FK product_attributes.linings)")
     location: str | None = Field(None, max_length=100, description="Emplacement physique")
     model: str | None = Field(None, max_length=100, description="Référence modèle")
 
@@ -196,6 +197,16 @@ class ProductCreate(BaseModel):
         """Validate that condition_sups list has no duplicates."""
         if value and len(value) != len(set(value)):
             raise ValueError("Duplicate condition supplements are not allowed")
+        return value
+
+    @field_validator('marking', mode='before')
+    @classmethod
+    def convert_marking_to_string(cls, value: str | list | None) -> str | None:
+        """Convert marking from list to comma-separated string if needed."""
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return ', '.join(str(item).strip() for item in value if item)
         return value
 
     @field_validator('material_details')
@@ -300,6 +311,8 @@ class ProductUpdate(BaseModel):
     origin: str | None = Field(None, max_length=100)
     decade: str | None = Field(None, max_length=100)
     trend: str | None = Field(None, max_length=100)
+    stretch: str | None = Field(None, max_length=100)
+    lining: str | None = Field(None, max_length=100)
     location: str | None = Field(None, max_length=100)
     model: str | None = Field(None, max_length=100)
 
@@ -370,6 +383,16 @@ class ProductUpdate(BaseModel):
             raise ValueError("Duplicate condition supplements are not allowed")
         return value
 
+    @field_validator('marking', mode='before')
+    @classmethod
+    def convert_marking_to_string(cls, value: str | list | None) -> str | None:
+        """Convert marking from list to comma-separated string if needed."""
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return ', '.join(str(item).strip() for item in value if item)
+        return value
+
     @field_validator('material_details')
     @classmethod
     def validate_material_details_sum(cls, value: list[MaterialDetail] | None) -> list[MaterialDetail] | None:
@@ -433,6 +456,7 @@ class ProductResponse(BaseModel):
     decade: str | None
     trend: str | None
     stretch: str | None
+    lining: str | None
     location: str | None
     model: str | None
 
