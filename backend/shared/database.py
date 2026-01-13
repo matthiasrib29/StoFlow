@@ -22,6 +22,37 @@ class Base(DeclarativeBase):
     """Base class for all SQLAlchemy declarative models."""
     pass
 
+
+# Alias for tenant models (models/user/*)
+# All tenant models should inherit from UserBase for clarity
+# The actual schema is set via __table_args__ = {"schema": "tenant"}
+UserBase = Base
+
+
+def get_tenant_schema(db: Session) -> str | None:
+    """
+    Get tenant schema name from session's schema_translate_map.
+
+    This function extracts the schema name that was configured via
+    execution_options(schema_translate_map={"tenant": "user_X"}).
+
+    Usage:
+        schema = get_tenant_schema(db)
+        # Returns "user_X" if schema_translate_map was set
+        # Returns None if not using schema_translate_map
+
+    Args:
+        db: SQLAlchemy session with schema_translate_map configured
+
+    Returns:
+        Schema name (e.g., "user_123") or None if not set
+    """
+    # Access execution options from the session's bind
+    execution_options = db.get_bind().execution_options
+    schema_map = execution_options.get("schema_translate_map", {})
+    return schema_map.get("tenant")
+
+
 # Engine PostgreSQL (connexion globale)
 engine = create_engine(
     str(settings.database_url),
@@ -146,6 +177,10 @@ def set_search_path_safe(db: Session, user_id: int) -> None:
     """
     Safely set search path for multi-tenant isolation.
 
+    .. deprecated:: 2026-01-13
+        Use `execution_options(schema_translate_map={"tenant": schema_name})` instead.
+        This function will be removed in Phase 4 of schema migration.
+
     Security: SQL injection protection via user_id validation (2026-01-12)
 
     Args:
@@ -168,6 +203,10 @@ def set_search_path_safe(db: Session, user_id: int) -> None:
 def set_user_schema(db: Session, user_id: int) -> None:
     """
     Configure le search_path PostgreSQL pour isoler l'utilisateur.
+
+    .. deprecated:: 2026-01-13
+        Use `execution_options(schema_translate_map={"tenant": schema_name})` instead.
+        This function will be removed in Phase 4 of schema migration.
 
     DEPRECATED (2025-12-17): Use `get_user_db` dependency from api.dependencies instead.
     This function is kept for unit tests only.
@@ -194,6 +233,10 @@ def set_user_schema(db: Session, user_id: int) -> None:
 def set_user_search_path(db: Session, user_id: int) -> None:
     """
     Re-set search_path to user schema after a commit.
+
+    .. deprecated:: 2026-01-13
+        Use `execution_options(schema_translate_map={"tenant": schema_name})` instead.
+        This function will be removed in Phase 4 of schema migration.
 
     IMPORTANT: Use this function when you need to continue using the session
     after a commit. Uses SET (not SET LOCAL) because after commit the session
