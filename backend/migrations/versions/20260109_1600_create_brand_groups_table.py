@@ -28,16 +28,18 @@ def upgrade() -> None:
         CREATE TABLE IF NOT EXISTS public.brand_groups (
             id SERIAL PRIMARY KEY,
             brand VARCHAR(100) NOT NULL,
-            group_name VARCHAR(50) NOT NULL,
+            "group" VARCHAR(100) NOT NULL,
             base_price DECIMAL(10,2) NOT NULL CHECK (base_price >= 5.00 AND base_price <= 500.00),
+            condition_sensitivity DECIMAL(3,2) NOT NULL DEFAULT 1.0 CHECK (condition_sensitivity >= 0.5 AND condition_sensitivity <= 1.5),
             expected_origins JSONB DEFAULT '[]'::jsonb NOT NULL,
             expected_decades JSONB DEFAULT '[]'::jsonb NOT NULL,
             expected_trends JSONB DEFAULT '[]'::jsonb NOT NULL,
-            condition_sensitivity DECIMAL(3,2) NOT NULL DEFAULT 1.0 CHECK (condition_sensitivity >= 0.5 AND condition_sensitivity <= 1.5),
+            generated_by_ai BOOLEAN NOT NULL DEFAULT false,
+            ai_confidence DECIMAL(3,2),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
-            CONSTRAINT uq_brand_groups_brand_group UNIQUE (brand, group_name)
+            CONSTRAINT uq_brand_groups_brand_group UNIQUE (brand, "group")
         );
     """))
 
@@ -47,7 +49,7 @@ def upgrade() -> None:
     """))
 
     conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS idx_brand_groups_group ON public.brand_groups(group_name);
+        CREATE INDEX IF NOT EXISTS idx_brand_groups_group ON public.brand_groups("group");
     """))
 
     conn.execute(text("""

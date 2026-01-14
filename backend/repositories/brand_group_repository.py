@@ -15,6 +15,7 @@ Author: Claude
 
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from models.public.brand_group import BrandGroup
@@ -66,7 +67,8 @@ class BrandGroupRepository:
         Returns:
             BrandGroup if found, None otherwise
         """
-        return db.query(BrandGroup).filter(BrandGroup.id == brand_group_id).first()
+        stmt = select(BrandGroup).where(BrandGroup.id == brand_group_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_by_brand_and_group(
@@ -83,11 +85,11 @@ class BrandGroupRepository:
         Returns:
             BrandGroup if found, None otherwise
         """
-        return (
-            db.query(BrandGroup)
-            .filter(BrandGroup.brand == brand, BrandGroup.group == group)
-            .first()
+        stmt = select(BrandGroup).where(
+            BrandGroup.brand == brand,
+            BrandGroup.group == group
         )
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def update(db: Session, brand_group: BrandGroup) -> BrandGroup:

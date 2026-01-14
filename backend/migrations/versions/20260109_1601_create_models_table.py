@@ -28,14 +28,16 @@ def upgrade() -> None:
         CREATE TABLE IF NOT EXISTS public.models (
             id SERIAL PRIMARY KEY,
             brand VARCHAR(100) NOT NULL,
-            group_name VARCHAR(50) NOT NULL,
-            model VARCHAR(100) NOT NULL,
+            "group" VARCHAR(100) NOT NULL,
+            name VARCHAR(100) NOT NULL,
             coefficient DECIMAL(4,2) NOT NULL DEFAULT 1.0 CHECK (coefficient >= 0.5 AND coefficient <= 3.0),
             expected_features JSONB DEFAULT '[]'::jsonb NOT NULL,
+            generated_by_ai BOOLEAN NOT NULL DEFAULT false,
+            ai_confidence DECIMAL(3,2),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
-            CONSTRAINT uq_models_brand_group_model UNIQUE (brand, group_name, model)
+            CONSTRAINT uq_models_brand_group_name UNIQUE (brand, "group", name)
         );
     """))
 
@@ -45,11 +47,11 @@ def upgrade() -> None:
     """))
 
     conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS idx_models_group ON public.models(group_name);
+        CREATE INDEX IF NOT EXISTS idx_models_group ON public.models("group");
     """))
 
     conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS idx_models_brand_group ON public.models(brand, group_name);
+        CREATE INDEX IF NOT EXISTS idx_models_brand_group ON public.models(brand, "group");
     """))
 
     conn.execute(text("""
