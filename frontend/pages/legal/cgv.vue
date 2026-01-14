@@ -23,7 +23,7 @@
         </div>
 
         <!-- Table of contents -->
-        <div class="bg-green-50 rounded-xl p-6 mb-8">
+        <div class="bg-primary-50 rounded-xl p-6 mb-8">
           <h2 class="font-bold text-secondary-900 mb-3">Sommaire</h2>
           <ol class="list-decimal list-inside space-y-1 text-gray-700">
             <li><a href="#objet" class="hover:text-primary-600">Objet et champ d'application</a></li>

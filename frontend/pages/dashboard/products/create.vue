@@ -59,23 +59,23 @@
       <!-- Manual Pricing Button (when no result yet and form has required fields) -->
       <div
         v-else-if="editor.form.value.brand && editor.form.value.category && !editor.pricing.isLoading.value"
-        class="mt-6 bg-gradient-to-r from-green-50 to-teal-50 border border-green-200 rounded-lg p-4"
+        class="mt-6 bg-gradient-to-r from-primary-50 to-primary-100 border border-primary-200 rounded-lg p-4"
       >
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div class="bg-green-100 rounded-full p-2">
-              <i class="pi pi-calculator text-green-600 text-lg" />
+            <div class="bg-primary-100 rounded-full p-2">
+              <i class="pi pi-calculator text-primary-600 text-lg" />
             </div>
             <div>
-              <h4 class="text-sm font-semibold text-green-900">Estimation de prix</h4>
-              <p class="text-xs text-green-700">Calculer le prix recommandé basé sur les attributs</p>
+              <h4 class="text-sm font-semibold text-secondary-900">Estimation de prix</h4>
+              <p class="text-xs text-gray-600">Calculer le prix recommandé basé sur les attributs</p>
             </div>
           </div>
           <Button
             type="button"
             label="Calculer le prix"
             icon="pi pi-calculator"
-            class="bg-green-500 hover:bg-green-600 text-white border-0 font-semibold"
+            class="btn-primary"
             :loading="editor.pricing.isLoading.value"
             @click="editor.calculatePrice"
           />

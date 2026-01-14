@@ -74,7 +74,7 @@
       <template #body="slotProps">
         <span
           class="text-sm font-medium"
-          :class="slotProps.data.stock_quantity > 0 ? 'text-green-600' : 'text-red-500'"
+          :class="slotProps.data.stock_quantity > 0 ? 'text-success-600' : 'text-error-500'"
         >
           {{ slotProps.data.stock_quantity }}
         </span>
@@ -85,11 +85,11 @@
       <template #body="slotProps">
         <span
           class="inline-flex items-center gap-1.5 text-xs font-medium"
-          :class="slotProps.data.is_active ? 'text-green-600' : 'text-gray-400'"
+          :class="slotProps.data.is_active ? 'text-success-600' : 'text-gray-400'"
         >
           <span
             class="w-2 h-2 rounded-full"
-            :class="slotProps.data.is_active ? 'bg-green-500' : 'bg-gray-300'"
+            :class="slotProps.data.is_active ? 'bg-success-500' : 'bg-gray-300'"
           />
           {{ slotProps.data.is_active ? 'Actif' : 'Inactif' }}
         </span>

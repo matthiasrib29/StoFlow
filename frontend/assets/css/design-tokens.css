@@ -105,6 +105,22 @@
   --color-ui-black: #000000;
 
   /* ============================================
+     COLORS - Status (semantic mapping)
+     ============================================ */
+  --color-status-connected: var(--color-success-500);
+  --color-status-connected-bg: var(--color-success-100);
+  --color-status-disconnected: var(--color-secondary-600);
+  --color-status-disconnected-bg: var(--color-secondary-200);
+  --color-status-published: var(--color-success-500);
+  --color-status-published-bg: var(--color-success-100);
+  --color-status-draft: var(--color-secondary-500);
+  --color-status-draft-bg: var(--color-secondary-100);
+  --color-status-sold: var(--color-info-500);
+  --color-status-sold-bg: var(--color-info-100);
+  --color-status-inactive: var(--color-warning-500);
+  --color-status-inactive-bg: var(--color-warning-100);
+
+  /* ============================================
      TYPOGRAPHY - Font Families
      ============================================ */
   --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
