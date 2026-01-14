@@ -58,8 +58,8 @@
             class="block bg-white rounded-xl p-6 border-2 border-gray-200 hover:border-primary-400 hover:shadow-lg transition-all duration-300"
           >
             <div class="flex items-start gap-4">
-              <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <i class="pi pi-shopping-cart text-green-600 text-xl" />
+              <div class="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <i class="pi pi-shopping-cart text-primary-600 text-xl" />
               </div>
               <div>
                 <h2 class="text-xl font-bold text-secondary-900 mb-2">Conditions Générales de Vente</h2>

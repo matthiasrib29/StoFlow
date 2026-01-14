@@ -45,8 +45,8 @@
         <!-- Features -->
         <div class="space-y-4 mb-6">
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-              <i class="pi pi-box text-green-600 text-sm"/>
+            <div class="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
+              <i class="pi pi-box text-primary-600 text-sm"/>
             </div>
             <span class="text-gray-700">{{ tier.max_products }} produits</span>
           </div>
