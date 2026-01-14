@@ -105,19 +105,16 @@ def setup_test_database():
             conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
             conn.execute(text(f"CREATE SCHEMA {schema_name}"))
 
-            # Cloner chaque table depuis template_tenant
+            # Cloner dynamiquement toutes les tables depuis template_tenant
             # LIKE ... INCLUDING ALL copie la structure + indexes + constraints + defaults
-            tables = [
-                'products',
-                'product_images',
-                'vinted_products',
-                'publication_history',
-                'ai_generation_logs',
-                'batch_jobs',  # Phase 6.2: Added for batch job tests
-                'marketplace_jobs',  # Phase 6.2: Renamed from vinted_jobs
-                # REMOVED (2026-01-09): marketplace_tasks (formerly plugin_tasks)
-                # Polling-based plugin communication replaced by WebSocket
-            ]
+            # NOTE (2026-01-14): Liste dynamique au lieu de hardcodée pour éviter les oublis
+            # lors de l'ajout de nouvelles tables (ebay_*, etsy_*, etc.)
+            result = conn.execute(text("""
+                SELECT table_name FROM information_schema.tables
+                WHERE table_schema = 'template_tenant'
+                ORDER BY table_name
+            """))
+            tables = [row[0] for row in result]
             for table_name in tables:
                 conn.execute(text(f"""
                     CREATE TABLE {schema_name}.{table_name}
