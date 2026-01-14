@@ -73,6 +73,14 @@
             <i class="pi pi-times-circle text-sm"/>
             <span>Annulations</span>
           </NuxtLink>
+          <NuxtLink
+            to="/dashboard/platforms/ebay/refunds"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-euro text-sm"/>
+            <span>Remboursements</span>
+          </NuxtLink>
         </template>
       </div>
     </Transition>
