@@ -26,14 +26,23 @@ from models.public.subscription_quota import SubscriptionQuota
 from models.public.ai_credit import AICredit
 from shared.database import get_db
 from shared.stripe_config import (
-    AI_CREDIT_PACKS,
     STRIPE_SUCCESS_URL,
     STRIPE_CANCEL_URL,
     STRIPE_WEBHOOK_SECRET,
     validate_stripe_config,
 )
+from repositories.ai_credit_pack_repository import AiCreditPackRepository
+from services.ai_credit_pack_service import AiCreditPackService
 
 router = APIRouter(prefix="/stripe", tags=["Stripe"])
+
+
+# ===== DEPENDENCIES =====
+
+def get_credit_pack_service(db: Session = Depends(get_db)) -> AiCreditPackService:
+    """Dependency injection for AiCreditPackService."""
+    repository = AiCreditPackRepository()
+    return AiCreditPackService(db, repository)
 
 
 # ===== SCHEMAS =====
@@ -81,7 +90,8 @@ class CustomerPortalResponse(BaseModel):
 def create_checkout_session(
     request: CheckoutSessionRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    credit_pack_service: AiCreditPackService = Depends(get_credit_pack_service)
 ):
     """
     Crée une session Stripe Checkout pour un abonnement ou un achat de crédits.
@@ -193,26 +203,26 @@ def create_checkout_session(
                     detail="Le paramètre 'credits' est requis pour un achat de crédits"
                 )
 
-            # Vérifier que le pack existe
-            if request.credits not in AI_CREDIT_PACKS:
+            # Récupérer le pack depuis la DB via le service (avec cache)
+            pack_entity = credit_pack_service.get_pack_by_credits(request.credits)
+
+            if not pack_entity:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Pack de {request.credits} crédits non disponible"
                 )
 
-            pack = AI_CREDIT_PACKS[request.credits]
-
-            # Créer le line item pour les crédits
+            # Créer le line item pour les crédits (prix depuis DB)
             checkout_params["mode"] = "payment"
             checkout_params["line_items"] = [
                 {
                     "price_data": {
                         "currency": "eur",
                         "product_data": {
-                            "name": pack["name"],
-                            "description": pack["description"],
+                            "name": pack_entity.name,
+                            "description": pack_entity.description,
                         },
-                        "unit_amount": int(pack["price"] * 100),  # Convertir en centimes
+                        "unit_amount": int(pack_entity.price * 100),  # Convertir en centimes
                     },
                     "quantity": 1,
                 }

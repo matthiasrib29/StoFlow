@@ -27,10 +27,39 @@
     </Card>
 
     <!-- Credits Packs Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+    <!-- Loading State -->
+    <div v-if="loadingPacks" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <Skeleton v-for="i in 4" :key="i" height="350px" class="rounded-xl" />
+    </div>
+
+    <!-- Error State -->
+    <Card v-else-if="errorLoadingPacks" class="shadow-md modern-rounded">
+      <template #content>
+        <div class="text-center py-8">
+          <i class="pi pi-exclamation-triangle text-red-500 text-4xl mb-4" />
+          <p class="text-gray-700 font-semibold mb-2">Impossible de charger les packs de crédits</p>
+          <p class="text-gray-600 text-sm mb-4">Une erreur s'est produite</p>
+          <Button label="Réessayer" icon="pi pi-refresh" @click="loadCreditPacks" />
+        </div>
+      </template>
+    </Card>
+
+    <!-- Empty State -->
+    <Card v-else-if="creditPacks.length === 0" class="shadow-md modern-rounded">
+      <template #content>
+        <div class="text-center py-8">
+          <i class="pi pi-info-circle text-blue-500 text-4xl mb-4" />
+          <p class="text-gray-700">Aucun pack de crédits disponible</p>
+        </div>
+      </template>
+    </Card>
+
+    <!-- Success State (packs chargés) -->
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <div
         v-for="pack in creditPacks"
-        :key="pack.credits"
+        :key="pack.id"
         class="relative p-6 rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:shadow-lg transition-all duration-200 cursor-pointer bg-white"
         @click="openConfirmDialog(pack)"
       >
@@ -182,42 +211,27 @@ definePageMeta({
 
 const { showError } = useAppToast()
 const router = useRouter()
-const { getSubscriptionInfo } = useSubscription()
+const { getSubscriptionInfo, getCreditPacks } = useSubscription()
 
 // State
 const showConfirmDialog = ref(false)
 const isProcessing = ref(false)
 const currentCredits = ref(0)
 const monthlyCredits = ref(0)
-const selectedPack = ref<typeof creditPacks.value[0] | null>(null)
 
-// Credit Packs
-const creditPacks = ref([
-  {
-    credits: 100,
-    price: 9.99,
-    pricePerCredit: '0.10',
-    popular: false
-  },
-  {
-    credits: 500,
-    price: 39.99,
-    pricePerCredit: '0.08',
-    popular: true
-  },
-  {
-    credits: 1000,
-    price: 69.99,
-    pricePerCredit: '0.07',
-    popular: false
-  },
-  {
-    credits: 5000,
-    price: 299.99,
-    pricePerCredit: '0.06',
-    popular: false
-  }
-])
+// Credit Packs State
+interface CreditPackUI {
+  id: number
+  credits: number
+  price: number
+  pricePerCredit: string
+  popular: boolean
+}
+
+const creditPacks = ref<CreditPackUI[]>([])
+const loadingPacks = ref(false)
+const errorLoadingPacks = ref(false)
+const selectedPack = ref<CreditPackUI | null>(null)
 
 // Methods
 const openConfirmDialog = (pack: typeof creditPacks.value[0]) => {
@@ -247,6 +261,30 @@ const confirmPurchase = async () => {
   }
 }
 
+const loadCreditPacks = async () => {
+  loadingPacks.value = true
+  errorLoadingPacks.value = false
+
+  try {
+    const packs = await getCreditPacks()
+
+    // Transformer pour correspondre à la structure UI attendue
+    creditPacks.value = packs.map(pack => ({
+      id: pack.id,
+      credits: pack.credits,
+      price: pack.price,
+      pricePerCredit: pack.price_per_credit.toFixed(2), // string avec 2 décimales
+      popular: pack.is_popular
+    }))
+  } catch (err) {
+    subscriptionLogger.error('Error loading credit packs', { error: err })
+    errorLoadingPacks.value = true
+    creditPacks.value = []
+  } finally {
+    loadingPacks.value = false
+  }
+}
+
 const loadData = async () => {
   try {
     const info = await getSubscriptionInfo()
@@ -259,5 +297,6 @@ const loadData = async () => {
 
 onMounted(() => {
   loadData()
+  loadCreditPacks()
 })
 </script>
