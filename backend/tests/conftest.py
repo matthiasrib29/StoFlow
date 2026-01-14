@@ -174,30 +174,33 @@ def _run_cleanup():
     # CRITICAL: Créer une NOUVELLE session indépendante pour le cleanup
     # Cela évite les conflits avec la session du test en cours
     cleanup_session = TestingSessionLocal()
+    print("\n[CLEANUP] Starting cleanup...")
 
     try:
         # IMPORTANT: L'ordre est crucial pour respecter les Foreign Keys
 
-        # 1. Supprimer d'abord les données dans les schemas user (jobs, tasks, produits, images)
+        # 1. Supprimer d'abord les données dans les schemas user (jobs, produits, images)
         # NOTE: Les schemas user_X peuvent ne pas exister pour les tests qui ne les utilisent pas
+        # NOTE (2026-01-09): marketplace_tasks removed - WebSocket replaced polling
         for user_id in [1, 2, 3]:
             schema = f"user_{user_id}"
-            try:
-                # Order: tasks → jobs → batch_jobs → products → images
-                # (respecter les FK: tasks dépend de jobs, jobs dépend de batch_jobs)
-                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.marketplace_tasks RESTART IDENTITY CASCADE"))
-                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.marketplace_jobs RESTART IDENTITY CASCADE"))
-                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.batch_jobs RESTART IDENTITY CASCADE"))
-                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.vinted_products RESTART IDENTITY CASCADE"))
-                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.products RESTART IDENTITY CASCADE"))
-                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.product_images RESTART IDENTITY CASCADE"))
-                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.ai_generation_logs RESTART IDENTITY CASCADE"))
-                cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.publication_history RESTART IDENTITY CASCADE"))
-                cleanup_session.commit()  # Commit immédiatement après succès
-            except Exception as e:
-                cleanup_session.rollback()  # Rollback si erreur
-                # Ignorer si table n'existe pas
-                pass
+            # Execute each TRUNCATE separately to avoid cascading failures
+            tables_to_truncate = [
+                "marketplace_jobs",
+                "batch_jobs",
+                "vinted_products",
+                "products",
+                "product_images",
+                "ai_generation_logs",
+                "publication_history"
+            ]
+            for table in tables_to_truncate:
+                try:
+                    cleanup_session.execute(text(f"TRUNCATE TABLE {schema}.{table} RESTART IDENTITY CASCADE"))
+                    cleanup_session.commit()
+                except Exception:
+                    cleanup_session.rollback()
+                    # Table may not exist, continue to next
 
         # 2. Supprimer users et ai_credits (FK)
         # NOTE: Ne PAS utiliser CASCADE car cela supprimerait subscription_quotas
@@ -205,8 +208,10 @@ def _run_cleanup():
             cleanup_session.execute(text("TRUNCATE TABLE public.ai_credits RESTART IDENTITY CASCADE"))
             cleanup_session.execute(text("TRUNCATE TABLE public.users RESTART IDENTITY CASCADE"))
             cleanup_session.commit()
+            print("[CLEANUP] Users cleaned successfully")
         except Exception as e:
             cleanup_session.rollback()
+            print(f"[CLEANUP] ERROR cleaning users: {e}")
 
         # 3. Supprimer les tables d'attributs (dans product_attributes schema)
         try:
@@ -230,6 +235,19 @@ def _run_cleanup():
             cleanup_session.commit()  # Commit immédiatement après succès
         except Exception:
             cleanup_session.rollback()  # Rollback si erreur
+
+        # 5. Supprimer brand_groups et models (tables pricing)
+        try:
+            cleanup_session.execute(text("TRUNCATE TABLE public.brand_groups RESTART IDENTITY CASCADE"))
+            cleanup_session.commit()
+        except Exception:
+            cleanup_session.rollback()
+
+        try:
+            cleanup_session.execute(text("TRUNCATE TABLE public.models RESTART IDENTITY CASCADE"))
+            cleanup_session.commit()
+        except Exception:
+            cleanup_session.rollback()
 
         # NOTE: Les tables de référence ne sont PAS truncate car elles contiennent
         # des données seed/fixtures permanentes:
@@ -256,9 +274,11 @@ def cleanup_data(request):
     1. AVANT le test (pour nettoyer les données résiduelles)
     2. APRÈS le test (via finalizer, même si le test échoue)
     """
+    print(f"\n[FIXTURE cleanup_data] BEFORE test: {request.node.name}")
     # BEFORE: Nettoyer avant chaque test pour garantir un état propre
     # Cela gère le cas où la session précédente a crashé sans cleanup
     _run_cleanup()
+    print(f"[FIXTURE cleanup_data] BEFORE cleanup done")
 
     # Enregistrer le finalizer pour le cleanup APRÈS le test
     request.addfinalizer(_run_cleanup)
@@ -267,19 +287,31 @@ def cleanup_data(request):
 
 
 @pytest.fixture(scope="function")
-def client(db_session):
+def client(db_session, test_user):
     """
     Fixture pour créer un client de test FastAPI.
 
-    Override la dépendance get_db pour utiliser la DB de test.
+    Override les dépendances get_db et get_user_db pour utiliser la DB de test.
     """
+    from api.dependencies import get_user_db
+
+    user, _ = test_user
+
     def override_get_db():
         try:
             yield db_session
         finally:
             pass
 
+    def override_get_user_db():
+        """Override get_user_db to use test session and user."""
+        try:
+            yield db_session, user
+        finally:
+            pass
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_user_db] = override_get_user_db
 
     with TestClient(app) as test_client:
         yield test_client
@@ -299,10 +331,10 @@ def test_user(db_session: Session):
         tuple: (User, password_plain) - L'utilisateur et son mot de passe en clair
     """
     # S'assurer que les quotas existent
+    from sqlalchemy import select
     from models.public.subscription_quota import SubscriptionQuota
-    quota_free = db_session.query(SubscriptionQuota).filter(
-        SubscriptionQuota.tier == SubscriptionTier.FREE
-    ).first()
+    stmt = select(SubscriptionQuota).where(SubscriptionQuota.tier == SubscriptionTier.FREE)
+    quota_free = db_session.execute(stmt).scalar_one_or_none()
 
     if not quota_free:
         quota_free = SubscriptionQuota(

@@ -16,7 +16,7 @@ Author: Claude
 import json
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from models.public.category_platform_mapping import CategoryPlatformMapping
@@ -65,35 +65,37 @@ class CategoryMappingRepository:
         """
         # 1. Exact match (with fit)
         if fit:
-            mapping = self.db.query(CategoryPlatformMapping).filter(
+            stmt = select(CategoryPlatformMapping).where(
                 and_(
                     CategoryPlatformMapping.category == category,
                     CategoryPlatformMapping.gender == gender,
                     CategoryPlatformMapping.fit == fit
                 )
-            ).first()
+            )
+            mapping = self.db.execute(stmt).scalar_one_or_none()
             if mapping:
                 return mapping
 
         # 2. No-fit match (fit is NULL)
-        mapping = self.db.query(CategoryPlatformMapping).filter(
+        stmt = select(CategoryPlatformMapping).where(
             and_(
                 CategoryPlatformMapping.category == category,
                 CategoryPlatformMapping.gender == gender,
                 CategoryPlatformMapping.fit.is_(None)
             )
-        ).first()
+        )
+        mapping = self.db.execute(stmt).scalar_one_or_none()
         if mapping:
             return mapping
 
         # 3. Any fit match (first found)
-        mapping = self.db.query(CategoryPlatformMapping).filter(
+        stmt = select(CategoryPlatformMapping).where(
             and_(
                 CategoryPlatformMapping.category == category,
                 CategoryPlatformMapping.gender == gender
             )
-        ).first()
-        return mapping
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
 
     # ===== VINTED =====
 
@@ -376,9 +378,10 @@ class CategoryMappingRepository:
         Returns:
             CategoryPlatformMapping if found, None otherwise
         """
-        return self.db.query(CategoryPlatformMapping).filter(
+        stmt = select(CategoryPlatformMapping).where(
             CategoryPlatformMapping.id == mapping_id
-        ).first()
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
 
     def get_all(self, limit: int = 1000) -> List[CategoryPlatformMapping]:
         """
@@ -390,7 +393,8 @@ class CategoryMappingRepository:
         Returns:
             List of CategoryPlatformMapping
         """
-        return self.db.query(CategoryPlatformMapping).limit(limit).all()
+        stmt = select(CategoryPlatformMapping).limit(limit)
+        return list(self.db.execute(stmt).scalars().all())
 
     def update(self, mapping: CategoryPlatformMapping) -> CategoryPlatformMapping:
         """
@@ -436,16 +440,15 @@ class CategoryMappingRepository:
         Returns:
             True if mapping exists, False otherwise
         """
-        query = self.db.query(CategoryPlatformMapping).filter(
-            and_(
-                CategoryPlatformMapping.category == category,
-                CategoryPlatformMapping.gender == gender
-            )
-        )
+        conditions = [
+            CategoryPlatformMapping.category == category,
+            CategoryPlatformMapping.gender == gender
+        ]
 
         if fit:
-            query = query.filter(CategoryPlatformMapping.fit == fit)
+            conditions.append(CategoryPlatformMapping.fit == fit)
         else:
-            query = query.filter(CategoryPlatformMapping.fit.is_(None))
+            conditions.append(CategoryPlatformMapping.fit.is_(None))
 
-        return query.first() is not None
+        stmt = select(CategoryPlatformMapping).where(and_(*conditions))
+        return self.db.execute(stmt).scalar_one_or_none() is not None

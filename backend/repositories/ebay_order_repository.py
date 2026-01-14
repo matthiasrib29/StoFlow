@@ -17,7 +17,7 @@ Author: Claude
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from models.user.ebay_order import EbayOrder, EbayOrderProduct
@@ -96,7 +96,8 @@ class EbayOrderRepository:
         Returns:
             EbayOrder si trouvée, None sinon
         """
-        return db.query(EbayOrder).filter(EbayOrder.id == order_id).first()
+        stmt = select(EbayOrder).where(EbayOrder.id == order_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_by_ebay_order_id(db: Session, ebay_order_id: str) -> Optional[EbayOrder]:
@@ -110,9 +111,8 @@ class EbayOrderRepository:
         Returns:
             EbayOrder si trouvée, None sinon
         """
-        return (
-            db.query(EbayOrder).filter(EbayOrder.order_id == ebay_order_id).first()
-        )
+        stmt = select(EbayOrder).where(EbayOrder.order_id == ebay_order_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def update(db: Session, order: EbayOrder) -> EbayOrder:
@@ -188,36 +188,36 @@ class EbayOrderRepository:
         Returns:
             Tuple[List[EbayOrder], int]: (liste des commandes, total count)
         """
-        query = db.query(EbayOrder)
+        # Build conditions list
+        conditions = []
 
-        # Apply filters
         if marketplace_id:
-            query = query.filter(EbayOrder.marketplace_id == marketplace_id)
+            conditions.append(EbayOrder.marketplace_id == marketplace_id)
 
         if fulfillment_status:
-            query = query.filter(
-                EbayOrder.order_fulfillment_status == fulfillment_status
-            )
+            conditions.append(EbayOrder.order_fulfillment_status == fulfillment_status)
 
         if payment_status:
-            query = query.filter(EbayOrder.order_payment_status == payment_status)
+            conditions.append(EbayOrder.order_payment_status == payment_status)
 
         if date_from:
-            query = query.filter(EbayOrder.creation_date >= date_from)
+            conditions.append(EbayOrder.creation_date >= date_from)
 
         if date_to:
-            query = query.filter(EbayOrder.creation_date <= date_to)
+            conditions.append(EbayOrder.creation_date <= date_to)
 
         # Count total
-        total = query.count()
+        count_stmt = select(func.count(EbayOrder.id))
+        if conditions:
+            count_stmt = count_stmt.where(and_(*conditions))
+        total = db.execute(count_stmt).scalar_one() or 0
 
         # Apply pagination and ordering
-        orders = (
-            query.order_by(EbayOrder.creation_date.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        stmt = select(EbayOrder)
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+        stmt = stmt.order_by(EbayOrder.creation_date.desc()).offset(skip).limit(limit)
+        orders = list(db.execute(stmt).scalars().all())
 
         logger.debug(
             f"[EbayOrderRepository] list_orders: skip={skip}, limit={limit}, "
@@ -241,13 +241,13 @@ class EbayOrderRepository:
         Returns:
             List[EbayOrder]: Liste des commandes
         """
-        orders = (
-            db.query(EbayOrder)
-            .filter(EbayOrder.order_fulfillment_status == fulfillment_status)
+        stmt = (
+            select(EbayOrder)
+            .where(EbayOrder.order_fulfillment_status == fulfillment_status)
             .order_by(EbayOrder.creation_date.desc())
             .limit(limit)
-            .all()
         )
+        orders = list(db.execute(stmt).scalars().all())
 
         logger.debug(
             f"[EbayOrderRepository] list_by_status: status={fulfillment_status}, "
@@ -272,9 +272,9 @@ class EbayOrderRepository:
         Returns:
             List[EbayOrder]: Liste des commandes
         """
-        orders = (
-            db.query(EbayOrder)
-            .filter(
+        stmt = (
+            select(EbayOrder)
+            .where(
                 and_(
                     EbayOrder.creation_date >= start_date,
                     EbayOrder.creation_date <= end_date,
@@ -282,8 +282,8 @@ class EbayOrderRepository:
             )
             .order_by(EbayOrder.creation_date.desc())
             .limit(limit)
-            .all()
         )
+        orders = list(db.execute(stmt).scalars().all())
 
         logger.debug(
             f"[EbayOrderRepository] list_by_date_range: "
@@ -309,12 +309,11 @@ class EbayOrderRepository:
         Returns:
             int: Nombre de commandes
         """
-        count = (
-            db.query(func.count(EbayOrder.id))
-            .filter(EbayOrder.order_fulfillment_status == fulfillment_status)
-            .scalar()
-            or 0
+        stmt = (
+            select(func.count(EbayOrder.id))
+            .where(EbayOrder.order_fulfillment_status == fulfillment_status)
         )
+        count = db.execute(stmt).scalar_one() or 0
 
         logger.debug(
             f"[EbayOrderRepository] count_by_status: status={fulfillment_status}, "
@@ -335,11 +334,10 @@ class EbayOrderRepository:
         Returns:
             bool: True si existe, False sinon
         """
-        count = (
-            db.query(func.count(EbayOrder.id))
-            .filter(EbayOrder.order_id == ebay_order_id)
-            .scalar()
-            or 0
+        stmt = (
+            select(func.count(EbayOrder.id))
+            .where(EbayOrder.order_id == ebay_order_id)
         )
+        count = db.execute(stmt).scalar_one() or 0
 
         return count > 0

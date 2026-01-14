@@ -17,7 +17,7 @@ Author: Claude
 from datetime import timedelta
 from typing import List, Optional
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.orm import Session
 
 from models.user.vinted_error_log import VintedErrorLog
@@ -71,7 +71,8 @@ class VintedErrorLogRepository:
         Returns:
             VintedErrorLog si trouvé, None sinon
         """
-        return db.query(VintedErrorLog).filter(VintedErrorLog.id == error_log_id).first()
+        stmt = select(VintedErrorLog).where(VintedErrorLog.id == error_log_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_all_by_product_id(db: Session, product_id: int, limit: int = 50) -> List[VintedErrorLog]:
@@ -95,13 +96,13 @@ class VintedErrorLogRepository:
             publish: Brand not mapped
             publish: Image upload failed
         """
-        return (
-            db.query(VintedErrorLog)
-            .filter(VintedErrorLog.product_id == product_id)
+        stmt = (
+            select(VintedErrorLog)
+            .where(VintedErrorLog.product_id == product_id)
             .order_by(VintedErrorLog.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def get_latest_by_product_id(db: Session, product_id: int) -> Optional[VintedErrorLog]:
@@ -121,12 +122,12 @@ class VintedErrorLogRepository:
             ...     print(latest_error.error_message)
             'Brand not mapped'
         """
-        return (
-            db.query(VintedErrorLog)
-            .filter(VintedErrorLog.product_id == product_id)
+        stmt = (
+            select(VintedErrorLog)
+            .where(VintedErrorLog.product_id == product_id)
             .order_by(VintedErrorLog.created_at.desc())
-            .first()
         )
+        return db.execute(stmt).scalars().first()
 
     @staticmethod
     def get_all_by_error_type(
@@ -150,13 +151,13 @@ class VintedErrorLogRepository:
             >>> print(len(mapping_errors))
             15
         """
-        return (
-            db.query(VintedErrorLog)
-            .filter(VintedErrorLog.error_type == error_type)
+        stmt = (
+            select(VintedErrorLog)
+            .where(VintedErrorLog.error_type == error_type)
             .order_by(VintedErrorLog.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def get_all_by_operation(
@@ -180,13 +181,13 @@ class VintedErrorLogRepository:
             >>> print(len(publish_errors))
             42
         """
-        return (
-            db.query(VintedErrorLog)
-            .filter(VintedErrorLog.operation == operation)
+        stmt = (
+            select(VintedErrorLog)
+            .where(VintedErrorLog.operation == operation)
             .order_by(VintedErrorLog.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def get_recent_errors(db: Session, hours: int = 24, limit: int = 100) -> List[VintedErrorLog]:
@@ -207,13 +208,13 @@ class VintedErrorLogRepository:
             8
         """
         cutoff_time = utc_now() - timedelta(hours=hours)
-        return (
-            db.query(VintedErrorLog)
-            .filter(VintedErrorLog.created_at >= cutoff_time)
+        stmt = (
+            select(VintedErrorLog)
+            .where(VintedErrorLog.created_at >= cutoff_time)
             .order_by(VintedErrorLog.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def get_errors_by_product_and_operation(
@@ -239,17 +240,17 @@ class VintedErrorLogRepository:
             >>> print(len(errors))
             2
         """
-        return (
-            db.query(VintedErrorLog)
-            .filter(
+        stmt = (
+            select(VintedErrorLog)
+            .where(
                 and_(
                     VintedErrorLog.product_id == product_id,
                     VintedErrorLog.operation == operation
                 )
             )
             .order_by(VintedErrorLog.created_at.desc())
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def delete(db: Session, error_log_id: int) -> bool:
@@ -293,11 +294,9 @@ class VintedErrorLogRepository:
             >>> print(count)
             5
         """
-        deleted_count = (
-            db.query(VintedErrorLog)
-            .filter(VintedErrorLog.product_id == product_id)
-            .delete()
-        )
+        stmt = delete(VintedErrorLog).where(VintedErrorLog.product_id == product_id)
+        result = db.execute(stmt)
+        deleted_count = result.rowcount
         db.commit()
         return deleted_count
 
@@ -319,11 +318,9 @@ class VintedErrorLogRepository:
             142 erreurs supprimées
         """
         cutoff_time = utc_now() - timedelta(days=days)
-        deleted_count = (
-            db.query(VintedErrorLog)
-            .filter(VintedErrorLog.created_at < cutoff_time)
-            .delete()
-        )
+        stmt = delete(VintedErrorLog).where(VintedErrorLog.created_at < cutoff_time)
+        result = db.execute(stmt)
+        deleted_count = result.rowcount
         db.commit()
         return deleted_count
 
@@ -348,14 +345,14 @@ class VintedErrorLogRepository:
                 'validation_error': 23
             }
         """
-        results = (
-            db.query(
+        stmt = (
+            select(
                 VintedErrorLog.error_type,
                 func.count(VintedErrorLog.id).label('count')
             )
             .group_by(VintedErrorLog.error_type)
-            .all()
         )
+        results = db.execute(stmt).all()
 
         return {result.error_type: result.count for result in results}
 
@@ -379,14 +376,14 @@ class VintedErrorLogRepository:
                 'delete': 5
             }
         """
-        results = (
-            db.query(
+        stmt = (
+            select(
                 VintedErrorLog.operation,
                 func.count(VintedErrorLog.id).label('count')
             )
             .group_by(VintedErrorLog.operation)
-            .all()
         )
+        results = db.execute(stmt).all()
 
         return {result.operation: result.count for result in results}
 
@@ -412,23 +409,24 @@ class VintedErrorLogRepository:
                 'last_7d': 25
             }
         """
-        total = db.query(func.count(VintedErrorLog.id)).scalar()
+        stmt_total = select(func.count(VintedErrorLog.id))
+        total = db.execute(stmt_total).scalar_one()
 
         # Erreurs dernières 24h
         cutoff_24h = utc_now() - timedelta(hours=24)
-        last_24h = (
-            db.query(func.count(VintedErrorLog.id))
-            .filter(VintedErrorLog.created_at >= cutoff_24h)
-            .scalar()
+        stmt_24h = (
+            select(func.count(VintedErrorLog.id))
+            .where(VintedErrorLog.created_at >= cutoff_24h)
         )
+        last_24h = db.execute(stmt_24h).scalar_one()
 
         # Erreurs derniers 7 jours
         cutoff_7d = utc_now() - timedelta(days=7)
-        last_7d = (
-            db.query(func.count(VintedErrorLog.id))
-            .filter(VintedErrorLog.created_at >= cutoff_7d)
-            .scalar()
+        stmt_7d = (
+            select(func.count(VintedErrorLog.id))
+            .where(VintedErrorLog.created_at >= cutoff_7d)
         )
+        last_7d = db.execute(stmt_7d).scalar_one()
 
         return {
             'total_errors': total or 0,

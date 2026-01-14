@@ -428,19 +428,23 @@ class Product(Base):
 
     # Marketplace relations
     # VintedProduct (1:1 relationship via product_id FK in vinted_products)
+    # lazy="select" to avoid unnecessary JOINs on product lists
+    # Use selectinload() when you need the relation
     vinted_product: Mapped["VintedProduct | None"] = relationship(
         "VintedProduct",
         back_populates="product",
         uselist=False,
-        lazy="joined"
+        lazy="select"
     )
 
     # EbayProduct (1:1 relationship via product_id FK in ebay_products)
+    # lazy="select" to avoid unnecessary JOINs on product lists
+    # Use selectinload() when you need the relation
     ebay_product: Mapped["EbayProduct | None"] = relationship(
         "EbayProduct",
         back_populates="product",
         uselist=False,
-        lazy="joined"
+        lazy="select"
     )
 
     publication_history: Mapped[list["PublicationHistory"]] = relationship(
