@@ -22,7 +22,7 @@ None (eBay API patterns, internal architecture established)
 - [x] **Phase 6: Cancellations Backend** - Client, model, repository, service
 - [x] **Phase 7: Cancellations API & Frontend** - Endpoints, sync, pages, actions
 - [x] **Phase 8: Refunds** - Extend FulfillmentClient, model, service, endpoints, UI
-- [ ] **Phase 9: Payment Disputes Backend** - Client, model, repository, service
+- [x] **Phase 9: Payment Disputes Backend** - Client, model, repository, service, API endpoints
 - [ ] **Phase 10: Payment Disputes Frontend** - Pages, evidence upload, contest actions
 - [ ] **Phase 11: INR Inquiries** - Client, model, service, endpoints, UI complète
 - [ ] **Phase 12: Dashboard & Alerts** - Dashboard unifié, AlertService, notifications urgentes
@@ -122,7 +122,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Cancellations Backend | 1/1 | Complete | 2026-01-14 |
 | 7. Cancellations API & Frontend | 1/1 | Complete | 2026-01-14 |
 | 8. Refunds | 1/1 | Complete | 2026-01-14 |
-| 9. Payment Disputes Backend | 0/TBD | Not started | - |
+| 9. Payment Disputes Backend | 1/1 | Complete | 2026-01-14 |
 | 10. Payment Disputes Frontend | 0/TBD | Not started | - |
 | 11. INR Inquiries | 0/TBD | Not started | - |
 | 12. Dashboard & Alerts | 0/TBD | Not started | - |
