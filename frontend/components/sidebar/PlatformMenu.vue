@@ -53,6 +53,59 @@
           <i class="pi pi-cog text-sm"/>
           <span>Paramètres</span>
         </NuxtLink>
+
+        <!-- eBay-specific: Post-Sale Management -->
+        <template v-if="platform === 'ebay'">
+          <div class="my-2 border-t border-gray-100" />
+          <NuxtLink
+            to="/dashboard/platforms/ebay/post-sale"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-th-large text-sm"/>
+            <span>Post-Vente</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/dashboard/platforms/ebay/returns"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-replay text-sm"/>
+            <span>Retours</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/dashboard/platforms/ebay/cancellations"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-times-circle text-sm"/>
+            <span>Annulations</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/dashboard/platforms/ebay/refunds"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-euro text-sm"/>
+            <span>Remboursements</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/dashboard/platforms/ebay/payment-disputes"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-exclamation-triangle text-sm"/>
+            <span>Litiges</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/dashboard/platforms/ebay/inquiries"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-inbox text-sm"/>
+            <span>INR</span>
+          </NuxtLink>
+        </template>
       </div>
     </Transition>
   </div>
