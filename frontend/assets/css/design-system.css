@@ -251,25 +251,44 @@
 
 /* ============================================
    7. TYPOGRAPHIE
+   StoFlow Font System:
+   - font-display: Plus Jakarta Sans (headings)
+   - font-body/font-sans: IBM Plex Sans (body text)
+   - font-mono: JetBrains Mono (SKUs, codes)
    ============================================ */
 
-/* Titres de page */
+/* Base typography - Apply body font globally */
+body {
+  @apply font-body;
+}
+
+/* Titres de page - Display font */
 .page-title {
-  @apply text-3xl font-bold text-secondary-900;
+  @apply font-display text-3xl font-bold text-secondary-900 tracking-tight;
 }
 
 .page-subtitle {
-  @apply text-gray-600 mt-1;
+  @apply font-body text-gray-600 mt-1;
 }
 
-/* Titres de section */
+/* Titres de section - Display font */
 .section-title {
-  @apply text-xl font-semibold text-secondary-900;
+  @apply font-display text-xl font-semibold text-secondary-900 tracking-tight;
 }
 
-/* Titres de card */
+/* Titres de card - Display font */
 .card-title {
-  @apply text-lg font-semibold text-secondary-900;
+  @apply font-display text-lg font-semibold text-secondary-900;
+}
+
+/* Headings génériques */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-display tracking-tight;
+}
+
+/* Mono pour les codes/références */
+.text-code, .sku, .reference {
+  @apply font-mono text-sm;
 }
 
 /* Texte secondaire */

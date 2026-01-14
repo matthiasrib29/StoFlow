@@ -68,11 +68,29 @@ export default defineNuxtConfig({
     '@vueuse/nuxt',
     '@nuxt/eslint',
     '@nuxtjs/sitemap',
-    '@nuxt/image'
+    '@nuxt/image',
+    '@nuxtjs/google-fonts'
   ],
+
+  // Google Fonts configuration
+  googleFonts: {
+    families: {
+      // Headings - Modern geometric sans-serif (similar to Satoshi)
+      'Plus+Jakarta+Sans': [400, 500, 600, 700, 800],
+      // Body - Excellent readability for data-heavy dashboards
+      'IBM+Plex+Sans': [400, 500, 600, 700],
+      // Mono - For SKUs, references, code
+      'JetBrains+Mono': [400, 500, 600]
+    },
+    display: 'swap', // Prevent FOIT (Flash of Invisible Text)
+    preload: true,
+    prefetch: true,
+    preconnect: true
+  },
 
   css: [
     'primeicons/primeicons.css',
+    '~/assets/css/design-tokens.css',
     '~/assets/css/design-system.css',
     '~/assets/css/modern-dashboard.css',
     '~/assets/css/form-tokens.css',
@@ -154,9 +172,9 @@ export default defineNuxtConfig({
           ? [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline'",
-              "style-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https:",
-              "font-src 'self' data:",
+              "font-src 'self' data: https://fonts.gstatic.com",
               "connect-src 'self' https://api.stoflow.io https://*.stoflow.io http://api.stoflow.io http://localhost:8000",
               "frame-ancestors 'none'",
               "base-uri 'self'",
