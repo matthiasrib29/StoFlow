@@ -1,0 +1,270 @@
+/* ============================================
+   STOFLOW DESIGN TOKENS
+   Centralized CSS variables for the design system
+   ============================================ */
+
+:root {
+  /* ============================================
+     COLORS - Primary (Yellow/Gold)
+     ============================================ */
+  --color-primary-50: #fefce8;
+  --color-primary-100: #fef9c3;
+  --color-primary-200: #fef08a;
+  --color-primary-300: #fde047;
+  --color-primary-400: #facc15;  /* Main */
+  --color-primary-500: #eab308;
+  --color-primary-600: #ca8a04;
+  --color-primary-700: #a16207;
+  --color-primary-800: #854d0e;
+  --color-primary-900: #713f12;
+
+  /* ============================================
+     COLORS - Secondary (Black)
+     ============================================ */
+  --color-secondary-50: #f8f8f8;
+  --color-secondary-100: #f0f0f0;
+  --color-secondary-200: #e4e4e4;
+  --color-secondary-300: #d1d1d1;
+  --color-secondary-400: #b4b4b4;
+  --color-secondary-500: #9a9a9a;
+  --color-secondary-600: #818181;
+  --color-secondary-700: #6a6a6a;
+  --color-secondary-800: #5a5a5a;
+  --color-secondary-900: #1a1a1a;  /* Main */
+  --color-secondary-950: #0a0a0a;
+
+  /* ============================================
+     COLORS - Semantic
+     ============================================ */
+  /* Success (Green) */
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-200: #a7f3d0;
+  --color-success-300: #6ee7b7;
+  --color-success-400: #34d399;
+  --color-success-500: #10b981;  /* Main */
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+  --color-success-800: #065f46;
+  --color-success-900: #064e3b;
+
+  /* Warning (Orange) */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;  /* Main */
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+  --color-warning-900: #78350f;
+
+  /* Error (Red) */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;  /* Main */
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  --color-error-800: #991b1b;
+  --color-error-900: #7f1d1d;
+
+  /* Info (Blue) */
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-200: #bfdbfe;
+  --color-info-300: #93c5fd;
+  --color-info-400: #60a5fa;
+  --color-info-500: #3b82f6;  /* Main */
+  --color-info-600: #2563eb;
+  --color-info-700: #1d4ed8;
+  --color-info-800: #1e40af;
+  --color-info-900: #1e3a8a;
+
+  /* ============================================
+     COLORS - Platforms
+     ============================================ */
+  --color-platform-vinted: #06b6d4;
+  --color-platform-ebay: #3b82f6;
+  --color-platform-etsy: #f97316;
+  --color-platform-facebook: #1877f2;
+
+  /* ============================================
+     COLORS - UI
+     ============================================ */
+  --color-ui-bg: #f9fafb;
+  --color-ui-bg-subtle: #fafafa;
+  --color-ui-border: #f0f0f0;
+  --color-ui-border-strong: #e4e4e4;
+  --color-ui-text-muted: #6a6a6a;
+  --color-ui-text-primary: #1a1a1a;
+  --color-ui-white: #ffffff;
+  --color-ui-black: #000000;
+
+  /* ============================================
+     COLORS - Status (semantic mapping)
+     ============================================ */
+  --color-status-connected: var(--color-success-500);
+  --color-status-connected-bg: var(--color-success-100);
+  --color-status-disconnected: var(--color-secondary-600);
+  --color-status-disconnected-bg: var(--color-secondary-200);
+  --color-status-published: var(--color-success-500);
+  --color-status-published-bg: var(--color-success-100);
+  --color-status-draft: var(--color-secondary-500);
+  --color-status-draft-bg: var(--color-secondary-100);
+  --color-status-sold: var(--color-info-500);
+  --color-status-sold-bg: var(--color-info-100);
+  --color-status-inactive: var(--color-warning-500);
+  --color-status-inactive-bg: var(--color-warning-100);
+
+  /* ============================================
+     TYPOGRAPHY - Font Families
+     ============================================ */
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* ============================================
+     TYPOGRAPHY - Font Sizes
+     ============================================ */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+
+  /* ============================================
+     TYPOGRAPHY - Font Weights
+     ============================================ */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  /* ============================================
+     TYPOGRAPHY - Line Heights
+     ============================================ */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  /* ============================================
+     TYPOGRAPHY - Letter Spacing
+     ============================================ */
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  /* ============================================
+     SPACING
+     ============================================ */
+  --space-0: 0;
+  --space-1: 0.25rem;    /* 4px */
+  --space-2: 0.5rem;     /* 8px */
+  --space-3: 0.75rem;    /* 12px */
+  --space-4: 1rem;       /* 16px */
+  --space-5: 1.25rem;    /* 20px */
+  --space-6: 1.5rem;     /* 24px */
+  --space-8: 2rem;       /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+  --space-20: 5rem;      /* 80px */
+
+  /* ============================================
+     BORDER RADIUS
+     ============================================ */
+  --radius-none: 0;
+  --radius-sm: 0.25rem;    /* 4px */
+  --radius-md: 0.375rem;   /* 6px */
+  --radius-lg: 0.5rem;     /* 8px */
+  --radius-xl: 0.75rem;    /* 12px */
+  --radius-2xl: 1rem;      /* 16px */
+  --radius-3xl: 1.25rem;   /* 20px */
+  --radius-full: 9999px;
+
+  /* StoFlow specific radius */
+  --radius-button: 0.75rem;   /* 12px - buttons */
+  --radius-input: 0.75rem;    /* 12px - form inputs */
+  --radius-card: 1rem;        /* 16px - cards */
+  --radius-dialog: 1.25rem;   /* 20px - dialogs/modals */
+  --radius-badge: 0.5rem;     /* 8px - badges */
+
+  /* ============================================
+     SHADOWS
+     ============================================ */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  /* StoFlow specific shadows */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-button-hover: 0 4px 8px rgba(0, 0, 0, 0.12);
+  --shadow-dialog: 0 20px 60px rgba(0, 0, 0, 0.15);
+  --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-dropdown: 0 4px 20px rgba(0, 0, 0, 0.1);
+
+  /* Focus ring shadows */
+  --shadow-focus-primary: 0 0 0 3px rgba(250, 204, 21, 0.3);
+  --shadow-focus-error: 0 0 0 3px rgba(239, 68, 68, 0.3);
+  --shadow-focus-success: 0 0 0 3px rgba(16, 185, 129, 0.3);
+
+  /* ============================================
+     BORDERS
+     ============================================ */
+  --border-width-default: 1px;
+  --border-width-thick: 2px;
+  --border-color-default: var(--color-ui-border);
+  --border-color-strong: var(--color-ui-border-strong);
+  --border-color-focus: var(--color-primary-400);
+
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+  --transition-bounce: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ============================================
+     Z-INDEX
+     ============================================ */
+  --z-dropdown: 50;
+  --z-sticky: 100;
+  --z-fixed: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-tooltip: 600;
+  --z-toast: 700;
+
+  /* ============================================
+     BREAKPOINTS (for reference in JS)
+     ============================================ */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  /* ============================================
+     GRADIENTS
+     ============================================ */
+  --gradient-primary: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+  --gradient-secondary: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  --gradient-vinted: linear-gradient(90deg, #06b6d4, #0891b2);
+  --gradient-ebay: linear-gradient(90deg, #3b82f6, #2563eb);
+  --gradient-etsy: linear-gradient(90deg, #f97316, #ea580c);
+  --gradient-facebook: linear-gradient(90deg, #1877f2, #0e5fd8);
+}

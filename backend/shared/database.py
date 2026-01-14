@@ -5,7 +5,7 @@ import os
 from contextlib import contextmanager
 from typing import Generator
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, text, MetaData
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from sqlalchemy.orm import Session, DeclarativeBase, sessionmaker
@@ -17,10 +17,21 @@ logger = get_logger(__name__)
 from shared.config import settings
 
 
+# Naming convention for constraints and indexes
+# This ensures predictable, consistent names across all migrations
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
+
+
 # Base class for all SQLAlchemy models
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy declarative models."""
-    pass
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
 # Alias for tenant models (models/user/*)

@@ -481,6 +481,97 @@ frontend/
 
 ---
 
+# 🎨 Frontend Aesthetics Guidelines (Anti "AI Slop")
+
+> **Objectif** : Éviter le design générique "AI slop" (Inter, dégradés violets, layouts prévisibles).
+> Cette section guide Claude pour créer des interfaces distinctives et mémorables.
+
+## Principes Fondamentaux
+
+Avant de coder une interface, choisir une **direction esthétique claire** :
+- **Purpose** : Quel problème cette interface résout ? Pour qui ?
+- **Tone** : Choisir un style marqué (minimal raffiné, maximalist, retro-futuriste, brutalist, etc.)
+- **Differentiation** : Qu'est-ce qui rend cette interface mémorable ?
+
+## Typography
+
+### 🎨 Fonts StoFlow (Configurées)
+
+| Usage | Font | Classe Tailwind |
+|-------|------|-----------------|
+| **Headings** | Plus Jakarta Sans | `font-display` |
+| **Body text** | IBM Plex Sans | `font-body` ou `font-sans` |
+| **Code/SKUs** | JetBrains Mono | `font-mono` |
+
+### Utilisation
+
+```html
+<!-- Headings (automatique sur h1-h6) -->
+<h1 class="font-display text-3xl font-bold">Dashboard</h1>
+
+<!-- Body text (par défaut) -->
+<p>Texte normal utilise IBM Plex Sans automatiquement</p>
+
+<!-- Code/SKU -->
+<span class="font-mono">SKU-2026-0142</span>
+```
+
+### ❌ Polices INTERDITES
+- Inter, Roboto, Open Sans, Lato, Arial, system fonts
+
+### Règles
+- **Headings** : Toujours utiliser `font-display` (Plus Jakarta Sans)
+- **Body** : Par défaut `font-body` (IBM Plex Sans)
+- **Code/Références** : Utiliser `font-mono` ou classe `.sku` / `.reference`
+- **Weights** : Utiliser 600-800 pour les titres, 400-500 pour le body
+
+## Color & Theme
+
+- **CSS variables** pour la cohérence
+- **Couleur dominante + accents vifs** (pas de palettes tièdes/équilibrées)
+- S'inspirer des **thèmes IDE** : Dracula, Nord, Catppuccin, Tokyo Night, Gruvbox
+- **ÉVITER** : dégradés violets sur fond blanc, palettes "safe"
+
+## Motion & Animations
+
+- **Un page load orchestré** > micro-interactions éparpillées
+- Utiliser `animation-delay` pour les reveals progressifs (stagger effect)
+- **CSS-first**, JavaScript si vraiment nécessaire
+- Focus sur les moments à fort impact (entrée de page, hover states surprenants)
+
+## Backgrounds & Effets
+
+- **Créer de l'atmosphère** : ne pas se contenter de couleurs solides
+- Techniques : gradients CSS en couches, patterns géométriques, textures noise
+- Effets contextuels qui matchent l'esthétique globale
+- Ombres dramatiques, overlays, grain
+
+## Spatial Composition
+
+- Layouts **inattendus** : asymétrie, overlap, flux diagonal
+- Éléments qui **brisent la grille** intentionnellement
+- Espacement généreux OU densité contrôlée (pas de between tiède)
+
+## ⚠️ À ÉVITER (Generic AI Aesthetics)
+
+| Pattern générique | Alternative distinctive |
+|-------------------|------------------------|
+| Inter/Roboto partout | Fonts caractéristiques par contexte |
+| Dégradé violet/bleu sur blanc | Palette cohérente inspirée d'un thème |
+| Cards identiques en grille | Layouts asymétriques, overlaps |
+| Hover = scale 1.05 | Hover states surprenants (color shift, reveal) |
+| Tous les éléments centrés | Mix d'alignements, tension visuelle |
+
+## Application pour StoFlow
+
+Pour StoFlow (e-commerce multi-plateforme), privilégier :
+- **Ton** : Professionnel mais moderne, pas corporate fade
+- **Palette** : Utiliser les couleurs de marque définies + accents vifs
+- **Différenciation par plateforme** : Vinted (teal), eBay (multi), Etsy (orange) avec identité propre
+- **Dashboard** : Dense en information mais hiérarchie claire, pas flat/boring
+
+---
+
 # 🚫 Règles Spécifiques Frontend
 
 ## ❌ Ne JAMAIS :
@@ -499,6 +590,6 @@ frontend/
 
 ---
 
-**Version :** 2.1
-**Dernière mise à jour :** 2026-01-06
+**Version :** 2.2
+**Dernière mise à jour :** 2026-01-13
 **Applicable à :** Frontend Vue/Nuxt uniquement

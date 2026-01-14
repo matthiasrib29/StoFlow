@@ -17,7 +17,7 @@ Author: Claude
 from datetime import date as date_type
 from typing import List, Optional
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from models.user.vinted_product import VintedProduct
@@ -74,7 +74,8 @@ class VintedProductRepository:
         Returns:
             VintedProduct si trouvé, None sinon
         """
-        return db.query(VintedProduct).filter(VintedProduct.vinted_id == vinted_product_id).first()
+        stmt = select(VintedProduct).where(VintedProduct.vinted_id == vinted_product_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_by_product_id(db: Session, product_id: int) -> Optional[VintedProduct]:
@@ -94,7 +95,8 @@ class VintedProductRepository:
             ...     print(vinted_prod.status)
             'published'
         """
-        return db.query(VintedProduct).filter(VintedProduct.product_id == product_id).first()
+        stmt = select(VintedProduct).where(VintedProduct.product_id == product_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_by_vinted_id(db: Session, vinted_id: int) -> Optional[VintedProduct]:
@@ -114,7 +116,8 @@ class VintedProductRepository:
             ...     print(vinted_prod.product_id)
             123
         """
-        return db.query(VintedProduct).filter(VintedProduct.vinted_id == vinted_id).first()
+        stmt = select(VintedProduct).where(VintedProduct.vinted_id == vinted_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_all_by_status(db: Session, status: str, limit: int = 100) -> List[VintedProduct]:
@@ -134,13 +137,13 @@ class VintedProductRepository:
             >>> print(len(pending))
             15
         """
-        return (
-            db.query(VintedProduct)
-            .filter(VintedProduct.status == status)
+        stmt = (
+            select(VintedProduct)
+            .where(VintedProduct.status == status)
             .order_by(VintedProduct.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def get_all_pending(db: Session, limit: int = 100) -> List[VintedProduct]:
@@ -211,9 +214,9 @@ class VintedProductRepository:
             >>> print(len(products))
             42
         """
-        return (
-            db.query(VintedProduct)
-            .filter(
+        stmt = (
+            select(VintedProduct)
+            .where(
                 and_(
                     VintedProduct.status == 'published',
                     VintedProduct.date >= start_date,
@@ -221,8 +224,8 @@ class VintedProductRepository:
                 )
             )
             .order_by(VintedProduct.date.desc())
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def update(db: Session, vinted_product: VintedProduct) -> VintedProduct:
@@ -391,7 +394,8 @@ class VintedProductRepository:
             >>> print(count)
             127
         """
-        return db.query(func.count(VintedProduct.vinted_id)).filter(VintedProduct.status == status).scalar()
+        stmt = select(func.count(VintedProduct.vinted_id)).where(VintedProduct.status == status)
+        return db.execute(stmt).scalar_one() or 0
 
     @staticmethod
     def get_analytics_summary(db: Session) -> dict:
@@ -415,17 +419,17 @@ class VintedProductRepository:
                 'published_count': 127
             }
         """
-        result = (
-            db.query(
+        stmt = (
+            select(
                 func.sum(VintedProduct.view_count).label('total_views'),
                 func.sum(VintedProduct.favourite_count).label('total_favourites'),
                 func.sum(VintedProduct.conversations).label('total_conversations'),
                 func.avg(VintedProduct.view_count).label('avg_views'),
                 func.count(VintedProduct.vinted_id).label('published_count')
             )
-            .filter(VintedProduct.status == 'published')
-            .first()
+            .where(VintedProduct.status == 'published')
         )
+        result = db.execute(stmt).first()
 
         return {
             'total_views': result.total_views or 0,

@@ -348,7 +348,15 @@
       "WebFetch(domain:docs.sentry.io)",
       "WebFetch(domain:nuxt.com)",
       "Bash(~/StoFlow/.claude/worktree-init.sh ~/StoFlow-fix-bdd)",
-      "WebFetch(domain:blog.logrocket.com)"
+      "WebFetch(domain:blog.logrocket.com)",
+      "WebFetch(domain:claude.com)",
+      "Bash(~/StoFlow/.claude/worktree-init.sh ~/StoFlow-improve-ebay-capability)",
+      "WebFetch(domain:kasata.medium.com)",
+      "Skill(gsd:create-roadmap)",
+      "Bash(~/StoFlow/.claude/worktree-init.sh ~/StoFlow-improve-ui)",
+      "Bash(for dir in returns cancellations refunds payment-disputes inquiries)",
+      "Bash(file=\"/home/maribeiro/StoFlow-improve-ebay-capability/frontend/pages/dashboard/platforms/ebay/$dir/index.vue\")",
+      "Bash(if [ -f \"$file\" ])"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -1,12 +1,12 @@
-# Roadmap: Improve eBay Capability - Order Management
+# Roadmap: StoFlow UI Improvement
 
 ## Overview
 
-Implémentation complète de la gestion post-vente eBay dans StoFlow. Progression : Foundation → Returns (backend → frontend) → Cancellations → Refunds → Payment Disputes → INR Inquiries → Dashboard unifié. Chaque domaine suit le pattern : Client API → Model/Repository → Service → Endpoints REST → Frontend.
+Amélioration de l'interface utilisateur StoFlow pour éliminer l'aspect générique et créer une identité visuelle professionnelle et cohérente. Basé sur l'audit UI réalisé le 2026-01-14 (score 6.5/10 → objectif >8/10).
 
 ## Domain Expertise
 
-None (eBay API patterns, internal architecture established)
+None (internal CSS/Vue patterns, no external integrations)
 
 ## Phases
 
@@ -14,119 +14,121 @@ None (eBay API patterns, internal architecture established)
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [x] **Phase 1: Foundation** - Post-Order API base client, shared utilities, OAuth scope verification
-- [x] **Phase 2: Returns Backend Core** - EbayReturnClient, EbayReturn model, repository
-- [x] **Phase 3: Returns Backend Service** - EbayReturnService, sync service, business logic
-- [x] **Phase 4: Returns API** - REST endpoints pour retours
-- [x] **Phase 5: Returns Frontend** - Pages liste/détail, composants, actions
-- [x] **Phase 6: Cancellations Backend** - Client, model, repository, service
-- [x] **Phase 7: Cancellations API & Frontend** - Endpoints, sync, pages, actions
-- [x] **Phase 8: Refunds** - Extend FulfillmentClient, model, service, endpoints, UI
-- [x] **Phase 9: Payment Disputes Backend** - Client, model, repository, service, API endpoints
-- [x] **Phase 10: Payment Disputes Frontend** - Pages, evidence upload, contest actions
-- [x] **Phase 11: INR Inquiries** - Client, model, service, endpoints, UI complète
-- [x] **Phase 12: Dashboard & Alerts** - Dashboard unifié, AlertService, notifications urgentes
+- [ ] **Phase 1: Quick Wins** - Corrections immédiates à fort impact (30 min)
+- [ ] **Phase 2: Typography System** - Uniformisation des fonts et poids (1-2h)
+- [ ] **Phase 3: Color System** - Couleurs sémantiques pour statuts (1-2h)
+- [ ] **Phase 4: Component Audit** - Standardisation des composants (2-3h)
+- [ ] **Phase 5: Spacing System** - Espacement uniforme (1-2h)
+- [ ] **Phase 6: Visual Polish** - Empty states et page 404 (2-3h)
 
 ## Phase Details
 
-### Phase 1: Foundation
-**Goal**: Établir les bases pour Post-Order API - base client, utilities partagées, vérification OAuth scopes
+### Phase 1: Quick Wins
+**Goal**: Corrections immédiates qui améliorent significativement l'UX avec peu d'effort
 **Depends on**: Nothing (first phase)
-**Research**: Likely (Post-Order API authentication, deprecated endpoints)
-**Research topics**: Post-Order API auth requirements, scopes needed, deprecated methods to avoid
-**Plans**: TBD
+**Research**: Unlikely (simple CSS fixes)
+**Plans**: 1 plan
 
-### Phase 2: Returns Backend Core
-**Goal**: Créer le client API retours, le modèle EbayReturn et le repository
+**Issues addressed**:
+- TYP-02: Augmenter le contraste du texte "Bienvenue"
+- COL-02: Changer le bouton "Annuler" en style outline/gris
+- COL-03: Améliorer le contraste du badge "Déconnecté"
+- CMP-01: Unifier le style des badges (tous en pill)
+
+Plans:
+- [ ] 01-01: Quick wins CSS et composants
+
+### Phase 2: Typography System
+**Goal**: Garantir que les fonts configurées sont appliquées uniformément
 **Depends on**: Phase 1
-**Research**: Likely (Post-Order API returns endpoints)
-**Research topics**: GET /return/search, GET /return/{id}, response schemas, status values
-**Plans**: TBD
+**Research**: Unlikely (CSS font-family verification)
+**Plans**: 1 plan
 
-### Phase 3: Returns Backend Service
-**Goal**: Implémenter EbayReturnService avec logique métier et sync
-**Depends on**: Phase 2
-**Research**: Unlikely (internal service patterns)
-**Plans**: TBD
+**Issues addressed**:
+- TYP-01: Vérifier l'application des fonts
+- TYP-03: Standardiser les font-weights des headers de table
+- TYP-04: Uniformiser les poids de font de la sidebar
 
-### Phase 4: Returns API
-**Goal**: Exposer les endpoints REST pour gestion des retours
-**Depends on**: Phase 3
-**Research**: Unlikely (FastAPI patterns existants)
-**Plans**: TBD
+Plans:
+- [ ] 02-01: Typography system enforcement
 
-### Phase 5: Returns Frontend
-**Goal**: Créer les pages et composants frontend pour gestion des retours
+### Phase 3: Color System
+**Goal**: Créer un système de couleurs sémantiques cohérent pour tous les statuts
+**Depends on**: Phase 1
+**Research**: Unlikely (CSS variables)
+**Plans**: 1 plan
+
+**Issues addressed**:
+- COL-01: Couleurs incohérentes pour états similaires
+- COL-04: Unifier les icônes des stat-cards
+- COL-05: Standardiser la couleur des liens
+
+Plans:
+- [ ] 03-01: Semantic color system
+
+### Phase 4: Component Audit
+**Goal**: Standardiser tous les composants UI (badges, buttons, inputs)
+**Depends on**: Phase 2, Phase 3
+**Research**: Unlikely (Vue component patterns)
+**Plans**: 2 plans
+
+**Issues addressed**:
+- CMP-02: Variants de boutons standardisés
+- CMP-03: Unifier le border-radius
+- CMP-04: Standardiser la hauteur des inputs
+- CMP-05: Standardiser la taille des icônes sidebar
+
+Plans:
+- [ ] 04-01: Badge component unification
+- [ ] 04-02: Button and input standardization
+
+### Phase 5: Spacing System
+**Goal**: Uniformiser l'espacement entre tous les composants
 **Depends on**: Phase 4
-**Research**: Unlikely (Vue/Nuxt patterns existants)
-**Plans**: TBD
+**Research**: Unlikely (CSS spacing)
+**Plans**: 1 plan
 
-### Phase 6: Cancellations Backend
-**Goal**: Implémenter client, model, repository et service pour annulations
-**Depends on**: Phase 1
-**Research**: Likely (Post-Order API cancellation endpoints)
-**Research topics**: Cancellation API methods, approval/rejection flow, seller-initiated cancellation
-**Plans**: TBD
+**Issues addressed**:
+- SPC-01: Grid des platform cards
+- SPC-02: Padding des cellules de table
+- SPC-03: Gap label/input
+- SPC-04: Indentation des sous-menus sidebar
 
-### Phase 7: Cancellations API & Frontend
-**Goal**: Endpoints REST et interface frontend pour annulations
-**Depends on**: Phase 6
-**Research**: Unlikely (patterns établis phases précédentes)
-**Plans**: TBD
+Plans:
+- [ ] 05-01: Spacing system enforcement
 
-### Phase 8: Refunds
-**Goal**: Étendre FulfillmentClient avec issueRefund, tracking des remboursements
-**Depends on**: Phase 5, Phase 7 (retours et annulations génèrent des refunds)
-**Research**: Likely (Fulfillment API issueRefund, Digital Signatures EU/UK)
-**Research topics**: issueRefund endpoint, refund status tracking, Digital Signature requirements
-**Plans**: TBD
+### Phase 6: Visual Polish
+**Goal**: Améliorer les états visuels pour une expérience premium
+**Depends on**: Phase 5
+**Research**: Unlikely (Vue components)
+**Plans**: 2 plans
 
-### Phase 9: Payment Disputes Backend
-**Goal**: Client, model, repository et service pour litiges de paiement
-**Depends on**: Phase 1
-**Research**: Likely (Fulfillment API payment dispute methods)
-**Research topics**: getPaymentDispute, contestPaymentDispute, evidence upload flow
-**Plans**: TBD
+**Issues addressed**:
+- VIS-01: Empty states avec illustrations
+- VIS-02: Page 404 avec branding
+- VIS-03: Skeleton loading
+- VIS-04: Hover effects
 
-### Phase 10: Payment Disputes Frontend
-**Goal**: Interface frontend avec upload de preuves et actions contest/accept
-**Depends on**: Phase 9
-**Research**: Unlikely (patterns établis)
-**Plans**: TBD
-
-### Phase 11: INR Inquiries
-**Goal**: Gestion complète des réclamations "Article non reçu"
-**Depends on**: Phase 1
-**Research**: Likely (Post-Order API inquiry methods)
-**Research topics**: Inquiry search, respond with tracking, escalation to case
-**Plans**: TBD
-
-### Phase 12: Dashboard & Alerts
-**Goal**: Dashboard eBay unifié avec compteurs, AlertService pour actions urgentes
-**Depends on**: Phases 5, 7, 10, 11 (tous les domaines)
-**Research**: Unlikely (aggregation interne)
-**Plans**: TBD
+Plans:
+- [ ] 06-01: Empty states and 404 page
+- [ ] 06-02: Loading states and hover effects
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+(Phases 2 and 3 can run in parallel)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 1/1 | Complete | 2026-01-13 |
-| 2. Returns Backend Core | 1/1 | Complete | 2026-01-13 |
-| 3. Returns Backend Service | 1/1 | Complete | 2026-01-13 |
-| 4. Returns API | 1/1 | Complete | 2026-01-13 |
-| 5. Returns Frontend | 1/1 | Complete | 2026-01-13 |
-| 6. Cancellations Backend | 1/1 | Complete | 2026-01-14 |
-| 7. Cancellations API & Frontend | 1/1 | Complete | 2026-01-14 |
-| 8. Refunds | 1/1 | Complete | 2026-01-14 |
-| 9. Payment Disputes Backend | 1/1 | Complete | 2026-01-14 |
-| 10. Payment Disputes Frontend | 1/1 | Complete | 2026-01-14 |
-| 11. INR Inquiries | 1/1 | Complete | 2026-01-14 |
-| 12. Dashboard & Alerts | 1/1 | Complete | 2026-01-14 |
+| 1. Quick Wins | 0/1 | Pending | — |
+| 2. Typography System | 0/1 | Pending | — |
+| 3. Color System | 0/1 | Pending | — |
+| 4. Component Audit | 0/2 | Pending | — |
+| 5. Spacing System | 0/1 | Pending | — |
+| 6. Visual Polish | 0/2 | Pending | — |
 
 ---
 
-*Roadmap created: 2026-01-13*
+*Roadmap created: 2026-01-14*
+*Based on: UI-AUDIT-REPORT.md*

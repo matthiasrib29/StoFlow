@@ -409,6 +409,20 @@ class ConcurrentModificationError(ServiceError):
     pass
 
 
+class ConflictError(ServiceError):
+    """
+    Conflict error when a resource is locked by another worker.
+
+    Used with SELECT FOR UPDATE to prevent concurrent modifications.
+    Different from ConcurrentModificationError which is for optimistic locking.
+
+    Client should:
+    1. Retry after a short delay
+    2. Or give up and report to user
+    """
+    pass
+
+
 class OutOfStockError(ServiceError):
     """
     Erreur de stock insuffisant pour l'opération demandée.
