@@ -9,11 +9,9 @@ import type { EbayCancellation, EbayCancellationStatistics } from '~/types/ebay'
 
 definePageMeta({
   layout: 'dashboard',
-  middleware: ['auth']
 })
 
-const { t } = useI18n()
-const toast = useToast()
+const toast = useAppToast()
 const router = useRouter()
 
 const {

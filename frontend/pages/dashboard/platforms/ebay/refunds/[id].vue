@@ -9,12 +9,11 @@ import type { EbayRefund } from '~/types/ebay'
 
 definePageMeta({
   layout: 'dashboard',
-  middleware: ['auth']
 })
 
 const route = useRoute()
 const router = useRouter()
-const toast = useToast()
+const toast = useAppToast()
 
 const {
   fetchRefund,

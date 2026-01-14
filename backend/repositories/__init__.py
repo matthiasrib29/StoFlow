@@ -31,6 +31,7 @@ from .vinted_job_repository import VintedJobRepository
 from .vinted_mapping_repository import VintedMappingRepository
 from .vinted_product_repository import VintedProductRepository
 from .vinted_error_log_repository import VintedErrorLogRepository
+from .ebay_inquiry_repository import EbayInquiryRepository
 
 __all__ = [
     # 'CategoryMappingRepository',  # DEPRECATED
@@ -42,4 +43,5 @@ __all__ = [
     'VintedMappingRepository',
     'VintedProductRepository',
     'VintedErrorLogRepository',
+    'EbayInquiryRepository',
 ]
