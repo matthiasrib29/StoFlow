@@ -43,6 +43,7 @@
             <Badge
               :value="integration.is_connected ? 'Connecté' : 'Déconnecté'"
               :severity="integration.is_connected ? 'success' : 'secondary'"
+              :class="!integration.is_connected ? 'badge-status-disconnected' : ''"
             />
           </div>
         </div>

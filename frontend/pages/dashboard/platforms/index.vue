@@ -19,8 +19,8 @@
 
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
-          <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-            <i class="pi pi-send text-secondary-700 text-xl"/>
+          <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+            <i class="pi pi-send text-gray-600 text-xl"/>
           </div>
         </div>
         <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ totalPublications }}</h3>
@@ -29,8 +29,8 @@
 
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
-          <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-            <i class="pi pi-eye text-primary-500 text-xl"/>
+          <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+            <i class="pi pi-eye text-gray-600 text-xl"/>
           </div>
         </div>
         <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ totalViews }}</h3>
@@ -39,8 +39,8 @@
 
       <div class="stat-card bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
-          <div class="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-            <i class="pi pi-check-circle text-secondary-700 text-xl"/>
+          <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+            <i class="pi pi-check-circle text-gray-600 text-xl"/>
           </div>
         </div>
         <h3 class="text-3xl font-bold text-secondary-900 mb-1">{{ totalSales }}</h3>
@@ -49,7 +49,7 @@
     </div>
 
     <!-- Cards des plateformes -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid-cards grid-cols-1 md:grid-cols-2">
       <Card
         v-for="platform in enrichedPlatforms"
         :key="platform.id"
@@ -67,7 +67,7 @@
                 <Badge
                   :value="platform.is_connected ? 'Connecté' : 'Déconnecté'"
                   :severity="platform.is_connected ? 'success' : 'secondary'"
-                  class="text-xs"
+                  :class="['text-xs', !platform.is_connected ? 'badge-status-disconnected' : '']"
                 />
               </div>
             </div>

@@ -148,7 +148,7 @@
                     </a>
                     <i
                       v-if="data.description"
-                      class="pi pi-file-edit text-green-500"
+                      class="pi pi-file-edit text-primary-500"
                       v-tooltip.top="'Description récupérée'"
                     />
                     <i
@@ -167,7 +167,7 @@
             <!-- Price -->
             <Column field="price" header="Prix" sortable style="width: 100px">
               <template #body="{ data }">
-                <span class="font-semibold text-green-600">
+                <span class="font-semibold text-secondary-900">
                   {{ data.price ? `${data.price.toFixed(2)} €` : '-' }}
                 </span>
               </template>
@@ -224,7 +224,7 @@
                   <Tag severity="success" value="Lié" />
                   <Button
                     icon="pi pi-eye"
-                    class="p-button-text p-button-sm p-button-success"
+                    class="p-button-text p-button-sm"
                     v-tooltip.top="'Voir le produit'"
                     @click="goToProduct(data.product_id)"
                   />

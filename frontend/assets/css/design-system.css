@@ -139,9 +139,9 @@
    3. BADGES & TAGS
    ============================================ */
 
-/* Badge de base */
+/* Badge de base - Pill shape */
 .badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium;
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
 }
 
 /* Badge Statut - Success */
@@ -172,6 +172,31 @@
 /* Badge Primary */
 .badge-primary {
   @apply bg-primary-100 text-primary-700;
+}
+
+/* Badge Statut - Connected/Disconnected */
+.badge-status-connected {
+  @apply bg-success-100 text-success-700;
+}
+
+.badge-status-disconnected {
+  @apply bg-gray-200 text-gray-600;
+}
+
+.badge-status-published {
+  @apply bg-success-100 text-success-700;
+}
+
+.badge-status-draft {
+  @apply bg-gray-100 text-gray-600;
+}
+
+.badge-status-sold {
+  @apply bg-info-100 text-info-700;
+}
+
+.badge-status-inactive {
+  @apply bg-warning-100 text-warning-700;
 }
 
 /* ============================================
@@ -246,7 +271,7 @@
 
 /* Groupe de formulaire */
 .form-group {
-  @apply space-y-1;
+  @apply space-y-2;
 }
 
 /* ============================================
@@ -268,7 +293,7 @@ body {
 }
 
 .page-subtitle {
-  @apply font-body text-gray-600 mt-1;
+  @apply font-body text-gray-700 mt-1;
 }
 
 /* Titres de section - Display font */
@@ -281,10 +306,13 @@ body {
   @apply font-display text-lg font-semibold text-secondary-900;
 }
 
-/* Headings génériques */
-h1, h2, h3, h4, h5, h6 {
-  @apply font-display tracking-tight;
-}
+/* Headings génériques - Enforce font-display with consistent weights */
+h1 { @apply font-display text-3xl font-bold tracking-tight; }
+h2 { @apply font-display text-2xl font-bold tracking-tight; }
+h3 { @apply font-display text-xl font-semibold tracking-tight; }
+h4 { @apply font-display text-lg font-semibold; }
+h5 { @apply font-display text-base font-semibold; }
+h6 { @apply font-display text-sm font-semibold; }
 
 /* Mono pour les codes/références */
 .text-code, .sku, .reference {
@@ -342,4 +370,247 @@ h1, h2, h3, h4, h5, h6 {
 
 .empty-state-description {
   @apply text-gray-500 mb-6 max-w-md;
+}
+
+/* ============================================
+   11. PRIMEVUE OVERRIDES
+   ============================================ */
+
+/* DataTable header styling */
+.p-datatable .p-datatable-thead > tr > th {
+  @apply font-display font-semibold text-secondary-700 bg-gray-50;
+}
+
+/* DataTable body text */
+.p-datatable .p-datatable-tbody > tr > td {
+  @apply font-body text-secondary-900;
+}
+
+/* ============================================
+   12. LIENS
+   ============================================ */
+
+/* Lien standard - Utiliser pour tous les liens texte */
+.link {
+  @apply text-primary-600 hover:text-primary-700 transition-colors;
+}
+
+.link-underline {
+  @apply text-primary-600 hover:text-primary-700 underline transition-colors;
+}
+
+/* Lien secondaire (gris) */
+.link-muted {
+  @apply text-gray-500 hover:text-secondary-900 transition-colors;
+}
+
+/* ============================================
+   13. PRIMEVUE FORM OVERRIDES
+   ============================================ */
+
+/* Input height standardization - 44px (11 * 4px) */
+.p-inputtext,
+.p-select,
+.p-dropdown,
+.p-multiselect,
+.p-textarea {
+  @apply h-11;
+}
+
+/* InputText specific styling */
+.p-inputtext {
+  @apply rounded-lg border-gray-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-100;
+}
+
+/* Select/Dropdown specific styling */
+.p-select,
+.p-dropdown {
+  @apply rounded-lg border-gray-300;
+}
+
+.p-select:focus,
+.p-dropdown:focus,
+.p-select.p-focus,
+.p-dropdown.p-focus {
+  @apply border-primary-400 ring-2 ring-primary-100;
+}
+
+/* ============================================
+   14. BORDER RADIUS STANDARDS
+   ============================================ */
+
+/* Standard radius values from design system:
+   - Cards/containers: rounded-xl (16px)
+   - Buttons/inputs: rounded-lg (12px)
+   - Pills/badges: rounded-full
+   - Small elements: rounded-md (8px)
+*/
+
+/* Utility class for card radius */
+.radius-card {
+  @apply rounded-xl;
+}
+
+/* Utility class for button/input radius */
+.radius-button {
+  @apply rounded-lg;
+}
+
+/* Override PrimeVue Button radius to match our standard */
+.p-button {
+  @apply rounded-lg;
+}
+
+/* ============================================
+   15. ICON SIZE STANDARDS
+   ============================================ */
+
+/* Sidebar icon hierarchy:
+   - Main menu items: text-lg (18px)
+   - Sub-menu items: text-sm (14px)
+   This creates visual hierarchy between parent/child items.
+*/
+
+.icon-menu-main {
+  @apply text-lg;
+}
+
+.icon-menu-sub {
+  @apply text-sm;
+}
+
+/* Stat card icons */
+.icon-stat {
+  @apply text-xl;
+}
+
+/* ============================================
+   16. SPACING STANDARDS
+   ============================================ */
+
+/* Standard spacing values (4px base unit):
+   - xs: 4px (gap-1)
+   - sm: 8px (gap-2)
+   - md: 16px (gap-4)
+   - lg: 24px (gap-6)
+   - xl: 32px (gap-8)
+*/
+
+/* Form field spacing - Standardized to 8px (gap-2) */
+.form-field {
+  @apply space-y-2;
+}
+
+/* Grid gaps for cards */
+.grid-cards {
+  @apply grid gap-6;
+}
+
+/* Sidebar submenu indentation */
+.sidebar-submenu {
+  @apply ml-4 pl-4 border-l-2 border-gray-100;
+}
+
+/* Table cell padding */
+.table-cell-standard {
+  @apply px-4 py-3;
+}
+
+/* ============================================
+   17. ERROR PAGES
+   ============================================ */
+
+.error-code {
+  @apply text-9xl font-bold text-primary-400 font-display;
+}
+
+.error-title {
+  @apply text-2xl font-semibold text-secondary-900 font-display;
+}
+
+.error-description {
+  @apply text-gray-600 max-w-md mx-auto;
+}
+
+/* ============================================
+   18. LOADING STATES
+   ============================================ */
+
+/* Skeleton loading animation */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.skeleton {
+  @apply bg-gray-200 rounded animate-pulse;
+}
+
+.skeleton-text {
+  @apply h-4 bg-gray-200 rounded animate-pulse;
+}
+
+.skeleton-title {
+  @apply h-6 bg-gray-200 rounded animate-pulse w-3/4;
+}
+
+.skeleton-avatar {
+  @apply w-10 h-10 bg-gray-200 rounded-full animate-pulse;
+}
+
+.skeleton-card {
+  @apply bg-gray-200 rounded-xl animate-pulse;
+}
+
+.skeleton-button {
+  @apply h-10 w-24 bg-gray-200 rounded-lg animate-pulse;
+}
+
+/* ============================================
+   19. HOVER EFFECTS
+   ============================================ */
+
+/* Standard hover lift effect for interactive cards */
+.hover-lift {
+  @apply transition-all duration-200 ease-out;
+}
+
+.hover-lift:hover {
+  @apply -translate-y-1 shadow-lg;
+}
+
+/* Subtle hover for buttons/links */
+.hover-subtle {
+  @apply transition-all duration-150 ease-out;
+}
+
+.hover-subtle:hover {
+  @apply opacity-90;
+}
+
+/* Hover with background change */
+.hover-bg {
+  @apply transition-colors duration-150 ease-out;
+}
+
+.hover-bg:hover {
+  @apply bg-gray-50;
+}
+
+/* Hover with border highlight */
+.hover-border {
+  @apply transition-all duration-150 ease-out border border-transparent;
+}
+
+.hover-border:hover {
+  @apply border-primary-300;
+}
+
+/* Scale on hover (for icons/avatars) */
+.hover-scale {
+  @apply transition-transform duration-150 ease-out;
+}
+
+.hover-scale:hover {
+  @apply scale-105;
 }

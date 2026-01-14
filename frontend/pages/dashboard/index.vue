@@ -27,8 +27,8 @@
         <!-- Intégrations actives -->
         <div class="stat-card bg-white rounded-2xl p-4 lg:p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
           <div class="flex items-center justify-between mb-3 lg:mb-4">
-            <div class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-secondary-100 flex items-center justify-center">
-              <i class="pi pi-link text-secondary-700 text-lg lg:text-xl"/>
+            <div class="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+              <i class="pi pi-link text-gray-600 text-lg lg:text-xl"/>
             </div>
             <span class="text-xs font-semibold text-secondary-700 bg-secondary-50 px-2 lg:px-3 py-1 rounded-full">{{ publicationsStore.connectedIntegrations.length }}/3</span>
           </div>
