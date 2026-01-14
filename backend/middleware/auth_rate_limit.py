@@ -11,6 +11,7 @@ Date: 2026-01-12
 """
 
 import asyncio
+import os
 import time
 from datetime import datetime, timedelta
 from typing import Dict, Tuple
@@ -66,6 +67,11 @@ class AuthRateLimiter:
         Raises:
             HTTPException: 429 if rate limit exceeded
         """
+        # Bypass rate limiting in test mode
+        if os.getenv("TESTING") == "1":
+            logger.debug(f"[AuthRateLimiter] Bypass active (TESTING=1) for {endpoint}")
+            return
+
         if endpoint not in self.LIMITS:
             # No limit configured for this endpoint
             return
