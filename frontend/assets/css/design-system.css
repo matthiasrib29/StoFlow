@@ -306,10 +306,13 @@ body {
   @apply font-display text-lg font-semibold text-secondary-900;
 }
 
-/* Headings génériques */
-h1, h2, h3, h4, h5, h6 {
-  @apply font-display tracking-tight;
-}
+/* Headings génériques - Enforce font-display with consistent weights */
+h1 { @apply font-display text-3xl font-bold tracking-tight; }
+h2 { @apply font-display text-2xl font-bold tracking-tight; }
+h3 { @apply font-display text-xl font-semibold tracking-tight; }
+h4 { @apply font-display text-lg font-semibold; }
+h5 { @apply font-display text-base font-semibold; }
+h6 { @apply font-display text-sm font-semibold; }
 
 /* Mono pour les codes/références */
 .text-code, .sku, .reference {
@@ -367,4 +370,18 @@ h1, h2, h3, h4, h5, h6 {
 
 .empty-state-description {
   @apply text-gray-500 mb-6 max-w-md;
+}
+
+/* ============================================
+   11. PRIMEVUE OVERRIDES
+   ============================================ */
+
+/* DataTable header styling */
+.p-datatable .p-datatable-thead > tr > th {
+  @apply font-display font-semibold text-secondary-700 bg-gray-50;
+}
+
+/* DataTable body text */
+.p-datatable .p-datatable-tbody > tr > td {
+  @apply font-body text-secondary-900;
 }
