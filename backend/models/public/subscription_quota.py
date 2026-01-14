@@ -166,11 +166,12 @@ class SubscriptionQuota(Base):
 
 
 # Quotas par défaut (utilisés pour seed)
+# Updated 2026-01-14 to match Notion pricing strategy
 DEFAULT_QUOTAS = {
     SubscriptionTier.FREE: {
-        "max_products": 50,
+        "max_products": 30,
         "max_platforms": 1,
-        "ai_credits_monthly": 100,
+        "ai_credits_monthly": 10,
         "ai_max_images_per_analysis": 5,
         "price": Decimal("0"),
         "display_name": "Gratuit",
@@ -181,40 +182,40 @@ DEFAULT_QUOTAS = {
         "display_order": 0,
     },
     SubscriptionTier.STARTER: {
-        "max_products": 500,
+        "max_products": 200,
         "max_platforms": 2,
-        "ai_credits_monthly": 1000,
+        "ai_credits_monthly": 40,
         "ai_max_images_per_analysis": 10,
-        "price": Decimal("19"),
-        "display_name": "Pro",
+        "price": Decimal("9.99"),
+        "display_name": "Starter",
         "description": "Pour les vendeurs actifs",
-        "annual_discount_percent": 20,
-        "is_popular": True,
+        "annual_discount_percent": 34,
+        "is_popular": False,
         "cta_text": "Essai gratuit 14 jours",
         "display_order": 1,
     },
     SubscriptionTier.PRO: {
-        "max_products": 2000,
+        "max_products": 500,
         "max_platforms": 5,
-        "ai_credits_monthly": 5000,
+        "ai_credits_monthly": 100,
         "ai_max_images_per_analysis": 20,
-        "price": Decimal("49"),
-        "display_name": "Business",
+        "price": Decimal("19.99"),
+        "display_name": "Pro",
         "description": "Pour les professionnels",
-        "annual_discount_percent": 20,
-        "is_popular": False,
+        "annual_discount_percent": 34,
+        "is_popular": True,
         "cta_text": "Essai gratuit 14 jours",
         "display_order": 2,
     },
     SubscriptionTier.ENTERPRISE: {
         "max_products": 999999,  # Illimité
         "max_platforms": 999,  # Illimité
-        "ai_credits_monthly": 50000,  # Illimité
+        "ai_credits_monthly": 300,
         "ai_max_images_per_analysis": 20,
-        "price": Decimal("199"),
-        "display_name": "Enterprise",
+        "price": Decimal("39.99"),
+        "display_name": "Business",
         "description": "Pour les grandes équipes",
-        "annual_discount_percent": 20,
+        "annual_discount_percent": 34,
         "is_popular": False,
         "cta_text": "Nous contacter",
         "display_order": 3,
@@ -222,28 +223,30 @@ DEFAULT_QUOTAS = {
 }
 
 # Features par défaut pour chaque tier (utilisés pour seed)
+# Updated 2026-01-14 to match Notion pricing strategy
 DEFAULT_FEATURES = {
     SubscriptionTier.FREE: [
-        "Jusqu'à 50 produits",
+        "Jusqu'à 30 produits",
         "1 marketplace",
+        "10 crédits IA/mois",
         "Support email",
     ],
     SubscriptionTier.STARTER: [
-        "Produits illimités",
-        "Toutes les marketplaces",
-        "Génération IA (100/mois)",
+        "Jusqu'à 200 produits",
+        "2 marketplaces",
+        "40 crédits IA/mois",
         "Support prioritaire",
     ],
     SubscriptionTier.PRO: [
-        "Tout le plan Pro",
-        "Génération IA illimitée",
-        "API access",
+        "Jusqu'à 500 produits",
+        "5 marketplaces",
+        "100 crédits IA/mois",
         "Support dédié",
     ],
     SubscriptionTier.ENTERPRISE: [
-        "Tout illimité",
-        "Multi-utilisateurs",
-        "Intégration sur mesure",
+        "Produits illimités",
+        "Toutes les marketplaces",
+        "300 crédits IA/mois",
         "Account manager dédié",
     ],
 }
