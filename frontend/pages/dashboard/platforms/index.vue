@@ -49,7 +49,7 @@
     </div>
 
     <!-- Cards des plateformes -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid-cards grid-cols-1 md:grid-cols-2">
       <Card
         v-for="platform in enrichedPlatforms"
         :key="platform.id"

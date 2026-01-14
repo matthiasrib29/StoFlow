@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-14)
 
 **Core value:** Amélioration UI pour cohérence et professionnalisme (score 6.5/10 → >8/10)
-**Current focus:** Phase 5 - Spacing System
+**Current focus:** Phase 6 - Visual Polish
 
 ## Current Position
 
-Phase: 5 of 6 (Spacing)
-Plan: 0 of 1 in current phase
+Phase: 6 of 6 (Polish)
+Plan: 0 of 2 in current phase
 Status: Ready to plan
-Last activity: 2026-01-14 — Phase 4 completed
+Last activity: 2026-01-14 — Phase 5 completed
 
-Progress: ██████░░░░ 67%
+Progress: ████████░░ 83%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: ~7 min
-- Total execution time: ~40 min
+- Total plans completed: 7
+- Average duration: ~6 min
+- Total execution time: ~45 min
 
 **By Phase:**
 
@@ -31,7 +31,7 @@ Progress: ██████░░░░ 67%
 | 02-typography | 1/1 ✓ | ~10 min | ~10 min |
 | 03-colors | 1/1 ✓ | ~5 min | ~5 min |
 | 04-components | 2/2 ✓ | ~5 min | ~2.5 min |
-| 05-spacing | 0/1 | — | — |
+| 05-spacing | 1/1 ✓ | ~5 min | ~5 min |
 | 06-polish | 0/2 | — | — |
 
 ## Accumulated Context
@@ -47,6 +47,7 @@ Recent decisions affecting current work:
 - Hauteur input: 44px
 - Keep PrimeVue severity prop, override with custom CSS classes
 - Sidebar icon hierarchy: main 18px, sub 14px (intentional)
+- Spacing base unit: 4px, form gap 8px, card gap 24px
 
 ### Deferred Issues
 
@@ -64,8 +65,8 @@ Screenshots: `.playwright-mcp/audit-*.png`
 **Issues by priority:**
 - CRITICAL (Typography): 4 issues ✓ Resolved
 - HIGH (Colors): 5 issues ✓ Resolved
-- MEDIUM (Spacing/Components): 9 issues ← Next focus
-- LOW (Visual Polish): 4 issues
+- MEDIUM (Spacing/Components): 9 issues ✓ Resolved
+- LOW (Visual Polish): 4 issues ← Next focus
 
 ## Phase 1 Completed
 
@@ -115,11 +116,22 @@ Screenshots: `.playwright-mcp/audit-*.png`
 - Documented icon size standards (.icon-menu-main, .icon-menu-sub, .icon-stat)
 - Verified sidebar icon hierarchy consistency
 
+## Phase 5 Completed
+
+| Plan | Description | Status |
+|------|-------------|--------|
+| 05-01 | Spacing system enforcement | ✓ Done |
+
+**Summary:**
+- Added spacing utility classes (.grid-cards, .form-field, .sidebar-submenu, .table-cell-standard)
+- Standardized form-group gap to 8px (space-y-2)
+- Applied grid-cards class to platform cards
+
 ## Session Continuity
 
 Last session: 2026-01-14
-Stopped at: Phase 4 completed
-Resume with: `/gsd:plan-phase 5`
+Stopped at: Phase 5 completed
+Resume with: `/gsd:plan-phase 6`
 
 ---
 
