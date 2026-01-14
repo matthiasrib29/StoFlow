@@ -92,16 +92,18 @@ trap cleanup SIGINT SIGTERM EXIT
 echo -e "${GREEN}🔧 Starting Backend on port ${BACKEND_PORT}...${NC}"
 cd backend
 
-# Check if venv exists
-if [ ! -d "venv" ]; then
-    echo -e "${RED}❌ Virtual environment not found. Please run: python -m venv venv${NC}"
+# Check if venv exists (.venv or venv)
+if [ -d ".venv" ]; then
+    VENV_DIR=".venv"
+elif [ -d "venv" ]; then
+    VENV_DIR="venv"
+else
+    echo -e "${RED}❌ Virtual environment not found. Please run: python -m venv .venv${NC}"
     exit 1
 fi
 
 # Activate venv
-source venv/bin/activate
-# Activate venv
-source venv/bin/activate
+source ${VENV_DIR}/bin/activate
 
 # Apply database migrations
 echo -e "${YELLOW}📦 Checking database migrations...${NC}"
@@ -115,7 +117,6 @@ fi
 
 # Start uvicorn in background
 uvicorn main:socket_app --reload --host 0.0.0.0 --port ${BACKEND_PORT} > ../logs/${ENV_NAME}-backend.log 2>&1 &
-BACKEND_PID=$!
 BACKEND_PID=$!
 cd ..
 
