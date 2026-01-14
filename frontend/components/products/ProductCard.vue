@@ -14,7 +14,7 @@
       <div class="absolute top-2 right-2">
         <span
           class="px-2 py-0.5 rounded-full text-xs font-medium"
-          :class="product.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+          :class="product.is_active ? 'bg-success-100 text-success-700' : 'bg-gray-100 text-gray-600'"
         >
           {{ product.is_active ? 'Actif' : 'Inactif' }}
         </span>
@@ -57,7 +57,7 @@
         <span class="text-lg font-bold text-secondary-900">{{ formatPrice(product.price) }}</span>
         <span
           class="text-xs px-1.5 py-0.5 rounded"
-          :class="product.stock_quantity > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'"
+          :class="product.stock_quantity > 0 ? 'bg-success-50 text-success-600' : 'bg-error-50 text-error-500'"
         >
           {{ product.stock_quantity }}
         </span>
