@@ -37,7 +37,7 @@
         <div class="text-center mb-6">
           <h3 class="text-2xl font-bold text-secondary-900 uppercase mb-2">{{ tier.tier }}</h3>
           <div class="text-3xl font-bold text-primary-400">
-            {{ getTierPrice(tier.tier) }}€
+            {{ formatPrice(tier.price) }}€
             <span class="text-sm font-normal text-gray-500">/mois</span>
           </div>
         </div>
@@ -109,7 +109,7 @@
           <Divider />
           <div class="flex justify-between items-center">
             <span class="text-gray-600 font-semibold">Prix mensuel</span>
-            <span class="font-bold text-primary-400 text-xl">{{ getTierPrice(selectedTier.tier) }}€</span>
+            <span class="font-bold text-primary-400 text-xl">{{ formatPrice(selectedTier.price) }}€</span>
           </div>
         </div>
       </div>
@@ -153,14 +153,11 @@ const currentTier = ref('')
 const availableTiers = ref<SubscriptionTier[]>([])
 
 // Methods
-const getTierPrice = (tier: string): number => {
-  const prices: Record<string, number> = {
-    free: 0,
-    starter: 19.99,
-    pro: 49.99,
-    enterprise: 199.99
+const formatPrice = (price: number | undefined): string => {
+  if (price === undefined || price === null || isNaN(price)) {
+    return '0.00'
   }
-  return prices[tier.toLowerCase()] || 0
+  return price.toFixed(2)
 }
 
 const getButtonLabel = (tier: string): string => {
@@ -192,7 +189,7 @@ const confirmChange = async () => {
       query: {
         type: 'upgrade',
         tier: selectedTier.value.tier,
-        price: getTierPrice(selectedTier.value.tier)
+        price: selectedTier.value.price || 0
       }
     })
   } catch (err: any) {
