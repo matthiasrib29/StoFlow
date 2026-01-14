@@ -21,7 +21,7 @@ Author: Claude
 
 from typing import List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from models.public.brand import Brand
@@ -63,7 +63,8 @@ class ProductAttributeRepository:
         Returns:
             Brand si trouvée, None sinon
         """
-        return db.query(Brand).filter(Brand.name == name).first()
+        stmt = select(Brand).where(Brand.name == name)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_brand_by_id(db: Session, brand_id: int) -> Optional[Brand]:
@@ -77,7 +78,8 @@ class ProductAttributeRepository:
         Returns:
             Brand si trouvée, None sinon
         """
-        return db.query(Brand).filter(Brand.id == brand_id).first()
+        stmt = select(Brand).where(Brand.id == brand_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_or_create_brand(db: Session, name: str) -> Brand:
@@ -111,7 +113,8 @@ class ProductAttributeRepository:
         Returns:
             Liste de Brand
         """
-        return db.query(Brand).order_by(Brand.name).limit(limit).all()
+        stmt = select(Brand).order_by(Brand.name).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def search_brands(db: Session, query: str, limit: int = 50) -> List[Brand]:
@@ -126,13 +129,13 @@ class ProductAttributeRepository:
         Returns:
             Liste de Brand correspondantes
         """
-        return (
-            db.query(Brand)
-            .filter(Brand.name.ilike(f"%{query}%"))
+        stmt = (
+            select(Brand)
+            .where(Brand.name.ilike(f"%{query}%"))
             .order_by(Brand.name)
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # SIZE NORMALIZED
@@ -150,7 +153,8 @@ class ProductAttributeRepository:
         Returns:
             SizeNormalized si trouvée, None sinon
         """
-        return db.query(SizeNormalized).filter(SizeNormalized.name_en == name_en).first()
+        stmt = select(SizeNormalized).where(SizeNormalized.name_en == name_en)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_sizes_normalized(db: Session, limit: int = 200) -> List[SizeNormalized]:
@@ -164,7 +168,8 @@ class ProductAttributeRepository:
         Returns:
             Liste de SizeNormalized
         """
-        return db.query(SizeNormalized).order_by(SizeNormalized.name_en).limit(limit).all()
+        stmt = select(SizeNormalized).order_by(SizeNormalized.name_en).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # COLOR
@@ -182,7 +187,8 @@ class ProductAttributeRepository:
         Returns:
             Color si trouvée, None sinon
         """
-        return db.query(Color).filter(Color.name_en == name_en).first()
+        stmt = select(Color).where(Color.name_en == name_en)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_colors(db: Session, limit: int = 100) -> List[Color]:
@@ -196,7 +202,8 @@ class ProductAttributeRepository:
         Returns:
             Liste de Color
         """
-        return db.query(Color).order_by(Color.name_en).limit(limit).all()
+        stmt = select(Color).order_by(Color.name_en).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # CONDITION
@@ -214,7 +221,8 @@ class ProductAttributeRepository:
         Returns:
             Condition si trouvée, None sinon
         """
-        return db.query(Condition).filter(Condition.name_en == name_en).first()
+        stmt = select(Condition).where(Condition.name_en == name_en)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_conditions(db: Session) -> List[Condition]:
@@ -227,7 +235,8 @@ class ProductAttributeRepository:
         Returns:
             Liste de Condition
         """
-        return db.query(Condition).order_by(Condition.name_en).all()
+        stmt = select(Condition).order_by(Condition.name_en)
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # MATERIAL
@@ -245,7 +254,8 @@ class ProductAttributeRepository:
         Returns:
             Material si trouvé, None sinon
         """
-        return db.query(Material).filter(Material.name_en == name_en).first()
+        stmt = select(Material).where(Material.name_en == name_en)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_materials(db: Session, limit: int = 200) -> List[Material]:
@@ -259,7 +269,8 @@ class ProductAttributeRepository:
         Returns:
             Liste de Material
         """
-        return db.query(Material).order_by(Material.name_en).limit(limit).all()
+        stmt = select(Material).order_by(Material.name_en).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # CATEGORY
@@ -277,7 +288,8 @@ class ProductAttributeRepository:
         Returns:
             Category si trouvée, None sinon
         """
-        return db.query(Category).filter(Category.name_en == name_en).first()
+        stmt = select(Category).where(Category.name_en == name_en)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_categories(db: Session, limit: int = 500) -> List[Category]:
@@ -291,7 +303,8 @@ class ProductAttributeRepository:
         Returns:
             Liste de Category
         """
-        return db.query(Category).order_by(Category.name_en).limit(limit).all()
+        stmt = select(Category).order_by(Category.name_en).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def search_categories(db: Session, query: str, limit: int = 50) -> List[Category]:
@@ -306,13 +319,13 @@ class ProductAttributeRepository:
         Returns:
             Liste de Category correspondantes
         """
-        return (
-            db.query(Category)
-            .filter(Category.name_en.ilike(f"%{query}%"))
+        stmt = (
+            select(Category)
+            .where(Category.name_en.ilike(f"%{query}%"))
             .order_by(Category.name_en)
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # FIT
@@ -330,7 +343,8 @@ class ProductAttributeRepository:
         Returns:
             Fit si trouvé, None sinon
         """
-        return db.query(Fit).filter(Fit.name_en == name_en).first()
+        stmt = select(Fit).where(Fit.name_en == name_en)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_fits(db: Session) -> List[Fit]:
@@ -343,7 +357,8 @@ class ProductAttributeRepository:
         Returns:
             Liste de Fit
         """
-        return db.query(Fit).order_by(Fit.name_en).all()
+        stmt = select(Fit).order_by(Fit.name_en)
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # GENDER
@@ -361,7 +376,8 @@ class ProductAttributeRepository:
         Returns:
             Gender si trouvé, None sinon
         """
-        return db.query(Gender).filter(Gender.name_en == name_en).first()
+        stmt = select(Gender).where(Gender.name_en == name_en)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_genders(db: Session) -> List[Gender]:
@@ -374,7 +390,8 @@ class ProductAttributeRepository:
         Returns:
             Liste de Gender
         """
-        return db.query(Gender).order_by(Gender.name_en).all()
+        stmt = select(Gender).order_by(Gender.name_en)
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # SEASON
@@ -392,7 +409,8 @@ class ProductAttributeRepository:
         Returns:
             Season si trouvée, None sinon
         """
-        return db.query(Season).filter(Season.name_en == name_en).first()
+        stmt = select(Season).where(Season.name_en == name_en)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_seasons(db: Session) -> List[Season]:
@@ -405,7 +423,8 @@ class ProductAttributeRepository:
         Returns:
             Liste de Season
         """
-        return db.query(Season).order_by(Season.name_en).all()
+        stmt = select(Season).order_by(Season.name_en)
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # UTILITY METHODS
@@ -487,7 +506,8 @@ class ProductAttributeRepository:
         Returns:
             Stretch si trouvé, None sinon
         """
-        return db.query(Stretch).filter(Stretch.name_en == name_en).first()
+        stmt = select(Stretch).where(Stretch.name_en == name_en)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_stretches(db: Session, limit: int = 100) -> List[Stretch]:
@@ -501,7 +521,8 @@ class ProductAttributeRepository:
         Returns:
             Liste des Stretch objects
         """
-        return db.query(Stretch).order_by(Stretch.name_en).limit(limit).all()
+        stmt = select(Stretch).order_by(Stretch.name_en).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     # =========================================================================
     # UTILITIES

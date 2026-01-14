@@ -26,22 +26,22 @@
       </div>
 
       <!-- Standard Price (Recommended) -->
-      <div class="border-2 border-green-300 rounded-lg p-4 bg-green-50 relative">
+      <div class="border-2 border-primary-300 rounded-lg p-4 bg-primary-50 relative">
         <div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
-          <span class="bg-green-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
+          <span class="bg-primary-500 text-secondary-900 text-xs font-semibold px-3 py-1 rounded-full">
             Recommended
           </span>
         </div>
         <div class="flex items-center justify-between mb-2 mt-2">
-          <span class="text-xs font-semibold text-green-600 uppercase tracking-wide">Standard</span>
-          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <span class="text-xs font-semibold text-primary-600 uppercase tracking-wide">Standard</span>
+          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
             Base
           </span>
         </div>
-        <div class="text-2xl font-bold text-green-900">
+        <div class="text-2xl font-bold text-secondary-900">
           {{ formatPrice(pricing.standard_price) }}
         </div>
-        <p class="text-xs text-green-700 mt-1">Market value</p>
+        <p class="text-xs text-gray-600 mt-1">Market value</p>
       </div>
 
       <!-- Premium Price -->

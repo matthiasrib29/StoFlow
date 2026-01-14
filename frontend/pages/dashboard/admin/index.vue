@@ -125,8 +125,8 @@
               :key="reg.id"
               class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
             >
-              <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                <i class="pi pi-user-plus text-green-600" />
+              <div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                <i class="pi pi-user-plus text-primary-600" />
               </div>
               <div class="flex-1">
                 <p class="font-medium text-secondary-900">{{ reg.full_name }}</p>
