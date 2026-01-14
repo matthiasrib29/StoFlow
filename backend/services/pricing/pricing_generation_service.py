@@ -15,6 +15,7 @@ import json
 from decimal import Decimal
 from typing import Optional
 
+import httpx
 from google import genai
 from google.genai import types
 
@@ -54,8 +55,11 @@ class PricingGenerationService:
         logger.info(f"Generating BrandGroup for {brand} + {group}")
 
         try:
-            # Initialize Gemini client
-            client = genai.Client(api_key=settings.gemini_api_key)
+            # Initialize Gemini client with timeout
+            client = genai.Client(
+                api_key=settings.gemini_api_key,
+                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+            )
 
             # Build prompt
             prompt = PricingGenerationService._build_brand_group_prompt(brand, group)
@@ -314,8 +318,11 @@ Generate realistic secondhand pricing data:"""
         logger.info(f"Generating Model for {brand} + {group} + {model}")
 
         try:
-            # Initialize Gemini client
-            client = genai.Client(api_key=settings.gemini_api_key)
+            # Initialize Gemini client with timeout
+            client = genai.Client(
+                api_key=settings.gemini_api_key,
+                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+            )
 
             # Build prompt with base_price context
             prompt = PricingGenerationService._build_model_prompt(

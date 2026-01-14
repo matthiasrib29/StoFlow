@@ -104,7 +104,11 @@ class AIVisionService:
 
         # 7. Appeler Gemini Vision API
         try:
-            client = genai.Client(api_key=settings.gemini_api_key)
+            # Configure Gemini client with timeout
+            client = genai.Client(
+                api_key=settings.gemini_api_key,
+                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+            )
 
             # Construire le contenu multimodal
             contents = [prompt] + image_parts
@@ -582,7 +586,11 @@ Analyze ALL provided images for complete extraction."""
 
         # 7. Appeler Gemini Vision API
         try:
-            client = genai.Client(api_key=settings.gemini_api_key)
+            # Configure Gemini client with timeout
+            client = genai.Client(
+                api_key=settings.gemini_api_key,
+                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+            )
 
             # Construire le contenu multimodal
             contents = [prompt] + image_parts
