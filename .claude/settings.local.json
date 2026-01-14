@@ -348,7 +348,12 @@
       "WebFetch(domain:docs.sentry.io)",
       "WebFetch(domain:nuxt.com)",
       "Bash(~/StoFlow/.claude/worktree-init.sh ~/StoFlow-fix-bdd)",
-      "WebFetch(domain:blog.logrocket.com)"
+      "WebFetch(domain:blog.logrocket.com)",
+      "WebFetch(domain:claude.com)",
+      "Bash(~/StoFlow/.claude/worktree-init.sh ~/StoFlow-improve-ebay-capability)",
+      "WebFetch(domain:kasata.medium.com)",
+      "Skill(gsd:create-roadmap)",
+      "Bash(~/StoFlow/.claude/worktree-init.sh ~/StoFlow-improve-ui)"
     ]
   },
   "enableAllProjectMcpServers": true,
