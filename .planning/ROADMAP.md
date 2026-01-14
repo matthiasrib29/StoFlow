@@ -1,12 +1,12 @@
-# Roadmap: AI Product Generation
+# Roadmap: StoFlow UI Improvement
 
 ## Overview
 
-Implémentation d'un générateur automatique de titres SEO et descriptions dynamiques pour produits vestimentaires. Templates Python déterministes avec gestion intelligente des attributs manquants. Backend service → API → User settings → Frontend composable → UI intégration.
+Amélioration de l'interface utilisateur StoFlow pour éliminer l'aspect générique et créer une identité visuelle professionnelle et cohérente. Basé sur l'audit UI réalisé le 2026-01-14 (score 6.5/10 → objectif >8/10).
 
 ## Domain Expertise
 
-None (internal patterns, no external integrations)
+None (internal CSS/Vue patterns, no external integrations)
 
 ## Phases
 
@@ -14,74 +14,121 @@ None (internal patterns, no external integrations)
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [x] **Phase 1: Backend Service** - Service Python de génération templates ✅
-- [x] **Phase 2: Backend API** - Endpoints REST génération et preview ✅
-- [x] **Phase 3: User Settings** - Préférences format/style par utilisateur ✅
-- [x] **Phase 4: Frontend Composable** - useProductTextGenerator.ts ✅
-- [x] **Phase 5: Frontend UI** - Boutons et modal dans formulaire produit ✅
+- [ ] **Phase 1: Quick Wins** - Corrections immédiates à fort impact (30 min)
+- [ ] **Phase 2: Typography System** - Uniformisation des fonts et poids (1-2h)
+- [ ] **Phase 3: Color System** - Couleurs sémantiques pour statuts (1-2h)
+- [ ] **Phase 4: Component Audit** - Standardisation des composants (2-3h)
+- [ ] **Phase 5: Spacing System** - Espacement uniforme (1-2h)
+- [ ] **Phase 6: Visual Polish** - Empty states et page 404 (2-3h)
 
 ## Phase Details
 
-### Phase 1: Backend Service
-**Goal**: Créer le service `ProductTextGeneratorService` avec les 3 formats de titre et 3 styles de description
+### Phase 1: Quick Wins
+**Goal**: Corrections immédiates qui améliorent significativement l'UX avec peu d'effort
 **Depends on**: Nothing (first phase)
-**Research**: Unlikely (Python templates, internal patterns)
-**Plans**: 2 plans
+**Research**: Unlikely (simple CSS fixes)
+**Plans**: 1 plan
+
+**Issues addressed**:
+- TYP-02: Augmenter le contraste du texte "Bienvenue"
+- COL-02: Changer le bouton "Annuler" en style outline/gris
+- COL-03: Améliorer le contraste du badge "Déconnecté"
+- CMP-01: Unifier le style des badges (tous en pill)
 
 Plans:
-- [x] 01-01: Implémentation des 3 formats de titre ✅
-- [x] 01-02: Implémentation des 3 styles de description ✅
+- [ ] 01-01: Quick wins CSS et composants
 
-### Phase 2: Backend API
-**Goal**: Exposer les endpoints REST pour générer et preview les textes
+### Phase 2: Typography System
+**Goal**: Garantir que les fonts configurées sont appliquées uniformément
 **Depends on**: Phase 1
-**Research**: Unlikely (FastAPI patterns existants)
+**Research**: Unlikely (CSS font-family verification)
 **Plans**: 1 plan
 
-Plans:
-- [x] 02-01: Endpoints generate-text et preview-text ✅
+**Issues addressed**:
+- TYP-01: Vérifier l'application des fonts
+- TYP-03: Standardiser les font-weights des headers de table
+- TYP-04: Uniformiser les poids de font de la sidebar
 
-### Phase 3: User Settings
-**Goal**: Ajouter les préférences utilisateur pour format titre et style description par défaut
-**Depends on**: Phase 2
-**Research**: Unlikely (user settings pattern existant)
+Plans:
+- [ ] 02-01: Typography system enforcement
+
+### Phase 3: Color System
+**Goal**: Créer un système de couleurs sémantiques cohérent pour tous les statuts
+**Depends on**: Phase 1
+**Research**: Unlikely (CSS variables)
 **Plans**: 1 plan
 
-Plans:
-- [x] 03-01: Migration DB + API settings ✅
-
-### Phase 4: Frontend Composable
-**Goal**: Créer le composable `useProductTextGenerator.ts` pour l'intégration frontend
-**Depends on**: Phase 2
-**Research**: Unlikely (Vue composable patterns existants)
-**Plans**: 1 plan
+**Issues addressed**:
+- COL-01: Couleurs incohérentes pour états similaires
+- COL-04: Unifier les icônes des stat-cards
+- COL-05: Standardiser la couleur des liens
 
 Plans:
-- [x] 04-01: Composable avec generate, preview, state management ✅
+- [ ] 03-01: Semantic color system
 
-### Phase 5: Frontend UI
-**Goal**: Intégrer les boutons de génération et modal preview dans le formulaire produit
-**Depends on**: Phase 4
-**Research**: Unlikely (UI patterns existants)
+### Phase 4: Component Audit
+**Goal**: Standardiser tous les composants UI (badges, buttons, inputs)
+**Depends on**: Phase 2, Phase 3
+**Research**: Unlikely (Vue component patterns)
 **Plans**: 2 plans
 
+**Issues addressed**:
+- CMP-02: Variants de boutons standardisés
+- CMP-03: Unifier le border-radius
+- CMP-04: Standardiser la hauteur des inputs
+- CMP-05: Standardiser la taille des icônes sidebar
+
 Plans:
-- [x] 05-01: TextGeneratorButton + TextPreviewModal components ✅
-- [x] 05-02: Intégration dans pages create/edit product ✅
+- [ ] 04-01: Badge component unification
+- [ ] 04-02: Button and input standardization
+
+### Phase 5: Spacing System
+**Goal**: Uniformiser l'espacement entre tous les composants
+**Depends on**: Phase 4
+**Research**: Unlikely (CSS spacing)
+**Plans**: 1 plan
+
+**Issues addressed**:
+- SPC-01: Grid des platform cards
+- SPC-02: Padding des cellules de table
+- SPC-03: Gap label/input
+- SPC-04: Indentation des sous-menus sidebar
+
+Plans:
+- [ ] 05-01: Spacing system enforcement
+
+### Phase 6: Visual Polish
+**Goal**: Améliorer les états visuels pour une expérience premium
+**Depends on**: Phase 5
+**Research**: Unlikely (Vue components)
+**Plans**: 2 plans
+
+**Issues addressed**:
+- VIS-01: Empty states avec illustrations
+- VIS-02: Page 404 avec branding
+- VIS-03: Skeleton loading
+- VIS-04: Hover effects
+
+Plans:
+- [ ] 06-01: Empty states and 404 page
+- [ ] 06-02: Loading states and hover effects
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+(Phases 2 and 3 can run in parallel)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Backend Service | 2/2 | Complete | 2026-01-13 |
-| 2. Backend API | 1/1 | Complete | 2026-01-13 |
-| 3. User Settings | 1/1 | Complete | 2026-01-13 |
-| 4. Frontend Composable | 1/1 | Complete | 2026-01-13 |
-| 5. Frontend UI | 2/2 | Complete | 2026-01-13 |
+| 1. Quick Wins | 0/1 | Pending | — |
+| 2. Typography System | 0/1 | Pending | — |
+| 3. Color System | 0/1 | Pending | — |
+| 4. Component Audit | 0/2 | Pending | — |
+| 5. Spacing System | 0/1 | Pending | — |
+| 6. Visual Polish | 0/2 | Pending | — |
 
 ---
 
-*Roadmap created: 2026-01-13*
+*Roadmap created: 2026-01-14*
+*Based on: UI-AUDIT-REPORT.md*
