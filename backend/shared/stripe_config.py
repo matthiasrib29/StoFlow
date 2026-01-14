@@ -32,7 +32,14 @@ FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
 STRIPE_SUCCESS_URL = f"{FRONTEND_BASE_URL}/dashboard/subscription/success?session_id={{CHECKOUT_SESSION_ID}}"
 STRIPE_CANCEL_URL = f"{FRONTEND_BASE_URL}/dashboard/subscription/cancel"
 
-# Configuration des packs de crédits IA
+# ===== DEPRECATED (2026-01-14) =====
+# Ce dictionnaire est déprécié. Utilisez AiCreditPackService à la place.
+# Il sera supprimé en février 2026 après confirmation qu'aucun code externe ne l'utilise.
+#
+# Raison : Migration vers pricing database-driven (table ai_credit_packs)
+# Migration : Même pattern que commit 24e67c0 (Notion pricing)
+#
+# Configuration des packs de crédits IA (DEPRECATED)
 # Format: {nombre_credits: {"price": Decimal, "name": str, "description": str}}
 AI_CREDIT_PACKS = {
     500: {
@@ -56,23 +63,41 @@ AI_CREDIT_PACKS = {
 PAYMENT_GRACE_PERIOD_DAYS = 3
 
 
-def get_stripe_price_for_credits(credits: int) -> Decimal:
+def get_stripe_price_for_credits(credits: int, db=None) -> Decimal:
     """
-    Retourne le prix pour un pack de crédits donné.
+    Retourne le prix pour un pack de crédits donné (DB-driven).
+
+    DEPRECATED (2026-01-14): Cette fonction sera supprimée en février 2026.
+    Utilisez AiCreditPackService.get_pack_by_credits() directement.
 
     Args:
         credits: Nombre de crédits
+        db: Session database (obligatoire pour le nouveau système)
 
     Returns:
         Decimal: Prix en EUR
 
     Raises:
-        ValueError: Si le pack n'existe pas
+        ValueError: Si le pack n'existe pas ou n'est pas actif
     """
-    if credits not in AI_CREDIT_PACKS:
+    # Fallback sur l'ancien système si pas de DB session (backward compatibility)
+    if db is None:
+        if credits not in AI_CREDIT_PACKS:
+            raise ValueError(f"Pack de {credits} crédits non disponible")
+        return AI_CREDIT_PACKS[credits]["price"]
+
+    # Nouveau système database-driven
+    from repositories.ai_credit_pack_repository import AiCreditPackRepository
+    from services.ai_credit_pack_service import AiCreditPackService
+
+    repository = AiCreditPackRepository()
+    service = AiCreditPackService(db, repository)
+
+    pack = service.get_pack_by_credits(credits)
+    if not pack:
         raise ValueError(f"Pack de {credits} crédits non disponible")
 
-    return AI_CREDIT_PACKS[credits]["price"]
+    return pack.price
 
 
 def validate_stripe_config():
