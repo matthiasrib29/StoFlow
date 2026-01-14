@@ -403,3 +403,83 @@ h6 { @apply font-display text-sm font-semibold; }
 .link-muted {
   @apply text-gray-500 hover:text-secondary-900 transition-colors;
 }
+
+/* ============================================
+   13. PRIMEVUE FORM OVERRIDES
+   ============================================ */
+
+/* Input height standardization - 44px (11 * 4px) */
+.p-inputtext,
+.p-select,
+.p-dropdown,
+.p-multiselect,
+.p-textarea {
+  @apply h-11;
+}
+
+/* InputText specific styling */
+.p-inputtext {
+  @apply rounded-lg border-gray-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-100;
+}
+
+/* Select/Dropdown specific styling */
+.p-select,
+.p-dropdown {
+  @apply rounded-lg border-gray-300;
+}
+
+.p-select:focus,
+.p-dropdown:focus,
+.p-select.p-focus,
+.p-dropdown.p-focus {
+  @apply border-primary-400 ring-2 ring-primary-100;
+}
+
+/* ============================================
+   14. BORDER RADIUS STANDARDS
+   ============================================ */
+
+/* Standard radius values from design system:
+   - Cards/containers: rounded-xl (16px)
+   - Buttons/inputs: rounded-lg (12px)
+   - Pills/badges: rounded-full
+   - Small elements: rounded-md (8px)
+*/
+
+/* Utility class for card radius */
+.radius-card {
+  @apply rounded-xl;
+}
+
+/* Utility class for button/input radius */
+.radius-button {
+  @apply rounded-lg;
+}
+
+/* Override PrimeVue Button radius to match our standard */
+.p-button {
+  @apply rounded-lg;
+}
+
+/* ============================================
+   15. ICON SIZE STANDARDS
+   ============================================ */
+
+/* Sidebar icon hierarchy:
+   - Main menu items: text-lg (18px)
+   - Sub-menu items: text-sm (14px)
+   This creates visual hierarchy between parent/child items.
+*/
+
+.icon-menu-main {
+  @apply text-lg;
+}
+
+.icon-menu-sub {
+  @apply text-sm;
+}
+
+/* Stat card icons */
+.icon-stat {
+  @apply text-xl;
+}
