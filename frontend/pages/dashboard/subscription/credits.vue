@@ -99,8 +99,8 @@
             </div>
           </div>
           <div class="flex items-start gap-3">
-            <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-              <i class="pi pi-language text-green-600"/>
+            <div class="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
+              <i class="pi pi-language text-primary-600"/>
             </div>
             <div>
               <h4 class="font-semibold text-secondary-900 mb-1">Traductions</h4>
