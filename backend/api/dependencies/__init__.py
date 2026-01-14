@@ -14,7 +14,7 @@ from typing import Callable, Generator, Optional, Tuple
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from models.public.user import User, UserRole
 from models.public.permission import Permission, RolePermission
@@ -88,10 +88,16 @@ def get_current_user(
     """
     Recupere l'utilisateur actuel depuis le JWT token.
 
-    Business Rules (Updated: 2025-12-23):
+    Business Rules (Updated: 2026-01-14):
     - Le token doit etre valide (pas expire, signature correcte)
     - L'utilisateur doit etre actif
     - Architecture simplifiee: pas de tenant, seulement user
+    - Eager loading de subscription_quota pour éviter DetachedInstanceError
+
+    Performance (2026-01-14):
+    - Uses joinedload() to eagerly fetch subscription_quota
+    - Prevents N+1 queries and DetachedInstanceError in endpoints
+    - Single JOIN adds ~5-7 columns to the query (minimal overhead)
 
     Security (2025-12-23):
     - All requests MUST have a valid JWT token
@@ -102,7 +108,7 @@ def get_current_user(
         db: Session SQLAlchemy
 
     Returns:
-        User: Utilisateur authentifie
+        User: Utilisateur authentifie avec subscription_quota precharge
 
     Raises:
         HTTPException: 401 si token invalide ou utilisateur inactif
@@ -136,7 +142,12 @@ def get_current_user(
         )
 
     # Recuperer l'utilisateur
-    user = db.query(User).filter(User.id == user_id).first()
+    user = (
+        db.query(User)
+        .options(joinedload(User.subscription_quota))
+        .filter(User.id == user_id)
+        .first()
+    )
 
     if not user:
         raise HTTPException(

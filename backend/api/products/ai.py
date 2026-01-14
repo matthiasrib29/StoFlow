@@ -95,7 +95,8 @@ async def analyze_product_images(
         # Récupérer les limites de l'abonnement
         monthly_credits = 0
         max_images = 5  # Default for users without subscription
-        if hasattr(current_user, "subscription_quota") and current_user.subscription_quota:
+        # subscription_quota is always loaded via joinedload in get_current_user()
+        if current_user.subscription_quota:
             monthly_credits = current_user.subscription_quota.ai_credits_monthly or 0
             max_images = current_user.subscription_quota.ai_max_images_per_analysis or 5
 
@@ -207,7 +208,8 @@ async def analyze_images_direct(
         # Récupérer les limites de l'abonnement
         monthly_credits = 0
         max_images = 5  # Default for users without subscription
-        if hasattr(current_user, "subscription_quota") and current_user.subscription_quota:
+        # subscription_quota is always loaded via joinedload in get_current_user()
+        if current_user.subscription_quota:
             monthly_credits = current_user.subscription_quota.ai_credits_monthly or 0
             max_images = current_user.subscription_quota.ai_max_images_per_analysis or 5
 
