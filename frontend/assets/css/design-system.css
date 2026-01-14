@@ -385,3 +385,21 @@ h6 { @apply font-display text-sm font-semibold; }
 .p-datatable .p-datatable-tbody > tr > td {
   @apply font-body text-secondary-900;
 }
+
+/* ============================================
+   12. LIENS
+   ============================================ */
+
+/* Lien standard - Utiliser pour tous les liens texte */
+.link {
+  @apply text-primary-600 hover:text-primary-700 transition-colors;
+}
+
+.link-underline {
+  @apply text-primary-600 hover:text-primary-700 underline transition-colors;
+}
+
+/* Lien secondaire (gris) */
+.link-muted {
+  @apply text-gray-500 hover:text-secondary-900 transition-colors;
+}
