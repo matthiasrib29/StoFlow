@@ -325,3 +325,138 @@ class EbayFulfillmentClient(EbayBaseClient):
         )
 
         return result or {}
+
+    def issue_refund(
+        self,
+        order_id: str,
+        reason_for_refund: str,
+        refund_amount: float,
+        currency: str = "EUR",
+        line_item_id: Optional[str] = None,
+        comment: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Issue a refund for an order or specific line item.
+
+        POST /sell/fulfillment/v1/order/{orderId}/issue_refund
+
+        This can be used to:
+        - Issue a full or partial refund for an order
+        - Refund a specific line item
+        - Issue goodwill refunds
+
+        Args:
+            order_id: eBay order ID (e.g., "12-34567-89012")
+            reason_for_refund: Reason code for the refund. Valid values:
+                - BUYER_CANCEL: Buyer cancelled the order
+                - BUYER_RETURN: Buyer returned the item
+                - ITEM_NOT_RECEIVED: Item was not received
+                - SELLER_WRONG_ITEM: Wrong item sent
+                - SELLER_OUT_OF_STOCK: Item out of stock
+                - SELLER_FOUND_ISSUE: Seller found issue with item
+                - OTHER: Other reason
+            refund_amount: Amount to refund
+            currency: Currency code (default: EUR)
+            line_item_id: Optional line item ID for item-specific refund
+            comment: Optional comment explaining the refund
+
+        Returns:
+            Dict with refund details:
+            {
+                "refundId": "5********0",
+                "refundStatus": "PENDING",
+                "refundedAmount": {"value": "50.00", "currency": "EUR"}
+            }
+
+        Raises:
+            RuntimeError: If API call fails
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> # Full order refund
+            >>> result = client.issue_refund(
+            ...     order_id="12-34567-89012",
+            ...     reason_for_refund="BUYER_CANCEL",
+            ...     refund_amount=50.00
+            ... )
+            >>> # Partial line item refund
+            >>> result = client.issue_refund(
+            ...     order_id="12-34567-89012",
+            ...     reason_for_refund="SELLER_FOUND_ISSUE",
+            ...     refund_amount=10.00,
+            ...     line_item_id="123456789012",
+            ...     comment="Partial refund for damaged item"
+            ... )
+        """
+        scopes = ["sell.fulfillment"]
+
+        # Build payload
+        payload: Dict[str, Any] = {
+            "reasonForRefund": reason_for_refund,
+        }
+
+        if comment:
+            payload["comment"] = comment
+
+        # Either line item refund or order-level refund
+        if line_item_id:
+            payload["refundItems"] = [
+                {
+                    "refundAmount": {
+                        "value": str(refund_amount),
+                        "currency": currency,
+                    },
+                    "lineItemId": line_item_id,
+                }
+            ]
+        else:
+            payload["orderLevelRefundAmount"] = {
+                "value": str(refund_amount),
+                "currency": currency,
+            }
+
+        result = self.api_call(
+            "POST",
+            f"/sell/fulfillment/v1/order/{order_id}/issue_refund",
+            json=payload,
+            scopes=scopes,
+        )
+
+        return result or {}
+
+    def get_order_refunds(self, order_id: str) -> List[Dict[str, Any]]:
+        """
+        Get refunds associated with an order.
+
+        This retrieves the order and extracts refund information from it.
+        eBay doesn't have a dedicated refund search endpoint, so we get
+        refund data from the order's payment summary.
+
+        Args:
+            order_id: eBay order ID
+
+        Returns:
+            List of refund records from the order:
+            [
+                {
+                    "refundId": "5********0",
+                    "refundDate": "2024-12-10T10:30:00.000Z",
+                    "refundAmount": {"value": "50.00", "currency": "EUR"},
+                    "refundStatus": "REFUNDED",
+                    "refundReferenceId": "ABC123"
+                }
+            ]
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> refunds = client.get_order_refunds("12-34567-89012")
+            >>> for r in refunds:
+            ...     print(f"Refund {r['refundId']}: {r['refundAmount']['value']}")
+        """
+        order = self.get_order(order_id)
+
+        # Extract refunds from payment summary
+        payment_summary = order.get("paymentSummary", {})
+        refunds = payment_summary.get("refunds", [])
+
+        return refunds

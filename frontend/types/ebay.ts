@@ -332,6 +332,131 @@ export interface EbayCancellationEligibilityResponse {
   reasons: string[]
 }
 
+// =============================================================================
+// REFUNDS TYPES
+// =============================================================================
+
+/**
+ * eBay refund status values
+ */
+export type EbayRefundStatus = 'PENDING' | 'REFUNDED' | 'FAILED'
+
+/**
+ * eBay refund source values
+ */
+export type EbayRefundSource = 'RETURN' | 'CANCELLATION' | 'MANUAL' | 'OTHER'
+
+/**
+ * eBay refund reason codes
+ */
+export type EbayRefundReason =
+  | 'BUYER_CANCEL'
+  | 'BUYER_RETURN'
+  | 'ITEM_NOT_RECEIVED'
+  | 'SELLER_WRONG_ITEM'
+  | 'SELLER_OUT_OF_STOCK'
+  | 'SELLER_FOUND_ISSUE'
+  | 'OTHER'
+
+/**
+ * eBay refund from API
+ */
+export interface EbayRefund {
+  id: number
+  refund_id: string
+  order_id: string | null
+
+  // Source
+  refund_source: EbayRefundSource | null
+  return_id: string | null
+  cancel_id: string | null
+
+  // Status
+  refund_status: EbayRefundStatus | null
+
+  // Amount
+  refund_amount: number | null
+  refund_currency: string | null
+  original_amount: number | null
+
+  // Reason
+  reason: string | null
+  comment: string | null
+
+  // Buyer
+  buyer_username: string | null
+
+  // Reference IDs
+  refund_reference_id: string | null
+  transaction_id: string | null
+  line_item_id: string | null
+
+  // Dates
+  refund_date: string | null
+  creation_date: string | null
+  created_at: string
+  updated_at: string
+
+  // Computed fields from API
+  is_completed: boolean
+  is_pending: boolean
+  is_failed: boolean
+  is_from_return: boolean
+  is_from_cancellation: boolean
+  is_manual: boolean
+}
+
+/**
+ * Paginated list of refunds
+ */
+export interface EbayRefundListResponse {
+  items: EbayRefund[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+/**
+ * Refund statistics by source
+ */
+export interface EbayRefundSourceStatistics {
+  RETURN: number
+  CANCELLATION: number
+  MANUAL: number
+}
+
+/**
+ * Refund statistics
+ */
+export interface EbayRefundStatistics {
+  pending: number
+  completed: number
+  failed: number
+  total_refunded: number
+  by_source: EbayRefundSourceStatistics
+}
+
+/**
+ * Sync refunds response
+ */
+export interface EbayRefundSyncResponse {
+  created: number
+  updated: number
+  skipped: number
+  errors: number
+}
+
+/**
+ * Issue refund response
+ */
+export interface EbayRefundIssueResponse {
+  success: boolean
+  refund_id: string | null
+  refund_status: string | null
+  message: string | null
+}
+
 /**
  * State interface for the eBay store
  */
