@@ -9,7 +9,7 @@ Business Rules:
 - Lookup case-insensitive pour éviter duplicates
 """
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from models.public.size_original import SizeOriginal
@@ -73,9 +73,10 @@ class SizeOriginalRepository:
         normalized = SizeOriginalRepository.normalize_name(name)
 
         # Lookup case-insensitive
-        size = db.query(SizeOriginal).filter(
+        stmt = select(SizeOriginal).where(
             func.upper(SizeOriginal.name) == normalized.upper()
-        ).first()
+        )
+        size = db.execute(stmt).scalar_one_or_none()
 
         if not size:
             # Créer nouvelle taille
@@ -97,9 +98,8 @@ class SizeOriginalRepository:
         Returns:
             Instance SizeOriginal ou None si non trouvée.
         """
-        return db.query(SizeOriginal).filter(
-            SizeOriginal.name == name
-        ).first()
+        stmt = select(SizeOriginal).where(SizeOriginal.name == name)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_by_name_case_insensitive(db: Session, name: str) -> SizeOriginal | None:
@@ -113,9 +113,10 @@ class SizeOriginalRepository:
         Returns:
             Instance SizeOriginal ou None si non trouvée.
         """
-        return db.query(SizeOriginal).filter(
+        stmt = select(SizeOriginal).where(
             func.upper(SizeOriginal.name) == name.upper()
-        ).first()
+        )
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list_all(db: Session, limit: int = 500) -> list[SizeOriginal]:
@@ -129,9 +130,10 @@ class SizeOriginalRepository:
         Returns:
             Liste des tailles originales (ordre: plus récentes d'abord).
         """
-        return db.query(SizeOriginal).order_by(
+        stmt = select(SizeOriginal).order_by(
             SizeOriginal.created_at.desc()
-        ).limit(limit).all()
+        ).limit(limit)
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def count(db: Session) -> int:
@@ -144,7 +146,8 @@ class SizeOriginalRepository:
         Returns:
             Nombre total de tailles.
         """
-        return db.query(SizeOriginal).count()
+        stmt = select(func.count(SizeOriginal.name))
+        return db.execute(stmt).scalar_one() or 0
 
     @staticmethod
     def delete_by_name(db: Session, name: str) -> bool:

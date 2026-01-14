@@ -17,7 +17,7 @@ Author: Claude
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import and_, desc, func
+from sqlalchemy import and_, delete, desc, func, select
 from sqlalchemy.orm import Session
 
 from models.user.vinted_conversation import VintedConversation, VintedMessage
@@ -72,9 +72,10 @@ class VintedConversationRepository:
         Returns:
             VintedConversation if found, None otherwise
         """
-        return db.query(VintedConversation).filter(
+        stmt = select(VintedConversation).where(
             VintedConversation.conversation_id == conversation_id
-        ).first()
+        )
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_all(
@@ -95,15 +96,16 @@ class VintedConversationRepository:
         Returns:
             List of VintedConversation ordered by updated_at_vinted DESC
         """
-        query = db.query(VintedConversation)
+        stmt = select(VintedConversation)
 
         if unread_only:
-            query = query.filter(VintedConversation.is_unread == True)
+            stmt = stmt.where(VintedConversation.is_unread == True)
 
-        query = query.order_by(desc(VintedConversation.updated_at_vinted))
+        stmt = stmt.order_by(desc(VintedConversation.updated_at_vinted))
 
         offset = (page - 1) * per_page
-        return query.offset(offset).limit(per_page).all()
+        stmt = stmt.offset(offset).limit(per_page)
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def count(db: Session, unread_only: bool = False) -> int:
@@ -117,12 +119,12 @@ class VintedConversationRepository:
         Returns:
             Total count
         """
-        query = db.query(func.count(VintedConversation.conversation_id))
+        stmt = select(func.count(VintedConversation.conversation_id))
 
         if unread_only:
-            query = query.filter(VintedConversation.is_unread == True)
+            stmt = stmt.where(VintedConversation.is_unread == True)
 
-        return query.scalar() or 0
+        return db.execute(stmt).scalar_one() or 0
 
     @staticmethod
     def update(db: Session, conversation: VintedConversation) -> VintedConversation:
@@ -304,11 +306,14 @@ class VintedMessageRepository:
         """
         offset = (page - 1) * per_page
 
-        return db.query(VintedMessage).filter(
-            VintedMessage.conversation_id == conversation_id
-        ).order_by(
-            VintedMessage.created_at_vinted
-        ).offset(offset).limit(per_page).all()
+        stmt = (
+            select(VintedMessage)
+            .where(VintedMessage.conversation_id == conversation_id)
+            .order_by(VintedMessage.created_at_vinted)
+            .offset(offset)
+            .limit(per_page)
+        )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def get_all_by_conversation(db: Session, conversation_id: int) -> List[VintedMessage]:
@@ -322,11 +327,12 @@ class VintedMessageRepository:
         Returns:
             List of all VintedMessage ordered by created_at_vinted ASC
         """
-        return db.query(VintedMessage).filter(
-            VintedMessage.conversation_id == conversation_id
-        ).order_by(
-            VintedMessage.created_at_vinted
-        ).all()
+        stmt = (
+            select(VintedMessage)
+            .where(VintedMessage.conversation_id == conversation_id)
+            .order_by(VintedMessage.created_at_vinted)
+        )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def count_by_conversation(db: Session, conversation_id: int) -> int:
@@ -340,9 +346,11 @@ class VintedMessageRepository:
         Returns:
             Message count
         """
-        return db.query(func.count(VintedMessage.id)).filter(
-            VintedMessage.conversation_id == conversation_id
-        ).scalar() or 0
+        stmt = (
+            select(func.count(VintedMessage.id))
+            .where(VintedMessage.conversation_id == conversation_id)
+        )
+        return db.execute(stmt).scalar_one() or 0
 
     @staticmethod
     def get_latest_by_conversation(
@@ -359,11 +367,12 @@ class VintedMessageRepository:
         Returns:
             Latest VintedMessage or None
         """
-        return db.query(VintedMessage).filter(
-            VintedMessage.conversation_id == conversation_id
-        ).order_by(
-            desc(VintedMessage.created_at_vinted)
-        ).first()
+        stmt = (
+            select(VintedMessage)
+            .where(VintedMessage.conversation_id == conversation_id)
+            .order_by(desc(VintedMessage.created_at_vinted))
+        )
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def exists_vinted_message_id(
@@ -382,12 +391,13 @@ class VintedMessageRepository:
         Returns:
             True if exists, False otherwise
         """
-        return db.query(VintedMessage).filter(
+        stmt = select(VintedMessage).where(
             and_(
                 VintedMessage.conversation_id == conversation_id,
                 VintedMessage.vinted_message_id == vinted_message_id
             )
-        ).first() is not None
+        )
+        return db.execute(stmt).scalar_one_or_none() is not None
 
     @staticmethod
     def delete_by_conversation(db: Session, conversation_id: int) -> int:
@@ -401,9 +411,11 @@ class VintedMessageRepository:
         Returns:
             Number of deleted messages
         """
-        count = db.query(VintedMessage).filter(
+        stmt = delete(VintedMessage).where(
             VintedMessage.conversation_id == conversation_id
-        ).delete()
+        )
+        result = db.execute(stmt)
+        count = result.rowcount
         db.commit()
 
         logger.info(f"[VintedMessageRepo] Deleted {count} messages for conversation {conversation_id}")
@@ -427,11 +439,15 @@ class VintedMessageRepository:
             List of matching VintedMessage
         """
         search_term = f"%{query}%"
-        return db.query(VintedMessage).filter(
-            and_(
-                VintedMessage.entity_type == "message",
-                VintedMessage.body.ilike(search_term)
+        stmt = (
+            select(VintedMessage)
+            .where(
+                and_(
+                    VintedMessage.entity_type == "message",
+                    VintedMessage.body.ilike(search_term)
+                )
             )
-        ).order_by(
-            desc(VintedMessage.created_at_vinted)
-        ).limit(limit).all()
+            .order_by(desc(VintedMessage.created_at_vinted))
+            .limit(limit)
+        )
+        return list(db.execute(stmt).scalars().all())

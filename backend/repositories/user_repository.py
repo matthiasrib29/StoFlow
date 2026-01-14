@@ -16,7 +16,7 @@ Author: Claude
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from models.public.user import User, UserRole, SubscriptionTier
@@ -66,7 +66,8 @@ class UserRepository:
         Returns:
             User si trouvé, None sinon
         """
-        return db.query(User).filter(User.id == user_id).first()
+        stmt = select(User).where(User.id == user_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_by_email(db: Session, email: str) -> Optional[User]:
@@ -80,7 +81,8 @@ class UserRepository:
         Returns:
             User si trouvé, None sinon
         """
-        return db.query(User).filter(User.email == email).first()
+        stmt = select(User).where(User.email == email)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def exists_by_email(db: Session, email: str) -> bool:
@@ -94,12 +96,9 @@ class UserRepository:
         Returns:
             bool: True si l'email existe
         """
-        return (
-            db.query(func.count(User.id))
-            .filter(User.email == email)
-            .scalar()
-            or 0
-        ) > 0
+        stmt = select(func.count(User.id)).where(User.email == email)
+        count = db.execute(stmt).scalar_one() or 0
+        return count > 0
 
     @staticmethod
     def update(db: Session, user: User) -> User:
@@ -231,13 +230,13 @@ class UserRepository:
         Returns:
             Liste de User actifs
         """
-        return (
-            db.query(User)
-            .filter(User.is_active == True)  # noqa: E712
+        stmt = (
+            select(User)
+            .where(User.is_active == True)  # noqa: E712
             .order_by(User.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def list_by_role(db: Session, role: UserRole, limit: int = 100) -> List[User]:
@@ -252,13 +251,13 @@ class UserRepository:
         Returns:
             Liste de User avec ce rôle
         """
-        return (
-            db.query(User)
-            .filter(User.role == role)
+        stmt = (
+            select(User)
+            .where(User.role == role)
             .order_by(User.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def list_by_subscription(
@@ -275,13 +274,13 @@ class UserRepository:
         Returns:
             Liste de User avec ce tier
         """
-        return (
-            db.query(User)
-            .filter(User.subscription_tier == tier)
+        stmt = (
+            select(User)
+            .where(User.subscription_tier == tier)
             .order_by(User.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def count(db: Session, active_only: bool = False) -> int:
@@ -295,12 +294,12 @@ class UserRepository:
         Returns:
             int: Nombre d'utilisateurs
         """
-        query = db.query(func.count(User.id))
+        stmt = select(func.count(User.id))
 
         if active_only:
-            query = query.filter(User.is_active == True)  # noqa: E712
+            stmt = stmt.where(User.is_active == True)  # noqa: E712
 
-        return query.scalar() or 0
+        return db.execute(stmt).scalar_one() or 0
 
     @staticmethod
     def count_by_subscription(db: Session, tier: SubscriptionTier) -> int:
@@ -314,12 +313,8 @@ class UserRepository:
         Returns:
             int: Nombre d'utilisateurs avec ce tier
         """
-        return (
-            db.query(func.count(User.id))
-            .filter(User.subscription_tier == tier)
-            .scalar()
-            or 0
-        )
+        stmt = select(func.count(User.id)).where(User.subscription_tier == tier)
+        return db.execute(stmt).scalar_one() or 0
 
     @staticmethod
     def exists(db: Session, user_id: int) -> bool:
@@ -333,12 +328,9 @@ class UserRepository:
         Returns:
             bool: True si existe
         """
-        return (
-            db.query(func.count(User.id))
-            .filter(User.id == user_id)
-            .scalar()
-            or 0
-        ) > 0
+        stmt = select(func.count(User.id)).where(User.id == user_id)
+        count = db.execute(stmt).scalar_one() or 0
+        return count > 0
 
     @staticmethod
     def get_by_stripe_customer_id(db: Session, stripe_customer_id: str) -> Optional[User]:
@@ -352,7 +344,8 @@ class UserRepository:
         Returns:
             User si trouvé, None sinon
         """
-        return db.query(User).filter(User.stripe_customer_id == stripe_customer_id).first()
+        stmt = select(User).where(User.stripe_customer_id == stripe_customer_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def search(db: Session, query_text: str, limit: int = 50) -> List[User]:
@@ -369,16 +362,16 @@ class UserRepository:
         """
         search_pattern = f"%{query_text}%"
 
-        return (
-            db.query(User)
-            .filter(
+        stmt = (
+            select(User)
+            .where(
                 (User.email.ilike(search_pattern))
                 | (User.full_name.ilike(search_pattern))
             )
             .order_by(User.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
 
 __all__ = ["UserRepository"]

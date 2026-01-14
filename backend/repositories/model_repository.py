@@ -15,6 +15,7 @@ Author: Claude
 
 from typing import List, Optional
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from models.public.model import Model
@@ -66,7 +67,8 @@ class ModelRepository:
         Returns:
             Model if found, None otherwise
         """
-        return db.query(Model).filter(Model.id == model_id).first()
+        stmt = select(Model).where(Model.id == model_id)
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_by_brand_group_and_name(
@@ -84,11 +86,12 @@ class ModelRepository:
         Returns:
             Model if found, None otherwise
         """
-        return (
-            db.query(Model)
-            .filter(Model.brand == brand, Model.group == group, Model.name == name)
-            .first()
+        stmt = select(Model).where(
+            Model.brand == brand,
+            Model.group == group,
+            Model.name == name
         )
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def get_all_by_brand_and_group(
@@ -105,12 +108,11 @@ class ModelRepository:
         Returns:
             List of Models
         """
-        return (
-            db.query(Model)
-            .filter(Model.brand == brand, Model.group == group)
-            .order_by(Model.name)
-            .all()
-        )
+        stmt = select(Model).where(
+            Model.brand == brand,
+            Model.group == group
+        ).order_by(Model.name)
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def update(db: Session, model: Model) -> Model:

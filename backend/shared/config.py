@@ -35,8 +35,8 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str
-    db_pool_size: int = 5
-    db_max_overflow: int = 10
+    db_pool_size: int = 10  # Increased from 5 for better concurrency
+    db_max_overflow: int = 20  # Increased from 10 for peak load
     db_pool_timeout: int = 30
     db_pool_recycle: int = 3600
 

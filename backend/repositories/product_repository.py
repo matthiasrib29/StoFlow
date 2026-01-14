@@ -17,7 +17,7 @@ Author: Claude
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from models.user.product import Product, ProductStatus
@@ -72,12 +72,13 @@ class ProductRepository:
         Returns:
             Product si trouvé, None sinon
         """
-        query = db.query(Product).filter(Product.id == product_id)
+        conditions = [Product.id == product_id]
 
         if not include_deleted:
-            query = query.filter(Product.deleted_at.is_(None))
+            conditions.append(Product.deleted_at.is_(None))
 
-        return query.first()
+        stmt = select(Product).where(and_(*conditions))
+        return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
     def list(
@@ -104,20 +105,30 @@ class ProductRepository:
         Returns:
             Tuple (liste de produits, total count)
         """
-        query = db.query(Product)
+        conditions = []
 
         if not include_deleted:
-            query = query.filter(Product.deleted_at.is_(None))
+            conditions.append(Product.deleted_at.is_(None))
 
         if status:
-            query = query.filter(Product.status == status)
+            conditions.append(Product.status == status)
         if category:
-            query = query.filter(Product.category == category)
+            conditions.append(Product.category == category)
         if brand:
-            query = query.filter(Product.brand == brand)
+            conditions.append(Product.brand == brand)
 
-        total = query.count()
-        products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
+        # Count total
+        count_stmt = select(func.count(Product.id))
+        if conditions:
+            count_stmt = count_stmt.where(and_(*conditions))
+        total = db.execute(count_stmt).scalar_one() or 0
+
+        # Get products
+        stmt = select(Product)
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+        stmt = stmt.order_by(Product.created_at.desc()).offset(skip).limit(limit)
+        products = list(db.execute(stmt).scalars().all())
 
         return products, total
 
@@ -193,13 +204,13 @@ class ProductRepository:
         Returns:
             Liste de Product
         """
-        return (
-            db.query(Product)
-            .filter(Product.status == status, Product.deleted_at.is_(None))
+        stmt = (
+            select(Product)
+            .where(Product.status == status, Product.deleted_at.is_(None))
             .order_by(Product.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def get_published(db: Session, limit: int = 100) -> List[Product]:
@@ -243,12 +254,12 @@ class ProductRepository:
         Returns:
             int: Nombre de produits
         """
-        query = db.query(func.count(Product.id))
+        stmt = select(func.count(Product.id))
 
         if not include_deleted:
-            query = query.filter(Product.deleted_at.is_(None))
+            stmt = stmt.where(Product.deleted_at.is_(None))
 
-        return query.scalar() or 0
+        return db.execute(stmt).scalar_one() or 0
 
     @staticmethod
     def count_by_status(db: Session, status: ProductStatus) -> int:
@@ -262,12 +273,11 @@ class ProductRepository:
         Returns:
             int: Nombre de produits avec ce status
         """
-        return (
-            db.query(func.count(Product.id))
-            .filter(Product.status == status, Product.deleted_at.is_(None))
-            .scalar()
-            or 0
+        stmt = (
+            select(func.count(Product.id))
+            .where(Product.status == status, Product.deleted_at.is_(None))
         )
+        return db.execute(stmt).scalar_one() or 0
 
     @staticmethod
     def exists(db: Session, product_id: int) -> bool:
@@ -281,12 +291,12 @@ class ProductRepository:
         Returns:
             bool: True si existe (et non supprimé)
         """
-        return (
-            db.query(func.count(Product.id))
-            .filter(Product.id == product_id, Product.deleted_at.is_(None))
-            .scalar()
-            or 0
-        ) > 0
+        stmt = (
+            select(func.count(Product.id))
+            .where(Product.id == product_id, Product.deleted_at.is_(None))
+        )
+        count = db.execute(stmt).scalar_one() or 0
+        return count > 0
 
     @staticmethod
     def get_recent(db: Session, days: int = 7, limit: int = 50) -> List[Product]:
@@ -305,13 +315,13 @@ class ProductRepository:
 
         cutoff = utc_now() - timedelta(days=days)
 
-        return (
-            db.query(Product)
-            .filter(Product.created_at >= cutoff, Product.deleted_at.is_(None))
+        stmt = (
+            select(Product)
+            .where(Product.created_at >= cutoff, Product.deleted_at.is_(None))
             .order_by(Product.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
     @staticmethod
     def search(
@@ -330,17 +340,17 @@ class ProductRepository:
         """
         search_pattern = f"%{query_text}%"
 
-        return (
-            db.query(Product)
-            .filter(
+        stmt = (
+            select(Product)
+            .where(
                 Product.deleted_at.is_(None),
                 (Product.title.ilike(search_pattern))
                 | (Product.description.ilike(search_pattern)),
             )
             .order_by(Product.created_at.desc())
             .limit(limit)
-            .all()
         )
+        return list(db.execute(stmt).scalars().all())
 
 
 __all__ = ["ProductRepository"]

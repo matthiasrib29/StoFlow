@@ -330,11 +330,12 @@ class VintedProduct(Base):
     # ===== RELATIONSHIPS =====
 
     # Link to Stoflow Product (1:1)
+    # lazy="select" to avoid unnecessary JOINs - use selectinload() when needed
     product: Mapped[Optional["Product"]] = relationship(
         "Product",
         back_populates="vinted_product",
         uselist=False,
-        lazy="joined"
+        lazy="select"
     )
 
     def __repr__(self) -> str:
