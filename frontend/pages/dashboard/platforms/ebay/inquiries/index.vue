@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /**
- * eBay Refunds List Page
+ * eBay INR Inquiries List Page
  *
- * Displays all refunds with filtering, statistics, and actions.
+ * Displays all INR (Item Not Received) inquiries with filtering, statistics, and actions.
  */
 
-import type { EbayRefund, EbayRefundStatistics } from '~/types/ebay'
+import type { EbayInquiry, EbayInquiryStatistics } from '~/types/ebay'
 
 definePageMeta({
   layout: 'dashboard',
@@ -15,25 +15,26 @@ const toast = useAppToast()
 const router = useRouter()
 
 const {
-  fetchRefunds,
+  fetchInquiries,
   fetchStatistics,
-  syncRefunds,
+  syncInquiries,
+  getStateLabel,
+  getStateSeverity,
   getStatusLabel,
   getStatusSeverity,
-  getSourceLabel,
-  getSourceSeverity,
-  getReasonLabel,
+  getStateIcon,
   formatAmount,
   formatDate,
-  getSourceIcon
-} = useEbayRefunds()
+  isUrgent,
+  getDaysUntilDeadline
+} = useEbayInquiries()
 
 // =========================================================================
 // STATE
 // =========================================================================
 
-const refunds = ref<EbayRefund[]>([])
-const statistics = ref<EbayRefundStatistics | null>(null)
+const inquiries = ref<EbayInquiry[]>([])
+const statistics = ref<EbayInquiryStatistics | null>(null)
 const loading = ref(false)
 const syncing = ref(false)
 const totalRecords = ref(0)
@@ -43,48 +44,37 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 
 // Filters
-const selectedStatus = ref<'PENDING' | 'REFUNDED' | 'FAILED' | null>(null)
-const selectedSource = ref<'RETURN' | 'CANCELLATION' | 'MANUAL' | 'OTHER' | null>(null)
+const selectedState = ref<'OPEN' | 'CLOSED' | null>(null)
 const orderIdFilter = ref<string>('')
 
 // Filter options
-const statusOptions = [
-  { label: 'Tous les statuts', value: null },
-  { label: 'En attente', value: 'PENDING' },
-  { label: 'Remboursé', value: 'REFUNDED' },
-  { label: 'Échoué', value: 'FAILED' }
-]
-
-const sourceOptions = [
-  { label: 'Toutes les sources', value: null },
-  { label: 'Retour', value: 'RETURN' },
-  { label: 'Annulation', value: 'CANCELLATION' },
-  { label: 'Manuel', value: 'MANUAL' },
-  { label: 'Autre', value: 'OTHER' }
+const stateOptions = [
+  { label: 'Tous les états', value: null },
+  { label: 'Ouvert', value: 'OPEN' },
+  { label: 'Fermé', value: 'CLOSED' }
 ]
 
 // =========================================================================
 // DATA FETCHING
 // =========================================================================
 
-const loadRefunds = async () => {
+const loadInquiries = async () => {
   loading.value = true
   try {
-    const response = await fetchRefunds({
+    const response = await fetchInquiries({
       page: currentPage.value,
       page_size: pageSize.value,
-      status: selectedStatus.value,
-      source: selectedSource.value,
+      state: selectedState.value,
       order_id: orderIdFilter.value || null
     })
-    refunds.value = response.items
+    inquiries.value = response.items
     totalRecords.value = response.total
   } catch (error) {
-    console.error('Failed to load refunds:', error)
+    console.error('Failed to load inquiries:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
-      detail: 'Impossible de charger les remboursements',
+      detail: 'Impossible de charger les réclamations',
       life: 5000
     })
   } finally {
@@ -103,15 +93,15 @@ const loadStatistics = async () => {
 const handleSync = async () => {
   syncing.value = true
   try {
-    const result = await syncRefunds({ days_back: 30 })
+    const result = await syncInquiries()
     toast.add({
       severity: 'success',
       summary: 'Synchronisation terminée',
-      detail: `${result.created} créés, ${result.updated} mis à jour`,
+      detail: `${result.created} créées, ${result.updated} mises à jour`,
       life: 5000
     })
     // Reload data
-    await Promise.all([loadRefunds(), loadStatistics()])
+    await Promise.all([loadInquiries(), loadStatistics()])
   } catch (error) {
     console.error('Sync failed:', error)
     toast.add({
@@ -129,8 +119,8 @@ const handleSync = async () => {
 // NAVIGATION
 // =========================================================================
 
-const viewRefund = (refund: EbayRefund) => {
-  router.push(`/dashboard/platforms/ebay/refunds/${refund.id}`)
+const viewInquiry = (inquiry: EbayInquiry) => {
+  router.push(`/dashboard/platforms/ebay/inquiries/${inquiry.id}`)
 }
 
 // =========================================================================
@@ -140,7 +130,7 @@ const viewRefund = (refund: EbayRefund) => {
 const onPageChange = (event: { page: number; rows: number }) => {
   currentPage.value = event.page + 1
   pageSize.value = event.rows
-  loadRefunds()
+  loadInquiries()
 }
 
 // =========================================================================
@@ -149,37 +139,49 @@ const onPageChange = (event: { page: number; rows: number }) => {
 
 const applyFilters = () => {
   currentPage.value = 1
-  loadRefunds()
+  loadInquiries()
 }
 
 const clearFilters = () => {
-  selectedStatus.value = null
-  selectedSource.value = null
+  selectedState.value = null
   orderIdFilter.value = ''
   currentPage.value = 1
-  loadRefunds()
+  loadInquiries()
 }
 
 // =========================================================================
 // HELPERS
 // =========================================================================
 
-const formatCurrency = (amount: number | null, currency: string | null): string => {
-  if (!amount) return '-'
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: currency || 'EUR'
-  }).format(amount)
-}
-
-const getRowClass = (refund: EbayRefund): string => {
-  if (refund.is_failed) {
+const getRowClass = (inquiry: EbayInquiry): string => {
+  if (inquiry.is_past_due) {
     return 'bg-red-50 dark:bg-red-900/20'
   }
-  if (refund.is_pending) {
-    return 'bg-yellow-50 dark:bg-yellow-900/20'
+  if (inquiry.needs_action) {
+    return 'bg-orange-50 dark:bg-orange-900/20'
+  }
+  if (inquiry.is_escalated) {
+    return 'bg-purple-50 dark:bg-purple-900/20'
   }
   return ''
+}
+
+const getDeadlineClass = (inquiry: EbayInquiry): string => {
+  const days = getDaysUntilDeadline(inquiry)
+  if (days === null) return ''
+  if (days < 0) return 'text-red-600 font-bold'
+  if (days <= 2) return 'text-orange-600 font-bold'
+  if (days <= 5) return 'text-yellow-600'
+  return 'text-gray-600'
+}
+
+const formatDeadline = (inquiry: EbayInquiry): string => {
+  const days = getDaysUntilDeadline(inquiry)
+  if (days === null) return '-'
+  if (days < 0) return `${Math.abs(days)}j en retard`
+  if (days === 0) return "Aujourd'hui"
+  if (days === 1) return 'Demain'
+  return `${days} jours`
 }
 
 // =========================================================================
@@ -187,7 +189,7 @@ const getRowClass = (refund: EbayRefund): string => {
 // =========================================================================
 
 onMounted(async () => {
-  await Promise.all([loadRefunds(), loadStatistics()])
+  await Promise.all([loadInquiries(), loadStatistics()])
 })
 </script>
 
@@ -197,10 +199,10 @@ onMounted(async () => {
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-          Remboursements eBay
+          Réclamations INR eBay
         </h1>
         <p class="text-gray-600 dark:text-gray-400 mt-1">
-          Suivez et gérez les remboursements de vos commandes eBay
+          Gérez les réclamations "Article non reçu"
         </p>
       </div>
       <Button
@@ -212,17 +214,49 @@ onMounted(async () => {
     </div>
 
     <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
       <Card class="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
         <template #content>
           <div class="flex items-center gap-3">
             <div class="p-3 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg">
-              <i class="pi pi-clock text-yellow-600 dark:text-yellow-400 text-xl" />
+              <i class="pi pi-exclamation-circle text-yellow-600 dark:text-yellow-400 text-xl" />
             </div>
             <div>
-              <p class="text-sm text-yellow-600 dark:text-yellow-400">En attente</p>
+              <p class="text-sm text-yellow-600 dark:text-yellow-400">Ouvertes</p>
               <p class="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
-                {{ statistics?.pending ?? '-' }}
+                {{ statistics?.open ?? '-' }}
+              </p>
+            </div>
+          </div>
+        </template>
+      </Card>
+
+      <Card class="bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800">
+        <template #content>
+          <div class="flex items-center gap-3">
+            <div class="p-3 bg-orange-100 dark:bg-orange-900/40 rounded-lg">
+              <i class="pi pi-clock text-orange-600 dark:text-orange-400 text-xl" />
+            </div>
+            <div>
+              <p class="text-sm text-orange-600 dark:text-orange-400">Action requise</p>
+              <p class="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                {{ statistics?.needs_action ?? '-' }}
+              </p>
+            </div>
+          </div>
+        </template>
+      </Card>
+
+      <Card class="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+        <template #content>
+          <div class="flex items-center gap-3">
+            <div class="p-3 bg-red-100 dark:bg-red-900/40 rounded-lg">
+              <i class="pi pi-exclamation-triangle text-red-600 dark:text-red-400 text-xl" />
+            </div>
+            <div>
+              <p class="text-sm text-red-600 dark:text-red-400">En retard</p>
+              <p class="text-2xl font-bold text-red-700 dark:text-red-300">
+                {{ statistics?.past_deadline ?? '-' }}
               </p>
             </div>
           </div>
@@ -236,64 +270,10 @@ onMounted(async () => {
               <i class="pi pi-check-circle text-green-600 dark:text-green-400 text-xl" />
             </div>
             <div>
-              <p class="text-sm text-green-600 dark:text-green-400">Remboursés</p>
+              <p class="text-sm text-green-600 dark:text-green-400">Fermées</p>
               <p class="text-2xl font-bold text-green-700 dark:text-green-300">
-                {{ statistics?.completed ?? '-' }}
+                {{ statistics?.closed ?? '-' }}
               </p>
-            </div>
-          </div>
-        </template>
-      </Card>
-
-      <Card class="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
-        <template #content>
-          <div class="flex items-center gap-3">
-            <div class="p-3 bg-red-100 dark:bg-red-900/40 rounded-lg">
-              <i class="pi pi-times-circle text-red-600 dark:text-red-400 text-xl" />
-            </div>
-            <div>
-              <p class="text-sm text-red-600 dark:text-red-400">Échoués</p>
-              <p class="text-2xl font-bold text-red-700 dark:text-red-300">
-                {{ statistics?.failed ?? '-' }}
-              </p>
-            </div>
-          </div>
-        </template>
-      </Card>
-
-      <Card class="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-        <template #content>
-          <div class="flex items-center gap-3">
-            <div class="p-3 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
-              <i class="pi pi-euro text-blue-600 dark:text-blue-400 text-xl" />
-            </div>
-            <div>
-              <p class="text-sm text-blue-600 dark:text-blue-400">Total remboursé</p>
-              <p class="text-xl font-bold text-blue-700 dark:text-blue-300">
-                {{ formatCurrency(statistics?.total_refunded ?? null, 'EUR') }}
-              </p>
-            </div>
-          </div>
-        </template>
-      </Card>
-
-      <Card class="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
-        <template #content>
-          <div class="flex flex-col gap-2">
-            <p class="text-sm text-purple-600 dark:text-purple-400 font-medium">Par source</p>
-            <div class="flex flex-wrap gap-2 text-xs">
-              <span class="px-2 py-1 bg-purple-100 dark:bg-purple-900/40 rounded text-purple-700 dark:text-purple-300">
-                <i class="pi pi-replay mr-1" />
-                {{ statistics?.by_source?.RETURN ?? 0 }} retours
-              </span>
-              <span class="px-2 py-1 bg-purple-100 dark:bg-purple-900/40 rounded text-purple-700 dark:text-purple-300">
-                <i class="pi pi-times-circle mr-1" />
-                {{ statistics?.by_source?.CANCELLATION ?? 0 }} annul.
-              </span>
-              <span class="px-2 py-1 bg-purple-100 dark:bg-purple-900/40 rounded text-purple-700 dark:text-purple-300">
-                <i class="pi pi-user mr-1" />
-                {{ statistics?.by_source?.MANUAL ?? 0 }} manuels
-              </span>
             </div>
           </div>
         </template>
@@ -306,28 +286,14 @@ onMounted(async () => {
         <div class="flex flex-wrap items-end gap-4">
           <div class="flex-1 min-w-[200px]">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Statut
+              État
             </label>
             <Dropdown
-              v-model="selectedStatus"
-              :options="statusOptions"
+              v-model="selectedState"
+              :options="stateOptions"
               option-label="label"
               option-value="value"
-              placeholder="Tous les statuts"
-              class="w-full"
-            />
-          </div>
-
-          <div class="flex-1 min-w-[200px]">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Source
-            </label>
-            <Dropdown
-              v-model="selectedSource"
-              :options="sourceOptions"
-              option-label="label"
-              option-value="value"
-              placeholder="Toutes les sources"
+              placeholder="Tous les états"
               class="w-full"
             />
           </div>
@@ -366,24 +332,24 @@ onMounted(async () => {
     <Card>
       <template #content>
         <DataTable
-          :value="refunds"
+          :value="inquiries"
           :loading="loading"
           :row-class="getRowClass"
           striped-rows
           responsive-layout="scroll"
           class="cursor-pointer"
-          @row-click="(e) => viewRefund(e.data)"
+          @row-click="(e) => viewInquiry(e.data)"
         >
           <template #empty>
             <div class="text-center py-8 text-gray-500 dark:text-gray-400">
               <i class="pi pi-inbox text-4xl mb-3" />
-              <p>Aucun remboursement trouvé</p>
+              <p>Aucune réclamation INR trouvée</p>
             </div>
           </template>
 
-          <Column field="refund_id" header="ID Remboursement" style="min-width: 150px">
+          <Column field="inquiry_id" header="ID Réclamation" style="min-width: 150px">
             <template #body="{ data }">
-              <span class="font-mono text-sm">{{ data.refund_id }}</span>
+              <span class="font-mono text-sm">{{ data.inquiry_id }}</span>
             </template>
           </Column>
 
@@ -393,38 +359,36 @@ onMounted(async () => {
             </template>
           </Column>
 
-          <Column field="refund_source" header="Source" style="min-width: 120px">
+          <Column field="inquiry_state" header="État" style="min-width: 120px">
             <template #body="{ data }">
               <Tag
-                :value="getSourceLabel(data.refund_source)"
-                :severity="getSourceSeverity(data.refund_source)"
+                :value="getStateLabel(data.inquiry_state)"
+                :severity="getStateSeverity(data.inquiry_state)"
               >
                 <template #default>
-                  <i :class="getSourceIcon(data.refund_source)" class="mr-1" />
-                  {{ getSourceLabel(data.refund_source) }}
+                  <i :class="getStateIcon(data.inquiry_state)" class="mr-1" />
+                  {{ getStateLabel(data.inquiry_state) }}
                 </template>
               </Tag>
             </template>
           </Column>
 
-          <Column field="refund_status" header="Statut" style="min-width: 120px">
+          <Column field="inquiry_status" header="Statut" style="min-width: 180px">
             <template #body="{ data }">
               <Tag
-                :value="getStatusLabel(data.refund_status)"
-                :severity="getStatusSeverity(data.refund_status)"
-              />
+                :value="getStatusLabel(data.inquiry_status)"
+                :severity="getStatusSeverity(data.inquiry_status)"
+              >
+                {{ getStatusLabel(data.inquiry_status) }}
+              </Tag>
             </template>
           </Column>
 
-          <Column field="refund_amount" header="Montant" style="min-width: 120px">
+          <Column field="claim_amount" header="Montant" style="min-width: 120px">
             <template #body="{ data }">
-              <span class="font-medium">{{ formatAmount(data) }}</span>
-            </template>
-          </Column>
-
-          <Column field="reason" header="Raison" style="min-width: 150px">
-            <template #body="{ data }">
-              <span class="text-sm">{{ getReasonLabel(data.reason) }}</span>
+              <span class="font-medium text-red-600 dark:text-red-400">
+                {{ formatAmount(data) }}
+              </span>
             </template>
           </Column>
 
@@ -434,9 +398,25 @@ onMounted(async () => {
             </template>
           </Column>
 
-          <Column field="refund_date" header="Date" style="min-width: 150px">
+          <Column field="respond_by_date" header="Deadline" style="min-width: 120px">
             <template #body="{ data }">
-              <span class="text-sm">{{ formatDate(data.refund_date) }}</span>
+              <span :class="getDeadlineClass(data)">
+                {{ formatDeadline(data) }}
+              </span>
+            </template>
+          </Column>
+
+          <Column field="item_title" header="Article" style="min-width: 200px">
+            <template #body="{ data }">
+              <span class="text-sm truncate max-w-[200px] block">
+                {{ data.item_title || '-' }}
+              </span>
+            </template>
+          </Column>
+
+          <Column field="creation_date" header="Date" style="min-width: 150px">
+            <template #body="{ data }">
+              <span class="text-sm">{{ formatDate(data.creation_date) }}</span>
             </template>
           </Column>
 
@@ -448,17 +428,17 @@ onMounted(async () => {
                   severity="secondary"
                   text
                   rounded
-                  @click.stop="viewRefund(data)"
+                  @click.stop="viewInquiry(data)"
                 />
                 <i
-                  v-if="data.is_failed"
-                  class="pi pi-exclamation-triangle text-red-500"
-                  v-tooltip.top="'Remboursement échoué'"
+                  v-if="isUrgent(data)"
+                  class="pi pi-exclamation-triangle text-orange-500"
+                  v-tooltip.top="'Action urgente requise'"
                 />
                 <i
-                  v-else-if="data.is_pending"
-                  class="pi pi-clock text-yellow-500"
-                  v-tooltip.top="'En attente'"
+                  v-if="data.is_escalated"
+                  class="pi pi-arrow-up text-purple-500"
+                  v-tooltip.top="'Escaladé'"
                 />
               </div>
             </template>

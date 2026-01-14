@@ -44,7 +44,7 @@ from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter()
+router = APIRouter(prefix="/ebay", tags=["eBay Refunds"])
 
 
 # =============================================================================

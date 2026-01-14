@@ -9,10 +9,9 @@ import type { EbayPaymentDispute, EbayPaymentDisputeStatistics } from '~/types/e
 
 definePageMeta({
   layout: 'dashboard',
-  middleware: ['auth']
 })
 
-const toast = useToast()
+const toast = useAppToast()
 const router = useRouter()
 
 const {

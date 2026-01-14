@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
- * eBay Payment Dispute Detail Page
+ * eBay INR Inquiry Detail Page
  *
- * Displays detailed information about a specific payment dispute
- * with actions to accept, contest, and add evidence.
+ * Displays detailed information about a specific INR inquiry
+ * with actions to provide shipment info, refund, message, or escalate.
  */
 
-import type { EbayPaymentDispute, EbayPaymentDisputeEvidenceType } from '~/types/ebay'
+import type { EbayInquiry } from '~/types/ebay'
 
 definePageMeta({
   layout: 'dashboard',
@@ -17,81 +17,88 @@ const router = useRouter()
 const toast = useAppToast()
 
 const {
-  fetchDispute,
-  syncDispute,
-  acceptDispute,
-  contestDispute,
-  addEvidence,
+  fetchInquiry,
+  provideShipmentInfo,
+  provideRefund,
+  sendMessage,
+  escalateInquiry,
   getStateLabel,
   getStateSeverity,
-  getReasonLabel,
-  getSellerResponseLabel,
-  getSellerResponseSeverity,
-  getEvidenceTypeLabel,
+  getStatusLabel,
+  getStatusSeverity,
   getStateIcon,
-  getReasonIcon,
+  getStatusIcon,
   formatAmount,
   formatDate,
-  getEvidenceTypeOptions,
+  getCarrierOptions,
   isUrgent,
   getDaysUntilDeadline
-} = useEbayPaymentDisputes()
+} = useEbayInquiries()
 
 // =========================================================================
 // STATE
 // =========================================================================
 
-const dispute = ref<EbayPaymentDispute | null>(null)
+const inquiry = ref<EbayInquiry | null>(null)
 const loading = ref(false)
-const syncing = ref(false)
 const actionLoading = ref(false)
 
 // Dialogs
-const showAcceptDialog = ref(false)
-const showContestDialog = ref(false)
-const showEvidenceDialog = ref(false)
+const showShipmentDialog = ref(false)
+const showRefundDialog = ref(false)
+const showMessageDialog = ref(false)
+const showEscalateDialog = ref(false)
 
 // Form data
-const acceptComment = ref('')
-const contestForm = ref({
-  evidenceType: null as EbayPaymentDisputeEvidenceType | null,
-  evidenceInfo: '',
-  comment: ''
+const shipmentForm = ref({
+  trackingNumber: '',
+  carrier: null as string | null,
+  shippedDate: null as Date | null,
+  comments: ''
 })
-const evidenceForm = ref({
-  evidenceType: null as EbayPaymentDisputeEvidenceType | null,
-  evidenceInfo: '',
-  description: ''
+
+const refundForm = ref({
+  refundAmount: null as number | null,
+  currency: 'EUR',
+  comments: ''
+})
+
+const messageForm = ref({
+  message: ''
+})
+
+const escalateForm = ref({
+  comments: ''
 })
 
 // =========================================================================
 // COMPUTED
 // =========================================================================
 
-const disputeId = computed(() => {
+const inquiryId = computed(() => {
   const id = route.params.id
   return Array.isArray(id) ? parseInt(id[0]) : parseInt(id)
 })
 
 const canTakeAction = computed(() => {
-  if (!dispute.value) return false
+  if (!inquiry.value) return false
   return (
-    dispute.value.dispute_state !== 'CLOSED' &&
-    !dispute.value.seller_response
+    inquiry.value.inquiry_state === 'OPEN' &&
+    inquiry.value.inquiry_status === 'INR_WAITING_FOR_SELLER'
   )
 })
 
-const canAddEvidence = computed(() => {
-  if (!dispute.value) return false
+const canEscalate = computed(() => {
+  if (!inquiry.value) return false
   return (
-    dispute.value.dispute_state !== 'CLOSED' &&
-    dispute.value.seller_response === 'CONTEST'
+    inquiry.value.inquiry_state === 'OPEN' &&
+    !inquiry.value.is_escalated
   )
 })
 
 const daysUntilDeadline = computed(() => {
-  if (!dispute.value) return null
-  return getDaysUntilDeadline(dispute.value)
+  if (!inquiry.value) return null
+  return getDaysUntilDeadline(inquiry.value)
 })
 
 const deadlineStatus = computed(() => {
@@ -108,46 +115,21 @@ const deadlineStatus = computed(() => {
 // DATA FETCHING
 // =========================================================================
 
-const loadDispute = async () => {
+const loadInquiry = async () => {
   loading.value = true
   try {
-    dispute.value = await fetchDispute(disputeId.value)
+    inquiry.value = await fetchInquiry(inquiryId.value)
   } catch (error) {
-    console.error('Failed to load dispute:', error)
+    console.error('Failed to load inquiry:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
-      detail: 'Impossible de charger le litige',
+      detail: 'Impossible de charger la réclamation',
       life: 5000
     })
-    router.push('/dashboard/platforms/ebay/payment-disputes')
+    router.push('/dashboard/platforms/ebay/inquiries')
   } finally {
     loading.value = false
-  }
-}
-
-const handleSync = async () => {
-  if (!dispute.value) return
-  syncing.value = true
-  try {
-    await syncDispute(dispute.value.dispute_id)
-    await loadDispute()
-    toast.add({
-      severity: 'success',
-      summary: 'Synchronisation terminée',
-      detail: 'Les données ont été mises à jour',
-      life: 3000
-    })
-  } catch (error) {
-    console.error('Sync failed:', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Erreur',
-      detail: 'La synchronisation a échoué',
-      life: 5000
-    })
-  } finally {
-    syncing.value = false
   }
 }
 
@@ -155,30 +137,35 @@ const handleSync = async () => {
 // ACTIONS
 // =========================================================================
 
-const handleAccept = async () => {
-  if (!dispute.value) return
+const handleProvideShipment = async () => {
+  if (!inquiry.value || !shipmentForm.value.trackingNumber || !shipmentForm.value.carrier) return
   actionLoading.value = true
   try {
-    const result = await acceptDispute(dispute.value.id, acceptComment.value || null)
+    const result = await provideShipmentInfo(inquiry.value.id, {
+      tracking_number: shipmentForm.value.trackingNumber,
+      carrier: shipmentForm.value.carrier,
+      shipped_date: shipmentForm.value.shippedDate?.toISOString() || null,
+      comments: shipmentForm.value.comments || null
+    })
     if (result.success) {
       toast.add({
         severity: 'success',
-        summary: 'Litige accepté',
-        detail: 'Vous avez accepté ce litige',
+        summary: 'Information envoyée',
+        detail: 'Les informations de suivi ont été fournies',
         life: 5000
       })
-      showAcceptDialog.value = false
-      acceptComment.value = ''
-      await loadDispute()
+      showShipmentDialog.value = false
+      shipmentForm.value = { trackingNumber: '', carrier: null, shippedDate: null, comments: '' }
+      await loadInquiry()
     } else {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Accept failed:', error)
+    console.error('Shipment info failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
-      detail: "Impossible d'accepter le litige",
+      detail: "Impossible d'envoyer les informations de suivi",
       life: 5000
     })
   } finally {
@@ -186,34 +173,34 @@ const handleAccept = async () => {
   }
 }
 
-const handleContest = async () => {
-  if (!dispute.value || !contestForm.value.evidenceType) return
+const handleProvideRefund = async () => {
+  if (!inquiry.value) return
   actionLoading.value = true
   try {
-    const result = await contestDispute(dispute.value.id, {
-      evidence_type: contestForm.value.evidenceType,
-      evidence_info: contestForm.value.evidenceInfo || null,
-      comment: contestForm.value.comment || null
+    const result = await provideRefund(inquiry.value.id, {
+      refund_amount: refundForm.value.refundAmount,
+      currency: refundForm.value.currency || null,
+      comments: refundForm.value.comments || null
     })
     if (result.success) {
       toast.add({
         severity: 'success',
-        summary: 'Litige contesté',
-        detail: 'Votre contestation a été soumise',
+        summary: 'Remboursement initié',
+        detail: 'Le remboursement a été initié',
         life: 5000
       })
-      showContestDialog.value = false
-      contestForm.value = { evidenceType: null, evidenceInfo: '', comment: '' }
-      await loadDispute()
+      showRefundDialog.value = false
+      refundForm.value = { refundAmount: null, currency: 'EUR', comments: '' }
+      await loadInquiry()
     } else {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Contest failed:', error)
+    console.error('Refund failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
-      detail: 'Impossible de contester le litige',
+      detail: "Impossible d'initier le remboursement",
       life: 5000
     })
   } finally {
@@ -221,34 +208,64 @@ const handleContest = async () => {
   }
 }
 
-const handleAddEvidence = async () => {
-  if (!dispute.value || !evidenceForm.value.evidenceType || !evidenceForm.value.evidenceInfo) return
+const handleSendMessage = async () => {
+  if (!inquiry.value || !messageForm.value.message) return
   actionLoading.value = true
   try {
-    const result = await addEvidence(dispute.value.id, {
-      evidence_type: evidenceForm.value.evidenceType,
-      evidence_info: evidenceForm.value.evidenceInfo,
-      description: evidenceForm.value.description || null
-    })
+    const result = await sendMessage(inquiry.value.id, messageForm.value.message)
     if (result.success) {
       toast.add({
         severity: 'success',
-        summary: 'Preuve ajoutée',
-        detail: 'La preuve a été ajoutée au litige',
+        summary: 'Message envoyé',
+        detail: "Le message a été envoyé à l'acheteur",
         life: 5000
       })
-      showEvidenceDialog.value = false
-      evidenceForm.value = { evidenceType: null, evidenceInfo: '', description: '' }
-      await loadDispute()
+      showMessageDialog.value = false
+      messageForm.value = { message: '' }
+      await loadInquiry()
     } else {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Add evidence failed:', error)
+    console.error('Send message failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
-      detail: "Impossible d'ajouter la preuve",
+      detail: "Impossible d'envoyer le message",
+      life: 5000
+    })
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+const handleEscalate = async () => {
+  if (!inquiry.value) return
+  actionLoading.value = true
+  try {
+    const result = await escalateInquiry(
+      inquiry.value.id,
+      escalateForm.value.comments || null
+    )
+    if (result.success) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Réclamation escaladée',
+        detail: 'La réclamation a été escaladée vers eBay',
+        life: 5000
+      })
+      showEscalateDialog.value = false
+      escalateForm.value = { comments: '' }
+      await loadInquiry()
+    } else {
+      throw new Error(result.message || 'Action failed')
+    }
+  } catch (error) {
+    console.error('Escalate failed:', error)
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: "Impossible d'escalader la réclamation",
       life: 5000
     })
   } finally {
@@ -261,12 +278,12 @@ const handleAddEvidence = async () => {
 // =========================================================================
 
 const goBack = () => {
-  router.push('/dashboard/platforms/ebay/payment-disputes')
+  router.push('/dashboard/platforms/ebay/inquiries')
 }
 
 const goToOrder = () => {
-  if (dispute.value?.order_id) {
-    router.push(`/dashboard/platforms/ebay/orders?search=${dispute.value.order_id}`)
+  if (inquiry.value?.order_id) {
+    router.push(`/dashboard/platforms/ebay/orders?search=${inquiry.value.order_id}`)
   }
 }
 
@@ -275,7 +292,7 @@ const goToOrder = () => {
 // =========================================================================
 
 onMounted(async () => {
-  await loadDispute()
+  await loadInquiry()
 })
 </script>
 
@@ -287,7 +304,7 @@ onMounted(async () => {
     </div>
 
     <!-- Content -->
-    <div v-else-if="dispute">
+    <div v-else-if="inquiry">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-4">
@@ -300,29 +317,22 @@ onMounted(async () => {
           />
           <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-              Litige #{{ dispute.dispute_id }}
+              Réclamation #{{ inquiry.inquiry_id }}
             </h1>
             <p class="text-gray-600 dark:text-gray-400 mt-1">
-              {{ formatDate(dispute.creation_date || dispute.created_at) }}
+              {{ formatDate(inquiry.creation_date || inquiry.created_at) }}
             </p>
           </div>
         </div>
 
         <div class="flex items-center gap-3">
-          <Button
-            icon="pi pi-refresh"
-            severity="secondary"
-            :loading="syncing"
-            @click="handleSync"
-            v-tooltip.top="'Actualiser'"
-          />
           <Tag
-            :severity="getStateSeverity(dispute.dispute_state)"
+            :severity="getStateSeverity(inquiry.inquiry_state)"
             class="text-base px-4 py-2"
           >
             <template #default>
-              <i :class="getStateIcon(dispute.dispute_state)" class="mr-2" />
-              {{ getStateLabel(dispute.dispute_state) }}
+              <i :class="getStateIcon(inquiry.inquiry_state)" class="mr-2" />
+              {{ getStateLabel(inquiry.inquiry_state) }}
             </template>
           </Tag>
         </div>
@@ -330,7 +340,7 @@ onMounted(async () => {
 
       <!-- Urgent Alert -->
       <div
-        v-if="isUrgent(dispute)"
+        v-if="isUrgent(inquiry)"
         class="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg"
       >
         <div class="flex items-center gap-3">
@@ -346,8 +356,11 @@ onMounted(async () => {
               <span v-else-if="daysUntilDeadline !== null && daysUntilDeadline <= 2">
                 Il vous reste {{ daysUntilDeadline }} jour(s) pour répondre.
               </span>
+              <span v-else-if="inquiry.is_escalated">
+                Cette réclamation a été escaladée.
+              </span>
               <span v-else>
-                Ce litige nécessite votre attention.
+                Cette réclamation nécessite votre attention.
               </span>
             </p>
           </div>
@@ -363,17 +376,13 @@ onMounted(async () => {
             <template #title>
               <div class="flex items-center gap-2">
                 <i class="pi pi-euro" />
-                <span>Montant contesté</span>
+                <span>Montant réclamé</span>
               </div>
             </template>
             <template #content>
               <div class="text-center py-4">
                 <p class="text-4xl font-bold text-red-600 dark:text-red-400">
-                  {{ formatAmount(dispute) }}
-                </p>
-                <p v-if="dispute.original_order_amount" class="text-sm text-gray-500 mt-2">
-                  Montant original de la commande :
-                  {{ new Intl.NumberFormat('fr-FR', { style: 'currency', currency: dispute.dispute_currency || 'EUR' }).format(dispute.original_order_amount) }}
+                  {{ formatAmount(inquiry) }}
                 </p>
               </div>
             </template>
@@ -384,106 +393,82 @@ onMounted(async () => {
             <template #title>
               <div class="flex items-center gap-2">
                 <i class="pi pi-info-circle" />
-                <span>Détails du litige</span>
+                <span>Détails de la réclamation</span>
               </div>
             </template>
             <template #content>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Reason -->
+                <!-- Status -->
                 <div>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Raison</p>
-                  <div class="flex items-center gap-2">
-                    <i :class="getReasonIcon(dispute.dispute_reason)" class="text-gray-600" />
-                    <p class="font-medium text-gray-900 dark:text-white">
-                      {{ getReasonLabel(dispute.dispute_reason) }}
-                    </p>
-                  </div>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Statut</p>
+                  <Tag
+                    :severity="getStatusSeverity(inquiry.inquiry_status)"
+                  >
+                    <template #default>
+                      <i :class="getStatusIcon(inquiry.inquiry_status)" class="mr-1" />
+                      {{ getStatusLabel(inquiry.inquiry_status) }}
+                    </template>
+                  </Tag>
                 </div>
 
                 <!-- Buyer -->
                 <div>
                   <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Acheteur</p>
                   <p class="font-medium text-gray-900 dark:text-white">
-                    {{ dispute.buyer_username || '-' }}
+                    {{ inquiry.buyer_username || '-' }}
                   </p>
                 </div>
 
-                <!-- Buyer claim -->
-                <div v-if="dispute.buyer_claimed" class="md:col-span-2">
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Réclamation de l'acheteur</p>
+                <!-- Item -->
+                <div class="md:col-span-2">
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Article</p>
+                  <p class="font-medium text-gray-900 dark:text-white">
+                    {{ inquiry.item_title || '-' }}
+                  </p>
+                  <p v-if="inquiry.item_id" class="text-sm text-gray-500 mt-1">
+                    ID: {{ inquiry.item_id }}
+                  </p>
+                </div>
+
+                <!-- Buyer comments -->
+                <div v-if="inquiry.buyer_comments" class="md:col-span-2">
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Commentaires de l'acheteur</p>
                   <p class="text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                    {{ dispute.buyer_claimed }}
+                    {{ inquiry.buyer_comments }}
                   </p>
                 </div>
 
                 <!-- Seller Response -->
-                <div v-if="dispute.seller_response">
+                <div v-if="inquiry.seller_response">
                   <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Votre réponse</p>
-                  <Tag
-                    :severity="getSellerResponseSeverity(dispute.seller_response)"
-                  >
-                    {{ getSellerResponseLabel(dispute.seller_response) }}
-                  </Tag>
-                </div>
-
-                <!-- Seller Comment -->
-                <div v-if="dispute.seller_comment" class="md:col-span-2">
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Votre commentaire</p>
-                  <p class="text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                    {{ dispute.seller_comment }}
-                  </p>
-                </div>
-
-                <!-- Seller Evidence -->
-                <div v-if="dispute.seller_evidence" class="md:col-span-2">
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Preuves fournies</p>
-                  <p class="text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                    {{ dispute.seller_evidence }}
+                  <p class="font-medium text-gray-900 dark:text-white">
+                    {{ inquiry.seller_response }}
                   </p>
                 </div>
               </div>
             </template>
           </Card>
 
-          <!-- Resolution Card -->
-          <Card v-if="dispute.resolution_status || dispute.dispute_state === 'CLOSED'">
+          <!-- Shipment Info Card (if provided) -->
+          <Card v-if="inquiry.shipment_tracking_number">
             <template #title>
               <div class="flex items-center gap-2">
-                <i class="pi pi-check-square" />
-                <span>Résolution</span>
+                <i class="pi pi-truck" />
+                <span>Informations de suivi</span>
               </div>
             </template>
             <template #content>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Resolution Status -->
-                <div v-if="dispute.resolution_status">
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Statut</p>
-                  <p class="font-medium text-gray-900 dark:text-white">
-                    {{ dispute.resolution_status }}
+                <div>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Numéro de suivi</p>
+                  <p class="font-mono text-gray-900 dark:text-white">
+                    {{ inquiry.shipment_tracking_number }}
                   </p>
                 </div>
-
-                <!-- Resolution Method -->
-                <div v-if="dispute.resolution_method">
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Méthode</p>
+                <div v-if="inquiry.shipment_carrier">
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Transporteur</p>
                   <p class="font-medium text-gray-900 dark:text-white">
-                    {{ dispute.resolution_method }}
-                  </p>
-                </div>
-
-                <!-- Resolution Amount -->
-                <div v-if="dispute.resolution_amount">
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Montant résolu</p>
-                  <p class="font-medium text-gray-900 dark:text-white">
-                    {{ new Intl.NumberFormat('fr-FR', { style: 'currency', currency: dispute.dispute_currency || 'EUR' }).format(dispute.resolution_amount) }}
-                  </p>
-                </div>
-
-                <!-- Resolution Date -->
-                <div v-if="dispute.resolution_date">
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Date de résolution</p>
-                  <p class="font-medium text-gray-900 dark:text-white">
-                    {{ formatDate(dispute.resolution_date) }}
+                    {{ inquiry.shipment_carrier }}
                   </p>
                 </div>
               </div>
@@ -505,10 +490,10 @@ onMounted(async () => {
                   <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">N° Commande</p>
                   <div class="flex items-center gap-2">
                     <p class="font-mono text-sm text-gray-900 dark:text-white">
-                      {{ dispute.order_id || '-' }}
+                      {{ inquiry.order_id || '-' }}
                     </p>
                     <Button
-                      v-if="dispute.order_id"
+                      v-if="inquiry.order_id"
                       icon="pi pi-external-link"
                       text
                       rounded
@@ -518,27 +503,19 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <!-- Dispute ID -->
+                <!-- Inquiry ID -->
                 <div>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">ID Litige eBay</p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">ID Réclamation eBay</p>
                   <p class="font-mono text-sm text-gray-900 dark:text-white">
-                    {{ dispute.dispute_id }}
+                    {{ inquiry.inquiry_id }}
                   </p>
                 </div>
 
-                <!-- Dispute Status -->
-                <div v-if="dispute.dispute_status">
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Statut détaillé</p>
-                  <p class="font-mono text-sm text-gray-900 dark:text-white">
-                    {{ dispute.dispute_status }}
-                  </p>
-                </div>
-
-                <!-- Reason Code -->
-                <div v-if="dispute.reason_code">
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Code raison</p>
-                  <p class="font-mono text-sm text-gray-900 dark:text-white">
-                    {{ dispute.reason_code }}
+                <!-- Inquiry Type -->
+                <div>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Type</p>
+                  <p class="font-medium text-gray-900 dark:text-white">
+                    {{ inquiry.inquiry_type || 'INR' }}
                   </p>
                 </div>
               </div>
@@ -549,7 +526,7 @@ onMounted(async () => {
         <!-- Right Column: Actions & Timeline -->
         <div class="space-y-6">
           <!-- Actions Card -->
-          <Card v-if="canTakeAction || canAddEvidence">
+          <Card v-if="canTakeAction || canEscalate">
             <template #title>
               <div class="flex items-center gap-2">
                 <i class="pi pi-bolt" />
@@ -558,42 +535,53 @@ onMounted(async () => {
             </template>
             <template #content>
               <div class="space-y-3">
-                <!-- Contest Button -->
+                <!-- Provide Shipment Info -->
                 <Button
                   v-if="canTakeAction"
-                  label="Contester le litige"
-                  icon="pi pi-shield"
-                  severity="warn"
+                  label="Fournir suivi"
+                  icon="pi pi-truck"
+                  severity="info"
                   class="w-full"
-                  @click="showContestDialog = true"
+                  @click="showShipmentDialog = true"
                 />
 
-                <!-- Accept Button -->
+                <!-- Provide Refund -->
                 <Button
                   v-if="canTakeAction"
-                  label="Accepter le litige"
-                  icon="pi pi-check"
+                  label="Rembourser"
+                  icon="pi pi-money-bill"
+                  severity="success"
+                  class="w-full"
+                  @click="showRefundDialog = true"
+                />
+
+                <!-- Send Message -->
+                <Button
+                  v-if="canTakeAction"
+                  label="Envoyer message"
+                  icon="pi pi-envelope"
                   severity="secondary"
                   outlined
                   class="w-full"
-                  @click="showAcceptDialog = true"
+                  @click="showMessageDialog = true"
                 />
 
-                <!-- Add Evidence Button -->
+                <!-- Escalate -->
                 <Button
-                  v-if="canAddEvidence"
-                  label="Ajouter une preuve"
-                  icon="pi pi-paperclip"
-                  severity="info"
+                  v-if="canEscalate"
+                  label="Escalader"
+                  icon="pi pi-arrow-up"
+                  severity="warn"
+                  outlined
                   class="w-full"
-                  @click="showEvidenceDialog = true"
+                  @click="showEscalateDialog = true"
                 />
               </div>
             </template>
           </Card>
 
           <!-- Deadline Card -->
-          <Card v-if="dispute.response_due_date">
+          <Card v-if="inquiry.respond_by_date">
             <template #title>
               <div class="flex items-center gap-2">
                 <i class="pi pi-clock" />
@@ -606,7 +594,7 @@ onMounted(async () => {
                   {{ deadlineStatus.text }}
                 </p>
                 <p class="text-sm text-gray-500 mt-2">
-                  {{ formatDate(dispute.response_due_date) }}
+                  {{ formatDate(inquiry.respond_by_date) }}
                 </p>
               </div>
             </template>
@@ -625,21 +613,12 @@ onMounted(async () => {
                 <div class="flex items-center justify-between">
                   <span class="text-gray-600 dark:text-gray-400">État</span>
                   <Tag
-                    :severity="getStateSeverity(dispute.dispute_state)"
+                    :severity="getStateSeverity(inquiry.inquiry_state)"
                   >
                     <template #default>
-                      <i :class="getStateIcon(dispute.dispute_state)" class="mr-1" />
-                      {{ getStateLabel(dispute.dispute_state) }}
+                      <i :class="getStateIcon(inquiry.inquiry_state)" class="mr-1" />
+                      {{ getStateLabel(inquiry.inquiry_state) }}
                     </template>
-                  </Tag>
-                </div>
-
-                <div v-if="dispute.seller_response" class="flex items-center justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Réponse</span>
-                  <Tag
-                    :severity="getSellerResponseSeverity(dispute.seller_response)"
-                  >
-                    {{ getSellerResponseLabel(dispute.seller_response) }}
                   </Tag>
                 </div>
 
@@ -649,13 +628,13 @@ onMounted(async () => {
                     <i
                       :class="[
                         'pi',
-                        dispute.is_open
-                          ? 'pi-exclamation-circle text-blue-500'
+                        inquiry.is_open
+                          ? 'pi-exclamation-circle text-yellow-500'
                           : 'pi-circle text-gray-300'
                       ]"
                     />
-                    <span :class="dispute.is_open ? 'text-blue-600' : 'text-gray-400'">
-                      Litige ouvert
+                    <span :class="inquiry.is_open ? 'text-yellow-600' : 'text-gray-400'">
+                      Réclamation ouverte
                     </span>
                   </div>
 
@@ -663,12 +642,12 @@ onMounted(async () => {
                     <i
                       :class="[
                         'pi',
-                        dispute.needs_action
-                          ? 'pi-exclamation-triangle text-orange-500'
+                        inquiry.needs_action
+                          ? 'pi-clock text-orange-500'
                           : 'pi-circle text-gray-300'
                       ]"
                     />
-                    <span :class="dispute.needs_action ? 'text-orange-600' : 'text-gray-400'">
+                    <span :class="inquiry.needs_action ? 'text-orange-600' : 'text-gray-400'">
                       Action requise
                     </span>
                   </div>
@@ -677,13 +656,13 @@ onMounted(async () => {
                     <i
                       :class="[
                         'pi',
-                        dispute.was_contested
-                          ? 'pi-shield text-yellow-500'
+                        inquiry.is_past_due
+                          ? 'pi-times text-red-500'
                           : 'pi-circle text-gray-300'
                       ]"
                     />
-                    <span :class="dispute.was_contested ? 'text-yellow-600' : 'text-gray-400'">
-                      Contesté par vous
+                    <span :class="inquiry.is_past_due ? 'text-red-600' : 'text-gray-400'">
+                      En retard
                     </span>
                   </div>
 
@@ -691,13 +670,13 @@ onMounted(async () => {
                     <i
                       :class="[
                         'pi',
-                        dispute.was_accepted
-                          ? 'pi-check text-green-500'
+                        inquiry.is_escalated
+                          ? 'pi-arrow-up text-purple-500'
                           : 'pi-circle text-gray-300'
                       ]"
                     />
-                    <span :class="dispute.was_accepted ? 'text-green-600' : 'text-gray-400'">
-                      Accepté par vous
+                    <span :class="inquiry.is_escalated ? 'text-purple-600' : 'text-gray-400'">
+                      Escaladé
                     </span>
                   </div>
                 </div>
@@ -717,74 +696,74 @@ onMounted(async () => {
               <div class="space-y-4">
                 <!-- Creation Date -->
                 <div class="flex items-start gap-3">
-                  <div class="p-2 bg-red-100 dark:bg-red-900/40 rounded-full">
-                    <i class="pi pi-exclamation-circle text-red-600 dark:text-red-400 text-sm" />
+                  <div class="p-2 bg-yellow-100 dark:bg-yellow-900/40 rounded-full">
+                    <i class="pi pi-inbox text-yellow-600 dark:text-yellow-400 text-sm" />
                   </div>
                   <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-white">
-                      Litige ouvert
+                      Réclamation ouverte
                     </p>
                     <p class="text-xs text-gray-500">
-                      {{ formatDate(dispute.creation_date) }}
+                      {{ formatDate(inquiry.creation_date) }}
                     </p>
                   </div>
                 </div>
 
                 <!-- Response Due Date -->
-                <div v-if="dispute.response_due_date" class="flex items-start gap-3">
+                <div v-if="inquiry.respond_by_date" class="flex items-start gap-3">
                   <div
                     class="p-2 rounded-full"
                     :class="
-                      dispute.is_past_due
+                      inquiry.is_past_due
                         ? 'bg-red-100 dark:bg-red-900/40'
-                        : 'bg-yellow-100 dark:bg-yellow-900/40'
+                        : 'bg-orange-100 dark:bg-orange-900/40'
                     "
                   >
                     <i
                       :class="[
                         'pi text-sm',
-                        dispute.is_past_due
+                        inquiry.is_past_due
                           ? 'pi-times text-red-600 dark:text-red-400'
-                          : 'pi-clock text-yellow-600 dark:text-yellow-400'
+                          : 'pi-clock text-orange-600 dark:text-orange-400'
                       ]"
                     />
                   </div>
                   <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-white">
-                      {{ dispute.is_past_due ? 'Deadline dépassée' : 'Deadline réponse' }}
+                      {{ inquiry.is_past_due ? 'Deadline dépassée' : 'Deadline réponse' }}
                     </p>
                     <p class="text-xs text-gray-500">
-                      {{ formatDate(dispute.response_due_date) }}
+                      {{ formatDate(inquiry.respond_by_date) }}
                     </p>
                   </div>
                 </div>
 
-                <!-- Resolution Date -->
-                <div v-if="dispute.resolution_date" class="flex items-start gap-3">
-                  <div class="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-full">
-                    <i class="pi pi-check-square text-blue-600 dark:text-blue-400 text-sm" />
+                <!-- Escalation Date -->
+                <div v-if="inquiry.escalation_date" class="flex items-start gap-3">
+                  <div class="p-2 bg-purple-100 dark:bg-purple-900/40 rounded-full">
+                    <i class="pi pi-arrow-up text-purple-600 dark:text-purple-400 text-sm" />
                   </div>
                   <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-white">
-                      Résolution
+                      Escaladé
                     </p>
                     <p class="text-xs text-gray-500">
-                      {{ formatDate(dispute.resolution_date) }}
+                      {{ formatDate(inquiry.escalation_date) }}
                     </p>
                   </div>
                 </div>
 
                 <!-- Closed Date -->
-                <div v-if="dispute.closed_date" class="flex items-start gap-3">
+                <div v-if="inquiry.closed_date" class="flex items-start gap-3">
                   <div class="p-2 bg-green-100 dark:bg-green-900/40 rounded-full">
                     <i class="pi pi-check-circle text-green-600 dark:text-green-400 text-sm" />
                   </div>
                   <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-white">
-                      Litige fermé
+                      Réclamation fermée
                     </p>
                     <p class="text-xs text-gray-500">
-                      {{ formatDate(dispute.closed_date) }}
+                      {{ formatDate(inquiry.closed_date) }}
                     </p>
                   </div>
                 </div>
@@ -799,7 +778,7 @@ onMounted(async () => {
                       Dernière mise à jour
                     </p>
                     <p class="text-xs text-gray-500">
-                      {{ formatDate(dispute.updated_at) }}
+                      {{ formatDate(inquiry.updated_at) }}
                     </p>
                   </div>
                 </div>
@@ -810,86 +789,52 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Accept Dialog -->
+    <!-- Provide Shipment Dialog -->
     <Dialog
-      v-model:visible="showAcceptDialog"
-      header="Accepter le litige"
-      :modal="true"
-      :closable="!actionLoading"
-      class="w-full max-w-md"
-    >
-      <div class="space-y-4">
-        <p class="text-gray-600 dark:text-gray-400">
-          En acceptant ce litige, vous reconnaissez la réclamation de l'acheteur.
-          Le montant contesté sera remboursé.
-        </p>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Commentaire (optionnel)
-          </label>
-          <Textarea
-            v-model="acceptComment"
-            rows="3"
-            placeholder="Ajouter un commentaire..."
-            class="w-full"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <Button
-            label="Annuler"
-            severity="secondary"
-            :disabled="actionLoading"
-            @click="showAcceptDialog = false"
-          />
-          <Button
-            label="Accepter"
-            icon="pi pi-check"
-            :loading="actionLoading"
-            @click="handleAccept"
-          />
-        </div>
-      </template>
-    </Dialog>
-
-    <!-- Contest Dialog -->
-    <Dialog
-      v-model:visible="showContestDialog"
-      header="Contester le litige"
+      v-model:visible="showShipmentDialog"
+      header="Fournir informations de suivi"
       :modal="true"
       :closable="!actionLoading"
       class="w-full max-w-lg"
     >
       <div class="space-y-4">
         <p class="text-gray-600 dark:text-gray-400">
-          Fournissez des preuves pour contester ce litige.
+          Fournissez les informations de suivi pour prouver que l'article a été expédié.
         </p>
 
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Type de preuve *
+            Numéro de suivi *
           </label>
-          <Dropdown
-            v-model="contestForm.evidenceType"
-            :options="getEvidenceTypeOptions()"
-            option-label="label"
-            option-value="value"
-            placeholder="Sélectionner un type de preuve"
+          <InputText
+            v-model="shipmentForm.trackingNumber"
+            placeholder="Ex: 1Z999AA10123456784"
             class="w-full"
           />
         </div>
 
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Information de preuve
+            Transporteur *
           </label>
-          <Textarea
-            v-model="contestForm.evidenceInfo"
-            rows="3"
-            placeholder="Numéro de suivi, URL, description..."
+          <Dropdown
+            v-model="shipmentForm.carrier"
+            :options="getCarrierOptions()"
+            option-label="label"
+            option-value="value"
+            placeholder="Sélectionner un transporteur"
+            class="w-full"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Date d'expédition
+          </label>
+          <Calendar
+            v-model="shipmentForm.shippedDate"
+            date-format="dd/mm/yy"
+            placeholder="Sélectionner une date"
             class="w-full"
           />
         </div>
@@ -899,9 +844,9 @@ onMounted(async () => {
             Commentaire
           </label>
           <Textarea
-            v-model="contestForm.comment"
+            v-model="shipmentForm.comments"
             rows="3"
-            placeholder="Expliquer votre contestation..."
+            placeholder="Message pour l'acheteur..."
             class="w-full"
           />
         </div>
@@ -913,67 +858,57 @@ onMounted(async () => {
             label="Annuler"
             severity="secondary"
             :disabled="actionLoading"
-            @click="showContestDialog = false"
+            @click="showShipmentDialog = false"
           />
           <Button
-            label="Contester"
-            icon="pi pi-shield"
-            severity="warn"
+            label="Envoyer"
+            icon="pi pi-truck"
             :loading="actionLoading"
-            :disabled="!contestForm.evidenceType"
-            @click="handleContest"
+            :disabled="!shipmentForm.trackingNumber || !shipmentForm.carrier"
+            @click="handleProvideShipment"
           />
         </div>
       </template>
     </Dialog>
 
-    <!-- Add Evidence Dialog -->
+    <!-- Provide Refund Dialog -->
     <Dialog
-      v-model:visible="showEvidenceDialog"
-      header="Ajouter une preuve"
+      v-model:visible="showRefundDialog"
+      header="Rembourser l'acheteur"
       :modal="true"
       :closable="!actionLoading"
-      class="w-full max-w-lg"
+      class="w-full max-w-md"
     >
       <div class="space-y-4">
         <p class="text-gray-600 dark:text-gray-400">
-          Ajoutez une preuve supplémentaire pour renforcer votre contestation.
+          Initiez un remboursement pour résoudre cette réclamation.
+          Laissez le montant vide pour un remboursement complet.
         </p>
 
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Type de preuve *
+            Montant (optionnel pour remboursement partiel)
           </label>
-          <Dropdown
-            v-model="evidenceForm.evidenceType"
-            :options="getEvidenceTypeOptions()"
-            option-label="label"
-            option-value="value"
-            placeholder="Sélectionner un type de preuve"
-            class="w-full"
-          />
+          <div class="flex gap-2">
+            <InputNumber
+              v-model="refundForm.refundAmount"
+              mode="currency"
+              :currency="refundForm.currency"
+              locale="fr-FR"
+              placeholder="Montant complet si vide"
+              class="flex-1"
+            />
+          </div>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Information de preuve *
+            Commentaire
           </label>
           <Textarea
-            v-model="evidenceForm.evidenceInfo"
+            v-model="refundForm.comments"
             rows="3"
-            placeholder="Numéro de suivi, URL, référence..."
-            class="w-full"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Description
-          </label>
-          <Textarea
-            v-model="evidenceForm.description"
-            rows="2"
-            placeholder="Description de la preuve..."
+            placeholder="Raison du remboursement..."
             class="w-full"
           />
         </div>
@@ -985,14 +920,113 @@ onMounted(async () => {
             label="Annuler"
             severity="secondary"
             :disabled="actionLoading"
-            @click="showEvidenceDialog = false"
+            @click="showRefundDialog = false"
           />
           <Button
-            label="Ajouter"
-            icon="pi pi-paperclip"
+            label="Rembourser"
+            icon="pi pi-money-bill"
+            severity="success"
             :loading="actionLoading"
-            :disabled="!evidenceForm.evidenceType || !evidenceForm.evidenceInfo"
-            @click="handleAddEvidence"
+            @click="handleProvideRefund"
+          />
+        </div>
+      </template>
+    </Dialog>
+
+    <!-- Send Message Dialog -->
+    <Dialog
+      v-model:visible="showMessageDialog"
+      header="Envoyer un message"
+      :modal="true"
+      :closable="!actionLoading"
+      class="w-full max-w-md"
+    >
+      <div class="space-y-4">
+        <p class="text-gray-600 dark:text-gray-400">
+          Envoyez un message à l'acheteur concernant cette réclamation.
+        </p>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Message *
+          </label>
+          <Textarea
+            v-model="messageForm.message"
+            rows="5"
+            placeholder="Votre message à l'acheteur..."
+            class="w-full"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <Button
+            label="Annuler"
+            severity="secondary"
+            :disabled="actionLoading"
+            @click="showMessageDialog = false"
+          />
+          <Button
+            label="Envoyer"
+            icon="pi pi-envelope"
+            :loading="actionLoading"
+            :disabled="!messageForm.message"
+            @click="handleSendMessage"
+          />
+        </div>
+      </template>
+    </Dialog>
+
+    <!-- Escalate Dialog -->
+    <Dialog
+      v-model:visible="showEscalateDialog"
+      header="Escalader la réclamation"
+      :modal="true"
+      :closable="!actionLoading"
+      class="w-full max-w-md"
+    >
+      <div class="space-y-4">
+        <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <div class="flex items-center gap-2">
+            <i class="pi pi-exclamation-triangle text-yellow-600 dark:text-yellow-400" />
+            <p class="font-medium text-yellow-700 dark:text-yellow-300">
+              Attention
+            </p>
+          </div>
+          <p class="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+            L'escalade transmet la réclamation à eBay pour arbitrage.
+            Cette action est irréversible.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Commentaire (optionnel)
+          </label>
+          <Textarea
+            v-model="escalateForm.comments"
+            rows="3"
+            placeholder="Raison de l'escalade..."
+            class="w-full"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <Button
+            label="Annuler"
+            severity="secondary"
+            :disabled="actionLoading"
+            @click="showEscalateDialog = false"
+          />
+          <Button
+            label="Escalader"
+            icon="pi pi-arrow-up"
+            severity="warn"
+            :loading="actionLoading"
+            @click="handleEscalate"
           />
         </div>
       </template>
