@@ -27,7 +27,7 @@ from api.attributes import router as attributes_router
 from api.batches import router as batches_router
 from api.docs import router as docs_router
 # eBay routers (re-enabled 2026-01-03)
-from api.ebay import router as ebay_router, products_router as ebay_products_router
+from api.ebay import router as ebay_router, products_router as ebay_products_router, returns_router as ebay_returns_router, cancellations_router as ebay_cancellations_router, refunds_router as ebay_refunds_router, payment_disputes_router as ebay_payment_disputes_router, inquiries_router as ebay_inquiries_router, dashboard_router as ebay_dashboard_router
 from api.ebay_oauth import router as ebay_oauth_router
 from api.ebay_webhook import router as ebay_webhook_router
 # TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)
@@ -250,6 +250,12 @@ app.include_router(vinted_router, prefix="/api")
 # eBay routers (re-enabled 2026-01-03)
 app.include_router(ebay_router, prefix="/api")
 app.include_router(ebay_products_router, prefix="/api")
+app.include_router(ebay_returns_router, prefix="/api")
+app.include_router(ebay_cancellations_router, prefix="/api")
+app.include_router(ebay_refunds_router, prefix="/api")
+app.include_router(ebay_payment_disputes_router, prefix="/api")
+app.include_router(ebay_inquiries_router, prefix="/api")
+app.include_router(ebay_dashboard_router, prefix="/api")
 app.include_router(ebay_oauth_router, prefix="/api")
 app.include_router(ebay_webhook_router, prefix="/api")
 # TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)

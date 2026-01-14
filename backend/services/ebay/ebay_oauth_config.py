@@ -28,7 +28,11 @@ EBAY_SANDBOX_TOKEN_URL = "https://api.sandbox.ebay.com/identity/v1/oauth2/token"
 # ========== SCOPES ==========
 
 EBAY_SCOPES: List[str] = [
-    "https://api.ebay.com/oauth/api_scope",  # Trading API (accès de base)
+    # api_scope provides access to eBay "traditional APIs" including:
+    # - Trading API
+    # - Post-Order API v2 (cancellations, returns, inquiries)
+    # No additional scopes needed for Post-Order API.
+    "https://api.ebay.com/oauth/api_scope",  # Trading API + Post-Order API (base access)
     "https://api.ebay.com/oauth/api_scope/sell.inventory",  # Inventory API
     "https://api.ebay.com/oauth/api_scope/sell.marketing",  # Marketing API
     "https://api.ebay.com/oauth/api_scope/sell.account",  # Account API
