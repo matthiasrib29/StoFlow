@@ -515,3 +515,102 @@ h6 { @apply font-display text-sm font-semibold; }
 .table-cell-standard {
   @apply px-4 py-3;
 }
+
+/* ============================================
+   17. ERROR PAGES
+   ============================================ */
+
+.error-code {
+  @apply text-9xl font-bold text-primary-400 font-display;
+}
+
+.error-title {
+  @apply text-2xl font-semibold text-secondary-900 font-display;
+}
+
+.error-description {
+  @apply text-gray-600 max-w-md mx-auto;
+}
+
+/* ============================================
+   18. LOADING STATES
+   ============================================ */
+
+/* Skeleton loading animation */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.skeleton {
+  @apply bg-gray-200 rounded animate-pulse;
+}
+
+.skeleton-text {
+  @apply h-4 bg-gray-200 rounded animate-pulse;
+}
+
+.skeleton-title {
+  @apply h-6 bg-gray-200 rounded animate-pulse w-3/4;
+}
+
+.skeleton-avatar {
+  @apply w-10 h-10 bg-gray-200 rounded-full animate-pulse;
+}
+
+.skeleton-card {
+  @apply bg-gray-200 rounded-xl animate-pulse;
+}
+
+.skeleton-button {
+  @apply h-10 w-24 bg-gray-200 rounded-lg animate-pulse;
+}
+
+/* ============================================
+   19. HOVER EFFECTS
+   ============================================ */
+
+/* Standard hover lift effect for interactive cards */
+.hover-lift {
+  @apply transition-all duration-200 ease-out;
+}
+
+.hover-lift:hover {
+  @apply -translate-y-1 shadow-lg;
+}
+
+/* Subtle hover for buttons/links */
+.hover-subtle {
+  @apply transition-all duration-150 ease-out;
+}
+
+.hover-subtle:hover {
+  @apply opacity-90;
+}
+
+/* Hover with background change */
+.hover-bg {
+  @apply transition-colors duration-150 ease-out;
+}
+
+.hover-bg:hover {
+  @apply bg-gray-50;
+}
+
+/* Hover with border highlight */
+.hover-border {
+  @apply transition-all duration-150 ease-out border border-transparent;
+}
+
+.hover-border:hover {
+  @apply border-primary-300;
+}
+
+/* Scale on hover (for icons/avatars) */
+.hover-scale {
+  @apply transition-transform duration-150 ease-out;
+}
+
+.hover-scale:hover {
+  @apply scale-105;
+}
