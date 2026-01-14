@@ -457,6 +457,144 @@ export interface EbayRefundIssueResponse {
   message: string | null
 }
 
+// =============================================================================
+// PAYMENT DISPUTES TYPES
+// =============================================================================
+
+/**
+ * eBay payment dispute state values
+ */
+export type EbayPaymentDisputeState = 'OPEN' | 'ACTION_NEEDED' | 'CLOSED'
+
+/**
+ * eBay payment dispute reason values
+ */
+export type EbayPaymentDisputeReason =
+  | 'ITEM_NOT_RECEIVED'
+  | 'ITEM_SIGNIFICANTLY_NOT_AS_DESCRIBED'
+  | 'UNAUTHORIZED_TRANSACTION'
+  | 'DUPLICATE_TRANSACTION'
+  | 'CREDIT_NOT_PROCESSED'
+  | 'MERCHANDISE_NOT_AS_DESCRIBED'
+  | 'MERCHANDISE_NOT_RECEIVED'
+  | 'OTHER'
+
+/**
+ * eBay seller response types for payment disputes
+ */
+export type EbayPaymentDisputeSellerResponse = 'CONTEST' | 'ACCEPT'
+
+/**
+ * eBay evidence types for payment dispute contest
+ */
+export type EbayPaymentDisputeEvidenceType =
+  | 'PROOF_OF_DELIVERY'
+  | 'PROOF_OF_AUTHENTICITY'
+  | 'PROOF_OF_ITEM_AS_DESCRIBED'
+  | 'PROOF_OF_PICKUP'
+  | 'TRACKING_INFORMATION'
+
+/**
+ * eBay payment dispute from API
+ */
+export interface EbayPaymentDispute {
+  id: number
+  dispute_id: string
+  order_id: string | null
+
+  // State
+  dispute_state: EbayPaymentDisputeState | null
+  dispute_status: string | null
+  dispute_reason: string | null
+  reason_code: string | null
+
+  // Amount
+  dispute_amount: number | null
+  dispute_currency: string | null
+  original_order_amount: number | null
+
+  // Buyer
+  buyer_username: string | null
+  buyer_claimed: string | null
+
+  // Seller response
+  seller_response: EbayPaymentDisputeSellerResponse | null
+  seller_evidence: string | null
+  seller_comment: string | null
+
+  // Resolution
+  resolution_status: string | null
+  resolution_method: string | null
+  resolution_amount: number | null
+
+  // Dates
+  creation_date: string | null
+  response_due_date: string | null
+  resolution_date: string | null
+  closed_date: string | null
+  created_at: string
+  updated_at: string
+
+  // Computed fields from API
+  is_open: boolean
+  needs_action: boolean
+  is_past_due: boolean
+  was_contested: boolean
+  was_accepted: boolean
+}
+
+/**
+ * Paginated list of payment disputes
+ */
+export interface EbayPaymentDisputeListResponse {
+  items: EbayPaymentDispute[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+/**
+ * Payment dispute statistics
+ */
+export interface EbayPaymentDisputeStatistics {
+  open: number
+  action_needed: number
+  closed: number
+  total_disputed: number
+}
+
+/**
+ * Sync payment disputes response
+ */
+export interface EbayPaymentDisputeSyncResponse {
+  created: number
+  updated: number
+  skipped: number
+  errors: number
+  total_fetched: number
+}
+
+/**
+ * Payment dispute action response (accept, contest)
+ */
+export interface EbayPaymentDisputeActionResponse {
+  success: boolean
+  dispute_id: string
+  new_state: string | null
+  message: string | null
+}
+
+/**
+ * Add evidence response
+ */
+export interface EbayPaymentDisputeEvidenceResponse {
+  success: boolean
+  dispute_id: string
+  evidence_id: string | null
+  message: string | null
+}
+
 /**
  * State interface for the eBay store
  */
