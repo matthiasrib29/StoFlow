@@ -41,6 +41,19 @@ export interface TiersResponse {
   tiers: SubscriptionTier[]
 }
 
+export interface CreditPack {
+  id: number
+  credits: number
+  price: number
+  price_per_credit: number
+  is_popular: boolean
+  display_order: number
+}
+
+export interface CreditPacksResponse {
+  packs: CreditPack[]
+}
+
 export const useSubscription = () => {
   const config = useRuntimeConfig()
   const authStore = useAuthStore()
@@ -105,10 +118,25 @@ export const useSubscription = () => {
     return response
   }
 
+  /**
+   * Récupère la liste des packs de crédits IA disponibles
+   *
+   * Endpoint public (pas d'authentification requise)
+   * Les prix sont récupérés depuis la base de données
+   */
+  const getCreditPacks = async (): Promise<CreditPack[]> => {
+    const response = await $fetch<CreditPacksResponse>(
+      `${config.public.apiBaseUrl}/subscription/credit-packs`
+      // PAS de headers Authorization (endpoint public)
+    )
+    return response.packs
+  }
+
   return {
     getSubscriptionInfo,
     getAvailableTiers,
     simulateUpgradePayment,
-    purchaseCredits
+    purchaseCredits,
+    getCreditPacks
   }
 }
