@@ -14,7 +14,7 @@ Author: Claude
 Date: 2025-12-10
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -460,3 +460,377 @@ class EbayFulfillmentClient(EbayBaseClient):
         refunds = payment_summary.get("refunds", [])
 
         return refunds
+
+    # =========================================================================
+    # PAYMENT DISPUTES
+    # =========================================================================
+
+    def get_payment_dispute_summaries(
+        self,
+        order_id: Optional[str] = None,
+        buyer_username: Optional[str] = None,
+        payment_dispute_status: Optional[List[str]] = None,
+        open_date_from: Optional[str] = None,
+        open_date_to: Optional[str] = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Get a list of payment dispute summaries.
+
+        GET /sell/fulfillment/v1/payment_dispute_summary
+
+        Args:
+            order_id: Filter by order ID
+            buyer_username: Filter by buyer username
+            payment_dispute_status: Filter by dispute states. Values:
+                - OPEN: Dispute is active with no seller action required
+                - ACTION_NEEDED: Dispute requires seller response by deadline
+                - CLOSED: Dispute has been resolved
+            open_date_from: Beginning date (ISO 8601 format)
+            open_date_to: Ending date (ISO 8601 format, max 90 days from start)
+            limit: Max results (1-200, default 200)
+            offset: Number of records to skip (default 0)
+
+        Returns:
+            Dict with structure:
+            {
+                "paymentDisputeSummaries": [
+                    {
+                        "paymentDisputeId": "5********0",
+                        "paymentDisputeStatus": "ACTION_NEEDED",
+                        "reason": "ITEM_NOT_RECEIVED",
+                        "orderId": "12-34567-89012",
+                        "amount": {"value": "50.00", "currency": "EUR"},
+                        "buyerUsername": "buyer123",
+                        "openDate": "2024-12-10T10:30:00.000Z",
+                        "respondByDate": "2024-12-20T10:30:00.000Z"
+                    }
+                ],
+                "total": 10,
+                "limit": 200,
+                "offset": 0
+            }
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> # Get disputes needing action
+            >>> result = client.get_payment_dispute_summaries(
+            ...     payment_dispute_status=["ACTION_NEEDED"]
+            ... )
+            >>> disputes = result.get("paymentDisputeSummaries", [])
+        """
+        scopes = ["sell.payment.dispute"]
+
+        params: Dict[str, Any] = {
+            "limit": min(limit, 200),
+            "offset": offset,
+        }
+
+        if order_id:
+            params["order_id"] = order_id
+        if buyer_username:
+            params["buyer_username"] = buyer_username
+        if payment_dispute_status:
+            # eBay expects multiple params for status
+            params["payment_dispute_status"] = ",".join(payment_dispute_status)
+        if open_date_from:
+            params["open_date_from"] = open_date_from
+        if open_date_to:
+            params["open_date_to"] = open_date_to
+
+        result = self.api_call(
+            "GET",
+            "/sell/fulfillment/v1/payment_dispute_summary",
+            params=params,
+            scopes=scopes,
+        )
+
+        return result or {"paymentDisputeSummaries": [], "total": 0}
+
+    def get_payment_dispute(self, payment_dispute_id: str) -> Dict[str, Any]:
+        """
+        Get detailed information about a specific payment dispute.
+
+        GET /sell/fulfillment/v1/payment_dispute/{payment_dispute_id}
+
+        Args:
+            payment_dispute_id: The payment dispute ID
+
+        Returns:
+            Dict with full dispute details:
+            {
+                "paymentDisputeId": "5********0",
+                "paymentDisputeStatus": "ACTION_NEEDED",
+                "reason": "ITEM_NOT_RECEIVED",
+                "orderId": "12-34567-89012",
+                "amount": {"value": "50.00", "currency": "EUR"},
+                "openDate": "2024-12-10T10:30:00.000Z",
+                "respondByDate": "2024-12-20T10:30:00.000Z",
+                "revision": 1,
+                "buyerUsername": "buyer123",
+                "sellerResponse": null,
+                "availableChoices": ["CONTEST", "ACCEPT"],
+                "evidenceRequests": [
+                    {
+                        "evidenceType": "PROOF_OF_DELIVERY",
+                        "requestDate": "2024-12-10T10:30:00.000Z"
+                    }
+                ],
+                "evidence": [],
+                "lineItems": [...],
+                "resolution": null
+            }
+
+        Raises:
+            RuntimeError: If dispute not found or API error
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> dispute = client.get_payment_dispute("5********0")
+            >>> print(f"Status: {dispute['paymentDisputeStatus']}")
+        """
+        scopes = ["sell.payment.dispute"]
+
+        result = self.api_call(
+            "GET",
+            f"/sell/fulfillment/v1/payment_dispute/{payment_dispute_id}",
+            scopes=scopes,
+        )
+
+        return result
+
+    def accept_payment_dispute(
+        self,
+        payment_dispute_id: str,
+        revision: int,
+        return_address: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """
+        Accept a payment dispute (seller concedes to buyer).
+
+        POST /sell/fulfillment/v1/payment_dispute/{payment_dispute_id}/accept
+
+        When accepting a dispute, the seller agrees to refund the buyer.
+        This is typically done when the seller cannot contest the dispute
+        or acknowledges the buyer's claim.
+
+        Args:
+            payment_dispute_id: The payment dispute ID
+            revision: Current revision number (from getPaymentDispute)
+            return_address: Optional return address if buyer should return item
+
+        Returns:
+            True if successful (204 response)
+
+        Raises:
+            RuntimeError: If API call fails
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> # Get current revision
+            >>> dispute = client.get_payment_dispute("5********0")
+            >>> # Accept the dispute
+            >>> success = client.accept_payment_dispute(
+            ...     "5********0",
+            ...     revision=dispute["revision"]
+            ... )
+        """
+        scopes = ["sell.payment.dispute"]
+
+        payload: Dict[str, Any] = {
+            "revision": revision,
+        }
+
+        if return_address:
+            payload["returnAddress"] = return_address
+
+        # This endpoint returns 204 No Content on success
+        result = self.api_call(
+            "POST",
+            f"/sell/fulfillment/v1/payment_dispute/{payment_dispute_id}/accept",
+            json=payload,
+            scopes=scopes,
+        )
+
+        # api_call returns None for 204 responses
+        return True
+
+    def contest_payment_dispute(
+        self,
+        payment_dispute_id: str,
+        revision: int,
+        return_address: Optional[Dict[str, Any]] = None,
+        note: Optional[str] = None,
+    ) -> bool:
+        """
+        Contest a payment dispute (seller disputes buyer's claim).
+
+        POST /sell/fulfillment/v1/payment_dispute/{payment_dispute_id}/contest
+
+        Before contesting, the seller should provide evidence using
+        add_evidence or update_evidence methods. Once contested, evidence
+        can no longer be added.
+
+        Args:
+            payment_dispute_id: The payment dispute ID
+            revision: Current revision number (from getPaymentDispute)
+            return_address: Return address if expecting item return
+            note: Optional note explaining the contest (max 1000 chars)
+
+        Returns:
+            True if successful (204 response)
+
+        Raises:
+            RuntimeError: If API call fails
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> # First add evidence, then contest
+            >>> success = client.contest_payment_dispute(
+            ...     "5********0",
+            ...     revision=1,
+            ...     note="Item was delivered as confirmed by tracking"
+            ... )
+        """
+        scopes = ["sell.payment.dispute"]
+
+        payload: Dict[str, Any] = {
+            "revision": revision,
+        }
+
+        if return_address:
+            payload["returnAddress"] = return_address
+        if note:
+            payload["note"] = note[:1000]  # Max 1000 characters
+
+        # This endpoint returns 204 No Content on success
+        result = self.api_call(
+            "POST",
+            f"/sell/fulfillment/v1/payment_dispute/{payment_dispute_id}/contest",
+            json=payload,
+            scopes=scopes,
+        )
+
+        return True
+
+    def add_evidence(
+        self,
+        payment_dispute_id: str,
+        evidence_type: str,
+        files: Optional[List[Dict[str, str]]] = None,
+        line_items: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Add evidence to a payment dispute before contesting.
+
+        POST /sell/fulfillment/v1/payment_dispute/{payment_dispute_id}/add_evidence
+
+        Evidence can only be added before calling contest_payment_dispute.
+        Once contested, use update_evidence to modify existing evidence sets.
+
+        Args:
+            payment_dispute_id: The payment dispute ID
+            evidence_type: Type of evidence being provided:
+                - PROOF_OF_DELIVERY: Tracking/delivery confirmation
+                - PROOF_OF_AUTHENTICITY: Item authenticity proof
+                - PROOF_OF_ITEM_AS_DESCRIBED: Item matches listing
+                - PROOF_OF_PICKUP: Documentation for buyer pickup
+                - TRACKING_INFORMATION: Shipping tracking data
+            files: List of evidence files:
+                [{"fileId": "abc123"}]  # File IDs from upload
+            line_items: Line items the evidence applies to:
+                [{"lineItemId": "123456789012"}]
+
+        Returns:
+            Dict with evidence ID:
+            {
+                "evidenceId": "xyz789"
+            }
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> result = client.add_evidence(
+            ...     "5********0",
+            ...     evidence_type="PROOF_OF_DELIVERY",
+            ...     line_items=[{"lineItemId": "123456789012"}]
+            ... )
+        """
+        scopes = ["sell.payment.dispute"]
+
+        payload: Dict[str, Any] = {
+            "evidenceType": evidence_type,
+        }
+
+        if files:
+            payload["files"] = files
+        if line_items:
+            payload["lineItems"] = line_items
+
+        result = self.api_call(
+            "POST",
+            f"/sell/fulfillment/v1/payment_dispute/{payment_dispute_id}/add_evidence",
+            json=payload,
+            scopes=scopes,
+        )
+
+        return result or {}
+
+    def get_all_payment_disputes(
+        self,
+        status: Optional[List[str]] = None,
+        days_back: int = 90,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all payment disputes with pagination.
+
+        Helper method that fetches all disputes across pages.
+
+        Args:
+            status: Filter by dispute states (OPEN, ACTION_NEEDED, CLOSED)
+            days_back: Number of days to look back (max 90)
+
+        Returns:
+            List of all dispute summaries
+
+        Examples:
+            >>> client = EbayFulfillmentClient(db, user_id=1)
+            >>> # Get all disputes needing action
+            >>> disputes = client.get_all_payment_disputes(
+            ...     status=["ACTION_NEEDED", "OPEN"]
+            ... )
+        """
+        # Calculate date range
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=min(days_back, 90))
+
+        open_date_from = start_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        open_date_to = end_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+        all_disputes = []
+        offset = 0
+        limit = 200
+
+        while True:
+            result = self.get_payment_dispute_summaries(
+                payment_dispute_status=status,
+                open_date_from=open_date_from,
+                open_date_to=open_date_to,
+                limit=limit,
+                offset=offset,
+            )
+
+            disputes = result.get("paymentDisputeSummaries", [])
+
+            if not disputes:
+                break
+
+            all_disputes.extend(disputes)
+
+            total = result.get("total", 0)
+            if offset + len(disputes) >= total:
+                break
+
+            offset += limit
+
+        return all_disputes
