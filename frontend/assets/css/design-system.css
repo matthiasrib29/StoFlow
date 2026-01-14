@@ -139,9 +139,9 @@
    3. BADGES & TAGS
    ============================================ */
 
-/* Badge de base */
+/* Badge de base - Pill shape */
 .badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium;
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
 }
 
 /* Badge Statut - Success */
@@ -172,6 +172,31 @@
 /* Badge Primary */
 .badge-primary {
   @apply bg-primary-100 text-primary-700;
+}
+
+/* Badge Statut - Connected/Disconnected */
+.badge-status-connected {
+  @apply bg-success-100 text-success-700;
+}
+
+.badge-status-disconnected {
+  @apply bg-gray-200 text-gray-600;
+}
+
+.badge-status-published {
+  @apply bg-success-100 text-success-700;
+}
+
+.badge-status-draft {
+  @apply bg-gray-100 text-gray-600;
+}
+
+.badge-status-sold {
+  @apply bg-info-100 text-info-700;
+}
+
+.badge-status-inactive {
+  @apply bg-warning-100 text-warning-700;
 }
 
 /* ============================================
@@ -268,7 +293,7 @@ body {
 }
 
 .page-subtitle {
-  @apply font-body text-gray-600 mt-1;
+  @apply font-body text-gray-700 mt-1;
 }
 
 /* Titres de section - Display font */

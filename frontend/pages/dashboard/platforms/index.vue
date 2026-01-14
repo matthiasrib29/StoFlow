@@ -67,7 +67,7 @@
                 <Badge
                   :value="platform.is_connected ? 'Connecté' : 'Déconnecté'"
                   :severity="platform.is_connected ? 'success' : 'secondary'"
-                  class="text-xs"
+                  :class="['text-xs', !platform.is_connected ? 'badge-status-disconnected' : '']"
                 />
               </div>
             </div>
