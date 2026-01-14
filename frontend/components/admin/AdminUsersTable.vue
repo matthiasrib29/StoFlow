@@ -57,11 +57,11 @@
         <template #body="{ data }">
           <span
             class="inline-flex items-center gap-1.5 text-xs font-medium"
-            :class="data.is_active ? 'text-green-600' : 'text-red-500'"
+            :class="data.is_active ? 'text-success-600' : 'text-error-500'"
           >
             <span
               class="w-2 h-2 rounded-full"
-              :class="data.is_active ? 'bg-green-500' : 'bg-red-500'"
+              :class="data.is_active ? 'bg-success-500' : 'bg-error-500'"
             />
             {{ data.is_active ? 'Actif' : 'Inactif' }}
           </span>
@@ -120,8 +120,8 @@
               v-if="!isCurrentUser(data.id)"
               class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
               :class="data.is_active
-                ? 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'
-                : 'text-gray-400 hover:text-green-500 hover:bg-green-50'"
+                ? 'text-gray-400 hover:text-warning-500 hover:bg-warning-50'
+                : 'text-gray-400 hover:text-success-500 hover:bg-success-50'"
               :title="data.is_active ? 'Désactiver' : 'Activer'"
               @click="$emit('toggle-active', data)"
             >
