@@ -8,6 +8,17 @@ export default {
     "./app.vue",
   ],
   theme: {
+    // Font families - StoFlow Design System
+    fontFamily: {
+      // Display/Headings - Modern geometric (Plus Jakarta Sans)
+      display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+      // Body text - Excellent readability (IBM Plex Sans)
+      body: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+      // Sans default - Uses body font
+      sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+      // Mono - For SKUs, references, code (JetBrains Mono)
+      mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+    },
     colors: {
       // Remplace TOUTES les couleurs Tailwind par défaut
       transparent: 'transparent',
@@ -161,6 +172,8 @@ export default {
     },
   },
   safelist: [
+    // Font families
+    'font-display', 'font-body', 'font-sans', 'font-mono',
     // Couleurs primaires et secondaires
     'bg-primary-50', 'bg-primary-100', 'bg-primary-400', 'bg-primary-500',
     'text-primary-400', 'text-primary-500', 'text-primary-600', 'text-primary-700',
