@@ -202,6 +202,136 @@ export interface EbayReturnActionResponse {
   message: string | null
 }
 
+// =============================================================================
+// CANCELLATIONS TYPES
+// =============================================================================
+
+/**
+ * eBay cancellation status values
+ */
+export type EbayCancellationStatus =
+  | 'CANCEL_REQUESTED'
+  | 'CANCEL_PENDING'
+  | 'CANCEL_CLOSED_WITH_REFUND'
+  | 'CANCEL_CLOSED_UNKNOWN_REFUND'
+  | 'CANCEL_CLOSED_NO_REFUND'
+  | 'CANCEL_REJECTED'
+
+/**
+ * eBay cancellation state (high-level)
+ */
+export type EbayCancellationState = 'CLOSED' | null
+
+/**
+ * eBay cancellation reason codes
+ */
+export type EbayCancellationReason =
+  | 'OUT_OF_STOCK'
+  | 'ADDRESS_ISSUES'
+  | 'BUYER_ASKED_CANCEL'
+  | 'ORDER_UNPAID'
+  | 'OTHER_SELLER_CANCEL_REASON'
+
+/**
+ * eBay cancellation rejection reason codes
+ */
+export type EbayCancellationRejectReason =
+  | 'ALREADY_SHIPPED'
+  | 'OTHER_SELLER_REJECT_REASON'
+
+/**
+ * eBay cancellation requestor role
+ */
+export type EbayCancellationRequestorRole = 'BUYER' | 'SELLER'
+
+/**
+ * eBay cancellation from API
+ */
+export interface EbayCancellation {
+  id: number
+  cancel_id: string
+  order_id: string | null
+  cancel_state: EbayCancellationState
+  cancel_status: EbayCancellationStatus | null
+  cancel_reason: string | null
+  requestor_role: EbayCancellationRequestorRole | null
+  request_date: string | null
+  response_due_date: string | null
+  refund_amount: number | null
+  refund_currency: string | null
+  refund_status: string | null
+  buyer_username: string | null
+  buyer_comments: string | null
+  seller_comments: string | null
+  reject_reason: string | null
+  tracking_number: string | null
+  carrier: string | null
+  shipped_date: string | null
+  creation_date: string | null
+  closed_date: string | null
+  created_at: string
+  updated_at: string
+  // Computed fields from API
+  is_closed: boolean
+  is_pending: boolean
+  needs_action: boolean
+  is_past_response_due: boolean
+  was_approved: boolean
+  was_rejected: boolean
+}
+
+/**
+ * Paginated list of cancellations
+ */
+export interface EbayCancellationListResponse {
+  items: EbayCancellation[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+/**
+ * Cancellation statistics
+ */
+export interface EbayCancellationStatistics {
+  pending: number
+  closed: number
+  needs_action: number
+  past_due: number
+}
+
+/**
+ * Sync cancellations response
+ */
+export interface EbayCancellationSyncResponse {
+  created: number
+  updated: number
+  skipped: number
+  errors: number
+  total_fetched: number
+}
+
+/**
+ * Cancellation action response (approve, reject, create)
+ */
+export interface EbayCancellationActionResponse {
+  success: boolean
+  cancel_id: string
+  new_status: string | null
+  message: string | null
+}
+
+/**
+ * Eligibility check response
+ */
+export interface EbayCancellationEligibilityResponse {
+  eligible: boolean
+  eligibility_status: string | null
+  order_id: string
+  reasons: string[]
+}
+
 /**
  * State interface for the eBay store
  */
