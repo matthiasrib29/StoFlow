@@ -25,6 +25,7 @@ from api.dependencies import get_current_user
 from models.public.user import User, UserRole, SubscriptionTier
 from models.public.subscription_quota import SubscriptionQuota
 from models.public.ai_credit import AICredit
+from models.public.ai_credit_pack import AiCreditPack
 from shared.database import get_db
 from shared.ownership import ensure_can_modify
 
@@ -269,6 +270,40 @@ def get_available_tiers(
             }
             for quota in quotas
         ]
+    }
+
+
+@router.get(
+    "/credit-packs",
+    status_code=status.HTTP_200_OK
+)
+def get_credit_packs(
+    db: Session = Depends(get_db)
+):
+    """
+    Retourne les packs de crédits IA disponibles à l'achat.
+
+    Business Rules (2026-01-14):
+    - Endpoint PUBLIC (pas d'authentification requise)
+    - Utilisé pour la page crédits
+    - Retourne uniquement les packs actifs
+    - Triés par display_order
+
+    Args:
+        db: Session DB
+
+    Returns:
+        dict: Liste des packs avec prix et détails
+    """
+    packs = (
+        db.query(AiCreditPack)
+        .filter(AiCreditPack.is_active == True)
+        .order_by(AiCreditPack.display_order)
+        .all()
+    )
+
+    return {
+        "packs": [pack.to_dict() for pack in packs]
     }
 
 
