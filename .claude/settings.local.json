@@ -356,7 +356,15 @@
       "Bash(~/StoFlow/.claude/worktree-init.sh ~/StoFlow-improve-ui)",
       "Bash(for dir in returns cancellations refunds payment-disputes inquiries)",
       "Bash(file=\"/home/maribeiro/StoFlow-improve-ebay-capability/frontend/pages/dashboard/platforms/ebay/$dir/index.vue\")",
-      "Bash(if [ -f \"$file\" ])"
+      "Bash(if [ -f \"$file\" ])",
+      "Bash(if [ -d .planning/ ])",
+      "Bash(HAS_GSD=true)",
+      "Bash(HAS_GSD=false:*)",
+      "Bash(if [ \"$HAS_GSD\" = true ])",
+      "mcp__notion__API-get-self",
+      "mcp__notion__API-post-search",
+      "mcp__notion__API-retrieve-a-page",
+      "mcp__notion__API-retrieve-a-data-source"
     ]
   },
   "enableAllProjectMcpServers": true,
