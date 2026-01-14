@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3-flash-preview"
     gemini_max_images: int = 10
+    gemini_timeout_seconds: float = 30.0      # Timeout per API call
+    gemini_max_retries: int = 1               # Max retry attempts
+    gemini_retry_backoff_factor: float = 2.0  # Exponential backoff multiplier
 
     # HTTP Client (Centralized timeouts)
     http_timeout_connect: float = 10.0  # Connection timeout in seconds
