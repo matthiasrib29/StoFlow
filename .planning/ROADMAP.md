@@ -67,7 +67,7 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 
 ---
 
-### Phase 3: Services & API 🚧 IN PROGRESS
+### Phase 3: Services & API ✅ COMPLETE
 **Goal:** Refactor services and API to use new table structure
 
 **Deliverables:**
@@ -81,17 +81,18 @@ Migrate image management from JSONB column to dedicated `product_images` table w
   - New methods: `get_product_photos()`, `get_label_image()`, `set_label_flag()`
   - Accept metadata (mime_type, file_size, width, height)
   - Unit tests updated
-- [ ] Update API routes and schemas (PLAN 3.3):
+- [x] Update API routes and schemas (PLAN 3.3):
   - Update `ProductImageItem` schema with rich metadata
   - Add endpoint for label flag management
   - Integration tests updated
+  - Fixed bug in DELETE route (was accessing JSONB directly)
 
 **Research Needed:** None (existing services refactor)
 
-**Plans Executed:** 2/3
+**Plans Executed:** 3/3
 - ✅ PLAN 3.1: Create ProductImage Model + Repository (commits: fba6afb, 5e630d4, 1d1d6eb)
 - ✅ PLAN 3.2: Refactor ProductImageService to use table (commit: 281c0f4)
-- 📋 PLAN 3.3: Update API routes and response schemas (20-30 min)
+- ✅ PLAN 3.3: Update API routes and response schemas (commits: 4831754, 671336a, 10b596a, cec4cbb)
 
 ---
 
@@ -99,22 +100,21 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 **Goal:** Update marketplace converters to filter labels from published images
 
 **Deliverables:**
-- [ ] Modify `VintedProductConverter`:
-  - Filter `is_label=true` images
-  - Only send product photos to Vinted
-- [ ] Modify `EbayProductConversionService`:
-  - Filter `is_label=true` images
-  - Only send product photos to eBay
-- [ ] Integration tests:
-  - Verify no labels in Vinted payload
-  - Verify no labels in eBay payload
-- [ ] Manual validation on test products
+- [ ] Modify Vinted image upload (PLAN 4.1):
+  - Refactor `upload_product_images()` to use ProductImageService.get_product_photos()
+  - Filter `is_label=true` images from Vinted uploads
+  - Integration tests verifying no labels in Vinted payloads
+- [ ] Modify eBay conversion service (PLAN 4.2):
+  - Refactor `_get_image_urls()` to use ProductImageService.get_product_photos()
+  - Filter `is_label=true` images from eBay inventory items
+  - Integration tests verifying no labels in eBay payloads
+- [ ] Manual validation on test products (both plans)
 
 **Out of Scope:** Etsy integration (v2)
 
 **Research Needed:** None (existing converters modification)
 
-**Estimated Plans:** 2-3 plans
+**Plans Executed:** 0/2
 
 ---
 
@@ -197,11 +197,12 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 3. ✅ ROADMAP.md created
 4. ✅ Phase 1: Database Architecture COMPLETE
 5. ✅ Phase 2: Data Migration COMPLETE
-6. ✅ Phase 3: Services & API IN PROGRESS (2/3 plans executed)
-7. → Execute PLAN 3.3: Update API routes and response schemas
+6. ✅ Phase 3: Services & API COMPLETE
+7. ✅ Phase 4: Marketplace Integration PLANNED (2 plans created)
+8. → Execute PLAN 4.1: Vinted Marketplace Integration
 
-**Command:** `/gsd:execute-plan` (in .planning/phases/phase-3/3-3-PLAN.md)
+**Command:** `/gsd:execute-plan` (for .planning/phases/phase-4/4-1-PLAN.md)
 
 ---
 
-*Last updated: 2026-01-15 after PLAN 3.2 completion*
+*Last updated: 2026-01-15 after Phase 4 planning*

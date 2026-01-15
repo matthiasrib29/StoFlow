@@ -1,8 +1,8 @@
 # STATE - Image Management Architecture Migration
 
 **Last Updated:** 2026-01-15
-**Current Phase:** Phase 3 - Services & API
-**Status:** In Progress (3 plans created, 2/3 executed)
+**Current Phase:** Phase 4 - Marketplace Integration
+**Status:** Planned (2 plans created, 0/2 executed)
 
 ---
 
@@ -18,12 +18,15 @@
 - ✅ Phase 2: Data Migration COMPLETE (2/2 plans executed)
   - ✅ PLAN 2.1: Create migration script (commit: f1c6bc8)
   - ✅ PLAN 2.2: Execute migration and validate (commits: 887c6b4, 2df0a60)
+- ✅ Phase 3: Services & API COMPLETE (3/3 plans executed)
+  - ✅ PLAN 3.1: Create ProductImage Model + Repository (commits: fba6afb, 5e630d4, 1d1d6eb)
+  - ✅ PLAN 3.2: Refactor ProductImageService to use table (commit: 281c0f4)
+  - ✅ PLAN 3.3: Update API routes and response schemas (commits: 4831754, 671336a, 10b596a, cec4cbb)
 
 ### Active
-- [ ] Phase 3: Services & API (3 plans created, 2/3 executed)
-  - [✅] PLAN 3.1: Create ProductImage Model + Repository (commits: fba6afb, 5e630d4, 1d1d6eb)
-  - [✅] PLAN 3.2: Refactor ProductImageService to use table (commit: 281c0f4)
-  - [ ] PLAN 3.3: Update API routes and response schemas
+- Planning Phase 4 - Marketplace Integration
+  - Created 2 executable plans (4-1-PLAN.md, 4-2-PLAN.md)
+  - Next: Execute PLAN 4.1 - Vinted Marketplace Integration
 
 ### Blocked
 - None
@@ -36,11 +39,11 @@
 |-------|--------|-------|----------|
 | 1. Database Architecture | ✅ Complete | 1/1 | 100% |
 | 2. Data Migration | ✅ Complete | 2/2 | 100% |
-| 3. Services & API | 🚧 In Progress | 2/3 | 67% |
-| 4. Marketplace Integration | Not Started | 0/3 | 0% |
+| 3. Services & API | ✅ Complete | 3/3 | 100% |
+| 4. Marketplace Integration | 📋 Planned | 0/2 | 0% |
 | 5. Cleanup & Documentation | Not Started | 0/2 | 0% |
 
-**Overall Progress:** 5/12 plans completed (42%)
+**Overall Progress:** 6/10 plans completed (60%)
 
 ---
 
@@ -137,20 +140,47 @@
   - Business rules enforced: max 20 images, only one label per product, auto-reorder
   - Commit: 281c0f4
   - Duration: ~35 minutes
+- ✅ **EXECUTED PLAN 3.3** - Updated API Routes and Response Schemas
+  - Updated ProductImageItem Pydantic schema with all metadata fields (id, is_label, alt_text, tags, mime_type, file_size, width, height, timestamps)
+  - Fixed bug in DELETE route: was accessing JSONB directly, now uses ProductImageService
+  - Updated all documentation: replaced JSONB references with "table product_images"
+  - Added new PATCH endpoint for label flag management: `/products/{id}/images/{image_id}/label`
+  - Added ProductService.set_label_flag() delegation method
+  - Updated integration test fixture to use table-based images (ProductImageService)
+  - Fixed test_delete_image and test_reorder_images to match actual API format
+  - Added 2 new integration tests: test_set_label_flag_success, test_set_label_flag_only_one_per_product
+  - Commits: 4831754 (schema), 671336a (bug fix), 10b596a (endpoint), cec4cbb (tests)
+  - Duration: ~45 minutes
+  - **Deviation**: Fixed DELETE route bug (plan expected "no code changes")
+- ✅ **PHASE 3 COMPLETE** - All services, schemas, and API routes now use product_images table
+
+**2026-01-15 (Late Night):**
+- ✅ **PLANNED PHASE 4** - Marketplace Integration (2 plans created)
+  - Analyzed Vinted integration: `upload_product_images()` in vinted_product_helpers.py currently parses JSONB
+  - Analyzed eBay integration: `_get_image_urls()` in EbayProductConversionService has TODO comment to use table
+  - Created PLAN 4.1: Vinted Marketplace Integration (~30 min)
+    - Task 1: Refactor upload_product_images() to use ProductImageService.get_product_photos()
+    - Task 2: Add integration tests for Vinted label filtering
+  - Created PLAN 4.2: eBay Marketplace Integration (~25 min)
+    - Task 1: Refactor _get_image_urls() to use ProductImageService.get_product_photos()
+    - Task 2: Add integration tests for eBay label filtering
+  - Total estimated duration: 55 minutes
+  - Both plans ready for execution
 
 ---
 
 ## Next Action
 
-**Execute Phase 3 Plans**
+**Execute Phase 4 Plans**
 
-Command: `/gsd:execute-plan` (in .planning/phases/phase-3/)
+Command: `/gsd:execute-plan` (for .planning/phases/phase-4/4-1-PLAN.md)
 
 This will:
-1. Create ProductImage SQLAlchemy model + ProductImageRepository
-2. Refactor ProductImageService to use new table (add photo/label methods)
-3. Update API response schemas with rich metadata
-4. Run unit + integration tests
+1. Refactor Vinted upload_product_images() to filter labels
+2. Add integration tests for Vinted
+3. Commit changes per task
+
+After 4.1 completes, execute PLAN 4.2 for eBay integration.
 
 ---
 
