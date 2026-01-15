@@ -1,101 +1,99 @@
 """
 Sync Job Handler - Synchronisation des produits depuis l'API Vinted
 
-Délègue à VintedApiSyncService pour:
-- Récupération des produits publiés sur Vinted
-- Import dans la base locale
-- Enrichissement des descriptions
+Thin handler that delegates to VintedSyncService.
 
 Author: Claude
 Date: 2025-12-19
+Updated: 2026-01-15 - Refactored to follow standard pattern
 """
 
-import time
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import MarketplaceJob
+from services.vinted.vinted_sync_service import VintedSyncService
 from .base_job_handler import BaseJobHandler
-from shared.timing import timed_operation, measure_operation
 
 
 class SyncJobHandler(BaseJobHandler):
     """
-    Handler pour la synchronisation des produits depuis l'API Vinted.
+    Handler for synchronizing products from Vinted API.
 
-    Récupère les produits publiés sur Vinted et les importe localement.
+    Delegates all business logic to VintedSyncService.
     """
 
     ACTION_CODE = "sync"
 
-    def __init__(
-        self,
-        db: Session,
-        shop_id: int | None = None,
-        job_id: int | None = None
-    ):
-        super().__init__(db, shop_id, job_id)
-        self._api_sync = None
+    def create_tasks(self, job: MarketplaceJob) -> list[str]:
+        """
+        Define task steps for product synchronization.
 
-    @property
-    def api_sync(self):
-        """Lazy-load API sync service."""
-        if self._api_sync is None:
-            if not self.shop_id:
-                raise ValueError("shop_id requis pour sync API")
-            from services.vinted.vinted_api_sync import VintedApiSyncService
-            self._api_sync = VintedApiSyncService(shop_id=self.shop_id, user_id=self.user_id)
-        return self._api_sync
+        Args:
+            job: MarketplaceJob
+
+        Returns:
+            List of task step descriptions
+        """
+        return [
+            "Fetch products from Vinted API",
+            "Import new products to database",
+            "Update existing products",
+            "Enrich descriptions"
+        ]
+
+    def get_service(self) -> VintedSyncService:
+        """
+        Get service instance for sync operations.
+
+        Returns:
+            VintedSyncService instance
+        """
+        return VintedSyncService(self.db)
 
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
-        Synchronise les produits depuis l'API Vinted.
+        Execute product synchronization by delegating to service.
 
         Args:
-            job: MarketplaceJob (product_id non utilisé)
+            job: MarketplaceJob (product_id not used)
 
         Returns:
             dict: {
                 "success": bool,
+                "products_synced": int,
                 "imported": int,
                 "updated": int,
-                "errors": int
+                "errors": int,
+                "error": str | None
             }
         """
-        start_time = time.time()
-
         try:
             if not self.shop_id:
-                return {"success": False, "error": "shop_id requis pour sync"}
+                return {"success": False, "error": "shop_id required for sync"}
 
-            self.log_start(f"Synchronisation produits (shop_id={self.shop_id})")
+            self.log_start(f"Sync products (shop_id={self.shop_id})")
 
-            # Déléguer à VintedApiSyncService
-            result = await self.api_sync.sync_products_from_api(self.db, job=job)
-
-            elapsed = time.time() - start_time
-
-            imported = result.get('imported', 0)
-            updated = result.get('updated', 0)
-            errors = result.get('errors', 0)
-
-            self.log_success(
-                f"{imported} importés, {updated} mis à jour, "
-                f"{errors} erreurs ({elapsed:.1f}s)"
+            # Delegate to service
+            service = self.get_service()
+            result = await service.sync_products(
+                shop_id=self.shop_id,
+                user_id=self.user_id,
+                job=job
             )
 
-            return {
-                "success": True,
-                "imported": imported,
-                "updated": updated,
-                "errors": errors,
-                **result
-            }
+            if result.get("success"):
+                imported = result.get("imported", 0)
+                updated = result.get("updated", 0)
+                self.log_success(f"{imported} imported, {updated} updated")
+            else:
+                self.log_error(f"Sync failed: {result.get('error')}")
+
+            return result
 
         except Exception as e:
-            elapsed = time.time() - start_time
-            self.log_error(f"Erreur sync: {e} ({elapsed:.1f}s)", exc_info=True)
+            self.log_error(f"Sync error: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
 
 
