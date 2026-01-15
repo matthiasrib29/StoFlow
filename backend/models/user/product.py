@@ -4,13 +4,13 @@ Product Model - Schema Utilisateur
 Ce modèle représente un produit créé par un utilisateur.
 Chaque produit est isolé dans le schema de l'utilisateur (user_{id}).
 
-Business Rules (Updated: 2026-01-03):
+Business Rules (Updated: 2026-01-15):
 - Statuts complets avec workflow MVP (DRAFT, PUBLISHED, SOLD, ARCHIVED)
 - Réplication complète de pythonApiWOO (26+ attributs)
 - Foreign keys vers tables d'attributs (public schema)
 - Soft delete via deleted_at
 - ID auto-incrémenté comme identifiant unique (SERIAL)
-- Images stockées en JSONB: [{url, order, created_at}]
+- Images stored in product_images table (relationship via images_rel)
 """
 
 import os
@@ -383,16 +383,6 @@ class Product(Base):
         Integer, default=0, nullable=False, comment="Quantité en stock"
     )
 
-    # ===== IMAGES (JSONB) =====
-    # Structure: [{"url": "...", "order": 0, "created_at": "..."}, ...]
-    # Max 20 images par produit (limite Vinted)
-    images: Mapped[list | None] = mapped_column(
-        JSONB,
-        nullable=True,
-        server_default="[]",
-        comment="Product images as JSONB array [{url, order, created_at}]",
-    )
-
     # ===== STATUS ET WORKFLOW =====
     status: Mapped[ProductStatus] = mapped_column(
         SQLEnum(ProductStatus, name="product_status", create_type=True),
@@ -503,6 +493,15 @@ class Product(Base):
         lazy="selectin"
     )
 
+    # ===== ONE-TO-MANY RELATIONSHIP - PRODUCT IMAGES (NEW - 2026-01-15) =====
+    product_images: Mapped[list["ProductImage"]] = relationship(
+        "ProductImage",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="ProductImage.order"
+    )
+
     # ===== HELPER PROPERTIES FOR BACKWARD COMPATIBILITY =====
     @property
     def primary_color(self) -> str | None:
@@ -531,6 +530,31 @@ class Product(Base):
     def condition_sups(self) -> list[str]:
         """Return all condition_sups as a list."""
         return [pcs.condition_sup for pcs in self.product_condition_sups]
+
+    @property
+    def images(self) -> list[dict]:
+        """
+        Return images as list of dicts for Pydantic serialization.
+
+        Maps product_images relationship to images field expected by ProductResponse schema.
+        """
+        return [
+            {
+                "id": img.id,
+                "url": img.url,
+                "order": img.order,
+                "is_label": img.is_label,
+                "alt_text": img.alt_text,
+                "tags": img.tags,
+                "mime_type": img.mime_type,
+                "file_size": img.file_size,
+                "width": img.width,
+                "height": img.height,
+                "created_at": img.created_at,
+                "updated_at": img.updated_at,
+            }
+            for img in self.product_images
+        ]
 
     def __repr__(self) -> str:
         return f"<Product(id={self.id}, title='{self.title[:30]}...', status={self.status})>"
