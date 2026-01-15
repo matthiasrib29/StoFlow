@@ -11,7 +11,7 @@ from typing import Optional, TYPE_CHECKING
 from sqlalchemy import Integer, String, Boolean, Text, ForeignKey, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from models.base import Base
+from shared.database import Base
 
 if TYPE_CHECKING:
     from models.user.product import Product
@@ -38,14 +38,16 @@ class ProductImage(Base):
     """
 
     __tablename__ = "product_images"
+    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     # Primary key
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # Foreign key to products
+    # Note: Uses 'tenant' schema placeholder - resolved via schema_translate_map
     product_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("products.id", ondelete="CASCADE"),
+        ForeignKey("tenant.products.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

@@ -15,6 +15,7 @@ from models.user.ebay_product_marketplace import EbayProductMarketplace
 from models.user.ebay_promoted_listing import EbayPromotedListing
 # PluginTask removed (2026-01-09): Replaced by WebSocket communication
 from models.user.product import Product, ProductStatus
+from models.user.product_image import ProductImage
 from models.user.product_attributes_m2m import (
     ProductColor,
     ProductMaterial,
@@ -34,6 +35,7 @@ from models.user.vinted_job_stats import VintedJobStats
 __all__ = [
     "Product",
     "ProductStatus",
+    "ProductImage",
     "ProductColor",
     "ProductMaterial",
     "ProductConditionSup",
