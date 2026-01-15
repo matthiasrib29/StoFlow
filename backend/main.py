@@ -85,7 +85,6 @@ async def lifespan(app: FastAPI):
     required_secrets = [
         "jwt_secret_key",
         "database_url",
-        "openai_api_key",
     ]
 
     missing_secrets = []
