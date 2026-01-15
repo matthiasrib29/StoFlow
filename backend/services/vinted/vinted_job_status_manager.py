@@ -18,7 +18,6 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-# from models.user.plugin_task import  # REMOVED (2026-01-09): WebSocket architecture PluginTask, TaskStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from shared.logging_setup import get_logger
 
