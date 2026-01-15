@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from models.user.marketplace_job import MarketplaceJob, JobStatus
-from models.user.vinted_job_stats import VintedJobStats
+from models.user.marketplace_job_stats import MarketplaceJobStats
 from models.vinted.vinted_action_type import VintedActionType
 
 
@@ -102,16 +102,16 @@ class TestVintedJobModel:
 
 
 # =============================================================================
-# TESTS - VINTED JOB STATS MODEL
+# TESTS - MARKETPLACE JOB STATS MODEL
 # =============================================================================
 
 
-class TestVintedJobStatsModel:
-    """Tests pour le modèle VintedJobStats."""
+class TestMarketplaceJobStatsModel:
+    """Tests pour le modèle MarketplaceJobStats."""
 
     def test_success_rate_property(self):
         """Test le calcul du taux de succès."""
-        stats = VintedJobStats()
+        stats = MarketplaceJobStats()
 
         # Cas normal
         stats.total_jobs = 100
@@ -130,7 +130,7 @@ class TestVintedJobStatsModel:
 
     def test_success_rate_zero_total(self):
         """Test taux de succès quand total = 0."""
-        stats = VintedJobStats()
+        stats = MarketplaceJobStats()
         stats.total_jobs = 0
         stats.success_count = 0
 
@@ -140,14 +140,14 @@ class TestVintedJobStatsModel:
         """Test la représentation string des stats."""
         from datetime import date
 
-        stats = VintedJobStats()
+        stats = MarketplaceJobStats()
         stats.date = date(2024, 12, 19)
         stats.action_type_id = 1
         stats.total_jobs = 100
 
         repr_str = repr(stats)
 
-        assert "VintedJobStats" in repr_str
+        assert "MarketplaceJobStats" in repr_str
         assert "2024-12-19" in repr_str
         assert "100" in repr_str
 

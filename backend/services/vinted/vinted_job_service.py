@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from models.public.marketplace_action_type import MarketplaceActionType
 from models.user.marketplace_job import JobStatus, MarketplaceJob
-from models.user.vinted_job_stats import VintedJobStats
+from models.user.marketplace_job_stats import MarketplaceJobStats
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -552,16 +552,18 @@ class VintedJobService:
 
         # Get or create stats record
         stats = (
-            self.db.query(VintedJobStats)
+            self.db.query(MarketplaceJobStats)
             .filter(
-                VintedJobStats.action_type_id == job.action_type_id,
-                VintedJobStats.date == today,
+                MarketplaceJobStats.action_type_id == job.action_type_id,
+                MarketplaceJobStats.marketplace == 'vinted',
+                MarketplaceJobStats.date == today,
             )
             .first()
         )
 
         if not stats:
-            stats = VintedJobStats(
+            stats = MarketplaceJobStats(
+                marketplace='vinted',
                 action_type_id=job.action_type_id,
                 date=today,
                 total_jobs=0,
@@ -603,9 +605,12 @@ class VintedJobService:
         start_date = datetime.now(timezone.utc).date() - timedelta(days=days)
 
         stats = (
-            self.db.query(VintedJobStats)
-            .filter(VintedJobStats.date >= start_date)
-            .order_by(VintedJobStats.date.desc())
+            self.db.query(MarketplaceJobStats)
+            .filter(
+                MarketplaceJobStats.marketplace == 'vinted',
+                MarketplaceJobStats.date >= start_date
+            )
+            .order_by(MarketplaceJobStats.date.desc())
             .all()
         )
 

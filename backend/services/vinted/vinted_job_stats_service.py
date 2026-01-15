@@ -18,7 +18,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import MarketplaceJob
-from models.user.vinted_job_stats import VintedJobStats
+from models.user.marketplace_job_stats import MarketplaceJobStats
 from models.vinted.vinted_action_type import VintedActionType
 from shared.logging_setup import get_logger
 
@@ -42,16 +42,18 @@ class VintedJobStatsService:
 
         # Get or create stats record
         stats = (
-            db.query(VintedJobStats)
+            db.query(MarketplaceJobStats)
             .filter(
-                VintedJobStats.action_type_id == job.action_type_id,
-                VintedJobStats.date == today,
+                MarketplaceJobStats.action_type_id == job.action_type_id,
+                MarketplaceJobStats.marketplace == 'vinted',
+                MarketplaceJobStats.date == today,
             )
             .first()
         )
 
         if not stats:
-            stats = VintedJobStats(
+            stats = MarketplaceJobStats(
+                marketplace='vinted',
                 action_type_id=job.action_type_id,
                 date=today,
                 total_jobs=0,
@@ -100,9 +102,12 @@ class VintedJobStatsService:
         start_date = datetime.now(timezone.utc).date() - timedelta(days=days)
 
         stats_records = (
-            db.query(VintedJobStats)
-            .filter(VintedJobStats.date >= start_date)
-            .order_by(VintedJobStats.date.desc())
+            db.query(MarketplaceJobStats)
+            .filter(
+                MarketplaceJobStats.marketplace == 'vinted',
+                MarketplaceJobStats.date >= start_date
+            )
+            .order_by(MarketplaceJobStats.date.desc())
             .all()
         )
 
@@ -152,8 +157,11 @@ class VintedJobStatsService:
             date = date.date()
 
         stats_records = (
-            db.query(VintedJobStats)
-            .filter(VintedJobStats.date == date)
+            db.query(MarketplaceJobStats)
+            .filter(
+                MarketplaceJobStats.marketplace == 'vinted',
+                MarketplaceJobStats.date == date
+            )
             .all()
         )
 

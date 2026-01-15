@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 from models.public.marketplace_action_type import MarketplaceActionType
 from models.user.marketplace_task import MarketplaceTask, TaskStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
-from models.user.vinted_job_stats import VintedJobStats
+from models.user.marketplace_job_stats import MarketplaceJobStats
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
