@@ -532,6 +532,27 @@ class ProductService:
         return ProductImageService.reorder_images(db, product_id, ordered_urls)
 
     @staticmethod
+    def set_label_flag(
+        db: Session, product_id: int, image_id: int, is_label: bool
+    ) -> dict:
+        """
+        Set or unset label flag on an image. Delegates to ProductImageService.
+
+        Args:
+            db: SQLAlchemy Session
+            product_id: Product ID
+            image_id: Image ID
+            is_label: True to mark as label, False to unmark
+
+        Returns:
+            dict: Updated image
+
+        Raises:
+            ValueError: If image not found or doesn't belong to product
+        """
+        return ProductImageService.set_label_flag(db, product_id, image_id, is_label)
+
+    @staticmethod
     def update_product_status(
         db: Session, product_id: int, new_status: ProductStatus
     ) -> Optional[Product]:
