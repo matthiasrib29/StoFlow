@@ -9,7 +9,7 @@ Updated: 2026-01-08 - Migrated to WebSocket communication
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -63,6 +63,33 @@ class BaseJobHandler(ABC):
 
         Returns:
             dict: {"success": bool, ...}
+        """
+        pass
+
+    @abstractmethod
+    def create_tasks(self, job: MarketplaceJob) -> List[str]:
+        """
+        Define the list of task names for this job type.
+
+        Each handler must implement this to define its execution steps.
+        TaskOrchestrator will create MarketplaceTask objects from these names.
+
+        Args:
+            job: The MarketplaceJob to create tasks for
+
+        Returns:
+            List of task names in execution order (e.g., ["Validate product", "Upload image 1/3", "Publish listing"])
+
+        Example:
+            def create_tasks(self, job: MarketplaceJob) -> List[str]:
+                # For a publish job with 3 images
+                return [
+                    "Validate product data",
+                    "Upload image 1/3",
+                    "Upload image 2/3",
+                    "Upload image 3/3",
+                    "Create Vinted listing"
+                ]
         """
         pass
 
