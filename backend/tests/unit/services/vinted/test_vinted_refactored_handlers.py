@@ -1,0 +1,236 @@
+"""
+Tests for refactored Vinted handlers (Publish, Update, Delete).
+
+Tests the public API (execute) with mocked services.
+Tests for private methods removed (logic moved to services).
+
+Author: Claude
+Date: 2026-01-15
+"""
+
+import pytest
+from unittest.mock import Mock, AsyncMock, patch
+
+from models.user.marketplace_job import MarketplaceJob
+from services.vinted.jobs.publish_job_handler import PublishJobHandler
+from services.vinted.jobs.update_job_handler import UpdateJobHandler
+from services.vinted.jobs.delete_job_handler import DeleteJobHandler
+
+
+class TestPublishJobHandler:
+    """Tests for PublishJobHandler."""
+
+    @pytest.fixture
+    def db_session(self):
+        """Mock database session."""
+        return Mock()
+
+    @pytest.fixture
+    def handler(self, db_session):
+        """Create handler instance."""
+        return PublishJobHandler(db_session, shop_id=1, job_id=1)
+
+    @pytest.fixture
+    def job(self):
+        """Create test job."""
+        job = Mock(spec=MarketplaceJob)
+        job.product_id = 100
+        return job
+
+    def test_get_service(self, handler):
+        """Test get_service returns VintedPublicationService."""
+        service = handler.get_service()
+        assert service is not None
+        assert service.__class__.__name__ == "VintedPublicationService"
+
+    def test_get_service_method_name(self, handler):
+        """Test get_service_method_name returns correct method."""
+        assert handler.get_service_method_name() == "publish_product"
+
+    def test_create_tasks(self, handler, job):
+        """Test create_tasks returns task list."""
+        tasks = handler.create_tasks(job)
+        assert isinstance(tasks, list)
+        assert len(tasks) > 0
+        assert "Validate" in tasks[0]
+
+    @pytest.mark.asyncio
+    async def test_execute_missing_product_id(self, handler):
+        """Test execute with missing product_id."""
+        job = Mock(spec=MarketplaceJob)
+        job.product_id = None
+
+        result = await handler.execute(job)
+
+        assert result["success"] is False
+        assert "product_id required" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_execute_success(self, handler, job):
+        """Test execute delegates to service successfully."""
+        # Mock service
+        mock_service = Mock()
+        mock_service.publish_product = AsyncMock(return_value={
+            "success": True,
+            "vinted_id": 12345,
+            "url": "https://vinted.com/item/12345"
+        })
+
+        with patch.object(handler, 'get_service', return_value=mock_service):
+            result = await handler.execute(job)
+
+        assert result["success"] is True
+        assert result["vinted_id"] == 12345
+        mock_service.publish_product.assert_called_once_with(
+            product_id=100,
+            user_id=handler.user_id,
+            shop_id=1,
+            job_id=1
+        )
+
+    @pytest.mark.asyncio
+    async def test_execute_service_error(self, handler, job):
+        """Test execute when service returns error."""
+        mock_service = Mock()
+        mock_service.publish_product = AsyncMock(return_value={
+            "success": False,
+            "error": "Product validation failed"
+        })
+
+        with patch.object(handler, 'get_service', return_value=mock_service):
+            result = await handler.execute(job)
+
+        assert result["success"] is False
+        assert "validation failed" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_execute_exception(self, handler, job):
+        """Test execute when service raises exception."""
+        mock_service = Mock()
+        mock_service.publish_product = AsyncMock(side_effect=Exception("Service crashed"))
+
+        with patch.object(handler, 'get_service', return_value=mock_service):
+            result = await handler.execute(job)
+
+        assert result["success"] is False
+        assert "Service crashed" in result["error"]
+
+
+class TestUpdateJobHandler:
+    """Tests for UpdateJobHandler."""
+
+    @pytest.fixture
+    def db_session(self):
+        """Mock database session."""
+        return Mock()
+
+    @pytest.fixture
+    def handler(self, db_session):
+        """Create handler instance."""
+        return UpdateJobHandler(db_session, shop_id=1, job_id=1)
+
+    @pytest.fixture
+    def job(self):
+        """Create test job."""
+        job = Mock(spec=MarketplaceJob)
+        job.product_id = 100
+        return job
+
+    def test_get_service(self, handler):
+        """Test get_service returns VintedUpdateService."""
+        service = handler.get_service()
+        assert service is not None
+        assert service.__class__.__name__ == "VintedUpdateService"
+
+    def test_get_service_method_name(self, handler):
+        """Test get_service_method_name returns correct method."""
+        assert handler.get_service_method_name() == "update_product"
+
+    @pytest.mark.asyncio
+    async def test_execute_success(self, handler, job):
+        """Test execute delegates to service successfully."""
+        mock_service = Mock()
+        mock_service.update_product = AsyncMock(return_value={
+            "success": True,
+            "product_id": 100,
+            "old_price": 10.0,
+            "new_price": 12.0
+        })
+
+        with patch.object(handler, 'get_service', return_value=mock_service):
+            result = await handler.execute(job)
+
+        assert result["success"] is True
+        assert result["product_id"] == 100
+        mock_service.update_product.assert_called_once()
+
+
+class TestDeleteJobHandler:
+    """Tests for DeleteJobHandler."""
+
+    @pytest.fixture
+    def db_session(self):
+        """Mock database session."""
+        return Mock()
+
+    @pytest.fixture
+    def handler(self, db_session):
+        """Create handler instance."""
+        return DeleteJobHandler(db_session, shop_id=1, job_id=1)
+
+    @pytest.fixture
+    def job(self):
+        """Create test job."""
+        job = Mock(spec=MarketplaceJob)
+        job.product_id = 100
+        job.result_data = None
+        return job
+
+    def test_get_service(self, handler):
+        """Test get_service returns VintedDeletionService."""
+        service = handler.get_service()
+        assert service is not None
+        assert service.__class__.__name__ == "VintedDeletionService"
+
+    def test_get_service_method_name(self, handler):
+        """Test get_service_method_name returns correct method."""
+        assert handler.get_service_method_name() == "delete_product"
+
+    @pytest.mark.asyncio
+    async def test_execute_success_default_check_conditions(self, handler, job):
+        """Test execute with default check_conditions (True)."""
+        mock_service = Mock()
+        mock_service.delete_product = AsyncMock(return_value={
+            "success": True,
+            "product_id": 100,
+            "vinted_id": 12345
+        })
+
+        with patch.object(handler, 'get_service', return_value=mock_service):
+            result = await handler.execute(job)
+
+        assert result["success"] is True
+        # Verify check_conditions=True was passed
+        call_args = mock_service.delete_product.call_args
+        assert call_args.kwargs["check_conditions"] is True
+
+    @pytest.mark.asyncio
+    async def test_execute_success_with_check_conditions_false(self, handler):
+        """Test execute with check_conditions=False from job data."""
+        job = Mock(spec=MarketplaceJob)
+        job.product_id = 100
+        job.result_data = {"check_conditions": False}
+
+        mock_service = Mock()
+        mock_service.delete_product = AsyncMock(return_value={
+            "success": True,
+            "product_id": 100
+        })
+
+        with patch.object(handler, 'get_service', return_value=mock_service):
+            result = await handler.execute(job)
+
+        assert result["success"] is True
+        # Verify check_conditions=False was passed
+        call_args = mock_service.delete_product.call_args
+        assert call_args.kwargs["check_conditions"] is False
