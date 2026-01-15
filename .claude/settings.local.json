@@ -366,7 +366,9 @@
       "mcp__notion__API-retrieve-a-page",
       "mcp__notion__API-retrieve-a-data-source",
       "Skill(2-dev)",
-      "mcp__notion__API-update-a-block"
+      "mcp__notion__API-update-a-block",
+      "Skill(1-new-feature)",
+      "Bash(./scripts/new-feature.sh:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

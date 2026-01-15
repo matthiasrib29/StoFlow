@@ -136,3 +136,4 @@ backups/
 .playwright-mcp/
 backend/migrations/archive_*/
 venv
+.env.notion
