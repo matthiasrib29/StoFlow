@@ -531,5 +531,30 @@ class Product(Base):
         """Return all condition_sups as a list."""
         return [pcs.condition_sup for pcs in self.product_condition_sups]
 
+    @property
+    def images(self) -> list[dict]:
+        """
+        Return images as list of dicts for Pydantic serialization.
+
+        Maps product_images relationship to images field expected by ProductResponse schema.
+        """
+        return [
+            {
+                "id": img.id,
+                "url": img.url,
+                "order": img.order,
+                "is_label": img.is_label,
+                "alt_text": img.alt_text,
+                "tags": img.tags,
+                "mime_type": img.mime_type,
+                "file_size": img.file_size,
+                "width": img.width,
+                "height": img.height,
+                "created_at": img.created_at,
+                "updated_at": img.updated_at,
+            }
+            for img in self.product_images
+        ]
+
     def __repr__(self) -> str:
         return f"<Product(id={self.id}, title='{self.title[:30]}...', status={self.status})>"

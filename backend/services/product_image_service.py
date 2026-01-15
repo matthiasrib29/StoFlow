@@ -44,9 +44,9 @@ class ProductImageService:
 
         Business Rules:
         - Maximum 20 images per product (Vinted limit)
-        - Verify product exists and is not SOLD
         - display_order auto-calculated if not provided (append at end)
         - Images stored in product_images table
+        - Foreign key constraint ensures product exists
 
         Args:
             db: SQLAlchemy Session
@@ -59,15 +59,8 @@ class ProductImageService:
             dict: Created image (compatible with old JSONB format for API)
 
         Raises:
-            ValueError: If product not found, SOLD status, or limit reached
+            ValueError: If limit reached or FK constraint fails
         """
-        product = ProductRepository.get_by_id(db, product_id)
-        if not product:
-            raise ValueError(f"Product with id {product_id} not found")
-
-        if product.status == ProductStatus.SOLD:
-            raise ValueError("Cannot add images to SOLD product.")
-
         # Get current image count from table
         current_images = ProductImageRepository.get_by_product(db, product_id)
 
@@ -108,6 +101,7 @@ class ProductImageService:
         - Remove from product_images table
         - Auto-reorder remaining images (gap filling)
         - CDN file must be deleted by FileService (R2)
+        - Foreign key constraint ensures product exists
 
         Args:
             db: SQLAlchemy Session
@@ -117,10 +111,6 @@ class ProductImageService:
         Returns:
             bool: True if deleted, False if not found
         """
-        product = ProductRepository.get_by_id(db, product_id)
-        if not product:
-            return False
-
         # Find image by URL
         images = ProductImageRepository.get_by_product(db, product_id)
         image_to_delete = next((img for img in images if img.url == image_url), None)
@@ -168,10 +158,6 @@ class ProductImageService:
         Raises:
             ValueError: If a URL doesn't belong to the product
         """
-        product = ProductRepository.get_by_id(db, product_id)
-        if not product:
-            raise ValueError(f"Product with id {product_id} not found")
-
         images = ProductImageRepository.get_by_product(db, product_id)
         url_to_image = {img.url: img for img in images}
 
@@ -209,12 +195,8 @@ class ProductImageService:
             product_id: Product ID
 
         Returns:
-            list[dict]: List of images or empty list if product not found
+            list[dict]: List of images (empty list if no images or product not found)
         """
-        product = ProductRepository.get_by_id(db, product_id)
-        if not product:
-            return []
-
         images = ProductImageRepository.get_by_product(db, product_id)
         return [_image_to_dict(img) for img in images]
 
@@ -228,12 +210,8 @@ class ProductImageService:
             product_id: Product ID
 
         Returns:
-            int: Number of images (0 if product not found)
+            int: Number of images (0 if no images or product not found)
         """
-        product = ProductRepository.get_by_id(db, product_id)
-        if not product:
-            return 0
-
         return len(ProductImageRepository.get_by_product(db, product_id))
 
     @staticmethod
@@ -250,10 +228,6 @@ class ProductImageService:
         Returns:
             list[dict]: Product photos (is_label=False) ordered by display order
         """
-        product = ProductRepository.get_by_id(db, product_id)
-        if not product:
-            return []
-
         photos = ProductImageRepository.get_photos_only(db, product_id)
         return [_image_to_dict(img) for img in photos]
 
@@ -269,10 +243,6 @@ class ProductImageService:
         Returns:
             dict | None: Label image if exists, else None
         """
-        product = ProductRepository.get_by_id(db, product_id)
-        if not product:
-            return None
-
         label = ProductImageRepository.get_label(db, product_id)
         return _image_to_dict(label) if label else None
 
