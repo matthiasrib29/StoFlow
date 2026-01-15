@@ -42,6 +42,17 @@ htmlcov/
 # mypy
 .mypy_cache/
 
+# Ruff
+.ruff_cache/
+
+# Profiling
+*.prof
+*.pstats
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
 # -----------------
 # Node.js / Frontend
 # -----------------
@@ -123,6 +134,16 @@ coverage/
 docker-compose.override.yml
 
 # -----------------
+# Database & Cache
+# -----------------
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.rdb
+dump.rdb
+
+# -----------------
 # Misc
 # -----------------
 *.tmp
@@ -130,6 +151,9 @@ docker-compose.override.yml
 *.bak
 *.backup
 backups/
+
+# Temporary data exports
+data/temp/
 
 # Claude Code
 .claude/settings.local.json
