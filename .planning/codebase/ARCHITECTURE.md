@@ -284,6 +284,183 @@ Vinted API (intercept fetch/XHR)
 - `EtsyShopClient` - Shop configuration
 - `EtsyPollingService` - Periodic order polling (APScheduler)
 
+## Image Management Architecture
+
+### Product Images Table-Based System
+
+**Migration Date**: 2026-01-15
+
+StoFlow migrated from JSONB-based image storage to a dedicated `product_images` relational table to enable rich metadata, label filtering, and better marketplace integration.
+
+#### Table Structure
+
+**Schema**: `product_images` table in each `user_X` schema (multi-tenant)
+
+```sql
+CREATE TABLE product_images (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    url VARCHAR NOT NULL,
+    "order" INTEGER NOT NULL,
+    is_label BOOLEAN NOT NULL DEFAULT FALSE,
+    alt_text VARCHAR,
+    tags VARCHAR[],
+    mime_type VARCHAR,
+    file_size INTEGER,
+    width INTEGER,
+    height INTEGER,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for performance
+CREATE INDEX idx_product_images_product_id ON product_images(product_id);
+CREATE INDEX idx_product_images_order ON product_images("order");
+CREATE INDEX idx_product_images_is_label ON product_images(is_label);
+```
+
+**Relationships**:
+- **Many-to-one** with `products` table (cascade delete)
+- **Bidirectional SQLAlchemy relationship**: `Product.product_images` and `ProductImage.product`
+
+#### Migration History
+
+**Problem Solved**: 611 products were publishing internal price tag labels to marketplaces because the previous JSONB structure (`products.images`) didn't distinguish image types.
+
+**Migration Strategy**:
+- **Date**: 2026-01-15
+- **Source**: `products.images` JSONB column → `product_images` table
+- **Data Migrated**: 19,607 images across 3,281 products
+- **Label Detection**: Last image in order (max order) marked as `is_label=true` (pythonApiWOO pattern)
+- **Result**: 100% label identification rate (all products have 2+ images, business rule correctly applied)
+- **Method**: Bulk insert with transaction-per-schema (atomicity)
+- **Rollback**: Alembic downgrade available (reconstructs JSONB from table using `json_agg()`)
+
+**JSONB Column Removal**: The deprecated `products.images` JSONB column was removed in Phase 5.1 after full validation. Rollback capability preserved via Alembic downgrade migration.
+
+#### Label Detection Strategy
+
+**Business Rule**: Last image in product photo order is the internal price tag label (not for marketplace publication).
+
+**Implementation**:
+```python
+# Retrieve only product photos (excludes labels)
+photos = ProductImageService.get_product_photos(db, product_id)
+
+# Retrieve label image
+label = ProductImageService.get_label_image(db, product_id)
+```
+
+**Marketplace Integration**:
+- **Vinted**: `upload_product_images()` filters `is_label=True` images
+- **eBay**: `_get_image_urls()` filters `is_label=True` images
+- **Impact**: 611 products no longer publish internal labels to marketplaces
+
+**Enforcement**: Only one label per product allowed (enforced by `set_label_flag()` method).
+
+#### Service Layer Architecture
+
+**Three-Layer Pattern**:
+
+```
+API Routes (FastAPI)
+    ↓
+ProductImageService (Business Logic)
+    ↓
+ProductImageRepository (Data Access)
+    ↓
+product_images table (SQLAlchemy Model)
+```
+
+**ProductImageRepository** (`repositories/product_image_repository.py`):
+- `create()` - Insert new image record
+- `get_by_product_id()` - Retrieve all images for product
+- `get_by_id()` - Retrieve single image
+- `update()` - Update image metadata
+- `delete()` - Remove image record
+- `reorder_bulk()` - Batch update order values
+- `get_label_image()` - Find image with `is_label=True`
+- `set_label_flag()` - Toggle label flag (enforces single label rule)
+
+**ProductImageService** (`services/product_image_service.py`):
+- `add_image()` - Add image with metadata, auto-assign order
+- `delete_image()` - Remove image, auto-reorder remaining
+- `reorder_images()` - Change image display order
+- `get_product_photos()` - Get non-label images (for marketplace publishing)
+- `get_label_image()` - Get label image
+- `set_label_flag()` - Mark/unmark image as label (single label enforcement)
+- `get_images()` - Get all images (photos + label)
+
+**Business Rules**:
+- Max 20 images per product
+- Only one label per product allowed
+- Images auto-reordered when deleted (no gaps in order sequence)
+- Label flag change enforced (only one `is_label=True` at a time)
+
+#### API Endpoints
+
+```
+POST   /products/{id}/images          - Add new image
+DELETE /products/{id}/images/{image_id} - Delete image
+PATCH  /products/{id}/images/reorder  - Reorder images
+PATCH  /products/{id}/images/{image_id}/label - Set/unset label flag
+GET    /products/{id}                 - Returns product with images array
+```
+
+**Response Format** (`ProductImageItem` schema):
+```json
+{
+  "id": 123,
+  "url": "https://cdn.stoflow.com/product-123-photo-1.jpg",
+  "order": 0,
+  "is_label": false,
+  "alt_text": "Product front view",
+  "tags": ["main", "white-background"],
+  "mime_type": "image/jpeg",
+  "file_size": 245678,
+  "width": 1920,
+  "height": 1080,
+  "created_at": "2026-01-15T10:30:00Z",
+  "updated_at": "2026-01-15T10:30:00Z"
+}
+```
+
+#### Rollback Capability
+
+**Alembic Downgrade Migration** (`20260115_1629_remove_products_images_jsonb_column.py`):
+
+The downgrade function reconstructs the JSONB column from the `product_images` table if rollback is needed:
+
+```python
+def downgrade() -> None:
+    """Restore products.images JSONB column from product_images table."""
+    # 1. Add JSONB column back
+    conn.execute("ALTER TABLE products ADD COLUMN images JSONB")
+
+    # 2. Reconstruct JSONB using PostgreSQL JSON functions
+    conn.execute("""
+        UPDATE products p
+        SET images = subquery.images
+        FROM (
+            SELECT
+                product_id,
+                json_agg(
+                    json_build_object(
+                        'url', url,
+                        'order', "order",
+                        'created_at', created_at::text
+                    )
+                    ORDER BY "order"
+                ) as images
+            FROM product_images
+            GROUP BY product_id
+        ) subquery
+        WHERE p.id = subquery.product_id
+    """)
+```
+
+**Tested**: Full upgrade → downgrade → upgrade cycle verified on all tenant schemas.
+
 ## Job Processing System
 
 ### Unified MarketplaceJobProcessor
