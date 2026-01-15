@@ -313,14 +313,14 @@ class BasePublishHandler(BaseMarketplaceHandler):
 
     def _get_product_images(self, product: Product, max_images: int = 10) -> list[dict]:
         """
-        Get product images from JSONB field.
+        Get product images (photos only, excludes labels).
 
         Args:
             product: Product with images
             max_images: Maximum number of images to return
 
         Returns:
-            list[dict]: List of images [{url, order}, ...]
+            list[dict]: List of photo images [{url, order, ...}] (EXCLUDES labels)
         """
         images = product.images or []
 
@@ -330,8 +330,11 @@ class BasePublishHandler(BaseMarketplaceHandler):
             )
             return []
 
+        # Filter out labels (is_label=True) - labels are internal only
+        photos = [img for img in images if not img.get("is_label", False)]
+
         # Sort by order (if present)
-        images = sorted(images, key=lambda img: img.get("order", 999))
+        photos = sorted(photos, key=lambda img: img.get("order", 999))
 
         # Limit to max_images
-        return images[:max_images]
+        return photos[:max_images]
