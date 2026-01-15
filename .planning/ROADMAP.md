@@ -48,11 +48,11 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 **Goal:** Migrate all existing images from JSONB to new table with label identification
 
 **Deliverables:**
-- [ ] Idempotent migration script
-- [ ] Multi-tenant support (iterate all `user_X` schemas)
-- [ ] Label detection: last image in order → `is_label=true`
-- [ ] Bulk insert optimization (not row-by-row)
-- [ ] Transaction per schema (atomicity)
+- [x] Idempotent migration script
+- [x] Multi-tenant support (iterate all `user_X` schemas)
+- [x] Label detection: last image in order → `is_label=true`
+- [x] Bulk insert optimization (not row-by-row)
+- [x] Transaction per schema (atomicity)
 - [ ] Post-migration validation:
   - Count JSONB images == Count table rows
   - 611 products have `is_label=true`
@@ -61,7 +61,9 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 
 **Research Needed:** None (standard SQLAlchemy migration)
 
-**Estimated Plans:** 2-3 plans
+**Plans Executed:** 1/2
+- ✅ PLAN 2.1: Create migration script (commit: f1c6bc8)
+- PLAN 2.2: Execute migration and validate (dry-run, live, validation)
 
 ---
 

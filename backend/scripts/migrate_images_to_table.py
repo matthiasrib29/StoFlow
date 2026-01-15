@@ -58,7 +58,7 @@ Options:
 
 import argparse
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -186,8 +186,8 @@ class ImageMigrator:
                 'url': img['url'],
                 'order': img['order'],
                 'is_label': is_label,
-                'created_at': img.get('created_at', datetime.utcnow().isoformat()),
-                'updated_at': datetime.utcnow().isoformat()
+                'created_at': img.get('created_at', datetime.now(timezone.utc).isoformat()),
+                'updated_at': datetime.now(timezone.utc).isoformat()
             })
 
             if is_label:
@@ -199,8 +199,7 @@ class ImageMigrator:
                 INSERT INTO product_images (
                     product_id, url, "order", is_label, created_at, updated_at
                 ) VALUES (
-                    :product_id, :url, :order, :is_label,
-                    :created_at::timestamp, :updated_at::timestamp
+                    :product_id, :url, :order, :is_label, :created_at, :updated_at
                 )
             """)
 
@@ -211,11 +210,21 @@ class ImageMigrator:
         self.stats['images_migrated'] += len(images_to_insert)
 
     def detect_label(self, images_json: List[Dict]) -> int:
-        """Find the order of the label image (highest order)."""
+        """
+        Find the order of the label image.
+
+        Business rule:
+        - Products with only 1 image: NOT a label (return -1)
+        - Products with 2+ images: last image IS a label (return max order)
+        """
         if not images_json:
             return -1
 
-        # Find max order value
+        # Products with only 1 image: no label
+        if len(images_json) == 1:
+            return -1
+
+        # Products with 2+ images: label is the image with max order
         max_order = max(img['order'] for img in images_json)
         return max_order
 
