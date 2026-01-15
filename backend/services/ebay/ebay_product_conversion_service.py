@@ -499,24 +499,23 @@ class EbayProductConversionService:
 
     def _get_image_urls(self, product: Product) -> List[str]:
         """
-        Récupère les URLs des images du produit.
+        Get product photo URLs (excludes labels).
+
+        Uses product_images table to filter is_label=true images.
 
         Returns:
-            Liste de URLs publiques (12 max pour eBay)
+            List of public photo URLs (max 12 for eBay)
         """
-        # TODO: Récupérer depuis product_images table
-        # Pour MVP, parser le champ product.images si JSON
-        import json
+        from services.product_image_service import ProductImageService
 
-        if product.images:
-            try:
-                images = json.loads(product.images)
-                if isinstance(images, list):
-                    return images[:12]  # eBay limite à 12 images
-            except (json.JSONDecodeError, TypeError):
-                pass
+        # Get product photos only (excludes labels)
+        photos = ProductImageService.get_product_photos(self.db, product.id)
 
-        return []
+        # Extract URLs
+        image_urls = [photo['url'] for photo in photos]
+
+        # eBay limit: 12 images max
+        return image_urls[:12]
 
     def _calculate_price(self, product: Product, marketplace_id: str) -> Decimal:
         """
