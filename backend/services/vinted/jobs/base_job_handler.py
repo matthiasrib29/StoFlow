@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import MarketplaceJob
 from models.user.marketplace_task import MarketplaceTask, TaskStatus
-from services.marketplace.task_orchestrator import TaskOrchestrator
 from services.plugin_websocket_helper import PluginWebSocketHelper
 from shared.logging_setup import get_logger
 
@@ -55,7 +54,8 @@ class BaseJobHandler(ABC):
         self.job_id = job_id
         self.user_id: Optional[int] = None  # Must be set before execute()
 
-        # TaskOrchestrator instance for task management
+        # TaskOrchestrator instance for task management (lazy import to avoid circular import)
+        from services.marketplace.task_orchestrator import TaskOrchestrator
         self.orchestrator = TaskOrchestrator(db)
 
     @abstractmethod
@@ -98,7 +98,7 @@ class BaseJobHandler(ABC):
         """
         pass
 
-    async def execute_with_tasks(
+    def execute_with_tasks(
         self,
         job: MarketplaceJob,
         handlers: dict[str, Callable[[MarketplaceTask], dict]]
