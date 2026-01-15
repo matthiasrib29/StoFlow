@@ -11,14 +11,12 @@ Updated: 2026-01-15 - Migrated to service delegation pattern
 
 from typing import Any
 
-from sqlalchemy.orm import Session
-
 from models.user.marketplace_job import MarketplaceJob
 from services.vinted.vinted_deletion_service import VintedDeletionService
-from .base_job_handler import BaseJobHandler
+from services.vinted.vinted_job_handler import VintedJobHandler
 
 
-class DeleteJobHandler(BaseJobHandler):
+class DeleteJobHandler(VintedJobHandler):
     """
     Handler pour la suppression de produits sur Vinted.
 
@@ -26,6 +24,14 @@ class DeleteJobHandler(BaseJobHandler):
     """
 
     ACTION_CODE = "delete"
+
+    def get_service(self) -> VintedDeletionService:
+        """Return VintedDeletionService instance."""
+        return VintedDeletionService(self.db)
+
+    def get_service_method_name(self) -> str:
+        """Return service method name to call."""
+        return "delete_product"
 
     def create_tasks(self, job: MarketplaceJob) -> list[str]:
         """Create task list for deletion workflow."""
@@ -36,29 +42,18 @@ class DeleteJobHandler(BaseJobHandler):
         ]
 
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
-        """
-        Supprime un produit sur Vinted.
-
-        Args:
-            job: MarketplaceJob contenant product_id
-
-        Returns:
-            dict: {"success": bool, "product_id": int, "error": str | None}
-        """
+        """Override to handle check_conditions parameter."""
         product_id = job.product_id
         if not product_id:
-            return {"success": False, "error": "product_id required for delete"}
+            return {"success": False, "error": "product_id required"}
 
-        # Extract check_conditions from job if present
-        check_conditions = True
-        if job.result_data and isinstance(job.result_data, dict):
-            check_conditions = job.result_data.get('check_conditions', True)
+        # Extract check_conditions from job data
+        check_conditions = job.result_data.get("check_conditions", True) if job.result_data else True
 
         try:
-            self.log_start(f"Suppression produit #{product_id}")
+            self.log_start(f"Delete product #{product_id}")
 
-            # Delegate to service
-            service = VintedDeletionService(self.db)
+            service = self.get_service()
             result = await service.delete_product(
                 product_id=product_id,
                 user_id=self.user_id,
@@ -68,14 +63,11 @@ class DeleteJobHandler(BaseJobHandler):
             )
 
             if result.get("success"):
-                vinted_id = result.get("vinted_id")
-                self.log_success(f"Produit #{product_id} supprimé (vinted_id={vinted_id})")
+                self.log_success(f"Product #{product_id} deleted")
             else:
-                error = result.get("error")
-                self.log_error(f"Produit #{product_id}: {error}")
+                self.log_error(f"Product #{product_id}: {result.get('error')}")
 
             return result
-
         except Exception as e:
-            self.log_error(f"Produit #{product_id}: {e}", exc_info=True)
-            return {"success": False, "product_id": product_id, "error": str(e)}
+            self.log_error(f"Product #{product_id}: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
