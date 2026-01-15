@@ -20,10 +20,10 @@ class EbayOrdersSyncJobHandler(DirectAPIJobHandler):
     Uses EbayOrderSyncService to retrieve and sync order data
     from eBay Fulfillment API to the local database.
 
-    Action code: sync_orders_ebay
+    Action code: sync_orders
     """
 
-    ACTION_CODE = "sync_orders_ebay"
+    ACTION_CODE = "sync_orders"
 
     def get_service(self) -> EbayOrderSyncService:
         """Return eBay order sync service instance."""
