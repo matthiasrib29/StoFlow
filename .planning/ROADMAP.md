@@ -249,26 +249,28 @@ Total: 1 BatchJob, 50 Jobs, ~400 Tasks
 
 **Goal:** Separate statistics tracking per marketplace (current: all mixed in `vinted_job_stats`).
 
+**Status:** ✅ Complete (2026-01-15)
+
 **Deliverables:**
 - `marketplace_job_stats` table (marketplace-agnostic)
 - Stats service that logs to correct marketplace
 - Migration to rename/refactor `vinted_job_stats`
 
 **Tasks:**
-1. Create migration to rename `vinted_job_stats` to `marketplace_job_stats`
-2. Add `marketplace` column (vinted, ebay, etsy)
-3. Update `MarketplaceJobService` to log stats per marketplace
-4. Add indexes on (marketplace, created_at) for queries
-5. Update stats queries in frontend/API
-6. Write tests for stats service (test-after)
+1. Create migration to rename `vinted_job_stats` to `marketplace_job_stats` ✅
+2. Add `marketplace` column (vinted, ebay, etsy) ✅
+3. Update `MarketplaceJobService` to log stats per marketplace ✅
+4. Add indexes on (marketplace, created_at) for queries ✅
+5. Update stats queries in frontend/API (deferred to frontend work)
+6. Write tests for stats service (test-after) ✅
 
 **Success Criteria:**
 - ✅ Stats separated by marketplace
 - ✅ Essential metrics only (performance, success rates)
-- ✅ Frontend shows per-marketplace stats
+- ⏳ Frontend shows per-marketplace stats (deferred)
 - ✅ Tests pass
 
-**Duration:** ~1 day
+**Duration:** ~60 min (1 plan: 08-01)
 
 ---
 

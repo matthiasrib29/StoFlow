@@ -9,20 +9,20 @@ See: .planning/ROADMAP.md
 
 ## Current Position
 
-Phase: 7 of 12 (Vinted Handlers Refactoring) ✅ COMPLETE
-Plan: 3 of 3 in current phase ✅
-Status: Phase Complete (all 7 handlers migrated, 100% pass rate, 50% code reduction)
-Last activity: 2026-01-15 — Completed Phase 7 (all 3 plans)
+Phase: 8 of 12 (Stats System Refactoring) ✅ COMPLETE
+Plan: 1 of 1 in current phase ✅
+Status: Phase Complete (stats refactored to be marketplace-agnostic)
+Last activity: 2026-01-15 — Completed Phase 8 (plan 08-01)
 
-Progress: ███████░░░ 58% (7/12 phases complete)
+Progress: ████████░░ 67% (8/12 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total phases completed: 7
-- Total plans completed: 10
-- Average duration: ~13 min/plan
-- Total execution time: ~131 min
+- Total phases completed: 8
+- Total plans completed: 11
+- Average duration: ~17 min/plan
+- Total execution time: ~191 min
 
 **By Phase:**
 
@@ -35,6 +35,7 @@ Progress: ███████░░░ 58% (7/12 phases complete)
 | 05-etsy-handlers-refactoring | 1/1 | ~6 min | ✅ Complete |
 | 06-vinted-services-extraction | 1/1 | ~45 min | ✅ Complete |
 | 07-vinted-handlers-refactoring | 3/3 | ~28 min total | ✅ Complete |
+| 08-stats-system-refactoring | 1/1 | ~60 min | ✅ Complete |
 
 ## Accumulated Context
 
@@ -50,6 +51,8 @@ Decisions affecting current and future work:
 6. **Phase 6**: Test debt acceptable mid-refactoring (87% pass rate), fix holistically in next phase
 7. **Phase 7**: VintedJobHandler is functionally identical to DirectAPIJobHandler (pattern is marketplace-agnostic)
 8. **Phase 7**: Handlers with special parameters need execute() override (e.g., DeleteJobHandler with check_conditions)
+9. **Phase 8**: Use job.marketplace from MarketplaceJob for stats filtering (leverages existing model structure)
+10. **Phase 8**: Optional marketplace parameter in get_stats() enables querying both all marketplaces and specific ones
 
 ### Deferred Issues
 
@@ -136,10 +139,26 @@ These stubs prevent import errors but need real implementations in future phases
 - **Tests**: 32 total (14 core + 18 remaining, 100% pass rate)
 - **Total duration**: ~28 min (3 plans)
 
+### Phase 8: Stats System Refactoring ✅
+**Plan 08-01: Marketplace-Agnostic Stats** ✅
+- Renamed VintedJobStats to MarketplaceJobStats with marketplace column
+- Created Alembic migration to add marketplace column (vinted, ebay, etsy)
+- Updated unique constraint to include marketplace
+- Updated all services to use job.marketplace for filtering
+- Added optional marketplace parameter to get_stats()
+- Tests: 20/20 passing (100% pass rate)
+- Duration: ~60 min
+
+**Phase 8 Totals:**
+- **Stats system refactored** (marketplace-agnostic tracking)
+- **Database migration applied** (rename + add column)
+- **9 files modified** (models, services, tests)
+- **Total duration**: ~60 min (1 plan)
+
 ## Session Continuity
 
-Last session: 2026-01-15 19:02:00Z
-Stopped at: Completed Phase 7 (all 3 plans: 07-01, 07-02, 07-03)
+Last session: 2026-01-15 19:14:00Z
+Stopped at: Completed Phase 8 (plan 08-01)
 Resume file: None
 
 ---
