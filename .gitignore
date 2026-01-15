@@ -152,6 +152,9 @@ dump.rdb
 *.backup
 backups/
 
+# Temporary data exports
+data/temp/
+
 # Claude Code
 .claude/settings.local.json
 .playwright-mcp/
