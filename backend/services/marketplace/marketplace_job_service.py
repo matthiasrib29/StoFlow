@@ -660,18 +660,20 @@ class MarketplaceJobService:
         """
         today = datetime.now(timezone.utc).date()
 
-        # Get or create stats record
+        # Get or create stats record (filtered by marketplace)
         stats = (
-            self.db.query(VintedJobStats)
+            self.db.query(MarketplaceJobStats)
             .filter(
-                VintedJobStats.action_type_id == job.action_type_id,
-                VintedJobStats.date == today,
+                MarketplaceJobStats.action_type_id == job.action_type_id,
+                MarketplaceJobStats.marketplace == job.marketplace,
+                MarketplaceJobStats.date == today,
             )
             .first()
         )
 
         if not stats:
-            stats = VintedJobStats(
+            stats = MarketplaceJobStats(
+                marketplace=job.marketplace,
                 action_type_id=job.action_type_id,
                 date=today,
                 total_jobs=0,
@@ -702,24 +704,27 @@ class MarketplaceJobService:
 
         self.db.flush()  # Use flush, not commit (preserve search_path)
 
-    def get_stats(self, days: int = 7) -> list[dict]:
+    def get_stats(self, days: int = 7, marketplace: str | None = None) -> list[dict]:
         """
         Get job statistics for the last N days.
 
         Args:
             days: Number of days to look back
+            marketplace: Optional marketplace filter (vinted, ebay, etsy). If None, returns all marketplaces.
 
         Returns:
             List of daily stats with action type info
         """
         start_date = datetime.now(timezone.utc).date() - timedelta(days=days)
 
-        stats = (
-            self.db.query(VintedJobStats)
-            .filter(VintedJobStats.date >= start_date)
-            .order_by(VintedJobStats.date.desc())
-            .all()
+        query = self.db.query(MarketplaceJobStats).filter(
+            MarketplaceJobStats.date >= start_date
         )
+
+        if marketplace:
+            query = query.filter(MarketplaceJobStats.marketplace == marketplace)
+
+        stats = query.order_by(MarketplaceJobStats.date.desc()).all()
 
         result = []
         for stat in stats:
@@ -727,6 +732,7 @@ class MarketplaceJobService:
             result.append(
                 {
                     "date": stat.date.isoformat(),
+                    "marketplace": stat.marketplace,
                     "action_code": action_type.code if action_type else "unknown",
                     "action_name": action_type.name if action_type else "Unknown",
                     "total_jobs": stat.total_jobs,
