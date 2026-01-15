@@ -362,29 +362,73 @@ class MarketplaceJobService:
 
     def cancel_job(self, job_id: int) -> MarketplaceJob | None:
         """
-        Cancel a job.
+        Request job cancellation (cooperative pattern - 2026-01-15).
+
+        For PENDING jobs: cancels immediately
+        For RUNNING jobs: sets cancel_requested flag for graceful shutdown
+        For TERMINAL jobs: returns None (already finished)
 
         Args:
             job_id: Job ID
 
         Returns:
-            Updated MarketplaceJob or None if not found
+            Updated MarketplaceJob or None if not found/terminal
         """
         job = (
             self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         )
-        if not job or job.is_terminal:
+
+        if not job:
             return None
+
+        # Terminal jobs can't be cancelled
+        if job.is_terminal:
+            logger.warning(f"[MarketplaceJobService] Cannot cancel job #{job_id} - already terminal ({job.status})")
+            return None
+
+        # If job is PENDING, cancel immediately (not started yet)
+        if job.status == JobStatus.PENDING:
+            job.status = JobStatus.CANCELLED
+            job.completed_at = datetime.now(timezone.utc)
+            self.db.flush()  # Use flush, not commit (preserve search_path)
+
+            # Cancel associated pending tasks
+            self._cancel_job_tasks(job_id)
+
+            logger.info(f"[MarketplaceJobService] Job #{job_id} cancelled immediately (was pending)")
+            return job
+
+        # If job is RUNNING, set flag for cooperative cancellation
+        if job.status == JobStatus.RUNNING:
+            job.cancel_requested = True
+            self.db.flush()  # Use flush, not commit (preserve search_path)
+            logger.info(f"[MarketplaceJobService] Job #{job_id} cancellation requested (will stop gracefully)")
+            return job
+
+        # Other statuses (shouldn't happen but handle gracefully)
+        return job
+
+    def mark_job_cancelled(self, job_id: int) -> None:
+        """
+        Mark a job as cancelled (called by handler after cleanup).
+
+        This is the final step of cooperative cancellation (2026-01-15).
+        Called by handlers after they detect cancel_requested and clean up.
+
+        Args:
+            job_id: Job ID to mark as cancelled
+        """
+        job = self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
+
+        if not job:
+            return
 
         job.status = JobStatus.CANCELLED
         job.completed_at = datetime.now(timezone.utc)
+        job.cancel_requested = False  # Reset flag
         self.db.flush()  # Use flush, not commit (preserve search_path)
 
-        # Cancel associated pending tasks
-        self._cancel_job_tasks(job_id)
-
-        logger.info(f"[MarketplaceJobService] Cancelled job #{job_id}")
-        return job
+        logger.info(f"[MarketplaceJobService] Job #{job_id} marked as CANCELLED")
 
     def increment_retry(self, job_id: int) -> tuple[MarketplaceJob | None, bool]:
         """
