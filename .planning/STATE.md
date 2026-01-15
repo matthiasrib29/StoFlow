@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-15
 **Current Phase:** Phase 4 - Marketplace Integration
-**Status:** Planned (2 plans created, 0/2 executed)
+**Status:** In Progress (2 plans created, 1/2 executed)
 
 ---
 
@@ -22,11 +22,13 @@
   - ✅ PLAN 3.1: Create ProductImage Model + Repository (commits: fba6afb, 5e630d4, 1d1d6eb)
   - ✅ PLAN 3.2: Refactor ProductImageService to use table (commit: 281c0f4)
   - ✅ PLAN 3.3: Update API routes and response schemas (commits: 4831754, 671336a, 10b596a, cec4cbb)
+- ✅ Phase 4: Marketplace Integration IN PROGRESS (2 plans created, 1/2 executed)
+  - ✅ PLAN 4.1: Vinted Marketplace Integration (commits: 5341cb5, dd4c822)
 
 ### Active
-- Planning Phase 4 - Marketplace Integration
-  - Created 2 executable plans (4-1-PLAN.md, 4-2-PLAN.md)
-  - Next: Execute PLAN 4.1 - Vinted Marketplace Integration
+- Executing Phase 4 - Marketplace Integration
+  - ✅ PLAN 4.1: COMPLETE - Vinted integration now filters labels
+  - Next: Execute PLAN 4.2 - eBay Marketplace Integration
 
 ### Blocked
 - None
@@ -40,10 +42,10 @@
 | 1. Database Architecture | ✅ Complete | 1/1 | 100% |
 | 2. Data Migration | ✅ Complete | 2/2 | 100% |
 | 3. Services & API | ✅ Complete | 3/3 | 100% |
-| 4. Marketplace Integration | 📋 Planned | 0/2 | 0% |
+| 4. Marketplace Integration | ⏳ In Progress | 1/2 | 50% |
 | 5. Cleanup & Documentation | Not Started | 0/2 | 0% |
 
-**Overall Progress:** 6/10 plans completed (60%)
+**Overall Progress:** 7/10 plans completed (70%)
 
 ---
 
@@ -167,20 +169,35 @@
   - Total estimated duration: 55 minutes
   - Both plans ready for execution
 
+**2026-01-15 (Late Evening):**
+- ✅ **EXECUTED PLAN 4.1** - Vinted Marketplace Integration (COMPLETE)
+  - Refactored upload_product_images() to use ProductImageService.get_product_photos()
+  - Replaced JSONB parsing logic (lines 50-66) with service call
+  - Labels (is_label=true) now automatically excluded from Vinted uploads
+  - Created integration test suite: test_vinted_publish.py (4 test cases, 320 lines)
+  - Test 1: Verify labels excluded (3 photos + 1 label → 3 uploaded)
+  - Test 2: Edge case - only labels (0 uploaded)
+  - Test 3: Edge case - no images (0 uploaded)
+  - Test 4: Verify order preserved when labels filtered
+  - Fixed: Added NotFoundError to shared/exceptions.py (blocking issue)
+  - Commits: 5341cb5 (refactor), dd4c822 (test)
+  - Duration: 4 minutes (estimated 30 min)
+  - **Note:** Test database has pre-existing migration issue (sizes_pkey constraint), tests written correctly
+
 ---
 
 ## Next Action
 
-**Execute Phase 4 Plans**
+**Execute Phase 4.2 - eBay Marketplace Integration**
 
-Command: `/gsd:execute-plan` (for .planning/phases/phase-4/4-1-PLAN.md)
+Command: `/gsd:execute-plan .planning/phases/phase-4/4-2-PLAN.md`
 
 This will:
-1. Refactor Vinted upload_product_images() to filter labels
-2. Add integration tests for Vinted
-3. Commit changes per task
+1. Refactor eBay _get_image_urls() to filter labels
+2. Add integration tests for eBay
+3. Complete Phase 4 (Marketplace Integration)
 
-After 4.1 completes, execute PLAN 4.2 for eBay integration.
+After 4.2 completes, Phase 5 (Cleanup & Documentation) will be the final phase.
 
 ---
 

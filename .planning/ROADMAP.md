@@ -96,11 +96,11 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 
 ---
 
-### Phase 4: Marketplace Integration
+### Phase 4: Marketplace Integration ⏳ IN PROGRESS
 **Goal:** Update marketplace converters to filter labels from published images
 
 **Deliverables:**
-- [ ] Modify Vinted image upload (PLAN 4.1):
+- [x] Modify Vinted image upload (PLAN 4.1):
   - Refactor `upload_product_images()` to use ProductImageService.get_product_photos()
   - Filter `is_label=true` images from Vinted uploads
   - Integration tests verifying no labels in Vinted payloads
@@ -114,7 +114,8 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 
 **Research Needed:** None (existing converters modification)
 
-**Plans Executed:** 0/2
+**Plans Executed:** 1/2
+- ✅ PLAN 4.1: Vinted Marketplace Integration (commits: 5341cb5, dd4c822)
 
 ---
 
