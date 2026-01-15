@@ -144,7 +144,8 @@ def build_job_response(
         completed_at=job.completed_at,
         expires_at=job.expires_at,
         created_at=job.created_at,
-        progress=progress if progress and progress["total"] > 0 else None,
+        # New simple format: {current, label}
+        progress=progress if progress and progress.get("current") is not None else None,
     )
 
 

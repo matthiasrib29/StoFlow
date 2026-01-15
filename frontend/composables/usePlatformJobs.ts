@@ -22,11 +22,8 @@ export interface PlatformJobTask {
 }
 
 export interface PlatformJobProgress {
-  total: number
-  completed: number
-  failed: number
-  pending: number
-  progress_percent: number
+  current: number
+  label?: string
 }
 
 export interface PlatformJob {
@@ -125,23 +122,34 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
   }
 
   /**
-   * Fetch all jobs (single request)
+   * Fetch active jobs only (pending, running, paused)
    */
   const fetchActiveJobs = async (limit = 50): Promise<void> => {
     try {
       error.value = null
       isLoading.value = true
 
-      const response = await get<JobsListResponse>(`${config.apiPrefix}/jobs?limit=${limit}`)
+      // Fetch only active jobs from backend (filtered server-side)
+      const pendingPromise = get<JobsListResponse>(`${config.apiPrefix}/jobs?status_filter=pending&limit=${limit}`)
+      const runningPromise = get<JobsListResponse>(`${config.apiPrefix}/jobs?status_filter=running&limit=${limit}`)
+      const pausedPromise = get<JobsListResponse>(`${config.apiPrefix}/jobs?status_filter=paused&limit=${limit}`)
 
-      // Filter active jobs (pending, running, paused) and sort by created_at desc
-      const allActive = response.jobs
-        .filter(job => ['pending', 'running', 'paused'].includes(job.status))
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      const [pendingResp, runningResp, pausedResp] = await Promise.all([
+        pendingPromise,
+        runningPromise,
+        pausedPromise,
+      ])
+
+      // Combine all active jobs and sort by created_at desc
+      const allActive = [
+        ...pendingResp.jobs,
+        ...runningResp.jobs,
+        ...pausedResp.jobs,
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
       activeJobs.value = allActive
       activeJobsCount.value = allActive.length
-      jobs.value = response.jobs
+      jobs.value = allActive
     } catch (err: any) {
       error.value = err.message || `Failed to fetch ${config.name} jobs`
       platformLogger.error(`[${platformCode}] fetchActiveJobs error`, { error: err.message })

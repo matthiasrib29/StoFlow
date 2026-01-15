@@ -20,6 +20,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from models.user.marketplace_job import MarketplaceJob
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_item_upload_parser import VintedItemUploadParser
@@ -57,6 +58,7 @@ class VintedProductEnricher:
     async def enrich_products_without_description(
         self,
         db: Session,
+        job: MarketplaceJob | None = None,
         batch_size: int = 15,           # Reduced from 30 to avoid DataDome 403
         batch_pause_min: float = 20.0,  # Increased from 10s
         batch_pause_max: float = 30.0   # Increased from 15s
@@ -100,7 +102,40 @@ class VintedProductEnricher:
         enriched = 0
         errors = 0
 
+        # Helper pour mettre a jour le progress dans job.result_data (2026-01-14)
+        def update_enrichment_progress():
+            if job:
+                # Initialiser result_data si None
+                if job.result_data is None:
+                    job.result_data = {}
+
+                # Récupérer le compteur de sync (produits API importés)
+                existing_progress = job.result_data.get("progress", {})
+                sync_count = existing_progress.get("current", 0)
+
+                # Ajouter les produits enrichis au compteur
+                job.result_data = {
+                    **job.result_data,
+                    "progress": {
+                        "current": sync_count + enriched,
+                        "label": "produits enrichis"
+                    }
+                }
+                try:
+                    db.commit()
+                    db.expire(job)  # Force refresh from DB
+                except Exception as e:
+                    logger.warning(f"Failed to update enrichment progress: {e}")
+                    db.rollback()  # CRITICAL: Rollback to prevent idle transaction
+
         for i, product in enumerate(products_to_enrich):
+            # CRITICAL: Check if job was cancelled (2026-01-14)
+            if job:
+                db.refresh(job)  # Get latest status from DB
+                if job.status == 'cancelled':
+                    logger.info(f"Job #{job.id} cancelled, stopping enrichment")
+                    break
+
             if i > 0 and i % batch_size == 0:
                 pause = random.uniform(batch_pause_min, batch_pause_max)
                 logger.info(
@@ -117,6 +152,9 @@ class VintedProductEnricher:
                         f"  [{i+1}/{total}] Enrichi: {product.vinted_id} - "
                         f"{product.title[:30] if product.title else 'N/A'}..."
                     )
+
+                    # Mettre a jour le progress apres chaque enrichissement (2026-01-14)
+                    update_enrichment_progress()
             except Exception as e:
                 errors += 1
                 logger.error(
