@@ -111,6 +111,20 @@ class MarketplaceJobProcessor:
         # Mark job as running
         self.job_service.start_job(job_id)
 
+        # Check if cancellation was requested before we started
+        self.db.refresh(job)
+        if job.cancel_requested:
+            logger.info(f"[JobProcessor] Job #{job_id} cancelled before execution started")
+            self.job_service.mark_job_cancelled(job_id)
+            return {
+                "job_id": job_id,
+                "marketplace": marketplace,
+                "action": action_code,
+                "success": False,
+                "status": "cancelled",
+                "reason": "cancelled_before_start"
+            }
+
         try:
             # Get handler for this action
             handler_class = ALL_HANDLERS.get(full_action_code)

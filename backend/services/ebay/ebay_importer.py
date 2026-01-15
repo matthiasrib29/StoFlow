@@ -15,6 +15,7 @@ Author: Claude
 Date: 2025-12-19
 """
 
+import asyncio
 import json
 from datetime import datetime
 from typing import Optional
@@ -23,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from models.public.ebay_aspect_mapping import AspectMapping
 from models.user.ebay_product import EbayProduct
+from models.user.marketplace_job import JobStatus, MarketplaceJob
 from services.ebay.ebay_inventory_client import EbayInventoryClient
 from services.ebay.ebay_offer_client import EbayOfferClient
 from shared.datetime_utils import utc_now
@@ -34,7 +36,13 @@ logger = get_logger(__name__)
 class EbayImporter:
     """Service pour importer produits depuis eBay Inventory API."""
 
-    def __init__(self, db: Session, user_id: int, marketplace_id: str = "EBAY_FR"):
+    def __init__(
+        self,
+        db: Session,
+        user_id: int,
+        marketplace_id: str = "EBAY_FR",
+        job: Optional[MarketplaceJob] = None
+    ):
         """
         Initialise l'importeur avec les credentials OAuth eBay.
 
@@ -42,10 +50,12 @@ class EbayImporter:
             db: Session SQLAlchemy
             user_id: ID utilisateur Stoflow
             marketplace_id: Marketplace eBay (EBAY_FR, EBAY_GB, etc.)
+            job: Optional MarketplaceJob for cooperative cancellation
         """
         self.db = db
         self.user_id = user_id
         self.marketplace_id = marketplace_id
+        self.job = job
         self.inventory_client = EbayInventoryClient(db, user_id, marketplace_id)
         self.offer_client = EbayOfferClient(db, user_id, marketplace_id)
 
@@ -53,7 +63,7 @@ class EbayImporter:
         self._aspect_reverse_map = AspectMapping.get_reverse_mapping(db)
         logger.debug(f"Loaded {len(self._aspect_reverse_map)} aspect mappings")
 
-    def fetch_all_inventory_items(self) -> list[dict]:
+    async def fetch_all_inventory_items(self) -> list[dict]:
         """
         Récupère TOUS les inventory items de l'utilisateur.
 
@@ -65,8 +75,18 @@ class EbayImporter:
         limit = 100
 
         while True:
+            # Check cancellation every page (cooperative pattern - 2026-01-15)
+            if self.job:
+                self.db.refresh(self.job)
+                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
+                    logger.info(f"Job #{self.job.id} cancelled, stopping import at offset {offset}")
+                    self.db.commit()  # Save partial progress
+                    return all_items
+
             try:
-                result = self.inventory_client.get_inventory_items(
+                # Make blocking call async-compatible
+                result = await asyncio.to_thread(
+                    self.inventory_client.get_inventory_items,
                     limit=limit,
                     offset=offset
                 )
@@ -109,7 +129,7 @@ class EbayImporter:
             logger.warning(f"Could not fetch offers for SKU {sku}: {e}")
             return []
 
-    def import_all_products(self, enrich: bool = False) -> dict:
+    async def import_all_products(self, enrich: bool = False) -> dict:
         """
         Importe tous les produits eBay vers Stoflow.
 
@@ -135,14 +155,26 @@ class EbayImporter:
             "details": []
         }
 
-        # Fetch all inventory items
-        inventory_items = self.fetch_all_inventory_items()
+        # Fetch all inventory items (now async)
+        inventory_items = await self.fetch_all_inventory_items()
 
         if not inventory_items:
             logger.info("No inventory items found on eBay")
             return results
 
-        for item in inventory_items:
+        for i, item in enumerate(inventory_items):
+            # Check cancellation every 10 items (cooperative pattern - 2026-01-15)
+            if i % 10 == 0 and self.job:
+                self.db.refresh(self.job)
+                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
+                    logger.info(f"Job #{self.job.id} cancelled, stopping import at item {i}/{len(inventory_items)}")
+                    self.db.commit()  # Save partial progress
+                    return {
+                        **results,
+                        "status": "cancelled",
+                        "imported_count": i
+                    }
+
             try:
                 result = self._import_single_item(item, enrich=enrich)
 
@@ -155,6 +187,15 @@ class EbayImporter:
 
                 results["details"].append(result)
 
+                # Batch commits every 100 items for rollback safety
+                if (i + 1) % 100 == 0:
+                    try:
+                        self.db.commit()
+                        logger.info(f"Progress saved: {i + 1}/{len(inventory_items)} items processed")
+                    except Exception as e:
+                        logger.error(f"Error committing batch: {e}")
+                        self.db.rollback()
+
             except Exception as e:
                 sku = item.get("sku", "unknown")
                 logger.error(f"Error importing item {sku}: {e}")
@@ -165,7 +206,7 @@ class EbayImporter:
                     "error": str(e)
                 })
 
-        # Commit all changes
+        # Commit final changes
         try:
             self.db.commit()
         except Exception as e:
