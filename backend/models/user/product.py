@@ -4,13 +4,13 @@ Product Model - Schema Utilisateur
 Ce modèle représente un produit créé par un utilisateur.
 Chaque produit est isolé dans le schema de l'utilisateur (user_{id}).
 
-Business Rules (Updated: 2026-01-03):
+Business Rules (Updated: 2026-01-15):
 - Statuts complets avec workflow MVP (DRAFT, PUBLISHED, SOLD, ARCHIVED)
 - Réplication complète de pythonApiWOO (26+ attributs)
 - Foreign keys vers tables d'attributs (public schema)
 - Soft delete via deleted_at
 - ID auto-incrémenté comme identifiant unique (SERIAL)
-- Images stockées en JSONB: [{url, order, created_at}]
+- Images stored in product_images table (relationship via images_rel)
 """
 
 import os
@@ -381,16 +381,6 @@ class Product(Base):
     # ===== STOCK =====
     stock_quantity: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False, comment="Quantité en stock"
-    )
-
-    # ===== IMAGES (JSONB) =====
-    # Structure: [{"url": "...", "order": 0, "created_at": "..."}, ...]
-    # Max 20 images par produit (limite Vinted)
-    images: Mapped[list | None] = mapped_column(
-        JSONB,
-        nullable=True,
-        server_default="[]",
-        comment="Product images as JSONB array [{url, order, created_at}]",
     )
 
     # ===== STATUS ET WORKFLOW =====
