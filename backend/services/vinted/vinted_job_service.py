@@ -24,7 +24,6 @@ from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session
 
 from models.public.marketplace_action_type import MarketplaceActionType
-# from models.user.plugin_task import PluginTask, TaskStatus  # REMOVED (2026-01-09): WebSocket architecture
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.vinted_job_stats import VintedJobStats
 from shared.logging_setup import get_logger
