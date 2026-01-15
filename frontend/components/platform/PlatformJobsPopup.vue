@@ -19,6 +19,17 @@
         >
           {{ activeJobsCount }}
         </span>
+        <Button
+          icon="pi pi-refresh"
+          size="small"
+          severity="secondary"
+          text
+          rounded
+          @click="fetchActiveJobs"
+          :loading="isLoading"
+          v-tooltip.top="'Rafraîchir'"
+          class="ml-auto"
+        />
       </div>
     </template>
 
@@ -110,29 +121,11 @@
         </div>
 
         <!-- Progress info -->
-        <div v-if="job.progress" class="mt-3">
-          <!-- New simple format: { current, label } -->
-          <div v-if="job.progress.current !== undefined" class="flex items-center gap-2 text-sm text-gray-600">
+        <div v-if="job.progress && job.progress.current !== undefined" class="mt-3">
+          <div class="flex items-center gap-2 text-sm text-gray-600">
             <i class="pi pi-spin pi-spinner text-primary-400" v-if="job.status === 'running'" />
             <span class="font-medium">{{ job.progress.current }}</span>
             <span>{{ job.progress.label || 'traités' }}</span>
-          </div>
-          <!-- Legacy format with progress bar: { completed, total, progress_percent } -->
-          <div v-else-if="job.progress.total">
-            <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
-              <span>Progression</span>
-              <span>{{ job.progress.completed }}/{{ job.progress.total }} ({{ job.progress.progress_percent }}%)</span>
-            </div>
-            <ProgressBar
-              :value="job.progress.progress_percent"
-              :showValue="false"
-              style="height: 6px"
-              :class="{
-                'progress-running': job.status === 'running',
-                'progress-paused': job.status === 'paused',
-                'progress-pending': job.status === 'pending'
-              }"
-            />
           </div>
         </div>
 
@@ -337,23 +330,5 @@ defineExpose({
 <style scoped>
 .jobs-popup :deep(.p-dialog-content) {
   padding: 1rem;
-}
-
-.progress-running :deep(.p-progressbar-value) {
-  background: linear-gradient(90deg, #3b82f6, #60a5fa);
-  animation: pulse 2s infinite;
-}
-
-.progress-paused :deep(.p-progressbar-value) {
-  background: #f97316;
-}
-
-.progress-pending :deep(.p-progressbar-value) {
-  background: #facc15;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
 }
 </style>
