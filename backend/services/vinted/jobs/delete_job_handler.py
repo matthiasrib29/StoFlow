@@ -27,6 +27,14 @@ class DeleteJobHandler(BaseJobHandler):
 
     ACTION_CODE = "delete"
 
+    def create_tasks(self, job: MarketplaceJob) -> list[str]:
+        """Create task list for deletion workflow."""
+        return [
+            "Check conditions",
+            "Archive stats",
+            "Delete listing"
+        ]
+
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Supprime un produit sur Vinted.

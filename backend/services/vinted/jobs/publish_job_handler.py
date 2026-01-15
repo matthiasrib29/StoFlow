@@ -27,6 +27,16 @@ class PublishJobHandler(BaseJobHandler):
 
     ACTION_CODE = "publish"
 
+    def create_tasks(self, job: MarketplaceJob) -> list[str]:
+        """Create task list for publication workflow."""
+        return [
+            "Validate product",
+            "Map attributes",
+            "Calculate price",
+            "Upload images",
+            "Create listing"
+        ]
+
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Publie un produit sur Vinted.

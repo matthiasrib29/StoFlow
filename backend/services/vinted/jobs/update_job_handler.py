@@ -27,6 +27,14 @@ class UpdateJobHandler(BaseJobHandler):
 
     ACTION_CODE = "update"
 
+    def create_tasks(self, job: MarketplaceJob) -> list[str]:
+        """Create task list for update workflow."""
+        return [
+            "Validate product",
+            "Recalculate attributes",
+            "Update listing"
+        ]
+
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Met à jour un produit sur Vinted.
