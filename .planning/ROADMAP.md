@@ -120,12 +120,13 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 
 ---
 
-### Phase 5: Cleanup & Documentation
+### Phase 5: Cleanup & Documentation 🚧 IN PROGRESS
 **Goal:** Remove deprecated JSONB column and finalize migration
 
 **Deliverables:**
-- [ ] Alembic migration removing `products.images` column
-- [ ] Alembic downgrade migration (restore JSONB from table if needed)
+- [x] Alembic migration removing `products.images` column
+- [x] Alembic downgrade migration (restore JSONB from table if needed)
+- [x] Rollback tested (full upgrade/downgrade cycle)
 - [ ] Update ARCHITECTURE.md:
   - New image table structure
   - Migration history
@@ -136,11 +137,11 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 - [ ] Final validation:
   - All tests green
   - No references to JSONB column
-  - Rollback tested
 
 **Research Needed:** None (standard cleanup)
 
-**Estimated Plans:** 1-2 plans
+**Plans Executed:** 1/2
+- ✅ PLAN 5.1: Remove JSONB Column (commits: f2141c5, 110b53e, 867d712)
 
 ---
 
@@ -200,11 +201,14 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 4. ✅ Phase 1: Database Architecture COMPLETE
 5. ✅ Phase 2: Data Migration COMPLETE
 6. ✅ Phase 3: Services & API COMPLETE
-7. ✅ Phase 4: Marketplace Integration PLANNED (2 plans created)
-8. → Execute PLAN 4.1: Vinted Marketplace Integration
+7. ✅ Phase 4: Marketplace Integration COMPLETE
+8. ✅ Phase 5 Plan 1: Remove JSONB Column COMPLETE
+9. → Execute PLAN 5.2: Documentation and Final Validation (FINAL PLAN)
 
-**Command:** `/gsd:execute-plan` (for .planning/phases/phase-4/4-1-PLAN.md)
+**Command:** `/gsd:execute-plan` (for .planning/phases/phase-5/5-2-PLAN.md)
+
+**Project Status:** 90% complete (9/10 plans executed)
 
 ---
 
-*Last updated: 2026-01-15 after Phase 4 planning*
+*Last updated: 2026-01-15 after Phase 5 Plan 1 execution*

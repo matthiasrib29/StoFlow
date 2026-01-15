@@ -1,8 +1,8 @@
 # STATE - Image Management Architecture Migration
 
 **Last Updated:** 2026-01-15
-**Current Phase:** Phase 4 - Marketplace Integration
-**Status:** Complete (2/2 plans executed)
+**Current Phase:** Phase 5 - Cleanup & Documentation
+**Status:** In Progress (1/2 plans executed)
 
 ---
 
@@ -25,10 +25,12 @@
 - ✅ Phase 4: Marketplace Integration COMPLETE (2/2 plans executed)
   - ✅ PLAN 4.1: Vinted Marketplace Integration (commits: 5341cb5, dd4c822)
   - ✅ PLAN 4.2: eBay Marketplace Integration (commits: bd6d162, dc62fd7)
+- 🚧 Phase 5: Cleanup & Documentation IN PROGRESS (1/2 plans executed)
+  - ✅ PLAN 5.1: Remove JSONB Column (commits: f2141c5, 110b53e, 867d712)
 
 ### Active
-- Phase 4 COMPLETE - Both Vinted and eBay now filter labels
-- Next: Execute Phase 5 - Cleanup & Documentation
+- Phase 5 IN PROGRESS - JSONB column removed, rollback tested
+- Next: Execute Plan 5.2 (Documentation and Final Validation)
 
 ### Blocked
 - None
@@ -43,9 +45,9 @@
 | 2. Data Migration | ✅ Complete | 2/2 | 100% |
 | 3. Services & API | ✅ Complete | 3/3 | 100% |
 | 4. Marketplace Integration | ✅ Complete | 2/2 | 100% |
-| 5. Cleanup & Documentation | Not Started | 0/2 | 0% |
+| 5. Cleanup & Documentation | 🚧 In Progress | 1/2 | 50% |
 
-**Overall Progress:** 8/10 plans completed (80%)
+**Overall Progress:** 9/10 plans completed (90%)
 
 ---
 
@@ -58,6 +60,8 @@
 | Backup complet avant migration | Sécurité absolue : 0 perte acceptée | 2026-01-15 |
 | is_label boolean vs enum | Boolean suffisant pour v1, extensible plus tard | 2026-01-15 |
 | 100% label rate accepted | ALL products have 2+ images, business rule correctly applied | 2026-01-15 |
+| Multi-worktree migration sync | Copy missing migrations from other worktrees when DB is ahead | 2026-01-15 |
+| Downgrade with data reconstruction | Use json_agg() to restore JSONB from table for rollback | 2026-01-15 |
 
 ---
 
@@ -203,17 +207,28 @@
   - 611 products will no longer publish internal price tags to marketplaces
   - Consistent filtering pattern across all marketplace integrations
 
+**2026-01-15 (Late Night):**
+- ✅ **EXECUTED PLAN 5.1** - Remove JSONB Column (COMPLETE)
+  - Created Alembic migration to drop products.images JSONB column
+  - Implemented downgrade to restore JSONB from product_images table using json_agg()
+  - Resolved multi-worktree migration synchronization (copied 2 missing migrations)
+  - Tested full upgrade/downgrade cycle successfully
+  - Applied to 5 schemas: user_1, user_2, user_4, user_5, template_tenant
+  - Commits: f2141c5 (sync), 110b53e (migration), 867d712 (merge)
+  - Duration: 8 minutes
+  - **Note:** Multi-worktree synchronization is documented pattern in CLAUDE.md
+
 ---
 
 ## Next Action
 
-**Execute Phase 5 - Cleanup & Documentation**
+**Execute PLAN 5.2 - Documentation and Final Validation**
 
-Phase 5 Plans:
-1. PLAN 5.1: Remove deprecated products.images JSONB column
-2. PLAN 5.2: Update architecture documentation and final validation
+Remaining Phase 5 Plans:
+1. ✅ PLAN 5.1: Remove deprecated products.images JSONB column (COMPLETE)
+2. ⏳ PLAN 5.2: Update architecture documentation and final validation
 
-This is the final phase of the migration project.
+This is the final plan of the migration project (90% complete).
 
 ---
 
