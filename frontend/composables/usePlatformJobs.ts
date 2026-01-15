@@ -32,6 +32,7 @@ export interface PlatformJob {
   action_code: string
   action_name: string
   status: JobStatus
+  cancel_requested: boolean  // NEW: Cooperative cancellation flag (2026-01-15)
   priority: number
   product_id: number | null
   product_title: string | null
@@ -244,6 +245,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
 
   /**
    * Start polling for active jobs (client-side only)
+   * Adaptive polling: 2s when cancelling jobs, 3s otherwise (2026-01-15)
    */
   const startPolling = (intervalMs = 3000): void => {
     // SSR safety: only run on client
@@ -258,10 +260,27 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
     // Initial fetch
     fetchActiveJobs()
 
-    // Set up interval
-    pollingInterval.value = setInterval(() => {
-      fetchActiveJobs()
-    }, intervalMs)
+    // Adaptive interval function
+    const setupInterval = () => {
+      // Use faster polling (2s) if jobs are being cancelled
+      const interval = hasCancellingJobs.value ? 2000 : intervalMs
+
+      pollingInterval.value = setInterval(() => {
+        fetchActiveJobs()
+      }, interval)
+    }
+
+    setupInterval()
+
+    // Watch for cancelling state changes to adapt polling speed
+    watch(hasCancellingJobs, (hasCancelling, wasHadCancelling) => {
+      if (hasCancelling !== wasHadCancelling && pollingInterval.value) {
+        // Restart interval with new speed
+        stopPolling()
+        isPolling.value = true
+        setupInterval()
+      }
+    })
   }
 
   /**
@@ -276,12 +295,31 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
   }
 
   /**
-   * Get status label in French
+   * Get display status (handles cooperative cancellation - 2026-01-15)
+   * Returns 'cancelling' if cancel_requested=true and status=running
    */
-  const getStatusLabel = (status: JobStatus): string => {
-    const labels: Record<JobStatus, string> = {
+  const getDisplayStatus = (job: PlatformJob): JobStatus | 'cancelling' => {
+    if (job.cancel_requested && job.status === 'running') {
+      return 'cancelling'
+    }
+    return job.status
+  }
+
+  /**
+   * Check if any jobs are in cancelling state
+   */
+  const hasCancellingJobs = computed(() =>
+    activeJobs.value.some(j => j.cancel_requested && j.status === 'running')
+  )
+
+  /**
+   * Get status label in French (updated 2026-01-15)
+   */
+  const getStatusLabel = (status: JobStatus | 'cancelling'): string => {
+    const labels: Record<JobStatus | 'cancelling', string> = {
       pending: 'En attente',
       running: 'En cours',
+      cancelling: 'Arrêt en cours...', // NEW: Cooperative cancellation
       paused: 'En pause',
       completed: 'Terminé',
       failed: 'Échoué',
@@ -292,12 +330,13 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
   }
 
   /**
-   * Get status color class
+   * Get status color class (updated 2026-01-15)
    */
-  const getStatusColor = (status: JobStatus): string => {
-    const colors: Record<JobStatus, string> = {
+  const getStatusColor = (status: JobStatus | 'cancelling'): string => {
+    const colors: Record<JobStatus | 'cancelling', string> = {
       pending: 'text-yellow-600 bg-yellow-100',
       running: 'text-blue-600 bg-blue-100',
+      cancelling: 'text-yellow-700 bg-yellow-200', // NEW: Visual feedback for cancelling
       paused: 'text-orange-600 bg-orange-100',
       completed: 'text-green-600 bg-green-100',
       failed: 'text-red-600 bg-red-100',
@@ -342,6 +381,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
     isLoading,
     error,
     isPolling,
+    hasCancellingJobs, // NEW: Check if any jobs are cancelling (2026-01-15)
 
     // Methods
     fetchJobs,
@@ -354,6 +394,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
     stopPolling,
 
     // Helpers
+    getDisplayStatus, // NEW: Get display status with cancelling state (2026-01-15)
     getStatusLabel,
     getStatusColor,
     getActionLabel,

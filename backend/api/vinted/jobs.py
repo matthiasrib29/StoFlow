@@ -37,7 +37,7 @@ router = APIRouter(prefix="/jobs", tags=["Vinted Jobs"])
 
 
 class JobResponse(BaseModel):
-    """Response schema for a single job."""
+    """Response schema for a single job (updated 2026-01-15)."""
 
     id: int
     batch_id: Optional[str] = None
@@ -47,6 +47,7 @@ class JobResponse(BaseModel):
     product_id: Optional[int] = None
     product_title: Optional[str] = None  # Product title for display
     status: str
+    cancel_requested: bool = False  # NEW: Cooperative cancellation flag (2026-01-15)
     priority: int
     error_message: Optional[str] = None
     retry_count: int

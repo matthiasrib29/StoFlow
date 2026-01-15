@@ -62,10 +62,10 @@
               <span
                 :class="[
                   'text-xs font-medium px-2 py-0.5 rounded',
-                  getStatusColor(job.status)
+                  getStatusColor(getDisplayStatus(job))
                 ]"
               >
-                {{ getStatusLabel(job.status) }}
+                {{ getStatusLabel(getDisplayStatus(job)) }}
               </span>
               <span class="text-sm font-medium text-gray-700">
                 {{ getActionLabel(job.action_code) }}
@@ -106,7 +106,7 @@
               :loading="actionLoading === job.id"
             />
 
-            <!-- Cancel button -->
+            <!-- Cancel button (disabled if already cancelling - 2026-01-15) -->
             <Button
               icon="pi pi-times"
               severity="danger"
@@ -114,8 +114,9 @@
               rounded
               size="small"
               @click="handleCancel(job.id)"
-              v-tooltip.top="'Annuler'"
+              v-tooltip.top="job.cancel_requested ? 'Annulation en cours...' : 'Annuler'"
               :loading="actionLoading === job.id"
+              :disabled="job.cancel_requested"
             />
           </div>
         </div>
@@ -127,6 +128,15 @@
             <span class="font-medium">{{ job.progress.current }}</span>
             <span>{{ job.progress.label || 'traités' }}</span>
           </div>
+        </div>
+
+        <!-- Cancelling message (NEW: 2026-01-15) -->
+        <div
+          v-if="job.cancel_requested && job.status === 'running'"
+          class="mt-2 flex items-center gap-2 text-xs text-yellow-700 bg-yellow-50 rounded p-2"
+        >
+          <i class="pi pi-clock" />
+          <span>Le job s'arrêtera dans ~30 secondes</span>
         </div>
 
         <!-- Error message -->
@@ -211,9 +221,11 @@ const {
   pauseJob,
   resumeJob,
   cancelAllJobs,
+  getDisplayStatus, // NEW: Get display status with cancelling support (2026-01-15)
   getStatusLabel,
   getStatusColor,
   getActionLabel,
+  hasCancellingJobs, // NEW: Check if any jobs are cancelling (2026-01-15)
 } = usePlatformJobs(props.platformCode)
 
 const visible = computed({
@@ -228,11 +240,53 @@ const hasRunningJobs = computed(() =>
   activeJobs.value.some(j => j.status === 'running')
 )
 
-// Fetch jobs when dialog opens
+// Polling interval reference (NEW: 2026-01-15)
+const pollingInterval = ref<ReturnType<typeof setInterval> | null>(null)
+
+// Start/stop polling based on dialog visibility and cancelling jobs (2026-01-15)
 watch(visible, (isVisible) => {
   if (isVisible) {
+    // Initial fetch
     fetchActiveJobs()
+
+    // Start adaptive polling (faster if jobs are cancelling)
+    startAdaptivePolling()
+  } else {
+    // Stop polling when dialog closes
+    stopAdaptivePolling()
   }
+})
+
+// Watch for cancelling jobs to adapt polling speed (2026-01-15)
+watch(hasCancellingJobs, (hasCancelling) => {
+  if (visible.value && pollingInterval.value) {
+    // Restart polling with new interval
+    stopAdaptivePolling()
+    startAdaptivePolling()
+  }
+})
+
+const startAdaptivePolling = () => {
+  if (!import.meta.client) return
+
+  // Use 2s interval if jobs are cancelling, 5s otherwise
+  const interval = hasCancellingJobs.value ? 2000 : 5000
+
+  pollingInterval.value = setInterval(() => {
+    fetchActiveJobs()
+  }, interval)
+}
+
+const stopAdaptivePolling = () => {
+  if (pollingInterval.value) {
+    clearInterval(pollingInterval.value)
+    pollingInterval.value = null
+  }
+}
+
+// Cleanup on unmount
+onUnmounted(() => {
+  stopAdaptivePolling()
 })
 
 const handleCancel = async (jobId: number) => {
