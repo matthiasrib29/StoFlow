@@ -5,6 +5,10 @@
 
 set -e
 
+# Source Alembic utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/alembic-utils.sh"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -121,13 +125,16 @@ fi
 # Activate venv
 source ${VENV_DIR}/bin/activate
 
-# Apply database migrations
+# Apply database migrations with auto-copy from other worktrees
 echo -e "${YELLOW}📦 Checking database migrations...${NC}"
-if alembic upgrade head 2>&1; then
+if auto_copy_missing_migrations "."; then
     echo -e "${GREEN}✅ Database up to date${NC}"
 else
     echo -e "${RED}❌ Migration failed! Check alembic logs.${NC}"
-    echo -e "${YELLOW}   Run: cd backend && alembic upgrade head${NC}"
+    echo -e "${YELLOW}   Suggestions:${NC}"
+    echo -e "${YELLOW}   1. Run: cd backend && alembic upgrade head${NC}"
+    echo -e "${YELLOW}   2. Sync with develop: /sync${NC}"
+    echo -e "${YELLOW}   3. Check migration status: cd backend && alembic current${NC}"
     exit 1
 fi
 

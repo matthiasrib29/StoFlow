@@ -309,6 +309,38 @@ Confirmes-tu vouloir supprimer ce fichier? (oui/non)
 > **Contexte** : Tous les worktrees partagent la même base PostgreSQL (Docker).
 > Cela peut causer des problèmes de synchronisation des migrations.
 
+#### ✨ Auto-Copy de Migrations (NOUVEAU - 2026-01-15)
+
+**Les migrations manquantes sont maintenant copiées automatiquement !**
+
+Un nouveau système (`scripts/alembic-utils.sh`) détecte et copie automatiquement les fichiers de migration manquants depuis d'autres worktrees lors de :
+- `/X-dev` (démarrage serveurs)
+- `/sync` (synchronisation avec develop)
+- `/finish` (merge et cleanup)
+
+**Comment ça marche** :
+1. Détecte l'erreur `Can't locate revision XXXXX`
+2. Cherche le fichier de migration dans tous les worktrees (`~/StoFlow-*` et `~/StoFlow`)
+3. Copie automatiquement le fichier trouvé dans le worktree actuel
+4. Réessaye `alembic upgrade head`
+5. Maximum 3 tentatives (pour gérer plusieurs migrations manquantes en chaîne)
+
+**Utilisation manuelle** (si besoin) :
+```bash
+cd ~/StoFlow-[nom]/backend
+source .venv/bin/activate
+source ../scripts/alembic-utils.sh
+
+# Auto-copy et upgrade
+auto_copy_missing_migrations "."
+
+# Lister toutes les migrations disponibles dans tous les worktrees
+list_all_migrations
+
+# Chercher une migration spécifique
+find_migration_in_worktrees "a1b2c3d4"
+```
+
 #### Le Problème
 
 ```
@@ -341,15 +373,27 @@ Worktree A (feature/add-ebay)     Worktree B (feature/add-etsy)
 cd ~/StoFlow-[nom]
 git fetch origin develop
 git merge origin/develop  # ou /sync
-alembic upgrade head
+
+# Les migrations manquantes seront auto-copiées lors du prochain /X-dev
+# Ou manuellement :
+cd backend
+source .venv/bin/activate
+source ../scripts/alembic-utils.sh
+auto_copy_missing_migrations "."
 ```
 
 **2. Si erreur "Target database is not up to date" :**
 ```bash
 # Option A : Synchroniser le worktree avec develop
-/sync  # Récupère les nouvelles migrations
+/sync  # Récupère les nouvelles migrations ET les auto-copie
 
-# Option B : Vérifier l'état actuel de la DB
+# Option B : Auto-copy manuel depuis autres worktrees
+cd backend
+source .venv/bin/activate
+source ../scripts/alembic-utils.sh
+auto_copy_missing_migrations "."
+
+# Option C : Vérifier l'état actuel de la DB
 cd backend
 alembic current          # Montre la révision actuelle de la DB
 alembic heads            # Montre les heads disponibles dans le code

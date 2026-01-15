@@ -79,22 +79,34 @@ git rebase origin/develop
 cd backend
 source .venv/bin/activate
 
-# Vérifier s'il y a de nouvelles migrations
-CURRENT=$(alembic current 2>/dev/null | grep -oP '[a-f0-9]+(?= \(head\))' || echo "none")
-HEADS=$(alembic heads 2>/dev/null | head -1 | awk '{print $1}')
+# ✨ AUTOMATIQUE: Les migrations manquantes sont auto-copiées depuis d'autres worktrees
+# La fonction auto_copy_missing_migrations() cherche et copie automatiquement
+# les fichiers de migration manquants depuis ~/StoFlow-* et ~/StoFlow
 
-if [ "$CURRENT" != "$HEADS" ]; then
-  echo "📦 Nouvelles migrations détectées, application..."
-  alembic upgrade head
-  echo "✅ Migrations appliquées"
+# Source utilities
+source ../scripts/alembic-utils.sh
+
+# Appliquer migrations avec auto-copy
+if auto_copy_missing_migrations "."; then
+  echo "✅ Migrations appliquées avec succès"
 else
-  echo "✅ DB déjà à jour"
+  echo "❌ Erreur lors de l'application des migrations"
+  # La fonction affiche déjà les suggestions (sync, diagnostic, etc.)
+  # ⛔ ARRÊTER et DEMANDER à l'utilisateur
 fi
 ```
 
-**Si erreur Alembic** → Afficher l'erreur et proposer :
+**Comment fonctionne l'auto-copy** :
+1. Détecte l'erreur "Can't locate revision XXXXX"
+2. Cherche la migration manquante dans tous les worktrees (~/StoFlow-*)
+3. Copie automatiquement le fichier trouvé
+4. Réessaye `alembic upgrade head`
+5. Maximum 3 tentatives (pour gérer plusieurs migrations manquantes)
+
+**Si erreur persistante** → Afficher l'erreur et proposer :
 - Option 1: `alembic upgrade head` manuellement après diagnostic
 - Option 2: Voir section "Migrations en Multi-Worktree" dans CLAUDE.md
+- Option 3: Lister migrations disponibles avec `source scripts/alembic-utils.sh && list_all_migrations`
 
 ### 7. Rapport final
 

@@ -199,21 +199,42 @@ git push origin develop  # Push le merge commit si créé
 ```
 
 ### 7. Alembic check & auto-merge
+
 ```bash
 cd ~/StoFlow/backend
+source ../.venv/bin/activate 2>/dev/null || source ../venv/bin/activate
+
+# ✨ AUTOMATIQUE: Source utilities pour auto-copy migrations
+source ../scripts/alembic-utils.sh
+
+# Vérifier multiple heads
 HEADS=$(alembic heads 2>/dev/null | grep -c "head")
 ```
 
 **Si HEADS > 1** (multiple heads détectés) :
 ```bash
 alembic merge -m "merge: unify migration heads" heads
-alembic upgrade head
+
+# Appliquer avec auto-copy depuis autres worktrees
+if auto_copy_missing_migrations "."; then
+  echo "✅ Migrations appliquées"
+else
+  echo "❌ Erreur migrations"
+  # ⛔ ARRÊTER et DEMANDER
+fi
+
 git add migrations/
 git commit -m "chore: merge alembic heads"
 git push origin develop
 ```
 
-**Si erreur Alembic** → ⛔ ARRÊTER et DEMANDER
+**Comment fonctionne l'auto-copy** :
+- Détecte automatiquement les révisions manquantes
+- Cherche dans tous les worktrees (~/StoFlow-*)
+- Copie les fichiers nécessaires
+- Réessaye jusqu'à 3 fois
+
+**Si erreur persistante Alembic** → ⛔ ARRÊTER et DEMANDER
 
 ### 8. Cleanup automatique
 ```bash
