@@ -34,6 +34,11 @@ class SchemaNotFoundError(DatabaseError):
     pass
 
 
+class NotFoundError(DatabaseError):
+    """Resource not found in database."""
+    pass
+
+
 # ===== API EXCEPTIONS =====
 
 class APIError(StoflowError):
