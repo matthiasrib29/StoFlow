@@ -1,154 +1,102 @@
-# Project State
+# Project State - Task Orchestration Foundation
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-14)
+See: .planning/ROADMAP.md
 
-**Core value:** Amélioration UI pour cohérence et professionnalisme (score 6.5/10 → >8/10)
-**Current focus:** Project Complete
+**Core value:** Unified task orchestration system for all marketplaces (Vinted, eBay, Etsy)
+**Current focus:** DirectAPI Handler Pattern Implementation
 
 ## Current Position
 
-Phase: 6 of 6 (Polish) ✓
-Plan: 2 of 2 in current phase ✓
-Status: Complete
-Last activity: 2026-01-14 — Phase 6 completed
+Phase: 5 of 12 (Etsy Handlers Refactoring) ✅
+Plan: 1 of 1 in current phase ✅
+Status: Phase Complete
+Last activity: 2026-01-15 — Completed 05-01-PLAN.md
 
-Progress: ██████████ 100%
+Progress: ████░░░░░░ 42% (5/12 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: ~6 min
-- Total execution time: ~45 min
+- Total phases completed: 5
+- Total plans completed: 5
+- Average duration: ~10 min/plan
+- Total execution time: ~50 min
 
 **By Phase:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01-quick-wins | 2/2 ✓ | ~20 min | ~10 min |
-| 02-typography | 1/1 ✓ | ~10 min | ~10 min |
-| 03-colors | 1/1 ✓ | ~5 min | ~5 min |
-| 04-components | 2/2 ✓ | ~5 min | ~2.5 min |
-| 05-spacing | 1/1 ✓ | ~5 min | ~5 min |
-| 06-polish | 2/2 ✓ | ~5 min | ~2.5 min |
+| Phase | Plans | Duration | Status |
+|-------|-------|----------|--------|
+| 01-foundation | 1/1 | ~10 min | ✅ Complete |
+| 02-base-handler-unification | 1/1 | ~10 min | ✅ Complete |
+| 03-directapi-handler-base | 1/1 | ~10 min | ✅ Complete |
+| 04-ebay-handlers-refactoring | 1/1 | ~10 min | ✅ Complete |
+| 05-etsy-handlers-refactoring | 1/1 | ~6 min | ✅ Complete |
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+Decisions affecting current and future work:
 
-- Conserver la couleur primaire jaune (#facc15)
-- Pills (rounded-full) pour tous les badges
-- Border-radius: 16px cards, 12px buttons
-- Hauteur input: 44px
-- Keep PrimeVue severity prop, override with custom CSS classes
-- Sidebar icon hierarchy: main 18px, sub 14px (intentional)
-- Spacing base unit: 4px, form gap 8px, card gap 24px
+1. **Phase 3**: DirectAPIJobHandler pattern with abstract methods (`get_service()`, `get_service_method_name()`, `create_tasks()`)
+2. **Phase 4**: Handler reduction target: ~38 lines per handler (down from ~78)
+3. **Phase 4**: Stub services pattern for missing implementations (return `{"success": False, "error": "not implemented"}`)
+4. **Phase 5**: Reuse Phase 4 pattern exactly for Etsy handlers (proven successful)
 
 ### Deferred Issues
 
-None.
+None currently logged.
 
 ### Blockers/Concerns
 
-None.
+**Missing Service Implementations** (documented for future phases):
+- `EbaySyncService.sync_product()` (stub exists)
+- `EbayOrderSyncService.sync_orders()` (stub exists, signature incompatible)
+- `EtsySyncService.sync_product()` (stub exists)
+- `EtsyOrderSyncService.sync_orders()` (stub exists, signature incompatible)
 
-## UI Audit Reference
+These stubs prevent import errors but need real implementations in future phases.
 
-Report: `.planning/UI-AUDIT-REPORT.md`
-Screenshots: `.playwright-mcp/audit-*.png`
+## Phase Summaries
 
-**Issues by priority:**
-- CRITICAL (Typography): 4 issues ✓ Resolved
-- HIGH (Colors): 5 issues ✓ Resolved
-- MEDIUM (Spacing/Components): 9 issues ✓ Resolved
-- LOW (Visual Polish): 4 issues ✓ Resolved
+### Phase 1: Foundation ✅
+- Created MarketplaceTask model foundation
+- Established task orchestration patterns
+- Duration: ~10 min
 
-## Phase 1 Completed
+### Phase 2: Base Handler Unification ✅
+- Standardized on BaseJobHandler
+- Added `create_tasks()` abstract method
+- Duration: ~10 min
 
-| Plan | Description | Status |
-|------|-------------|--------|
-| 01-01 | CSS tokens and badge classes | ✓ Done |
-| 01-02 | Component updates + visual verification | ✓ Done |
+### Phase 3: DirectAPI Handler Base ✅
+- Created DirectAPIJobHandler base class
+- Factorized common patterns (product fetch, service delegation)
+- Established abstract method pattern
+- Duration: ~10 min
 
-**Summary:**
-- Added status color tokens to design-tokens.css
-- Changed badges to pill shape (rounded-full)
-- Added badge-status-* utility classes
-- Improved page subtitle contrast
-- Updated IntegrationsStatus and platforms page components
+### Phase 4: eBay Handlers Refactoring ✅
+- Migrated 5 handlers: Publish, Update, Delete, Sync, OrdersSync
+- Code reduction: 245 lines (56%)
+- Tests: 232/239 passing (97%)
+- Created 1 stub service (EbaySyncService)
+- Duration: ~10 min
 
-## Phase 2 Completed
+### Phase 5: Etsy Handlers Refactoring ✅
+- Migrated 5 handlers: Publish, Update, Delete, Sync, OrdersSync
+- Code reduction: 206 lines (53%)
+- Tests: 19/19 passing (100%)
+- Created 2 stub services (EtsySyncService, EtsyOrderSyncService)
+- Duration: ~6 min
 
-| Plan | Description | Status |
-|------|-------------|--------|
-| 02-01 | Typography system enforcement | ✓ Done |
+## Session Continuity
 
-**Summary:**
-- Added h1-h6 rules with font-display and consistent weights
-- Added PrimeVue DataTable header/body styling
-
-## Phase 3 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 03-01 | Color system standardization | ✓ Done |
-
-**Summary:**
-- Added link utility classes (.link, .link-underline, .link-muted)
-- Standardized stat-card icon backgrounds (primary for main, gray for secondary)
-- Fixed text-blue-600 → text-primary-600 in legal page
-
-## Phase 4 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 04-01 | Input/button standardization | ✓ Done |
-| 04-02 | Icon standards & sidebar verification | ✓ Done |
-
-**Summary:**
-- Added PrimeVue form input height standardization (44px)
-- Added border-radius utility classes and PrimeVue button override
-- Documented icon size standards (.icon-menu-main, .icon-menu-sub, .icon-stat)
-- Verified sidebar icon hierarchy consistency
-
-## Phase 5 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 05-01 | Spacing system enforcement | ✓ Done |
-
-**Summary:**
-- Added spacing utility classes (.grid-cards, .form-field, .sidebar-submenu, .table-cell-standard)
-- Standardized form-group gap to 8px (space-y-2)
-- Applied grid-cards class to platform cards
-
-## Phase 6 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 06-01 | Error page with branding | ✓ Done |
-| 06-02 | Loading states and hover effects | ✓ Done |
-
-**Summary:**
-- Created `frontend/error.vue` with branded 404/500/403/401 error handling
-- Added error page utility classes (.error-code, .error-title, .error-description)
-- Added skeleton loading classes (.skeleton, .skeleton-text, .skeleton-card, etc.)
-- Added hover effect utilities (.hover-lift, .hover-subtle, .hover-bg, etc.)
-
-## Project Complete
-
-All 6 phases completed. UI improvement project finalized.
-
-**Total accomplishments:**
-- 19 sections in design-system.css
-- Standardized typography, colors, components, spacing, and polish
-- Score improvement: 6.5/10 → >8/10 (estimated)
+Last session: 2026-01-15 15:34:04Z
+Stopped at: Completed 05-01-PLAN.md
+Resume file: None
 
 ---
 
-*Last updated: 2026-01-14*
+*Last updated: 2026-01-15*
