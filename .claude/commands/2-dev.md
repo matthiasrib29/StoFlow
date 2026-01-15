@@ -2,7 +2,7 @@ Lance l'environnement de dev 2 (Backend port 8001 + Frontend port 3001).
 
 ## Commande
 
-Exécute : `./2-dev.sh`
+Exécute : `./2-dev.sh` (wrapper qui appelle `./scripts/dev.sh 2`)
 
 **IMPORTANT pour Claude** : Utiliser `run_in_background: true` dans le Bash tool pour que Claude reste disponible pendant que les serveurs tournent.
 
