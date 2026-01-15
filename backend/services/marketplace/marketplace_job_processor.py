@@ -8,6 +8,7 @@ Author: Claude
 Date: 2026-01-09
 """
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -69,6 +70,9 @@ class MarketplaceJobProcessor:
         Returns:
             dict: Result of job execution, or None if no pending jobs
         """
+        # Timeout fallback: force-cancel stale jobs (cooperative pattern - 2026-01-15)
+        self._force_cancel_stale_jobs()
+
         # Expire old jobs
         expired_count = self.job_service.expire_old_jobs(marketplace=self.marketplace)
         if expired_count > 0:
@@ -81,6 +85,48 @@ class MarketplaceJobProcessor:
             return None
 
         return await self._execute_job(job)
+
+    def _force_cancel_stale_jobs(self) -> int:
+        """
+        Force-cancel jobs that didn't respond to cancellation within 60s.
+
+        This is a safety net for handlers that don't check cancel_requested
+        frequently enough. Jobs with cancel_requested=True and still RUNNING
+        after 60s are force-cancelled.
+
+        Returns:
+            int: Number of jobs force-cancelled
+        """
+        try:
+            # Find stale jobs: cancel_requested + RUNNING + updated_at > 60s ago
+            cutoff_time = datetime.now(timezone.utc) - timedelta(seconds=60)
+
+            stale_jobs = self.db.query(MarketplaceJob).filter(
+                MarketplaceJob.cancel_requested == True,
+                MarketplaceJob.status == JobStatus.RUNNING,
+                MarketplaceJob.updated_at < cutoff_time
+            ).all()
+
+            if stale_jobs:
+                logger.warning(
+                    f"[JobProcessor] Found {len(stale_jobs)} stale jobs "
+                    "with unresponsive cancellation - forcing CANCELLED"
+                )
+
+                for job in stale_jobs:
+                    logger.warning(
+                        f"[JobProcessor] Job #{job.id} didn't respond to cancellation "
+                        "within 60s - forcing CANCELLED"
+                    )
+                    self.job_service.mark_job_cancelled(job.id)
+
+                return len(stale_jobs)
+
+            return 0
+
+        except Exception as e:
+            logger.exception(f"[JobProcessor] Error in timeout watcher: {e}")
+            return 0
 
     async def _execute_job(self, job: MarketplaceJob) -> dict[str, Any]:
         """
