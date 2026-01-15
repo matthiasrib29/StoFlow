@@ -8,17 +8,35 @@ Business Rules:
 - Each task linked to parent MarketplaceJob via job_id
 - Status starts as PENDING
 - Tasks are committed in batch for performance
+- Each task execution commits independently (1 commit per task)
 
 Created: 2026-01-15
 Phase: 01-02 Task Orchestration Foundation
 Author: Claude
 """
 
-from typing import List
+import logging
+from typing import List, Callable, Any
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import MarketplaceJob
 from models.user.marketplace_task import MarketplaceTask, TaskStatus
+
+logger = logging.getLogger("stoflow.services.task_orchestrator")
+
+
+@dataclass
+class TaskResult:
+    """
+    Result wrapper for task execution.
+
+    Encapsulates success/failure status and result data or error message.
+    """
+    success: bool
+    result: dict | None = None
+    error: str | None = None
 
 
 class TaskOrchestrator:
@@ -84,3 +102,68 @@ class TaskOrchestrator:
         self.db.commit()
 
         return tasks
+
+    def execute_task(
+        self,
+        task: MarketplaceTask,
+        handler: Callable[[MarketplaceTask], Any]
+    ) -> TaskResult:
+        """
+        Execute a single task with the provided handler.
+
+        Workflow:
+        1. Mark task PROCESSING, set started_at → commit
+        2. Call handler function with task as argument
+        3. On success: mark SUCCESS, store result, set completed_at → commit
+        4. On failure: mark FAILED, store error, set completed_at → commit
+
+        Each task execution commits independently for visibility (1 commit per task).
+
+        Args:
+            task: MarketplaceTask to execute
+            handler: Callable that takes task and returns result dict
+                    Should raise exception on failure
+
+        Returns:
+            TaskResult with success status and result/error
+
+        Example:
+            >>> def upload_image(task: MarketplaceTask) -> dict:
+            ...     # Upload logic
+            ...     return {"image_url": "https://..."}
+            >>>
+            >>> result = orchestrator.execute_task(task, upload_image)
+            >>> if result.success:
+            ...     print(result.result["image_url"])
+        """
+        try:
+            # 1. Mark PROCESSING (RUNNING)
+            task.status = TaskStatus.PROCESSING
+            task.started_at = datetime.now(timezone.utc)
+            self.db.commit()
+
+            logger.info(f"Task #{task.id} ({task.description}) started")
+
+            # 2. Execute handler
+            result_data = handler(task)
+
+            # 3. Mark SUCCESS
+            task.status = TaskStatus.SUCCESS
+            task.completed_at = datetime.now(timezone.utc)
+            task.result = result_data
+            self.db.commit()
+
+            logger.info(f"Task #{task.id} completed successfully")
+
+            return TaskResult(success=True, result=result_data)
+
+        except Exception as e:
+            # Mark FAILED
+            task.status = TaskStatus.FAILED
+            task.error_message = str(e)
+            task.completed_at = datetime.now(timezone.utc)
+            self.db.commit()
+
+            logger.error(f"Task #{task.id} failed: {e}")
+
+            return TaskResult(success=False, error=str(e))

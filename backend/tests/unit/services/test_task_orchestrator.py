@@ -13,7 +13,7 @@ from unittest.mock import Mock
 
 from models.user.marketplace_job import MarketplaceJob, JobStatus
 from models.user.marketplace_task import MarketplaceTask, TaskStatus
-from services.marketplace.task_orchestrator import TaskOrchestrator
+from services.marketplace.task_orchestrator import TaskOrchestrator, TaskResult
 
 
 # ===== FIXTURES =====
@@ -102,3 +102,99 @@ class TestTaskCreation:
 
         # Verify commit was called
         db_session.commit.assert_called_once()
+
+
+# ===== TASK 3: RED PHASE - Tests exécution tasks =====
+
+class TestTaskExecution:
+    """Tests for single task execution with handler."""
+
+    def test_execute_task_marks_running_before_handler(self, db_session):
+        """Should mark task RUNNING and set started_at before calling handler."""
+        orchestrator = TaskOrchestrator(db_session)
+
+        task = MarketplaceTask(
+            id=1,
+            job_id=1,
+            description="Test task",
+            position=1,
+            status=TaskStatus.PENDING
+        )
+
+        # Simple handler that returns success
+        def handler(t):
+            # Verify task is RUNNING when handler is called
+            assert t.status == TaskStatus.PROCESSING
+            assert t.started_at is not None
+            return {"result": "success"}
+
+        result = orchestrator.execute_task(task, handler)
+
+        assert result.success is True
+        assert result.result == {"result": "success"}
+
+    def test_execute_task_marks_completed_on_success(self, db_session):
+        """Should mark task COMPLETED and set completed_at on success."""
+        orchestrator = TaskOrchestrator(db_session)
+
+        task = MarketplaceTask(
+            id=1,
+            job_id=1,
+            description="Test task",
+            position=1,
+            status=TaskStatus.PENDING
+        )
+
+        def handler(t):
+            return {"status": "ok"}
+
+        result = orchestrator.execute_task(task, handler)
+
+        assert result.success is True
+        assert task.status == TaskStatus.SUCCESS
+        assert task.completed_at is not None
+        assert task.result == {"status": "ok"}
+
+    def test_execute_task_marks_failed_on_exception(self, db_session):
+        """Should mark task FAILED and store error message on exception."""
+        orchestrator = TaskOrchestrator(db_session)
+
+        task = MarketplaceTask(
+            id=1,
+            job_id=1,
+            description="Test task",
+            position=1,
+            status=TaskStatus.PENDING
+        )
+
+        def failing_handler(t):
+            raise ValueError("API connection failed")
+
+        result = orchestrator.execute_task(task, failing_handler)
+
+        assert result.success is False
+        assert task.status == TaskStatus.FAILED
+        assert task.completed_at is not None
+        assert "API connection failed" in task.error_message
+
+    def test_execute_task_commits_after_completion(self, db_session):
+        """Should commit to DB after task finishes (success or failure)."""
+        orchestrator = TaskOrchestrator(db_session)
+
+        task = MarketplaceTask(
+            id=1,
+            job_id=1,
+            description="Test task",
+            position=1,
+            status=TaskStatus.PENDING
+        )
+
+        def handler(t):
+            return {"done": True}
+
+        orchestrator.execute_task(task, handler)
+
+        # Should commit 3 times:
+        # 1. Mark RUNNING
+        # 2. Mark COMPLETED
+        assert db_session.commit.call_count >= 2
