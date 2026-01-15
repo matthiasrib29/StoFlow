@@ -254,8 +254,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         try {
           cleanResponse = JSON.parse(JSON.stringify(response));
         } catch (jsonError) {
-          VintedLogger.warn(`[Stoflow] ⚠️ Response not JSON-safe, using raw:`, jsonError);
-          cleanResponse = response;
+          VintedLogger.error(`[Stoflow] ❌ Response contains non-serializable data (functions/circular refs):`, jsonError);
+
+          // CRITICAL FIX (2026-01-14): Extract only primitive fields manually
+          // vintedAPI.get() returns data directly (not wrapped in {data: ...})
+          if (response && typeof response === 'object') {
+            cleanResponse = {};
+            for (const key in response) {
+              if (!response.hasOwnProperty(key)) continue;
+
+              const value = response[key];
+              const valueType = typeof value;
+
+              // Copy only primitive values and plain objects/arrays
+              if (valueType === 'string' || valueType === 'number' || valueType === 'boolean' || value === null) {
+                cleanResponse[key] = value;
+              } else if (Array.isArray(value)) {
+                try {
+                  cleanResponse[key] = JSON.parse(JSON.stringify(value));
+                } catch {
+                  VintedLogger.warn(`[Stoflow] ⚠️ Skipping array field '${key}' (not serializable)`);
+                }
+              } else if (valueType === 'object') {
+                try {
+                  cleanResponse[key] = JSON.parse(JSON.stringify(value));
+                } catch {
+                  VintedLogger.warn(`[Stoflow] ⚠️ Skipping object field '${key}' (not serializable)`);
+                }
+              }
+              // Skip functions and other non-serializable types
+            }
+
+            VintedLogger.warn(`[Stoflow] ⚠️ Extracted ${Object.keys(cleanResponse).length} serializable fields from response`);
+          } else {
+            // Response is not an object - this should never happen
+            cleanResponse = {
+              _error: 'Response is not an object',
+              _type: typeof response,
+              _value: String(response)
+            };
+          }
         }
 
         sendResponse({

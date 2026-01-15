@@ -24,7 +24,6 @@ from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session
 
 from models.public.marketplace_action_type import MarketplaceActionType
-# from models.user.plugin_task import PluginTask, TaskStatus  # REMOVED (2026-01-09): WebSocket architecture
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.vinted_job_stats import VintedJobStats
 from shared.logging_setup import get_logger
@@ -618,26 +617,25 @@ class VintedJobService:
 
     def get_job_progress(self, job_id: int) -> dict:
         """
-        Get progress of a job based on its tasks.
+        Get progress of a job from result_data.progress (new format).
 
         Args:
             job_id: Job ID
 
         Returns:
-            Dict with task counts and progress
+            dict: Simple format {current, label} or empty dict if no progress
         """
-        tasks = self.get_job_tasks(job_id)
-        if not tasks:
-            return {"total": 0, "completed": 0, "failed": 0, "pending": 0, "progress_percent": 0}
+        job = self.db.query(MarketplaceJob).filter(
+            MarketplaceJob.id == job_id
+        ).first()
 
-        completed = sum(1 for t in tasks if t.status == TaskStatus.SUCCESS)
-        failed = sum(1 for t in tasks if t.status == TaskStatus.FAILED)
-        pending = sum(1 for t in tasks if t.status in (TaskStatus.PENDING, TaskStatus.PROCESSING))
+        if not job or not job.result_data:
+            return {}
 
-        return {
-            "total": len(tasks),
-            "completed": completed,
-            "failed": failed,
-            "pending": pending,
-            "progress_percent": round((completed / len(tasks)) * 100, 1) if tasks else 0,
-        }
+        # New simple format: {current, label}
+        progress_data = job.result_data.get("progress")
+        if progress_data and "current" in progress_data:
+            return progress_data
+
+        # No progress data
+        return {}

@@ -19,7 +19,6 @@ from sqlalchemy.orm import Session
 from models.user.product import Product
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
-from services.product_image_service import ProductImageService
 from services.vinted.vinted_product_converter import VintedProductConverter
 from shared.vinted_constants import VintedImageAPI
 from shared.logging_setup import get_logger
@@ -48,15 +47,23 @@ async def upload_product_images(
     """
     photo_ids = []
 
-    # Get product photos only (excludes labels)
-    photos = ProductImageService.get_product_photos(db, product.id)
+    # Recuperer les URLs images depuis product
+    image_urls = []
+    if hasattr(product, 'images') and product.images:
+        if isinstance(product.images, list):
+            for img in product.images:
+                if isinstance(img, dict) and img.get('url'):
+                    image_urls.append(img['url'])
+                elif hasattr(img, 'url'):
+                    image_urls.append(img.url)
+        elif isinstance(product.images, str):
+            image_urls = [
+                url.strip() for url in product.images.split(',') if url.strip()
+            ]
 
-    if not photos:
+    if not image_urls:
         logger.warning(f"  Aucune image trouvee pour produit #{product.id}")
         return []
-
-    # Extract URLs from photo dicts
-    image_urls = [photo['url'] for photo in photos]
 
     for idx, image_url in enumerate(image_urls, 1):
         try:

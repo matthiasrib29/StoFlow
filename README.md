@@ -74,6 +74,44 @@ See individual module READMEs for detailed development instructions:
 - [Frontend Development](frontend/README.md)
 - [Plugin Development](plugin/README.md)
 
+## 📋 Project Management
+
+### Structure du projet
+
+Le projet StoFlow est organisé avec une structure GitHub complète pour un suivi optimal des tâches :
+
+**Labels** : Organisés par catégorie technique, priorité et type
+- **Catégories** : `frontend`, `backend`, `extension`, `infrastructure`, `ebay`, `vinted`, `stripe`, `api`, `tests`, `docs`, `security`, `ui-ux`, `database`
+- **Priorités** : `priority: high`, `priority: medium`, `priority: low`
+- **Types** : `feature`, `bug`, `enhancement`, `documentation`
+
+**Milestones** : Roadmap en 3 phases avec dates claires
+- 🚀 **MVP 1 - Lancement Beta** (31 mars 2025) : Fonctionnalités essentielles (auth, dashboard, eBay publish)
+- 📈 **MVP 2 - Croissance** (30 juin 2025) : Ajout Vinted, Stripe, optimisations, analytics
+- 🌟 **MVP 3 - Scale** (30 sept 2025) : Features avancées, IA, multi-marketplaces, performance
+
+**Project Board** : Vue Kanban pour le suivi des tâches
+- [Accéder au board](https://github.com/matthiasrib29/StoFlow/projects)
+
+### Workflow de développement
+
+```
+📥 Backlog → 📋 À faire → 🔄 En cours → 🧪 En test → ✅ Terminé
+```
+
+1. **Nouvelles issues** : Créées dans le Backlog avec les labels appropriés
+2. **Sprint planning** : Issues priorisées et déplacées dans "À faire"
+3. **Développement** : Maximum 5 tâches simultanées dans "En cours"
+4. **Testing** : Code review et tests dans "En test"
+5. **Merge** : PR mergée → tâche déplacée dans "Terminé"
+
+### Templates d'issues
+
+Trois templates sont disponibles pour créer de nouvelles issues :
+- 🎯 **Feature Request** : Proposer une nouvelle fonctionnalité
+- 🐛 **Bug Report** : Signaler un bug
+- ✅ **Task** : Tâche de développement
+
 ## Deployment
 
 ### Infrastructure

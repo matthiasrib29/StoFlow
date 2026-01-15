@@ -162,21 +162,6 @@ export const useProductAttributes = () => {
   }
 
   /**
-   * Filter categories locally
-   * NOTE: No longer used - CategoryWizard handles category selection
-   */
-  // const filterCategories = (query: string) => {
-  //   if (!query) {
-  //     filteredOptions.categories = options.categories.slice(0, 50)
-  //     return
-  //   }
-  //   const q = query.toLowerCase()
-  //   filteredOptions.categories = options.categories
-  //     .filter(c => c.label.toLowerCase().includes(q))
-  //     .slice(0, 50)
-  // }
-
-  /**
    * Filter brands from API (debounced in component)
    * Shows popular brands when query is empty
    */

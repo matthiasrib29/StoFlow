@@ -72,7 +72,7 @@ class SyncJobHandler(BaseJobHandler):
             self.log_start(f"Synchronisation produits (shop_id={self.shop_id})")
 
             # Déléguer à VintedApiSyncService
-            result = await self.api_sync.sync_products_from_api(self.db)
+            result = await self.api_sync.sync_products_from_api(self.db, job=job)
 
             elapsed = time.time() - start_time
 

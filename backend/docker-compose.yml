@@ -8,6 +8,11 @@ services:
       POSTGRES_USER: stoflow_user
       POSTGRES_PASSWORD: stoflow_dev_password_2024
       POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    command: >
+      postgres
+      -c statement_timeout=60000
+      -c idle_in_transaction_session_timeout=300000
+      -c max_locks_per_transaction=256
     ports:
       - "5433:5432"  # Port 5432 déjà utilisé, on utilise 5433
     volumes:

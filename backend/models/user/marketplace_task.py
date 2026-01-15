@@ -3,21 +3,26 @@ Marketplace Task Model
 
 Tasks for marketplace operations (plugin-based or direct execution).
 
-Business Rules (Updated: 2026-01-07):
+Business Rules (Updated: 2026-01-15):
 - Supports multiple task types: plugin_http, direct_http, db_operation, file_operation
 - plugin_http: HTTP request via browser plugin (Vinted DataDome bypass)
 - direct_http: Direct HTTP request from backend (eBay, Etsy, Vinted CDN)
 - db_operation: Database operation
 - file_operation: File upload/download (R2, S3)
 
+Retry Intelligence (Added: 2026-01-15):
+- position: Integer field for ordered task execution within a job
+- Enables intelligent retry: skip tasks with status='success', retry only 'failed'
+- description field serves as human-readable task name (e.g., "Upload image 1/3")
+
 Author: Claude
-Date: 2026-01-07
+Date: 2026-01-07, Updated: 2026-01-15
 """
 
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import JSON, DateTime, Enum as SQLEnum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, Enum as SQLEnum, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.database import Base
@@ -49,9 +54,17 @@ class MarketplaceTask(Base):
 
     A task represents a single atomic operation (HTTP request, DB operation, etc.)
     within a MarketplaceJob. Each job can have multiple tasks.
+
+    Indexes:
+    - (job_id, position): For ordered task retrieval and retry intelligent
+    - (job_id, status): For querying failed/pending tasks to retry
     """
     __tablename__ = "marketplace_tasks"
-    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
+    __table_args__ = (
+        Index('ix_marketplace_tasks_job_position', 'job_id', 'position'),
+        Index('ix_marketplace_tasks_job_status', 'job_id', 'status'),
+        {"schema": "tenant"}  # Placeholder for schema_translate_map
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
@@ -72,6 +85,13 @@ class MarketplaceTask(Base):
         String(500),
         nullable=True,
         comment="Human-readable description (e.g., 'Upload image 1/5', 'Create listing')"
+    )
+
+    # Task position (for ordered execution within a job)
+    position: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Execution order within job (1, 2, 3...). Enables intelligent retry: skip completed tasks, retry only failed."
     )
 
     # Status

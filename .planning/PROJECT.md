@@ -1,163 +1,97 @@
-# PROJECT.md - Image Management Architecture Migration
+# StoFlow - Task System Unified Architecture
 
-**Created:** 2026-01-15
-**Status:** Active
+## What This Is
 
----
+A comprehensive refactoring of StoFlow's task/job/batch orchestration system to create a unified, powerful architecture shared across all marketplaces (Vinted, eBay, Etsy). This project eliminates code duplication, implements granular task tracking, and establishes consistent patterns for marketplace operations.
 
-## Overview
+## Core Value
 
-Migrer complètement l'architecture de gestion des images produit : passer de la colonne JSONB `products.images` vers une **table dédiée `product_images`** avec métadonnées riches, permettant notamment de distinguer les photos produits des étiquettes de prix internes (labels).
-
-**Problème résolu** : 611 produits ont des "labels" (étiquettes de prix internes) actuellement publiés aux clients sur Vinted/eBay/Etsy car la structure JSONB ne permet pas de les identifier.
-
----
+**One unified task orchestration system that works consistently across all marketplaces**, eliminating duplication and enabling advanced features like partial retry, granular monitoring, and parallel execution.
 
 ## Requirements
 
 ### Validated
 
-- ✓ **Codebase existant** : Backend FastAPI + SQLAlchemy 2.0, multi-tenant PostgreSQL (existing)
-- ✓ **3282 produits** en base avec images en JSONB (existing)
-- ✓ **611 produits** ont des labels à identifier (existing)
-- ✓ **Ancien système pythonApiWOO** : dernière image = label (pattern connu) (existing)
-- ✓ **Cloudflare R2** : stockage fichiers images actuel (existing)
-- ✓ **FileService** : upload/optimisation images fonctionnel (existing)
+(None yet — ship to validate)
 
 ### Active
 
-#### Phase 1 : Nouvelle Architecture
-- [ ] **Créer table `product_images`** avec colonnes :
-  - `id` (PK), `product_id` (FK), `url`, `order`
-  - `is_label` (boolean) — Flag critique pour distinguer labels
-  - `alt_text` (text) — SEO et accessibilité
-  - `tags` (text[] ou JSONB) — Filtrage/recherche (ex: 'front', 'back', 'detail')
-  - `mime_type`, `file_size` (validation)
-  - `width`, `height` (dimensions)
-  - `created_at`, `updated_at` (timestamps)
+- [ ] **Granular Task System** — Implement MarketplaceTask as functional sub-operations within jobs (validate, map, upload, create, save) with tracking, retry, and resume capabilities
+- [ ] **Unified Handler Pattern** — Establish consistent delegation pattern where handlers are thin orchestrators that delegate business logic to specialized services (like eBay/Etsy, unlike current Vinted)
+- [ ] **Factorized Base Classes** — Create shared DirectAPIJobHandler base class eliminating eBay/Etsy duplication (currently ~80% identical code across 10+ handlers)
+- [ ] **Service Layer Migration** — Refactor Vinted handlers (260 lines inline logic) to match eBay/Etsy pattern (80 lines delegation to services)
+- [ ] **Per-Marketplace Stats** — Separate statistics tracking for each marketplace (current: all mixed in `vinted_job_stats`)
+- [ ] **Clean Schema** — Remove deprecated `batch_id` column (replaced by `batch_job_id`), remove dead `BaseMarketplaceHandler` code
+- [ ] **Documentation & Tests** — Complete architecture documentation and test coverage for new task orchestration system
 
-#### Phase 2 : Migration des Données
-- [ ] **Script de migration idempotent** :
-  - Parcourir tous les `user_X.products`
-  - Extraire images depuis JSONB
-  - Insérer dans `product_images` avec `is_label = (order == last_order)`
-  - **Stratégie** : Dernière image = label (basé sur ancien système pythonApiWOO)
+### Out of Scope
 
-- [ ] **Backup complet** avant migration (✅ FAIT : 9.3MB dump)
-- [ ] **Validation post-migration** : vérifier 0 perte de données
+- **UI/UX changes** — Focus is backend architecture only, no frontend refactoring
+- **Performance optimization** — Current system performs adequately, not a bottleneck (focus on maintainability)
+- **New marketplace integrations** — Refactor existing three (Vinted, eBay, Etsy) only, new marketplaces come later
+- **Real-time progress updates** — WebSocket progress tracking exists and works, no changes needed
+- **Batch system rewrite** — `BatchJob` architecture is clean and working, keep as-is
+- **Database schema migrations** — Minimize schema changes, work with existing tables where possible (marketplace_tasks table already exists)
 
-#### Phase 3 : Services & API
-- [ ] **Refactoriser `ProductImageService`** :
-  - `add_image(product_id, image_data)` avec validation
-  - `delete_image(image_id)` avec auto-reorder
-  - `reorder_images(product_id, new_order)`
-  - `set_label_flag(image_id, is_label)`
-  - **Nouveaux** : `get_product_photos()`, `get_label_image()`
+## Context
 
-- [ ] **Mettre à jour API routes** (`api/products/images.py`)
-- [ ] **Tests unitaires** : CRUD images + validation is_label
-- [ ] **Tests d'intégration** : API endpoints
+### Current State (Discovered via Codebase Exploration)
 
-#### Phase 4 : Intégration Marketplaces
-- [ ] **Modifier converters** pour exclure labels :
-  - `VintedProductConverter` : filtrer `is_label=true`
-  - `EbayProductConversionService` : filtrer `is_label=true`
-  - (Etsy hors scope v1)
+**Architecture:**
+```
+BatchJob (parent orchestrator)
+├── MarketplaceJob (operation: publish, update, delete, sync)
+└── MarketplaceTask (granular: validate, map, upload) ← DEAD CODE (table exists, never used)
+```
 
-- [ ] **Valider** : aucun label publié sur marketplaces
+**7 Critical Problems Identified:**
 
-#### Phase 5 : Cleanup
-- [ ] **Supprimer colonne JSONB** `products.images` (après validation complète)
-- [ ] **Migration Alembic downgrade** pour rollback si nécessaire
-- [ ] **Documentation** : update ARCHITECTURE.md, CONVENTIONS.md
+1. **eBay/Etsy Duplication (Critical)** — 10+ handlers are 80% identical copy-paste code
+2. **Two BaseHandler Classes (Critical)** — `BaseJobHandler` (used) vs `BaseMarketplaceHandler` (unused) causing confusion
+3. **Dead MarketplaceTask System (High)** — Table + model exist but NEVER created by any handler (WebSocket architecture bypassed it)
+4. **Dual Batch FK (High)** — `batch_id` (deprecated string) + `batch_job_id` (new int FK) both present
+5. **Mixed Stats (Medium)** — `vinted_job_stats` receives ALL marketplace jobs (eBay, Etsy included)
+6. **Inconsistent Handlers (Medium)** — Vinted (260 lines inline), eBay/Etsy (80 lines delegation), no unified pattern
+7. **Confusing Nomenclature (Medium)** — "Task" in code/docs refers to dead concept
 
-### Out of Scope (v1)
+**What Works Well:**
+- Unified `MarketplaceJobProcessor` orchestrator (2026-01-09 refactoring)
+- BatchJob progress tracking auto-updated
+- WebSocket communication for Vinted plugin
+- Direct HTTP for eBay/Etsy OAuth
+- Retry logic and priority queue
 
-- **FileService upload/optimisation** — Garder l'implémentation actuelle R2, focus sur métadonnées
-- **UI Frontend** — Pas de changement interface utilisateur, uniquement backend/API
-- **Etsy converter** — Focus Vinted/eBay, Etsy viendra plus tard
-- **Image compression avancée** — Garder Pillow actuel
-- **CDN/cache invalidation** — Pas de changement infrastructure
+### Technology Stack
 
----
+- **Backend:** FastAPI + SQLAlchemy 2.0 + PostgreSQL (multi-tenant schemas)
+- **Async:** Full async/await architecture
+- **Communication:** WebSocket (Vinted plugin) + Direct HTTP (eBay/Etsy OAuth)
+- **Job Storage:** PostgreSQL tables per tenant (`user_X.marketplace_jobs`, `user_X.marketplace_tasks`, `user_X.batch_jobs`)
+
+### Codebase Size
+
+- **Handlers:** 17 total (7 Vinted, 5 eBay, 5 Etsy) = ~2200 lines
+- **Services:** VintedJobService, MarketplaceJobService, BatchJobService = ~1500 lines
+- **Models:** MarketplaceJob, BatchJob, MarketplaceTask = ~400 lines
+
+## Constraints
+
+- **Backward Compatibility:** Existing jobs/batches in production must continue working during migration
+- **Zero Downtime:** Phased rollout required, no "big bang" cutover
+- **Multi-Tenant:** All changes must respect schema-per-tenant architecture (user_X schemas)
+- **Test Coverage:** Must maintain/improve test coverage (currently pytest + Docker test DB)
+- **Timeline:** ~2 weeks estimated (1 week foundation + 1 week migration + 2-3 days polish)
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| **Table séparée vs JSONB** | Table permet indexes, FK constraints, métadonnées riches, requêtes SQL standards | ✅ Table `product_images` |
-| **Migration : dernière image = label** | Pattern pythonApiWOO, 85% précision, simple et prédictible | ✅ Validé |
-| **Backup complet avant migration** | Sécurité absolue : 0 perte de données acceptée | ✅ FAIT (9.3MB) |
-| **is_label boolean vs enum** | Boolean suffisant pour v1 (product_photo vs label), extensible plus tard | ✅ Boolean |
-| **Tags : text[] vs JSONB** | text[] plus simple pour recherche PostgreSQL, JSONB si structure complexe | — Pending |
-| **Rollback strategy** | Migration Alembic downgrade doit restaurer JSONB depuis table | — Pending |
+| Implement MarketplaceTask granular system | Enables partial retry, granular monitoring, resume after crash | — Pending |
+| Adopt eBay/Etsy delegation pattern everywhere | Handlers thin (80 lines), Services testable, consistent across marketplaces | — Pending |
+| Factorize via DirectAPIJobHandler base class | Eliminates 80% duplication between eBay/Etsy handlers | — Pending |
+| Refactor Vinted to match eBay/Etsy | Move 260-line handler logic to VintedPublicationService | — Pending |
+| Keep BatchJob architecture unchanged | Current design is clean and working, no issues found | — Pending |
+| Minimize schema migrations | Work with existing marketplace_tasks table, avoid new tables | — Pending |
 
 ---
-
-## Constraints
-
-### Techniques
-- **Multi-tenant** : Migration doit parcourir tous les schemas `user_X`
-- **Idempotence** : Script migration rejouable sans duplication
-- **Performance** : Bulk insert (pas row-by-row) pour 3282 produits
-- **Atomicité** : Transaction par schema utilisateur
-
-### Sécurité des Données
-- **Backup obligatoire** avant toute migration (✅ FAIT)
-- **Validation post-migration** : count images JSONB == count table
-- **0 perte acceptée** : si erreur, rollback immédiat
-
-### Compatibilité
-- **SQLAlchemy 2.0** : Utiliser `Mapped[T]`, `mapped_column()`
-- **Alembic migrations** : Respecter patterns multi-tenant existants
-- **Existing services** : ProductImageService, FileService intacts (refactor, pas rewrite)
-
----
-
-## Context
-
-### Codebase Analysis (2026-01-14)
-
-**Issue critique identifié** (`.planning/codebase/CONCERNS.md`) :
-- 611 produits affectés par publication de labels aux clients
-- Structure JSONB actuelle : `[{"url": "...", "order": 0, "created_at": "..."}]`
-- Migration 2026-01-03 : `product_images` table → JSONB a perdu `image_type`
-
-**Affected Files** :
-- `models/user/product.py` (lines 386-394) — JSONB column
-- `services/product_image_service.py` — CRUD operations
-- `services/vinted/vinted_product_converter.py` — Vinted payload builder
-- `services/ebay/ebay_product_conversion_service.py` — eBay payload builder
-
----
-
-## Success Criteria
-
-### Migration
-1. ✅ **0 perte de données** : count images avant == count images après
-2. ✅ **611 labels identifiés** : `is_label=true` sur les bonnes images
-3. ✅ **Table complète** : tous les champs métadonnées remplis
-
-### Marketplaces
-4. ✅ **Aucun label publié** : Vinted/eBay converters filtrent `is_label=true`
-5. ✅ **Tests passent** : Unit + integration tests
-
-### Code Quality
-6. ✅ **Services refactorés** : ProductImageService avec méthodes claires
-7. ✅ **Migration rollback** : Alembic downgrade restaure JSONB
-8. ✅ **Documentation** : ARCHITECTURE.md à jour
-
----
-
-## Backup
-
-**Dump complet créé** : `backups/stoflow_db_full_backup_20260115_091652.dump` (9.3 MB)
-
-**Restauration si nécessaire** :
-```bash
-docker exec stoflow_postgres pg_restore -U stoflow_user -d stoflow_db -c /tmp/backup.dump
-```
-
----
-
-*Last updated: 2026-01-15 after project initialization*
+*Last updated: 2026-01-15 after initialization*

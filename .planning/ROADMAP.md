@@ -1,224 +1,504 @@
-# ROADMAP - Image Management Architecture Migration
+# StoFlow - Task System Unified Architecture - Roadmap
 
-**Project:** Image Management Architecture Migration
-**Created:** 2026-01-15
-**Mode:** Interactive
-**Depth:** Standard
+## 📋 Overview
+
+**Goal:** Refactor the task/job/batch orchestration system to create a unified, powerful architecture shared across all marketplaces (Vinted, eBay, Etsy).
+
+**Core Value:** One unified task orchestration system that eliminates duplication, enables granular tracking, and provides consistent patterns.
+
+**Timeline:** ~2 weeks (10 phases foundation + 2 phases finalization)
+
+**Strategy:**
+- Priority: **Foundation first** (Phase 1 critical)
+- Testing: **Hybrid** (TDD for foundation, pragmatic for handlers)
+- Migration: **Cleanup first** (fresh start, no backward compat with old jobs)
+- Commit model: **1 commit per task** (for monitoring, with idempotent retry)
 
 ---
 
-## Overview
+## 🏗️ Target Architecture
 
-Migrate image management from JSONB column to dedicated `product_images` table with rich metadata support to solve critical label publishing issue (611 products affected).
+```
+BatchJob (parent orchestrator)
+├── MarketplaceJob (operation: publish, update, delete, sync)
+│   ├── MarketplaceTask (validate product data)
+│   ├── MarketplaceTask (map data to marketplace format)
+│   ├── MarketplaceTask (upload image 1)
+│   ├── MarketplaceTask (upload image 2)
+│   ├── MarketplaceTask (upload image N)
+│   ├── MarketplaceTask (create listing on marketplace)
+│   └── MarketplaceTask (save result to database)
+```
 
-**Critical Problem:** Internal price tag labels (last image) are being published to marketplaces because current JSONB structure doesn't distinguish image types.
+### Key Principles
+
+1. **Granularity:** 1 task = 1 functional step (max visibility)
+2. **Commit:** 1 task = 1 commit (monitoring + partial persistence)
+3. **Idempotence:** Each task checks its side-effects before execution
+4. **Retry:** Skip COMPLETED tasks, retry only FAILED task
+5. **Progress:** BatchJob.progress = completed jobs / total jobs
+6. **Status:** Job stays RUNNING until all tasks complete
+7. **Cascade:** Job → BatchJob auto-update (not Task → Job)
+
+### Example: Publish 50 Products on Vinted
+
+```
+1 BatchJob "Publish 50 products to Vinted"
+├── 50 MarketplaceJobs (1 per product)
+│   └── Each job: ~7-10 MarketplaceTasks
+│       - validate
+│       - map_data
+│       - upload_image_1
+│       - upload_image_2
+│       - upload_image_3
+│       - create_listing
+│       - save_result
+
+Total: 1 BatchJob, 50 Jobs, ~400 Tasks
+```
+
+---
+
+## 🎯 12 Phases Breakdown
+
+### Phase 1: Foundation - Task Orchestration Core ⭐ (Priority)
+
+**Goal:** Implement the MarketplaceTask system properly with granular tracking, idempotent retry, and 1-commit-per-task model.
+
+**Deliverables:**
+- `MarketplaceTask` model enhancement (add `step_type`, `step_order`, `is_idempotent`, `side_effects`)
+- `TaskOrchestrator` service (create, execute, skip completed, retry logic)
+- Migration to activate `marketplace_tasks` table
+- **TDD:** Write tests FIRST for task orchestration (test-first strict)
+
+**Tasks:**
+1. Design task lifecycle (PENDING → RUNNING → COMPLETED/FAILED)
+2. Implement task creation with `step_type` enum (validate, map, upload_image, create, save)
+3. Implement task execution with 1 commit per task
+4. Implement skip logic (if task.status == COMPLETED, skip)
+5. Implement idempotence check (before executing, verify side-effects)
+6. Write unit tests for TaskOrchestrator (TDD)
+7. Write integration tests for task retry scenarios
 
 **Success Criteria:**
-- ✅ Zero data loss (backup verified: 9.3MB dump)
-- ✅ 611 labels correctly identified with `is_label=true`
-- ✅ No labels published to Vinted/eBay after migration
-- ✅ All tests pass
-- ✅ Rollback capability via Alembic downgrade
+- ✅ MarketplaceTask table active and used
+- ✅ 1 task = 1 commit (visible in DB during execution)
+- ✅ Retry skips COMPLETED tasks
+- ✅ Idempotence prevents duplicate side-effects
+- ✅ Test coverage: >90% for TaskOrchestrator
+
+**Duration:** ~3 days
 
 ---
 
-## Phases
+### Phase 2: Base Handler Unification
 
-### Phase 1: Database Architecture ✅ COMPLETE
-**Goal:** Create new `product_images` table with rich metadata support
+**Goal:** Clean up the dual BaseHandler situation (BaseJobHandler vs BaseMarketplaceHandler).
 
 **Deliverables:**
-- [x] Alembic migration creating `product_images` table
-- [x] Table structure:
-  - Core: `id`, `product_id` (FK), `url`, `order`
-  - Metadata: `is_label`, `alt_text`, `tags`, `mime_type`, `file_size`, `width`, `height`
-  - Timestamps: `created_at`, `updated_at`
-- [x] Indexes on `product_id`, `order`, `is_label`
-- [x] Foreign key constraint to `products` table
-- [x] Multi-tenant schema support (applies to all `user_X` schemas)
+- Remove dead `BaseMarketplaceHandler` code
+- Standardize all handlers on `BaseJobHandler`
+- Add `create_tasks()` abstract method to BaseJobHandler
 
-**Research Needed:** None (internal architecture)
+**Tasks:**
+1. Audit all handlers to confirm they use BaseJobHandler
+2. Delete `services/marketplace/handlers/base_handler.py` (unused)
+3. Add `create_tasks()` method to BaseJobHandler (returns list of task specs)
+4. Update BaseJobHandler to use TaskOrchestrator from Phase 1
+5. Write tests for BaseJobHandler (test-after pragmatic)
 
-**Plans Executed:** 1/1
-- ✅ PLAN 1.1: Create product_images table (commit: fa60a3d)
+**Success Criteria:**
+- ✅ Only one BaseHandler implementation exists
+- ✅ All handlers inherit from BaseJobHandler
+- ✅ `create_tasks()` method defined in base
+
+**Duration:** ~1 day
 
 ---
 
-### Phase 2: Data Migration ✅ COMPLETE
-**Goal:** Migrate all existing images from JSONB to new table with label identification
+### Phase 3: DirectAPI Handler Base
+
+**Goal:** Create `DirectAPIJobHandler` base class to factorize eBay/Etsy duplication (80% identical code).
 
 **Deliverables:**
-- [x] Idempotent migration script
-- [x] Multi-tenant support (iterate all `user_X` schemas)
-- [x] Label detection: last image in order → `is_label=true`
-- [x] Bulk insert optimization (not row-by-row)
-- [x] Transaction per schema (atomicity)
-- [x] Post-migration validation:
-  - Count JSONB images == Count table rows ✅
-  - 3281 products have `is_label=true` (100% - all have 2+ images) ✅
-  - No missing images ✅
-- [x] Rollback capability verified
+- `DirectAPIJobHandler` class (extends BaseJobHandler)
+- Common patterns extracted: product fetch, service call, result handling
+- OAuth token refresh logic factorized
 
-**Research Needed:** None (standard SQLAlchemy migration)
+**Tasks:**
+1. Analyze eBay/Etsy handlers to identify common patterns
+2. Create `DirectAPIJobHandler` with:
+   - `get_product()` (fetch product from DB)
+   - `get_service()` (abstract, returns marketplace-specific service)
+   - `execute()` (delegates to service via create_tasks)
+3. Implement task creation pattern for direct API handlers
+4. Write tests for DirectAPIJobHandler (test-after)
 
-**Plans Executed:** 2/2
-- ✅ PLAN 2.1: Create migration script (commit: f1c6bc8)
-- ✅ PLAN 2.2: Execute migration and validate (commits: 887c6b4, 2df0a60)
+**Success Criteria:**
+- ✅ DirectAPIJobHandler base class exists
+- ✅ Common logic factorized (product fetch, service delegation)
+- ✅ eBay/Etsy handlers ready to migrate (next phases)
+
+**Duration:** ~2 days
 
 ---
 
-### Phase 3: Services & API ✅ COMPLETE
-**Goal:** Refactor services and API to use new table structure
+### Phase 4: eBay Handlers Refactoring
+
+**Goal:** Refactor 5 eBay handlers to use DirectAPIJobHandler and task orchestration.
 
 **Deliverables:**
-- [x] Create ProductImage model + ProductImageRepository (PLAN 3.1)
-  - SQLAlchemy model with all columns mapped
-  - Repository with CRUD operations
-  - Relationship Product ↔ ProductImage
-  - Unit tests for repository
-- [x] Refactor `ProductImageService` (PLAN 3.2):
-  - Update `add_image()`, `delete_image()`, `reorder_images()` to use table
-  - New methods: `get_product_photos()`, `get_label_image()`, `set_label_flag()`
-  - Accept metadata (mime_type, file_size, width, height)
-  - Unit tests updated
-- [x] Update API routes and schemas (PLAN 3.3):
-  - Update `ProductImageItem` schema with rich metadata
-  - Add endpoint for label flag management
-  - Integration tests updated
-  - Fixed bug in DELETE route (was accessing JSONB directly)
+- `EbayPublishJobHandler` migrated to DirectAPIJobHandler
+- `EbayUpdateJobHandler` migrated
+- `EbayDeleteJobHandler` migrated
+- `EbaySyncJobHandler` migrated
+- `EbayUnpublishJobHandler` migrated
 
-**Research Needed:** None (existing services refactor)
+**Tasks (per handler):**
+1. Inherit from DirectAPIJobHandler
+2. Implement `get_service()` (returns EbayPublicationService)
+3. Implement `create_tasks()` (returns task specs: validate, map, create, save)
+4. Update service to be task-aware (optional, if needed)
+5. Write integration tests (test-after)
 
-**Plans Executed:** 3/3
-- ✅ PLAN 3.1: Create ProductImage Model + Repository (commits: fba6afb, 5e630d4, 1d1d6eb)
-- ✅ PLAN 3.2: Refactor ProductImageService to use table (commit: 281c0f4)
-- ✅ PLAN 3.3: Update API routes and response schemas (commits: 4831754, 671336a, 10b596a, cec4cbb)
+**Success Criteria:**
+- ✅ All 5 eBay handlers use DirectAPIJobHandler
+- ✅ All eBay handlers create MarketplaceTasks
+- ✅ No code duplication between eBay handlers
+- ✅ Tests pass (existing + new)
+
+**Duration:** ~2 days (parallel refactoring possible)
 
 ---
 
-### Phase 4: Marketplace Integration ✅ COMPLETE
-**Goal:** Update marketplace converters to filter labels from published images
+### Phase 5: Etsy Handlers Refactoring
+
+**Goal:** Refactor 5 Etsy handlers to use DirectAPIJobHandler and task orchestration (identical to Phase 4).
 
 **Deliverables:**
-- [x] Modify Vinted image upload (PLAN 4.1):
-  - Refactor `upload_product_images()` to use ProductImageService.get_product_photos()
-  - Filter `is_label=true` images from Vinted uploads
-  - Integration tests verifying no labels in Vinted payloads
-- [x] Modify eBay conversion service (PLAN 4.2):
-  - Refactor `_get_image_urls()` to use ProductImageService.get_product_photos()
-  - Filter `is_label=true` images from eBay inventory items
-  - Integration tests verifying no labels in eBay payloads
-- [x] Manual validation on test products (both plans)
+- `EtsyPublishJobHandler` migrated to DirectAPIJobHandler
+- `EtsyUpdateJobHandler` migrated
+- `EtsyDeleteJobHandler` migrated
+- `EtsySyncJobHandler` migrated
+- `EtsyUnpublishJobHandler` migrated
 
-**Out of Scope:** Etsy integration (v2)
+**Tasks:** (same as Phase 4, for Etsy)
 
-**Research Needed:** None (existing converters modification)
+**Success Criteria:**
+- ✅ All 5 Etsy handlers use DirectAPIJobHandler
+- ✅ All Etsy handlers create MarketplaceTasks
+- ✅ No code duplication between Etsy handlers
+- ✅ Tests pass
 
-**Plans Executed:** 2/2
-- ✅ PLAN 4.1: Vinted Marketplace Integration (commits: 5341cb5, dd4c822)
-- ✅ PLAN 4.2: eBay Marketplace Integration (commits: bd6d162, dc62fd7)
+**Duration:** ~2 days (can reuse Phase 4 patterns)
 
 ---
 
-### Phase 5: Cleanup & Documentation ✅ COMPLETE
-**Goal:** Remove deprecated JSONB column and finalize migration
+### Phase 6: Vinted Services Extraction
+
+**Goal:** Extract Vinted handler logic (260 lines inline) to dedicated services (like eBay/Etsy pattern).
 
 **Deliverables:**
-- [x] Alembic migration removing `products.images` column
-- [x] Alembic downgrade migration (restore JSONB from table if needed)
-- [x] Rollback tested (full upgrade/downgrade cycle)
-- [x] Update ARCHITECTURE.md:
-  - New image table structure
-  - Migration history
-  - Label detection strategy
-- [x] Update CONVENTIONS.md:
-  - Image handling patterns
-  - Label flag usage
-- [x] Final validation:
-  - No references to JSONB column in active code
-  - Alembic at correct head with rollback capability verified
-  - Product model schema mismatch fixed
+- `VintedPublicationService` (extracted from VintedPublishJobHandler)
+- `VintedUpdateService` (extracted from VintedUpdateJobHandler)
+- `VintedDeletionService` (extracted from VintedDeleteJobHandler)
+- Services are thin wrappers around existing `VintedApiSyncService`
 
-**Research Needed:** None (standard cleanup)
+**Tasks:**
+1. Create `services/vinted/vinted_publication_service.py`
+2. Move publish logic from handler to service
+3. Create `services/vinted/vinted_update_service.py`
+4. Move update logic from handler to service
+5. Create `services/vinted/vinted_deletion_service.py`
+6. Move delete logic from handler to service
+7. Write unit tests for new services (test-after)
 
-**Plans Executed:** 2/2
-- ✅ PLAN 5.1: Remove JSONB Column (commits: f2141c5, 110b53e, 867d712)
-- ✅ PLAN 5.2: Documentation and Final Validation (commits: 6b1dd33, 4c51b4e, ea221d4)
+**Success Criteria:**
+- ✅ 3 new Vinted services created
+- ✅ Handlers still work (delegates to services)
+- ✅ Business logic separated from orchestration
+- ✅ Tests pass
 
----
-
-## Constraints
-
-**Technical:**
-- Multi-tenant architecture (all `user_X` schemas)
-- SQLAlchemy 2.0 syntax (`Mapped[T]`, `mapped_column()`)
-- Idempotent migrations (can rerun safely)
-- Performance: Bulk operations for 3282 products
-
-**Data Safety:**
-- ✅ Backup created: `backups/stoflow_db_full_backup_20260115_091652.dump` (9.3 MB)
-- Zero data loss tolerance
-- Rollback strategy required
-- Validation before column removal
-
-**Out of Scope (v1):**
-- FileService upload/optimization (keep R2 as-is)
-- UI Frontend changes (backend/API only)
-- Etsy converter updates (Vinted/eBay only)
-- CDN/cache invalidation
+**Duration:** ~2 days
 
 ---
 
-## Dependencies
+### Phase 7: Vinted Handlers Refactoring
 
-**Between Phases:**
-- Phase 2 depends on Phase 1 (table must exist)
-- Phase 3 depends on Phase 2 (data must be migrated)
-- Phase 4 depends on Phase 3 (services must work with new table)
-- Phase 5 depends on Phase 4 (full validation before cleanup)
+**Goal:** Refactor 7 Vinted handlers to use BaseJobHandler + task orchestration + service delegation.
 
-**External:**
-- None (internal refactoring)
+**Deliverables:**
+- `VintedPublishJobHandler` (80 lines, delegates to VintedPublicationService)
+- `VintedUpdateJobHandler` (80 lines, delegates to VintedUpdateService)
+- `VintedDeleteJobHandler` (80 lines, delegates to VintedDeletionService)
+- `VintedSyncJobHandler` migrated
+- `VintedUnpublishJobHandler` migrated
+- `VintedActivateJobHandler` migrated
+- `VintedArchiveJobHandler` migrated
 
----
+**Tasks (per handler):**
+1. Inherit from BaseJobHandler (not DirectAPIJobHandler, WebSocket different)
+2. Implement `create_tasks()` (task specs specific to Vinted)
+3. Delegate to service from Phase 6
+4. Handle WebSocket communication via PluginWebSocketHelper
+5. Write integration tests (test-after)
 
-## Risk Mitigation
+**Success Criteria:**
+- ✅ All 7 Vinted handlers thin (80 lines max)
+- ✅ All Vinted handlers create MarketplaceTasks
+- ✅ Business logic in services
+- ✅ Tests pass
 
-| Risk | Mitigation |
-|------|------------|
-| Data loss during migration | ✅ Full backup created, transaction-based migration, validation |
-| Migration script bugs | Idempotent design, test on subset first, rollback capability |
-| Label detection accuracy | Based on pythonApiWOO pattern (85%+ accuracy), manual review list |
-| Service refactoring breaks existing code | Comprehensive unit + integration tests |
-| Marketplace converters miss labels | Explicit tests for label filtering |
-| JSONB column removal premature | Only after full validation, downgrade migration available |
-
----
-
-## Project Complete ✅
-
-1. ✅ Backup complete
-2. ✅ PROJECT.md defined
-3. ✅ ROADMAP.md created
-4. ✅ Phase 1: Database Architecture COMPLETE
-5. ✅ Phase 2: Data Migration COMPLETE
-6. ✅ Phase 3: Services & API COMPLETE
-7. ✅ Phase 4: Marketplace Integration COMPLETE
-8. ✅ Phase 5 Plan 1: Remove JSONB Column COMPLETE
-9. ✅ Phase 5 Plan 2: Documentation and Final Validation COMPLETE
-
-**Project Status:** 🎉 **100% COMPLETE** (10/10 plans executed)
-
-**Final Metrics:**
-- 19,607 images migrated (3,281 products)
-- 611 products no longer publishing labels to marketplaces
-- Zero data loss (full backup + rollback capability verified)
-- Complete documentation (ARCHITECTURE.md + CONVENTIONS.md)
-- All code migrated to product_images table
-- JSONB column removed, schema validated
-
-**Ready for:** Production deployment
+**Duration:** ~3 days (7 handlers, WebSocket complexity)
 
 ---
 
-*Last updated: 2026-01-15 after Phase 5 Plan 2 execution - PROJECT COMPLETE* 🎉
+### Phase 8: Stats System Refactoring
+
+**Goal:** Separate statistics tracking per marketplace (current: all mixed in `vinted_job_stats`).
+
+**Deliverables:**
+- `marketplace_job_stats` table (marketplace-agnostic)
+- Stats service that logs to correct marketplace
+- Migration to rename/refactor `vinted_job_stats`
+
+**Tasks:**
+1. Create migration to rename `vinted_job_stats` to `marketplace_job_stats`
+2. Add `marketplace` column (vinted, ebay, etsy)
+3. Update `MarketplaceJobService` to log stats per marketplace
+4. Add indexes on (marketplace, created_at) for queries
+5. Update stats queries in frontend/API
+6. Write tests for stats service (test-after)
+
+**Success Criteria:**
+- ✅ Stats separated by marketplace
+- ✅ Essential metrics only (performance, success rates)
+- ✅ Frontend shows per-marketplace stats
+- ✅ Tests pass
+
+**Duration:** ~1 day
+
+---
+
+### Phase 9: Schema Cleanup
+
+**Goal:** Remove deprecated columns and dead code from database schema.
+
+**Deliverables:**
+- Migration to remove `batch_id` column (replaced by `batch_job_id`)
+- Cleanup unused FK constraints
+- Remove dead `BaseMarketplaceHandler` references
+
+**Tasks:**
+1. Create migration to drop `marketplace_jobs.batch_id` (deprecated string FK)
+2. Verify all code uses `batch_job_id` (int FK)
+3. Remove any dead code referencing old `batch_id`
+4. Run migration on test DB (multi-tenant check)
+5. Write migration rollback (in case of issue)
+
+**Success Criteria:**
+- ✅ `batch_id` column removed
+- ✅ Only `batch_job_id` FK exists
+- ✅ No references to old schema in code
+- ✅ Migration works on all tenant schemas
+
+**Duration:** ~0.5 day
+
+---
+
+### Phase 10: Testing & Documentation
+
+**Goal:** Complete test coverage and architecture documentation.
+
+**Deliverables:**
+- Unit tests for all new services (target: >80% coverage)
+- Integration tests for task retry scenarios
+- Architecture documentation (ARCHITECTURE.md)
+- API documentation updates
+
+**Tasks:**
+1. Audit test coverage (pytest-cov)
+2. Write missing unit tests for services
+3. Write integration tests for full job + task flow
+4. Document task orchestration system (ARCHITECTURE.md)
+5. Update API docs (task status endpoints)
+6. Add code comments for complex task logic
+
+**Success Criteria:**
+- ✅ Test coverage >80% for new code
+- ✅ All retry scenarios covered by tests
+- ✅ ARCHITECTURE.md complete
+- ✅ API docs updated
+
+**Duration:** ~2 days
+
+---
+
+### Phase 11: Data Cleanup & Migration
+
+**Goal:** Clean up old jobs/batches in test/dev databases before launch.
+
+**Deliverables:**
+- Script to delete old jobs (pre-refactoring)
+- Fresh test data for validation
+- Migration verification on clean DB
+
+**Tasks:**
+1. Write script to delete all jobs/batches before cutoff date
+2. Run script on dev DB (cleanup)
+3. Verify migrations work on clean DB
+4. Create fresh test batch jobs for validation
+5. Run full integration test suite on clean data
+
+**Success Criteria:**
+- ✅ All old jobs deleted from test/dev DBs
+- ✅ Fresh test data created
+- ✅ Migrations verified on clean DB
+- ✅ Integration tests pass
+
+**Duration:** ~0.5 day
+
+---
+
+### Phase 12: Monitoring & Optimization
+
+**Goal:** Add monitoring for task system and optimize performance if needed.
+
+**Deliverables:**
+- Metrics for task execution times
+- Alerts for high failure rates
+- Performance profiling (if bottleneck detected)
+
+**Tasks:**
+1. Add logging for task execution times
+2. Add metrics to track task success/failure rates
+3. Add alerts for >20% task failure rate
+4. Profile task creation (if >1000 tasks per job)
+5. Optimize DB queries if slow (batch inserts?)
+6. Add dashboard for task monitoring (optional)
+
+**Success Criteria:**
+- ✅ Task execution times logged
+- ✅ Alerts configured for failures
+- ✅ Performance acceptable (<100ms per task)
+- ✅ No bottlenecks detected
+
+**Duration:** ~1 day
+
+---
+
+## 📊 Dependencies Between Phases
+
+```
+Phase 1 (Foundation) ← CRITICAL PATH
+    ↓
+Phase 2 (Base Handler) ← Depends on Phase 1
+    ↓
+Phase 3 (DirectAPI Handler) ← Depends on Phase 2
+    ├─→ Phase 4 (eBay) ← Can run in parallel
+    └─→ Phase 5 (Etsy) ← Can run in parallel
+
+Phase 6 (Vinted Services) ← Independent, can start early
+    ↓
+Phase 7 (Vinted Handlers) ← Depends on Phase 1, 2, 6
+
+Phase 8 (Stats) ← Independent, can run anytime
+Phase 9 (Schema Cleanup) ← After Phases 4, 5, 7 done
+Phase 10 (Tests) ← After all implementation phases
+Phase 11 (Cleanup) ← Before launch
+Phase 12 (Monitoring) ← After launch
+```
+
+**Critical Path:** Phase 1 → Phase 2 → Phase 7 (Vinted is most complex)
+
+**Parallelization opportunities:**
+- Phase 4 + Phase 5 (eBay + Etsy handlers)
+- Phase 6 can start while Phase 3-5 run
+- Phase 8 can run anytime
+
+---
+
+## 🧪 Testing Strategy
+
+### Phase 1: Test-First (TDD Strict)
+- Write tests BEFORE implementing TaskOrchestrator
+- Focus: task lifecycle, retry logic, idempotence
+- Coverage target: >90%
+
+### Phases 2-9: Test-After (Pragmatic)
+- Implement handlers first (faster iteration)
+- Write tests after to validate behavior
+- Coverage target: >80%
+
+### Phase 10: Comprehensive Testing
+- Integration tests for full job + task flows
+- Retry scenario tests (partial failure, skip completed)
+- Performance tests (1000+ tasks)
+
+### Test Environments
+- **Unit tests:** In-memory or test DB (fast)
+- **Integration tests:** Docker PostgreSQL (realistic)
+- **E2E tests:** Full stack (backend + DB + WebSocket)
+
+---
+
+## ✅ Overall Success Criteria
+
+### Functional
+- ✅ MarketplaceTask system active and used by all handlers
+- ✅ Granular tracking (1 task = 1 step)
+- ✅ Idempotent retry (skip COMPLETED tasks)
+- ✅ No code duplication between eBay/Etsy handlers
+- ✅ Vinted handlers match eBay/Etsy pattern (delegation)
+- ✅ Stats separated by marketplace
+
+### Quality
+- ✅ Test coverage >80% for new code
+- ✅ All integration tests pass
+- ✅ No regressions (existing features still work)
+
+### Performance
+- ✅ Task creation <100ms per task
+- ✅ No DB bottlenecks (even with 1000+ tasks)
+- ✅ Progress tracking real-time (1 commit per task)
+
+### Maintainability
+- ✅ Architecture documented (ARCHITECTURE.md)
+- ✅ Code follows consistent patterns (base classes)
+- ✅ Easy to add new marketplace (extend DirectAPIJobHandler)
+
+---
+
+## 📅 Timeline Summary
+
+| Phase | Duration | Cumulative |
+|-------|----------|------------|
+| Phase 1: Foundation | 3 days | 3 days |
+| Phase 2: Base Handler | 1 day | 4 days |
+| Phase 3: DirectAPI Handler | 2 days | 6 days |
+| Phase 4: eBay Handlers | 2 days | 8 days (parallel with 5) |
+| Phase 5: Etsy Handlers | 2 days | 8 days (parallel with 4) |
+| Phase 6: Vinted Services | 2 days | 10 days (can overlap) |
+| Phase 7: Vinted Handlers | 3 days | 13 days |
+| Phase 8: Stats Refactoring | 1 day | 14 days |
+| Phase 9: Schema Cleanup | 0.5 day | 14.5 days |
+| Phase 10: Tests & Docs | 2 days | 16.5 days |
+| Phase 11: Data Cleanup | 0.5 day | 17 days |
+| Phase 12: Monitoring | 1 day | 18 days |
+
+**Total: ~3.5 weeks** (with parallelization, can be reduced to ~2.5 weeks)
+
+---
+
+## 🚀 Next Steps
+
+1. Review and approve this roadmap
+2. Create Phase 1 detailed plan (PLAN.md)
+3. Start implementation of TaskOrchestrator
+4. TDD: Write tests first for Phase 1
+
+---
+
+*Created: 2026-01-15*
+*Mode: Interactive, Comprehensive depth*
+*Priority: MarketplaceTask foundation first*

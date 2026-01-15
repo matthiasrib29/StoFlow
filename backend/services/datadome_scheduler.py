@@ -34,11 +34,6 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
 from models.user.vinted_connection import VintedConnection, DataDomeStatus
-# REMOVED (2026-01-09): DataDomePingService uses PluginTask (obsolete)
-# from services.datadome_ping_service import (
-#     DataDomePingService,
-#     DATADOME_PING_INTERVAL_SECONDS
-# )
 # Temporary constant until DataDome ping is re-implemented with WebSocket
 DATADOME_PING_INTERVAL_SECONDS = 60
 from shared.config import settings

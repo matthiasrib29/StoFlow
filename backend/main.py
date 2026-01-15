@@ -85,7 +85,6 @@ async def lifespan(app: FastAPI):
     required_secrets = [
         "jwt_secret_key",
         "database_url",
-        "openai_api_key",
     ]
 
     missing_secrets = []
@@ -214,12 +213,19 @@ if settings.is_production:
         expose_headers=["X-Total-Count"],
     )
 else:
-    # Développement: autorise tout pour faciliter les tests
-    logger.info("🔓 CORS Développement: toutes les origines autorisées")
+    # Développement: autorise origines locales explicites pour WebSocket avec auth
+    dev_origins = [
+        "http://localhost:3000",  # Dev 1
+        "http://localhost:3001",  # Dev 2
+        "http://localhost:3002",  # Dev 3
+        "http://localhost:3003",  # Dev 4
+        "http://localhost:5173",  # Vite dev (plugin)
+    ]
+    logger.info(f"🔓 CORS Développement: origines autorisées = {dev_origins}")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=False,  # credentials=False requis avec origins=*
+        allow_origins=dev_origins,
+        allow_credentials=True,  # REQUIRED for Socket.IO with auth
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["*"],
