@@ -579,9 +579,61 @@ class VintedSyncService:
     # DELEGATION AUX SERVICES SPECIALISES
     # =========================================================================
 
-    async def sync_products_from_api(self, db: Session) -> dict[str, Any]:
+    async def sync_products(
+        self,
+        shop_id: int,
+        user_id: int,
+        job=None
+    ) -> dict[str, Any]:
+        """
+        Synchronize products from Vinted API (standard interface).
+
+        This method follows the standard service pattern used by refactored handlers.
+
+        Args:
+            shop_id: Shop ID
+            user_id: User ID
+            job: Optional MarketplaceJob instance
+
+        Returns:
+            dict: {
+                "success": bool,
+                "products_synced": int,
+                "imported": int,
+                "updated": int,
+                "errors": int,
+                "error": str | None
+            }
+        """
+        try:
+            # Ensure shop_id/user_id match instance
+            if self.shop_id is None:
+                self.shop_id = shop_id
+            if self.user_id is None:
+                self.user_id = user_id
+
+            # Delegate to existing method
+            result = await self.api_sync.sync_products_from_api(db, job=job)
+
+            # Normalize response
+            return {
+                "success": True,
+                "products_synced": result.get("imported", 0) + result.get("updated", 0),
+                "imported": result.get("imported", 0),
+                "updated": result.get("updated", 0),
+                "errors": result.get("errors", 0),
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "products_synced": 0,
+                "error": str(e)
+            }
+
+    async def sync_products_from_api(self, db: Session, job=None) -> dict[str, Any]:
         """Delegue a VintedApiSyncService."""
-        return await self.api_sync.sync_products_from_api(db)
+        return await self.api_sync.sync_products_from_api(db, job=job)
 
     async def sync_orders(
         self,
