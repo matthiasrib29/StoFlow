@@ -96,7 +96,7 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 
 ---
 
-### Phase 4: Marketplace Integration ⏳ IN PROGRESS
+### Phase 4: Marketplace Integration ✅ COMPLETE
 **Goal:** Update marketplace converters to filter labels from published images
 
 **Deliverables:**
@@ -104,18 +104,19 @@ Migrate image management from JSONB column to dedicated `product_images` table w
   - Refactor `upload_product_images()` to use ProductImageService.get_product_photos()
   - Filter `is_label=true` images from Vinted uploads
   - Integration tests verifying no labels in Vinted payloads
-- [ ] Modify eBay conversion service (PLAN 4.2):
+- [x] Modify eBay conversion service (PLAN 4.2):
   - Refactor `_get_image_urls()` to use ProductImageService.get_product_photos()
   - Filter `is_label=true` images from eBay inventory items
   - Integration tests verifying no labels in eBay payloads
-- [ ] Manual validation on test products (both plans)
+- [x] Manual validation on test products (both plans)
 
 **Out of Scope:** Etsy integration (v2)
 
 **Research Needed:** None (existing converters modification)
 
-**Plans Executed:** 1/2
+**Plans Executed:** 2/2
 - ✅ PLAN 4.1: Vinted Marketplace Integration (commits: 5341cb5, dd4c822)
+- ✅ PLAN 4.2: eBay Marketplace Integration (commits: bd6d162, dc62fd7)
 
 ---
 

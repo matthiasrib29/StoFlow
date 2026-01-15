@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-15
 **Current Phase:** Phase 4 - Marketplace Integration
-**Status:** In Progress (2 plans created, 1/2 executed)
+**Status:** Complete (2/2 plans executed)
 
 ---
 
@@ -22,13 +22,13 @@
   - ✅ PLAN 3.1: Create ProductImage Model + Repository (commits: fba6afb, 5e630d4, 1d1d6eb)
   - ✅ PLAN 3.2: Refactor ProductImageService to use table (commit: 281c0f4)
   - ✅ PLAN 3.3: Update API routes and response schemas (commits: 4831754, 671336a, 10b596a, cec4cbb)
-- ✅ Phase 4: Marketplace Integration IN PROGRESS (2 plans created, 1/2 executed)
+- ✅ Phase 4: Marketplace Integration COMPLETE (2/2 plans executed)
   - ✅ PLAN 4.1: Vinted Marketplace Integration (commits: 5341cb5, dd4c822)
+  - ✅ PLAN 4.2: eBay Marketplace Integration (commits: bd6d162, dc62fd7)
 
 ### Active
-- Executing Phase 4 - Marketplace Integration
-  - ✅ PLAN 4.1: COMPLETE - Vinted integration now filters labels
-  - Next: Execute PLAN 4.2 - eBay Marketplace Integration
+- Phase 4 COMPLETE - Both Vinted and eBay now filter labels
+- Next: Execute Phase 5 - Cleanup & Documentation
 
 ### Blocked
 - None
@@ -42,10 +42,10 @@
 | 1. Database Architecture | ✅ Complete | 1/1 | 100% |
 | 2. Data Migration | ✅ Complete | 2/2 | 100% |
 | 3. Services & API | ✅ Complete | 3/3 | 100% |
-| 4. Marketplace Integration | ⏳ In Progress | 1/2 | 50% |
+| 4. Marketplace Integration | ✅ Complete | 2/2 | 100% |
 | 5. Cleanup & Documentation | Not Started | 0/2 | 0% |
 
-**Overall Progress:** 7/10 plans completed (70%)
+**Overall Progress:** 8/10 plans completed (80%)
 
 ---
 
@@ -184,20 +184,36 @@
   - Duration: 4 minutes (estimated 30 min)
   - **Note:** Test database has pre-existing migration issue (sizes_pkey constraint), tests written correctly
 
+- ✅ **EXECUTED PLAN 4.2** - eBay Marketplace Integration (COMPLETE)
+  - Refactored _get_image_urls() to use ProductImageService.get_product_photos()
+  - Replaced JSONB parsing with service call (resolved TODO comment at line 507)
+  - Labels (is_label=true) now automatically excluded from eBay inventory items
+  - Created integration test suite: test_ebay_conversion.py (5 test cases, 320 lines)
+  - Test 1: Verify _get_image_urls() excludes labels
+  - Test 2: Verify convert_to_inventory_item() excludes labels
+  - Test 3: Verify 12-image limit with label filtering
+  - Test 4: Edge case - only labels (0 returned)
+  - Test 5: Edge case - no images (0 returned)
+  - Commits: bd6d162 (refactor), dc62fd7 (test)
+  - Duration: 2 minutes (estimated 25 min - 92% faster)
+
+**2026-01-15 (Night):**
+- ✅ **PHASE 4 COMPLETE** - Marketplace Integration (100%)
+  - Both Vinted and eBay now filter labels automatically
+  - 611 products will no longer publish internal price tags to marketplaces
+  - Consistent filtering pattern across all marketplace integrations
+
 ---
 
 ## Next Action
 
-**Execute Phase 4.2 - eBay Marketplace Integration**
+**Execute Phase 5 - Cleanup & Documentation**
 
-Command: `/gsd:execute-plan .planning/phases/phase-4/4-2-PLAN.md`
+Phase 5 Plans:
+1. PLAN 5.1: Remove deprecated products.images JSONB column
+2. PLAN 5.2: Update architecture documentation and final validation
 
-This will:
-1. Refactor eBay _get_image_urls() to filter labels
-2. Add integration tests for eBay
-3. Complete Phase 4 (Marketplace Integration)
-
-After 4.2 completes, Phase 5 (Cleanup & Documentation) will be the final phase.
+This is the final phase of the migration project.
 
 ---
 
