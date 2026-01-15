@@ -71,11 +71,7 @@ class Settings(BaseSettings):
         description="Previous encryption key for rotation support"
     )
 
-    # OpenAI
-    openai_api_key: str
-    openai_model: str = "gpt-4-turbo-preview"
-    openai_max_tokens: int = 500
-    openai_temperature: float = 0.7
+    # AI Services
     ai_cache_ttl_seconds: int = 2592000
     ai_cache_enabled: bool = True
 
