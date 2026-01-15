@@ -67,24 +67,31 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 
 ---
 
-### Phase 3: Services & API
+### Phase 3: Services & API ✅ PLANNED
 **Goal:** Refactor services and API to use new table structure
 
 **Deliverables:**
-- [ ] Refactor `ProductImageService`:
-  - Update `add_image()`, `delete_image()`, `reorder_images()`
+- [ ] Create ProductImage model + ProductImageRepository (PLAN 3.1)
+  - SQLAlchemy model with all columns mapped
+  - Repository with CRUD operations
+  - Relationship Product ↔ ProductImage
+  - Unit tests for repository
+- [ ] Refactor `ProductImageService` (PLAN 3.2):
+  - Update `add_image()`, `delete_image()`, `reorder_images()` to use table
   - New methods: `get_product_photos()`, `get_label_image()`, `set_label_flag()`
-  - Validation logic (mime_type, file_size)
-  - Auto-reorder on delete
-- [ ] Update API routes (`api/products/images.py`)
-- [ ] Update response schemas to include new metadata
-- [ ] Unit tests for service methods
-- [ ] Integration tests for API endpoints
-- [ ] Test label flag validation
+  - Accept metadata (mime_type, file_size, width, height)
+  - Unit tests updated
+- [ ] Update API routes and schemas (PLAN 3.3):
+  - Update `ProductImageItem` schema with rich metadata
+  - Add endpoint for label flag management
+  - Integration tests updated
 
 **Research Needed:** None (existing services refactor)
 
-**Estimated Plans:** 3-4 plans
+**Plans Created:** 3/3
+- 📋 PLAN 3.1: Create ProductImage Model + Repository (20-30 min)
+- 📋 PLAN 3.2: Refactor ProductImageService to use table (30-40 min)
+- 📋 PLAN 3.3: Update API routes and response schemas (20-30 min)
 
 ---
 
@@ -190,8 +197,11 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 3. ✅ ROADMAP.md created
 4. ✅ Phase 1: Database Architecture COMPLETE
 5. ✅ Phase 2: Data Migration COMPLETE
-6. → Plan Phase 3: Services & API Refactoring
+6. ✅ Phase 3: Services & API PLANNED (3 plans created)
+7. → Execute PLAN 3.1: Create ProductImage Model + Repository
+
+**Command:** `/gsd:execute-plan` (in .planning/phases/phase-3/3-1-PLAN.md)
 
 ---
 
-*Last updated: 2026-01-15 after Phase 2 completion*
+*Last updated: 2026-01-15 after Phase 3 planning*
