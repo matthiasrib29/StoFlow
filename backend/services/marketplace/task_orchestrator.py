@@ -167,3 +167,93 @@ class TaskOrchestrator:
             logger.error(f"Task #{task.id} failed: {e}")
 
             return TaskResult(success=False, error=str(e))
+
+    def should_skip_task(self, task: MarketplaceTask) -> bool:
+        """
+        Check if a task should be skipped during job execution.
+
+        Retry intelligence: Skip only COMPLETED (SUCCESS) tasks.
+        Execute PENDING and FAILED tasks (retry).
+
+        Args:
+            task: MarketplaceTask to check
+
+        Returns:
+            True if task should be skipped (already SUCCESS)
+            False if task should be executed (PENDING, FAILED, etc.)
+
+        Example:
+            >>> if orchestrator.should_skip_task(task):
+            ...     logger.info(f"Task {task.id} already completed, skipping")
+            ... else:
+            ...     orchestrator.execute_task(task, handler)
+        """
+        return task.status == TaskStatus.SUCCESS
+
+    def execute_job_with_tasks(
+        self,
+        job: MarketplaceJob,
+        tasks: List[MarketplaceTask],
+        handlers: dict[str, Callable]
+    ) -> bool:
+        """
+        Execute all tasks for a job with retry intelligence.
+
+        Workflow:
+        1. Sort tasks by position (1, 2, 3...)
+        2. For each task:
+           - Skip if status=SUCCESS (already completed)
+           - Execute with handler if PENDING/FAILED
+           - Stop on first failure (return False)
+        3. Return True if all tasks succeed
+
+        This enables intelligent retry:
+        - First run: executes all tasks
+        - Retry after failure: skips completed tasks, retries failed
+
+        Args:
+            job: Parent MarketplaceJob
+            tasks: List of MarketplaceTask to execute
+            handlers: Dict mapping task.description -> handler function
+
+        Returns:
+            True if all tasks succeed
+            False if any task fails (stops execution)
+
+        Example:
+            >>> handlers = {
+            ...     "Upload image 1/3": upload_image_handler,
+            ...     "Upload image 2/3": upload_image_handler,
+            ...     "Create listing": create_listing_handler,
+            ... }
+            >>> success = orchestrator.execute_job_with_tasks(job, tasks, handlers)
+            >>> if success:
+            ...     print("All tasks completed")
+            ... else:
+            ...     print("Job failed, can retry to skip completed tasks")
+        """
+        # Sort by position for ordered execution
+        sorted_tasks = sorted(tasks, key=lambda t: t.position)
+
+        for task in sorted_tasks:
+            # Skip if already completed (retry intelligence)
+            if self.should_skip_task(task):
+                logger.info(f"Task #{task.id} ({task.description}) already completed, skipping")
+                continue
+
+            # Get handler for this task
+            handler = handlers.get(task.description)
+            if not handler:
+                logger.error(f"No handler found for task '{task.description}'")
+                return False
+
+            # Execute task
+            result = self.execute_task(task, handler)
+
+            # Stop on failure
+            if not result.success:
+                logger.error(f"Job #{job.id} failed at task #{task.id}")
+                return False
+
+        logger.info(f"Job #{job.id} completed successfully")
+        return True
