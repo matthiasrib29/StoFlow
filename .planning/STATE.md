@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-15
 **Current Phase:** Phase 3 - Services & API
-**Status:** Planned (3 plans created, 0/3 executed)
+**Status:** In Progress (3 plans created, 2/3 executed)
 
 ---
 
@@ -20,9 +20,9 @@
   - ✅ PLAN 2.2: Execute migration and validate (commits: 887c6b4, 2df0a60)
 
 ### Active
-- [ ] Phase 3: Services & API (3 plans created, 1/3 executed)
+- [ ] Phase 3: Services & API (3 plans created, 2/3 executed)
   - [✅] PLAN 3.1: Create ProductImage Model + Repository (commits: fba6afb, 5e630d4, 1d1d6eb)
-  - [ ] PLAN 3.2: Refactor ProductImageService to use table
+  - [✅] PLAN 3.2: Refactor ProductImageService to use table (commit: 281c0f4)
   - [ ] PLAN 3.3: Update API routes and response schemas
 
 ### Blocked
@@ -36,11 +36,11 @@
 |-------|--------|-------|----------|
 | 1. Database Architecture | ✅ Complete | 1/1 | 100% |
 | 2. Data Migration | ✅ Complete | 2/2 | 100% |
-| 3. Services & API | 🚧 In Progress | 1/3 | 33% |
+| 3. Services & API | 🚧 In Progress | 2/3 | 67% |
 | 4. Marketplace Integration | Not Started | 0/3 | 0% |
 | 5. Cleanup & Documentation | Not Started | 0/2 | 0% |
 
-**Overall Progress:** 4/12 plans completed (33%)
+**Overall Progress:** 5/12 plans completed (42%)
 
 ---
 
@@ -128,6 +128,15 @@
   - Commits: fba6afb, 5e630d4, 1d1d6eb
   - Duration: ~2 hours
   - **Note**: Tests written but need database migration to pass (schema mismatch)
+- ✅ **EXECUTED PLAN 3.2** - Refactored ProductImageService to Use Table
+  - Refactored all existing methods (add, delete, reorder, get) to use ProductImageRepository
+  - Added 3 new methods: get_product_photos(), get_label_image(), set_label_flag()
+  - Created _image_to_dict() helper for backward compatibility
+  - Updated all unit tests to mock ProductImageRepository (17 test cases, 676 lines)
+  - Maintained backward compatibility with same dict return format
+  - Business rules enforced: max 20 images, only one label per product, auto-reorder
+  - Commit: 281c0f4
+  - Duration: ~35 minutes
 
 ---
 

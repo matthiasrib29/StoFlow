@@ -67,16 +67,16 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 
 ---
 
-### Phase 3: Services & API ✅ PLANNED
+### Phase 3: Services & API 🚧 IN PROGRESS
 **Goal:** Refactor services and API to use new table structure
 
 **Deliverables:**
-- [ ] Create ProductImage model + ProductImageRepository (PLAN 3.1)
+- [x] Create ProductImage model + ProductImageRepository (PLAN 3.1)
   - SQLAlchemy model with all columns mapped
   - Repository with CRUD operations
   - Relationship Product ↔ ProductImage
   - Unit tests for repository
-- [ ] Refactor `ProductImageService` (PLAN 3.2):
+- [x] Refactor `ProductImageService` (PLAN 3.2):
   - Update `add_image()`, `delete_image()`, `reorder_images()` to use table
   - New methods: `get_product_photos()`, `get_label_image()`, `set_label_flag()`
   - Accept metadata (mime_type, file_size, width, height)
@@ -88,9 +88,9 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 
 **Research Needed:** None (existing services refactor)
 
-**Plans Created:** 3/3
-- 📋 PLAN 3.1: Create ProductImage Model + Repository (20-30 min)
-- 📋 PLAN 3.2: Refactor ProductImageService to use table (30-40 min)
+**Plans Executed:** 2/3
+- ✅ PLAN 3.1: Create ProductImage Model + Repository (commits: fba6afb, 5e630d4, 1d1d6eb)
+- ✅ PLAN 3.2: Refactor ProductImageService to use table (commit: 281c0f4)
 - 📋 PLAN 3.3: Update API routes and response schemas (20-30 min)
 
 ---
@@ -197,11 +197,11 @@ Migrate image management from JSONB column to dedicated `product_images` table w
 3. ✅ ROADMAP.md created
 4. ✅ Phase 1: Database Architecture COMPLETE
 5. ✅ Phase 2: Data Migration COMPLETE
-6. ✅ Phase 3: Services & API PLANNED (3 plans created)
-7. → Execute PLAN 3.1: Create ProductImage Model + Repository
+6. ✅ Phase 3: Services & API IN PROGRESS (2/3 plans executed)
+7. → Execute PLAN 3.3: Update API routes and response schemas
 
-**Command:** `/gsd:execute-plan` (in .planning/phases/phase-3/3-1-PLAN.md)
+**Command:** `/gsd:execute-plan` (in .planning/phases/phase-3/3-3-PLAN.md)
 
 ---
 
-*Last updated: 2026-01-15 after Phase 3 planning*
+*Last updated: 2026-01-15 after PLAN 3.2 completion*
