@@ -1,0 +1,12 @@
+# GSD Project Files - NOT tracked (project-specific)
+PROJECT.md
+ROADMAP.md
+STATE.md
+config.json
+*.md
+phase-*
+phases/
+
+# EXCEPTION: Track codebase mapping (shared across projects)
+!codebase/
+!codebase/**
