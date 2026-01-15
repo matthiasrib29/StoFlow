@@ -503,6 +503,15 @@ class Product(Base):
         lazy="selectin"
     )
 
+    # ===== ONE-TO-MANY RELATIONSHIP - PRODUCT IMAGES (NEW - 2026-01-15) =====
+    product_images: Mapped[list["ProductImage"]] = relationship(
+        "ProductImage",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="ProductImage.order"
+    )
+
     # ===== HELPER PROPERTIES FOR BACKWARD COMPATIBILITY =====
     @property
     def primary_color(self) -> str | None:
