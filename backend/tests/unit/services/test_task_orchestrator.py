@@ -198,3 +198,142 @@ class TestTaskExecution:
         # 1. Mark RUNNING
         # 2. Mark COMPLETED
         assert db_session.commit.call_count >= 2
+
+
+# ===== TASK 5: RED PHASE - Tests retry intelligent =====
+
+class TestRetryIntelligence:
+    """Tests for retry-intelligent job execution."""
+
+    def test_should_skip_task_only_skips_completed(self, db_session):
+        """Should skip only tasks with status COMPLETED."""
+        orchestrator = TaskOrchestrator(db_session)
+
+        # COMPLETED task should be skipped
+        completed_task = MarketplaceTask(
+            id=1,
+            job_id=1,
+            description="Already done",
+            position=1,
+            status=TaskStatus.SUCCESS  # COMPLETED/SUCCESS
+        )
+        assert orchestrator.should_skip_task(completed_task) is True
+
+        # PENDING task should NOT be skipped
+        pending_task = MarketplaceTask(
+            id=2,
+            job_id=1,
+            description="Not started",
+            position=2,
+            status=TaskStatus.PENDING
+        )
+        assert orchestrator.should_skip_task(pending_task) is False
+
+        # FAILED task should NOT be skipped (needs retry)
+        failed_task = MarketplaceTask(
+            id=3,
+            job_id=1,
+            description="Failed before",
+            position=3,
+            status=TaskStatus.FAILED
+        )
+        assert orchestrator.should_skip_task(failed_task) is False
+
+        # PROCESSING task should NOT be skipped
+        processing_task = MarketplaceTask(
+            id=4,
+            job_id=1,
+            description="Running",
+            position=4,
+            status=TaskStatus.PROCESSING
+        )
+        assert orchestrator.should_skip_task(processing_task) is False
+
+    def test_execute_job_with_tasks_executes_in_order(self, db_session, sample_job):
+        """Should execute tasks in position order."""
+        orchestrator = TaskOrchestrator(db_session)
+
+        tasks = [
+            MarketplaceTask(id=1, job_id=1, description="Task 1", position=1, status=TaskStatus.PENDING),
+            MarketplaceTask(id=2, job_id=1, description="Task 2", position=2, status=TaskStatus.PENDING),
+            MarketplaceTask(id=3, job_id=1, description="Task 3", position=3, status=TaskStatus.PENDING),
+        ]
+
+        execution_order = []
+
+        def handler(task):
+            execution_order.append(task.description)
+            return {"done": True}
+
+        handlers = {
+            "Task 1": handler,
+            "Task 2": handler,
+            "Task 3": handler,
+        }
+
+        success = orchestrator.execute_job_with_tasks(sample_job, tasks, handlers)
+
+        assert success is True
+        assert execution_order == ["Task 1", "Task 2", "Task 3"]
+
+    def test_execute_job_with_tasks_skips_completed(self, db_session, sample_job):
+        """Should skip COMPLETED tasks and execute only PENDING/FAILED."""
+        orchestrator = TaskOrchestrator(db_session)
+
+        tasks = [
+            MarketplaceTask(id=1, job_id=1, description="Task 1", position=1, status=TaskStatus.SUCCESS),  # Skip
+            MarketplaceTask(id=2, job_id=1, description="Task 2", position=2, status=TaskStatus.PENDING),  # Execute
+            MarketplaceTask(id=3, job_id=1, description="Task 3", position=3, status=TaskStatus.SUCCESS),  # Skip
+            MarketplaceTask(id=4, job_id=1, description="Task 4", position=4, status=TaskStatus.FAILED),   # Execute (retry)
+        ]
+
+        executed = []
+
+        def handler(task):
+            executed.append(task.description)
+            return {"done": True}
+
+        handlers = {
+            "Task 1": handler,
+            "Task 2": handler,
+            "Task 3": handler,
+            "Task 4": handler,
+        }
+
+        success = orchestrator.execute_job_with_tasks(sample_job, tasks, handlers)
+
+        assert success is True
+        # Should execute only Task 2 and Task 4 (skip 1 and 3)
+        assert executed == ["Task 2", "Task 4"]
+
+    def test_execute_job_with_tasks_stops_on_failure(self, db_session, sample_job):
+        """Should stop execution when a task fails and return False."""
+        orchestrator = TaskOrchestrator(db_session)
+
+        tasks = [
+            MarketplaceTask(id=1, job_id=1, description="Task 1", position=1, status=TaskStatus.PENDING),
+            MarketplaceTask(id=2, job_id=1, description="Task 2", position=2, status=TaskStatus.PENDING),  # Fails here
+            MarketplaceTask(id=3, job_id=1, description="Task 3", position=3, status=TaskStatus.PENDING),  # Should NOT execute
+        ]
+
+        executed = []
+
+        def success_handler(task):
+            executed.append(task.description)
+            return {"done": True}
+
+        def failing_handler(task):
+            executed.append(task.description)
+            raise ValueError("Task 2 failed")
+
+        handlers = {
+            "Task 1": success_handler,
+            "Task 2": failing_handler,
+            "Task 3": success_handler,
+        }
+
+        success = orchestrator.execute_job_with_tasks(sample_job, tasks, handlers)
+
+        assert success is False
+        # Task 1 executed, Task 2 failed, Task 3 NOT executed
+        assert executed == ["Task 1", "Task 2"]
