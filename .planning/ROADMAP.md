@@ -1,134 +1,193 @@
-# Roadmap: StoFlow UI Improvement
+# ROADMAP - Image Management Architecture Migration
 
-## Overview
-
-Amélioration de l'interface utilisateur StoFlow pour éliminer l'aspect générique et créer une identité visuelle professionnelle et cohérente. Basé sur l'audit UI réalisé le 2026-01-14 (score 6.5/10 → objectif >8/10).
-
-## Domain Expertise
-
-None (internal CSS/Vue patterns, no external integrations)
-
-## Phases
-
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
-
-- [ ] **Phase 1: Quick Wins** - Corrections immédiates à fort impact (30 min)
-- [ ] **Phase 2: Typography System** - Uniformisation des fonts et poids (1-2h)
-- [ ] **Phase 3: Color System** - Couleurs sémantiques pour statuts (1-2h)
-- [ ] **Phase 4: Component Audit** - Standardisation des composants (2-3h)
-- [ ] **Phase 5: Spacing System** - Espacement uniforme (1-2h)
-- [ ] **Phase 6: Visual Polish** - Empty states et page 404 (2-3h)
-
-## Phase Details
-
-### Phase 1: Quick Wins
-**Goal**: Corrections immédiates qui améliorent significativement l'UX avec peu d'effort
-**Depends on**: Nothing (first phase)
-**Research**: Unlikely (simple CSS fixes)
-**Plans**: 1 plan
-
-**Issues addressed**:
-- TYP-02: Augmenter le contraste du texte "Bienvenue"
-- COL-02: Changer le bouton "Annuler" en style outline/gris
-- COL-03: Améliorer le contraste du badge "Déconnecté"
-- CMP-01: Unifier le style des badges (tous en pill)
-
-Plans:
-- [ ] 01-01: Quick wins CSS et composants
-
-### Phase 2: Typography System
-**Goal**: Garantir que les fonts configurées sont appliquées uniformément
-**Depends on**: Phase 1
-**Research**: Unlikely (CSS font-family verification)
-**Plans**: 1 plan
-
-**Issues addressed**:
-- TYP-01: Vérifier l'application des fonts
-- TYP-03: Standardiser les font-weights des headers de table
-- TYP-04: Uniformiser les poids de font de la sidebar
-
-Plans:
-- [ ] 02-01: Typography system enforcement
-
-### Phase 3: Color System
-**Goal**: Créer un système de couleurs sémantiques cohérent pour tous les statuts
-**Depends on**: Phase 1
-**Research**: Unlikely (CSS variables)
-**Plans**: 1 plan
-
-**Issues addressed**:
-- COL-01: Couleurs incohérentes pour états similaires
-- COL-04: Unifier les icônes des stat-cards
-- COL-05: Standardiser la couleur des liens
-
-Plans:
-- [ ] 03-01: Semantic color system
-
-### Phase 4: Component Audit
-**Goal**: Standardiser tous les composants UI (badges, buttons, inputs)
-**Depends on**: Phase 2, Phase 3
-**Research**: Unlikely (Vue component patterns)
-**Plans**: 2 plans
-
-**Issues addressed**:
-- CMP-02: Variants de boutons standardisés
-- CMP-03: Unifier le border-radius
-- CMP-04: Standardiser la hauteur des inputs
-- CMP-05: Standardiser la taille des icônes sidebar
-
-Plans:
-- [ ] 04-01: Badge component unification
-- [ ] 04-02: Button and input standardization
-
-### Phase 5: Spacing System
-**Goal**: Uniformiser l'espacement entre tous les composants
-**Depends on**: Phase 4
-**Research**: Unlikely (CSS spacing)
-**Plans**: 1 plan
-
-**Issues addressed**:
-- SPC-01: Grid des platform cards
-- SPC-02: Padding des cellules de table
-- SPC-03: Gap label/input
-- SPC-04: Indentation des sous-menus sidebar
-
-Plans:
-- [ ] 05-01: Spacing system enforcement
-
-### Phase 6: Visual Polish
-**Goal**: Améliorer les états visuels pour une expérience premium
-**Depends on**: Phase 5
-**Research**: Unlikely (Vue components)
-**Plans**: 2 plans
-
-**Issues addressed**:
-- VIS-01: Empty states avec illustrations
-- VIS-02: Page 404 avec branding
-- VIS-03: Skeleton loading
-- VIS-04: Hover effects
-
-Plans:
-- [ ] 06-01: Empty states and 404 page
-- [ ] 06-02: Loading states and hover effects
-
-## Progress
-
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
-(Phases 2 and 3 can run in parallel)
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Quick Wins | 0/1 | Pending | — |
-| 2. Typography System | 0/1 | Pending | — |
-| 3. Color System | 0/1 | Pending | — |
-| 4. Component Audit | 0/2 | Pending | — |
-| 5. Spacing System | 0/1 | Pending | — |
-| 6. Visual Polish | 0/2 | Pending | — |
+**Project:** Image Management Architecture Migration
+**Created:** 2026-01-15
+**Mode:** Interactive
+**Depth:** Standard
 
 ---
 
-*Roadmap created: 2026-01-14*
-*Based on: UI-AUDIT-REPORT.md*
+## Overview
+
+Migrate image management from JSONB column to dedicated `product_images` table with rich metadata support to solve critical label publishing issue (611 products affected).
+
+**Critical Problem:** Internal price tag labels (last image) are being published to marketplaces because current JSONB structure doesn't distinguish image types.
+
+**Success Criteria:**
+- ✅ Zero data loss (backup verified: 9.3MB dump)
+- ✅ 611 labels correctly identified with `is_label=true`
+- ✅ No labels published to Vinted/eBay after migration
+- ✅ All tests pass
+- ✅ Rollback capability via Alembic downgrade
+
+---
+
+## Phases
+
+### Phase 1: Database Architecture ✅ COMPLETE
+**Goal:** Create new `product_images` table with rich metadata support
+
+**Deliverables:**
+- [x] Alembic migration creating `product_images` table
+- [x] Table structure:
+  - Core: `id`, `product_id` (FK), `url`, `order`
+  - Metadata: `is_label`, `alt_text`, `tags`, `mime_type`, `file_size`, `width`, `height`
+  - Timestamps: `created_at`, `updated_at`
+- [x] Indexes on `product_id`, `order`, `is_label`
+- [x] Foreign key constraint to `products` table
+- [x] Multi-tenant schema support (applies to all `user_X` schemas)
+
+**Research Needed:** None (internal architecture)
+
+**Plans Executed:** 1/1
+- ✅ PLAN 1.1: Create product_images table (commit: fa60a3d)
+
+---
+
+### Phase 2: Data Migration
+**Goal:** Migrate all existing images from JSONB to new table with label identification
+
+**Deliverables:**
+- [ ] Idempotent migration script
+- [ ] Multi-tenant support (iterate all `user_X` schemas)
+- [ ] Label detection: last image in order → `is_label=true`
+- [ ] Bulk insert optimization (not row-by-row)
+- [ ] Transaction per schema (atomicity)
+- [ ] Post-migration validation:
+  - Count JSONB images == Count table rows
+  - 611 products have `is_label=true`
+  - No missing images
+- [ ] Rollback capability if validation fails
+
+**Research Needed:** None (standard SQLAlchemy migration)
+
+**Estimated Plans:** 2-3 plans
+
+---
+
+### Phase 3: Services & API
+**Goal:** Refactor services and API to use new table structure
+
+**Deliverables:**
+- [ ] Refactor `ProductImageService`:
+  - Update `add_image()`, `delete_image()`, `reorder_images()`
+  - New methods: `get_product_photos()`, `get_label_image()`, `set_label_flag()`
+  - Validation logic (mime_type, file_size)
+  - Auto-reorder on delete
+- [ ] Update API routes (`api/products/images.py`)
+- [ ] Update response schemas to include new metadata
+- [ ] Unit tests for service methods
+- [ ] Integration tests for API endpoints
+- [ ] Test label flag validation
+
+**Research Needed:** None (existing services refactor)
+
+**Estimated Plans:** 3-4 plans
+
+---
+
+### Phase 4: Marketplace Integration
+**Goal:** Update marketplace converters to filter labels from published images
+
+**Deliverables:**
+- [ ] Modify `VintedProductConverter`:
+  - Filter `is_label=true` images
+  - Only send product photos to Vinted
+- [ ] Modify `EbayProductConversionService`:
+  - Filter `is_label=true` images
+  - Only send product photos to eBay
+- [ ] Integration tests:
+  - Verify no labels in Vinted payload
+  - Verify no labels in eBay payload
+- [ ] Manual validation on test products
+
+**Out of Scope:** Etsy integration (v2)
+
+**Research Needed:** None (existing converters modification)
+
+**Estimated Plans:** 2-3 plans
+
+---
+
+### Phase 5: Cleanup & Documentation
+**Goal:** Remove deprecated JSONB column and finalize migration
+
+**Deliverables:**
+- [ ] Alembic migration removing `products.images` column
+- [ ] Alembic downgrade migration (restore JSONB from table if needed)
+- [ ] Update ARCHITECTURE.md:
+  - New image table structure
+  - Migration history
+  - Label detection strategy
+- [ ] Update CONVENTIONS.md:
+  - Image handling patterns
+  - Label flag usage
+- [ ] Final validation:
+  - All tests green
+  - No references to JSONB column
+  - Rollback tested
+
+**Research Needed:** None (standard cleanup)
+
+**Estimated Plans:** 1-2 plans
+
+---
+
+## Constraints
+
+**Technical:**
+- Multi-tenant architecture (all `user_X` schemas)
+- SQLAlchemy 2.0 syntax (`Mapped[T]`, `mapped_column()`)
+- Idempotent migrations (can rerun safely)
+- Performance: Bulk operations for 3282 products
+
+**Data Safety:**
+- ✅ Backup created: `backups/stoflow_db_full_backup_20260115_091652.dump` (9.3 MB)
+- Zero data loss tolerance
+- Rollback strategy required
+- Validation before column removal
+
+**Out of Scope (v1):**
+- FileService upload/optimization (keep R2 as-is)
+- UI Frontend changes (backend/API only)
+- Etsy converter updates (Vinted/eBay only)
+- CDN/cache invalidation
+
+---
+
+## Dependencies
+
+**Between Phases:**
+- Phase 2 depends on Phase 1 (table must exist)
+- Phase 3 depends on Phase 2 (data must be migrated)
+- Phase 4 depends on Phase 3 (services must work with new table)
+- Phase 5 depends on Phase 4 (full validation before cleanup)
+
+**External:**
+- None (internal refactoring)
+
+---
+
+## Risk Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| Data loss during migration | ✅ Full backup created, transaction-based migration, validation |
+| Migration script bugs | Idempotent design, test on subset first, rollback capability |
+| Label detection accuracy | Based on pythonApiWOO pattern (85%+ accuracy), manual review list |
+| Service refactoring breaks existing code | Comprehensive unit + integration tests |
+| Marketplace converters miss labels | Explicit tests for label filtering |
+| JSONB column removal premature | Only after full validation, downgrade migration available |
+
+---
+
+## Next Steps
+
+1. ✅ Backup complete
+2. ✅ PROJECT.md defined
+3. ✅ ROADMAP.md created
+4. → Start Phase 1: Database Architecture
+
+---
+
+*Last updated: 2026-01-15 after roadmap creation*

@@ -1,154 +1,111 @@
-# Project State
+# STATE - Image Management Architecture Migration
 
-## Project Reference
-
-See: .planning/PROJECT.md (updated 2026-01-14)
-
-**Core value:** Amélioration UI pour cohérence et professionnalisme (score 6.5/10 → >8/10)
-**Current focus:** Project Complete
-
-## Current Position
-
-Phase: 6 of 6 (Polish) ✓
-Plan: 2 of 2 in current phase ✓
-Status: Complete
-Last activity: 2026-01-14 — Phase 6 completed
-
-Progress: ██████████ 100%
-
-## Performance Metrics
-
-**Velocity:**
-- Total plans completed: 7
-- Average duration: ~6 min
-- Total execution time: ~45 min
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01-quick-wins | 2/2 ✓ | ~20 min | ~10 min |
-| 02-typography | 1/1 ✓ | ~10 min | ~10 min |
-| 03-colors | 1/1 ✓ | ~5 min | ~5 min |
-| 04-components | 2/2 ✓ | ~5 min | ~2.5 min |
-| 05-spacing | 1/1 ✓ | ~5 min | ~5 min |
-| 06-polish | 2/2 ✓ | ~5 min | ~2.5 min |
-
-## Accumulated Context
-
-### Decisions
-
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- Conserver la couleur primaire jaune (#facc15)
-- Pills (rounded-full) pour tous les badges
-- Border-radius: 16px cards, 12px buttons
-- Hauteur input: 44px
-- Keep PrimeVue severity prop, override with custom CSS classes
-- Sidebar icon hierarchy: main 18px, sub 14px (intentional)
-- Spacing base unit: 4px, form gap 8px, card gap 24px
-
-### Deferred Issues
-
-None.
-
-### Blockers/Concerns
-
-None.
-
-## UI Audit Reference
-
-Report: `.planning/UI-AUDIT-REPORT.md`
-Screenshots: `.playwright-mcp/audit-*.png`
-
-**Issues by priority:**
-- CRITICAL (Typography): 4 issues ✓ Resolved
-- HIGH (Colors): 5 issues ✓ Resolved
-- MEDIUM (Spacing/Components): 9 issues ✓ Resolved
-- LOW (Visual Polish): 4 issues ✓ Resolved
-
-## Phase 1 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 01-01 | CSS tokens and badge classes | ✓ Done |
-| 01-02 | Component updates + visual verification | ✓ Done |
-
-**Summary:**
-- Added status color tokens to design-tokens.css
-- Changed badges to pill shape (rounded-full)
-- Added badge-status-* utility classes
-- Improved page subtitle contrast
-- Updated IntegrationsStatus and platforms page components
-
-## Phase 2 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 02-01 | Typography system enforcement | ✓ Done |
-
-**Summary:**
-- Added h1-h6 rules with font-display and consistent weights
-- Added PrimeVue DataTable header/body styling
-
-## Phase 3 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 03-01 | Color system standardization | ✓ Done |
-
-**Summary:**
-- Added link utility classes (.link, .link-underline, .link-muted)
-- Standardized stat-card icon backgrounds (primary for main, gray for secondary)
-- Fixed text-blue-600 → text-primary-600 in legal page
-
-## Phase 4 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 04-01 | Input/button standardization | ✓ Done |
-| 04-02 | Icon standards & sidebar verification | ✓ Done |
-
-**Summary:**
-- Added PrimeVue form input height standardization (44px)
-- Added border-radius utility classes and PrimeVue button override
-- Documented icon size standards (.icon-menu-main, .icon-menu-sub, .icon-stat)
-- Verified sidebar icon hierarchy consistency
-
-## Phase 5 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 05-01 | Spacing system enforcement | ✓ Done |
-
-**Summary:**
-- Added spacing utility classes (.grid-cards, .form-field, .sidebar-submenu, .table-cell-standard)
-- Standardized form-group gap to 8px (space-y-2)
-- Applied grid-cards class to platform cards
-
-## Phase 6 Completed
-
-| Plan | Description | Status |
-|------|-------------|--------|
-| 06-01 | Error page with branding | ✓ Done |
-| 06-02 | Loading states and hover effects | ✓ Done |
-
-**Summary:**
-- Created `frontend/error.vue` with branded 404/500/403/401 error handling
-- Added error page utility classes (.error-code, .error-title, .error-description)
-- Added skeleton loading classes (.skeleton, .skeleton-text, .skeleton-card, etc.)
-- Added hover effect utilities (.hover-lift, .hover-subtle, .hover-bg, etc.)
-
-## Project Complete
-
-All 6 phases completed. UI improvement project finalized.
-
-**Total accomplishments:**
-- 19 sections in design-system.css
-- Standardized typography, colors, components, spacing, and polish
-- Score improvement: 6.5/10 → >8/10 (estimated)
+**Last Updated:** 2026-01-15
+**Current Phase:** Phase 1 - Database Architecture
+**Status:** Planning Complete, Ready to Execute
 
 ---
 
-*Last updated: 2026-01-14*
+## Current Progress
+
+### Completed
+- ✅ Project initialized with comprehensive requirements
+- ✅ Full database backup created (9.3 MB)
+- ✅ Roadmap with 5 phases defined
+- ✅ Development environment ready (worktree ~/StoFlow-change-image-logique)
+- ✅ Phase 1: Database Architecture COMPLETE (1/1 plans executed)
+  - ✅ PLAN 1.1: Create product_images table (commit: fa60a3d)
+
+### Active
+- [ ] Phase 2: Data Migration (Next phase to plan)
+
+### Blocked
+- None
+
+---
+
+## Phase Status
+
+| Phase | Status | Plans | Progress |
+|-------|--------|-------|----------|
+| 1. Database Architecture | ✅ Complete | 1/1 | 100% |
+| 2. Data Migration | Ready to Plan | 0/3 | 0% |
+| 3. Services & API | Not Started | 0/4 | 0% |
+| 4. Marketplace Integration | Not Started | 0/3 | 0% |
+| 5. Cleanup & Documentation | Not Started | 0/2 | 0% |
+
+**Overall Progress:** 1/12 plans completed (8%)
+
+---
+
+## Key Decisions Made
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Table séparée vs JSONB | Table permet indexes, FK constraints, métadonnées riches | 2026-01-15 |
+| Migration : dernière image = label | Pattern pythonApiWOO, 85% précision, simple | 2026-01-15 |
+| Backup complet avant migration | Sécurité absolue : 0 perte acceptée | 2026-01-15 |
+| is_label boolean vs enum | Boolean suffisant pour v1, extensible plus tard | 2026-01-15 |
+
+---
+
+## Critical Context
+
+### The Problem
+- **611 products** have internal "labels" (price tags) being published to Vinted/eBay
+- Current JSONB structure: `[{"url": "...", "order": 0, "created_at": "..."}]` - no type field
+- Migration 2026-01-03 removed `image_type` when moving to JSONB
+
+### The Solution
+- Dedicated `product_images` table with `is_label` boolean flag
+- Migration strategy: last image in order = label (pythonApiWOO pattern)
+- Filter `is_label=true` in marketplace converters
+
+### Data Safety
+- ✅ Full backup: `backups/stoflow_db_full_backup_20260115_091652.dump`
+- Idempotent migration scripts
+- Transaction-based per schema
+- Rollback capability via Alembic downgrade
+
+---
+
+## Recent Activity
+
+**2026-01-15:**
+- Initialized GSD project with comprehensive requirements gathering
+- Created full PostgreSQL backup (9.3 MB dump)
+- Defined 5-phase roadmap (standard depth)
+- Configured git to track only codebase mapping, not project files
+- Set workflow mode to Interactive
+- Created Phase 1 plan (PLAN 1.1 - Create product_images Table)
+- ✅ **EXECUTED PLAN 1.1** - Created product_images table across all user schemas
+  - Migration file: 20260115_0933_create_product_images_table_with_label_.py
+  - Tables created in user_1, user_2, user_4, user_5, template_tenant
+  - All tests passed (structure, rollback, idempotence)
+
+---
+
+## Next Action
+
+**Plan Phase 2: Data Migration**
+
+Command: `/gsd:plan-phase 2`
+
+This will create plans for:
+1. Idempotent migration script (JSONB → table)
+2. Label detection (last image = is_label=true)
+3. Post-migration validation (count, 611 labels identified)
+
+---
+
+## Notes
+
+- Development environment active (ports 8000/3000)
+- Backend/Frontend hot-reload enabled
+- Alembic migrations in sync
+- Multi-tenant PostgreSQL (user_X schemas)
+- SQLAlchemy 2.0 with Mapped[T] types
+
+---
+
+*Auto-updated by GSD workflow*
