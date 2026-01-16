@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
 from models.user.marketplace_job import JobStatus, MarketplaceJob
+from models.user.batch_job import BatchJob
 from models.user.product import Product
 from services.vinted.vinted_job_service import VintedJobService
 from services.marketplace.batch_job_service import BatchJobService
@@ -185,7 +186,13 @@ async def list_jobs(
             )
 
     if batch_id:
-        query = query.filter(MarketplaceJob.batch_id == batch_id)
+        # Get BatchJob by batch_id string first
+        batch = db.query(BatchJob).filter(BatchJob.batch_id == batch_id).first()
+        if batch:
+            query = query.filter(MarketplaceJob.batch_job_id == batch.id)
+        else:
+            # If batch not found, return empty results
+            query = query.filter(MarketplaceJob.id == -1)  # Always false
 
     # Get counts (use fresh query for each count to avoid filter stacking)
     base_query = db.query(MarketplaceJob).filter(MarketplaceJob.marketplace == "vinted")

@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from models.public.marketplace_action_type import MarketplaceActionType
 from models.user.marketplace_task import MarketplaceTask, TaskStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
+from models.user.batch_job import BatchJob
 from models.user.marketplace_job_stats import MarketplaceJobStats
 from shared.logging_setup import get_logger
 
@@ -539,9 +540,15 @@ class MarketplaceJobService:
         Returns:
             List of MarketplaceJob in the batch
         """
+        # Get BatchJob by batch_id string first
+        batch = self.db.query(BatchJob).filter(BatchJob.batch_id == batch_id).first()
+        if not batch:
+            return []
+
+        # Then filter by FK
         return (
             self.db.query(MarketplaceJob)
-            .filter(MarketplaceJob.batch_id == batch_id)
+            .filter(MarketplaceJob.batch_job_id == batch.id)
             .order_by(MarketplaceJob.created_at)
             .all()
         )
