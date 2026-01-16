@@ -81,11 +81,20 @@ export interface Product {
   updated_at: string
   deleted_at?: string | null
 
-  // Images (JSONB array)
+  // Images (from product_images table with rich metadata)
   images?: Array<{
+    id: number
     url: string
     order: number
+    is_label: boolean
+    alt_text: string | null
+    tags: string[] | null
+    mime_type: string | null
+    file_size: number | null
+    width: number | null
+    height: number | null
     created_at: string
+    updated_at: string
   }>
 
   // Computed/Legacy properties (for backwards compatibility)
@@ -94,7 +103,7 @@ export interface Product {
 }
 
 /**
- * Helper pour obtenir l'URL complète de la première image d'un produit
+ * Helper pour obtenir l'URL complète de la première image d'un produit (photos only, excludes labels)
  */
 export const getProductImageUrl = (product: Product): string => {
   if (!product.images || product.images.length === 0) {
@@ -102,8 +111,15 @@ export const getProductImageUrl = (product: Product): string => {
     return '/images/placeholder-product.svg'
   }
 
+  // Filter out labels (is_label=True) - labels are internal only
+  const photos = product.images.filter(img => !img.is_label)
+
+  if (photos.length === 0) {
+    return '/images/placeholder-product.svg'
+  }
+
   // Trier par order et prendre la première
-  const sortedImages = [...product.images].sort((a, b) => a.order - b.order)
+  const sortedImages = [...photos].sort((a, b) => a.order - b.order)
   const firstImage = sortedImages[0]
 
   if (!firstImage || !firstImage.url) {

@@ -1,0 +1,15 @@
+# GSD Project Files - NOT tracked (project-specific)
+PROJECT.md
+ROADMAP.md
+STATE.md
+config.json
+*.md
+phase-*
+phases/
+
+# EXCEPTIONS: Track execution artifacts and codebase mapping
+!phases/*/SUMMARY.md
+!phases/*/COVERAGE-GAPS.md
+!phases/*/PLAN.md
+!codebase/
+!codebase/**

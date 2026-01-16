@@ -15,21 +15,47 @@ from pydantic import BaseModel, Field, field_validator
 
 class ProductImageItem(BaseModel):
     """
-    Schema pour une image de produit stockée en JSONB.
+    Product image with rich metadata.
 
-    Structure: {url, order, created_at}
+    Stored in dedicated product_images table with support for:
+    - Label detection (internal price tags)
+    - SEO metadata (alt text, tags)
+    - File metadata (size, dimensions, MIME type)
     """
 
-    url: str = Field(..., description="URL de l'image (CDN R2)")
-    order: int = Field(..., ge=0, description="Ordre d'affichage (0 = première image)")
-    created_at: datetime = Field(..., description="Date de création")
+    # Core fields
+    id: int = Field(..., description="Image ID")
+    url: str = Field(..., description="Image URL (CDN R2)")
+    order: int = Field(..., ge=0, description="Display order (0-indexed, 0 = first image)")
+
+    # Metadata
+    is_label: bool = Field(False, description="Whether this is an internal price label (not published to marketplaces)")
+    alt_text: str | None = Field(None, max_length=500, description="Alt text for accessibility and SEO")
+    tags: list[str] | None = Field(None, description="Image tags for filtering and organization")
+    mime_type: str | None = Field(None, description="MIME type (e.g., image/jpeg, image/png)")
+    file_size: int | None = Field(None, ge=0, description="File size in bytes")
+    width: int | None = Field(None, ge=1, description="Image width in pixels")
+    height: int | None = Field(None, ge=1, description="Image height in pixels")
+
+    # Timestamps
+    created_at: datetime = Field(..., description="Creation timestamp (ISO 8601)")
+    updated_at: datetime = Field(..., description="Last update timestamp (ISO 8601)")
 
     model_config = {
         "json_schema_extra": {
             "example": {
+                "id": 123,
                 "url": "https://cdn.stoflow.io/1/products/5/abc123.jpg",
                 "order": 0,
-                "created_at": "2026-01-03T10:00:00Z"
+                "is_label": False,
+                "alt_text": "Vintage Levi's 501 jeans front view",
+                "tags": ["front", "product"],
+                "mime_type": "image/jpeg",
+                "file_size": 245678,
+                "width": 1200,
+                "height": 1600,
+                "created_at": "2026-01-15T10:00:00Z",
+                "updated_at": "2026-01-15T10:00:00Z"
             }
         }
     }
