@@ -70,11 +70,11 @@ class MarketplaceTask(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
     # Task type
-    # TODO(2026-01-16): Temporarily using String instead of SQLEnum to match DB schema (VARCHAR)
-    # The DB uses VARCHAR, not SQL ENUM. Change back to SQLEnum when migration is applied.
-    task_type: Mapped[str | None] = mapped_column(
-        String(100),  # Temporarily using String to match DB VARCHAR
-        # default=MarketplaceTaskType.PLUGIN_HTTP.value,  # Commented to avoid auto-default in tests
+    task_type: Mapped[MarketplaceTaskType | None] = mapped_column(
+        SQLEnum(
+            MarketplaceTaskType,
+            values_callable=lambda x: [e.value for e in x]
+        ),
         nullable=True,
         index=True,
         comment="Type of task (plugin_http, direct_http, db_operation, file_operation)"
