@@ -7,6 +7,9 @@ config.json
 phase-*
 phases/
 
-# EXCEPTION: Track codebase mapping (shared across projects)
+# EXCEPTIONS: Track execution artifacts and codebase mapping
+!phases/*/SUMMARY.md
+!phases/*/COVERAGE-GAPS.md
+!phases/*/PLAN.md
 !codebase/
 !codebase/**
