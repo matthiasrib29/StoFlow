@@ -145,7 +145,7 @@ class MarketplaceJobService:
             marketplace=marketplace,
             action_type_id=action_type.id,
             product_id=product_id,
-            batch_id=batch_id,  # Deprecated, kept for backward compatibility
+            # batch_id removed - column no longer exists in model
             batch_job_id=batch_job_id,
             status=JobStatus.PENDING,
             priority=priority if priority is not None else action_type.priority,

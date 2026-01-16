@@ -17,8 +17,6 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
-from alembic.config import Config
-from alembic import command
 
 from main import app
 from models.public.user import User, UserRole, SubscriptionTier
@@ -73,22 +71,61 @@ def setup_test_database():
         print("   docker-compose -f docker-compose.test.yml up -d")
         sys.exit(1)
 
-    # Appliquer les migrations Alembic pour créer la structure identique à prod/dev
-    print("📦 Applying Alembic migrations...")
+    # Initialize database from SQL dump instead of running Alembic migrations
+    # This avoids migration ordering issues and is much faster for tests
+    print("📦 Initializing database from SQL dump...")
     try:
-        # Configurer Alembic pour utiliser la DB de test
-        alembic_cfg = Config("alembic.ini")
-        alembic_cfg.set_main_option("sqlalchemy.url", SQLALCHEMY_TEST_DATABASE_URL)
+        # Read the init SQL script
+        sql_file = os.path.join(os.path.dirname(__file__), "sql", "init_test_db.sql")
 
-        # Appliquer toutes les migrations jusqu'à la version HEAD
-        # Cela crée:
-        # - Schema public (users, subscription_quotas, clothing_prices)
-        # - Schema product_attributes (brands, categories, colors, conditions, etc.)
-        # - Schema template_tenant (products, product_images, vinted_products, etc.)
-        command.upgrade(alembic_cfg, "head")
-        print("✅ Alembic migrations applied")
+        if not os.path.exists(sql_file):
+            raise FileNotFoundError(
+                f"Test database init SQL not found: {sql_file}\n"
+                "This file should be generated from the dev database."
+            )
+
+        # Execute SQL using psql via Docker (more reliable than parsing manually)
+        import subprocess
+
+        # Parse connection URL
+        url_parts = SQLALCHEMY_TEST_DATABASE_URL.replace("postgresql://", "").split("@")
+        user_pass = url_parts[0].split(":")
+        host_port_db = url_parts[1].split("/")
+        host_port = host_port_db[0].split(":")
+
+        username = user_pass[0]
+        password = user_pass[1]
+        host = host_port[0]
+        port = host_port[1]
+        database = host_port_db[1]
+
+        # Execute SQL using docker exec
+        result = subprocess.run(
+            [
+                "docker", "exec", "-i", "stoflow_test_db",
+                "psql",
+                "-U", username,
+                "-d", database,
+                "-f", "-"  # Read from stdin
+            ],
+            stdin=open(sql_file, "r"),
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode != 0:
+            # psql may have warnings but still succeed
+            # Only fail if there are actual errors (not warnings or NOTICE)
+            errors = [line for line in result.stderr.split("\n")
+                     if line and "ERROR" in line and "already exists" not in line.lower()]
+            if errors:
+                print(f"⚠️  SQL execution had errors:\n{chr(10).join(errors)}")
+                raise Exception(f"Failed to initialize database: {chr(10).join(errors)}")
+
+        print("✅ Database initialized from SQL dump")
+
     except Exception as e:
-        print(f"⚠️  Error applying migrations: {e}")
+        print(f"⚠️  Error initializing database: {e}")
         raise
 
     # Créer les schemas user_1, user_2, user_3 pour les tests en clonant template_tenant
@@ -121,7 +158,29 @@ def setup_test_database():
                     (LIKE template_tenant.{table_name} INCLUDING ALL)
                 """))
 
-            print(f"   ✅ {schema_name} created with {len(tables)} tables")
+            # Copy sequences separately (not included in LIKE INCLUDING ALL)
+            # Get all sequences from template_tenant
+            seq_result = conn.execute(text("""
+                SELECT sequencename FROM pg_sequences
+                WHERE schemaname = 'template_tenant'
+            """))
+            sequences = [row[0] for row in seq_result]
+            for seq_name in sequences:
+                conn.execute(text(f"""
+                    CREATE SEQUENCE {schema_name}.{seq_name}
+                    START WITH 1
+                """))
+                # Link sequence to table column if it's an id sequence
+                # and the corresponding table exists
+                if '_id_seq' in seq_name:
+                    table_name = seq_name.replace('_id_seq', '')
+                    if table_name in tables:
+                        conn.execute(text(f"""
+                            ALTER TABLE {schema_name}.{table_name}
+                            ALTER COLUMN id SET DEFAULT nextval('{schema_name}.{seq_name}'::regclass)
+                        """))
+
+            print(f"   ✅ {schema_name} created with {len(tables)} tables and {len(sequences)} sequences")
 
         conn.commit()
         print("✅ User schemas created (user_1, user_2, user_3)")
@@ -147,11 +206,21 @@ def db_session():
 
     Cette fixture (function-scope):
     - Fournit une session DB propre pour chaque test
+    - Configure schema_translate_map pour mapper "tenant" → "user_1"
     - Les données sont nettoyées par cleanup_data (TRUNCATE) après chaque test
     - Les tables existent déjà (créées par setup_test_database)
+
+    Important: schema_translate_map is configured on the Connection, not the Session.
+               We use Session.connection().execution_options() to get a new Connection
+               with the mapping, then bind it to the session.
     """
-    # Créer une session
-    session = TestingSessionLocal()
+    from sqlalchemy.orm import Session as SQLAlchemySession
+
+    # Create session from engine with schema_translate_map
+    # NOTE: We must create session from engine directly to use execution_options()
+    session = SQLAlchemySession(
+        bind=engine.execution_options(schema_translate_map={"tenant": "user_1"})
+    )
 
     try:
         yield session
@@ -510,45 +579,46 @@ def seed_attributes(db_session: Session):
 
 
 @pytest.fixture(scope="function")
-def test_product(db_session: Session, test_user):
+def test_product(test_user):
     """
     Fixture to create a test product in the user's schema.
 
     Args:
-        db_session: Database session
         test_user: Tuple (User, password_plain)
 
     Returns:
         Product: Test product with basic attributes
     """
     from models.user.product import Product
-    from sqlalchemy import text
+    from shared.database import engine
+    from sqlalchemy.orm import Session
 
     user, _ = test_user
 
-    # Set search path to user schema
-    db_session.execute(text(f"SET search_path TO user_{user.id}, public"))
-
-    product = Product(
-        title="Test Product",
-        description="Test description",
-        price=25.99,
-        stock_quantity=10,
-        category="T-shirt",
-        brand="Nike",
-        condition="EXCELLENT",
-        size_original="M",
-        color="Blue",
-        material="Cotton",
-        gender="Men",
-        images=[
-            {"url": "https://example.com/img1.jpg", "order": 0},
-            {"url": "https://example.com/img2.jpg", "order": 1}
-        ]
+    # Create a new session with schema_translate_map configured
+    # This must be done BEFORE any database operations
+    tenant_engine = engine.execution_options(
+        schema_translate_map={"tenant": f"user_{user.id}"}
     )
+    session = Session(bind=tenant_engine)
 
-    db_session.add(product)
-    db_session.commit()
-    db_session.refresh(product)
+    try:
+        product = Product(
+            title="Test Product",
+            description="Test description",
+            price=25.99,
+            stock_quantity=10,
+            category="T-shirt",
+            brand="Nike",
+            condition=9,  # Note 0-10 (9 = excellent condition)
+            size_original="M",
+            gender="Men"
+        )
 
-    return product
+        session.add(product)
+        session.commit()
+        session.refresh(product)
+
+        yield product
+    finally:
+        session.close()
