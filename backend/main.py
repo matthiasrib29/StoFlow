@@ -37,6 +37,7 @@ from api.ebay_webhook import router as ebay_webhook_router
 # REMOVED (2026-01-09): Plugin now communicates via WebSocket (no HTTP endpoints needed)
 # from api.plugin import router as plugin_router
 from api.pricing import router as pricing_router
+from api.preview import router as preview_router
 from api.products import router as products_router
 from api.text_generator import router as text_generator_router
 from api.user_settings import router as user_settings_router
@@ -242,6 +243,7 @@ app.include_router(admin_audit_router, prefix="/api")
 app.include_router(admin_stats_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(beta_router, prefix="/api")  # Beta signup (public, no auth required)
+app.include_router(preview_router, prefix="/api")  # Email template previews (dev only)
 app.include_router(batches_router, prefix="/api")  # Generic batch jobs (multi-marketplace)
 app.include_router(docs_router, prefix="/api")  # Public documentation (no auth required)
 app.include_router(admin_docs_router, prefix="/api")  # Admin documentation CRUD (admin only)
