@@ -156,7 +156,10 @@ def test_product(db_session: Session, test_user, seed_attributes):
 @pytest.fixture(scope="function")
 def test_product_with_images(db_session: Session, test_product: Product):
     """
-    Fixture pour créer un produit avec 3 images (JSONB).
+    Fixture pour créer un produit avec 3 images en table product_images.
+
+    Updated 2026-01-15: Uses ProductImageService to create images in product_images table
+    instead of JSONB column.
 
     Args:
         db_session: Session de base de données
@@ -165,11 +168,31 @@ def test_product_with_images(db_session: Session, test_product: Product):
     Returns:
         Product: Produit avec images
     """
-    test_product.images = [
-        {"url": "https://cdn.stoflow.io/1/products/1/img1.jpg", "order": 0, "created_at": "2026-01-03T10:00:00Z"},
-        {"url": "https://cdn.stoflow.io/1/products/1/img2.jpg", "order": 1, "created_at": "2026-01-03T10:01:00Z"},
-        {"url": "https://cdn.stoflow.io/1/products/1/img3.jpg", "order": 2, "created_at": "2026-01-03T10:02:00Z"},
-    ]
+    from services.product_image_service import ProductImageService
+
+    # Create 3 images using service (stored in product_images table)
+    ProductImageService.add_image(
+        db_session,
+        test_product.id,
+        "https://cdn.stoflow.io/1/products/1/img1.jpg",
+        display_order=0,
+        is_label=False,
+    )
+    ProductImageService.add_image(
+        db_session,
+        test_product.id,
+        "https://cdn.stoflow.io/1/products/1/img2.jpg",
+        display_order=1,
+        is_label=False,
+    )
+    ProductImageService.add_image(
+        db_session,
+        test_product.id,
+        "https://cdn.stoflow.io/1/products/1/img3.jpg",
+        display_order=2,
+        is_label=True,  # Last image is label
+    )
+
     db_session.commit()
     db_session.refresh(test_product)
     return test_product
@@ -806,10 +829,11 @@ class TestProductAPI:
     def test_delete_image_success(self, client: TestClient, auth_headers: dict, test_product_with_images: Product):
         """Test de suppression d'image."""
         # Récupérer la première image
-        image = test_product_with_images.product_images[0]
+        images = ProductService.get_images(client.app.state.db, test_product_with_images.id)
+        first_image_url = images[0]["url"]
 
         response = client.delete(
-            f"/api/products/{test_product_with_images.id}/images/{image.id}",
+            f"/api/products/{test_product_with_images.id}/images?image_url={first_image_url}",
             headers=auth_headers,
         )
 
@@ -817,22 +841,99 @@ class TestProductAPI:
 
     def test_reorder_images_success(self, client: TestClient, auth_headers: dict, test_product_with_images: Product):
         """Test de réordonnancement d'images."""
-        images = test_product_with_images.product_images
+        # Get current images from service
+        images = ProductService.get_images(client.app.state.db, test_product_with_images.id)
+
+        # Reverse order (send URLs in reverse order)
+        reversed_urls = [img["url"] for img in reversed(images)]
 
         response = client.put(
             f"/api/products/{test_product_with_images.id}/images/reorder",
             headers=auth_headers,
-            json={
-                str(images[0].id): 2,
-                str(images[1].id): 1,
-                str(images[2].id): 0,
-            }
+            json=reversed_urls  # List of URLs, not dict
         )
 
         assert response.status_code == 200
         data = response.json()
 
         assert len(data) == 3
+        # Verify new order
+        assert data[0]["url"] == reversed_urls[0]
+        assert data[0]["order"] == 0
+        assert data[1]["url"] == reversed_urls[1]
+        assert data[1]["order"] == 1
+        assert data[2]["url"] == reversed_urls[2]
+        assert data[2]["order"] == 2
+        # Verify metadata fields are present
+        assert "id" in data[0]
+        assert "is_label" in data[0]
+        assert "created_at" in data[0]
+        assert "updated_at" in data[0]
+
+    def test_set_label_flag_success(self, client: TestClient, auth_headers: dict, test_product_with_images: Product):
+        """Test setting and unsetting label flag on an image."""
+        # Get images from service
+        images = ProductService.get_images(client.app.state.db, test_product_with_images.id)
+
+        # First image (currently is_label=False)
+        first_image = images[0]
+        assert first_image["is_label"] is False
+
+        # Set as label
+        response = client.patch(
+            f"/api/products/{test_product_with_images.id}/images/{first_image['id']}/label?is_label=true",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == first_image["id"]
+        assert data["url"] == first_image["url"]
+        assert data["is_label"] is True
+        # Verify all metadata fields present
+        assert "order" in data
+        assert "alt_text" in data or data.get("alt_text") is None
+        assert "tags" in data or data.get("tags") is None
+        assert "mime_type" in data or data.get("mime_type") is None
+        assert "file_size" in data or data.get("file_size") is None
+        assert "width" in data or data.get("width") is None
+        assert "height" in data or data.get("height") is None
+        assert "created_at" in data
+        assert "updated_at" in data
+
+        # Unset label
+        response = client.patch(
+            f"/api/products/{test_product_with_images.id}/images/{first_image['id']}/label?is_label=false",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == first_image["id"]
+        assert data["is_label"] is False
+
+    def test_set_label_flag_only_one_per_product(self, client: TestClient, auth_headers: dict, test_product_with_images: Product):
+        """Test that only one label is allowed per product (business rule)."""
+        # Get images from service
+        images = ProductService.get_images(client.app.state.db, test_product_with_images.id)
+
+        # Third image is already label (from fixture)
+        third_image = images[2]
+        assert third_image["is_label"] is True
+
+        # Set first image as label (should unset third image automatically)
+        first_image = images[0]
+        response = client.patch(
+            f"/api/products/{test_product_with_images.id}/images/{first_image['id']}/label?is_label=true",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+
+        # Verify: first image is now label, third image is no longer label
+        updated_images = ProductService.get_images(client.app.state.db, test_product_with_images.id)
+        assert updated_images[0]["is_label"] is True  # First image
+        assert updated_images[2]["is_label"] is False  # Third image (was label, now unset)
 
 
 def test_create_product_auto_creates_size_original(

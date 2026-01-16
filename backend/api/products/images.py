@@ -37,7 +37,7 @@ async def upload_product_image(
     """
     Upload une image pour un produit.
 
-    Business Rules (Updated 2026-01-03):
+    Business Rules (Updated 2026-01-15):
     - Authentification requise
     - USER: peut uniquement uploader des images pour SES produits
     - ADMIN: peut uploader pour tous les produits
@@ -46,7 +46,7 @@ async def upload_product_image(
     - Formats: jpg, jpeg, png
     - Taille max: 10MB (avant optimisation)
     - Stockage: Cloudflare R2
-    - Images stockées en JSONB: {url, order, created_at}
+    - Images stockées en table product_images avec metadata (is_label, alt_text, tags, dimensions)
 
     Raises:
         400 BAD REQUEST: Si format/taille invalide ou limite atteinte
@@ -85,7 +85,7 @@ async def upload_product_image(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    # Ajouter en JSONB
+    # Ajouter en table product_images
     try:
         image_dict = ProductService.add_image(db, product_id, image_url, display_order)
         return ProductImageItem(**image_dict)
@@ -104,12 +104,12 @@ async def delete_product_image(
     """
     Supprime une image d'un produit par URL.
 
-    Business Rules (Updated 2026-01-03):
+    Business Rules (Updated 2026-01-15):
     - Authentification requise
     - USER: peut uniquement supprimer des images de SES produits
     - ADMIN: peut supprimer des images de tous les produits
     - SUPPORT: lecture seule (ne peut pas supprimer)
-    - Suppression du fichier R2 + entrée JSONB
+    - Suppression du fichier R2 + entrée table product_images
     - Réordonnancement automatique des images restantes
 
     Query Parameters:
@@ -136,8 +136,8 @@ async def delete_product_image(
     # Vérifier ownership (ADMIN peut, USER doit être propriétaire)
     ensure_user_owns_resource(current_user, product, "produit", allow_support=False)
 
-    # Vérifier que l'image existe dans le produit
-    images = product.images or []
+    # Vérifier que l'image existe dans le produit (using service, not JSONB)
+    images = ProductService.get_images(db, product_id)
     if not any(img.get("url") == image_url for img in images):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -147,7 +147,7 @@ async def delete_product_image(
     # Supprimer le fichier R2
     await FileService.delete_product_image(image_url)
 
-    # Supprimer l'entrée JSONB
+    # Supprimer l'entrée table product_images
     deleted = ProductService.delete_image(db, product_id, image_url)
 
     if not deleted:
@@ -170,7 +170,7 @@ def reorder_product_images(
     """
     Réordonne les images d'un produit.
 
-    Business Rules (Updated 2026-01-03):
+    Business Rules (Updated 2026-01-15):
     - Authentification requise
     - USER: peut uniquement réordonner les images de SES produits
     - ADMIN: peut réordonner les images de tous les produits
@@ -212,5 +212,65 @@ def reorder_product_images(
     try:
         images = ProductService.reorder_images(db, product_id, ordered_urls)
         return [ProductImageItem(**img) for img in images]
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.patch(
+    "/{product_id}/images/{image_id}/label",
+    response_model=ProductImageItem,
+    status_code=status.HTTP_200_OK,
+)
+def set_image_label_flag(
+    product_id: int,
+    image_id: int,
+    is_label: bool = Query(..., description="True to mark as label, False to unmark"),
+    user_db: tuple = Depends(get_user_db),
+) -> ProductImageItem:
+    """
+    Set or unset the label flag on a product image.
+
+    Business Rules (2026-01-15):
+    - Authentification requise
+    - USER: peut uniquement modifier les images de SES produits
+    - ADMIN: peut modifier les images de tous les produits
+    - SUPPORT: lecture seule (ne peut pas modifier)
+    - Only one label per product: setting is_label=true on one image will unset previous label
+    - Label images (is_label=true) are not published to marketplaces (Vinted, eBay, Etsy)
+
+    Args:
+        product_id: Product ID
+        image_id: Image ID (from product_images table)
+        is_label: True to mark as internal label, False to mark as product photo
+
+    Returns:
+        ProductImageItem: Updated image with new is_label value
+
+    Raises:
+        400 BAD REQUEST: If image doesn't belong to product
+        403 FORBIDDEN: If USER tries to modify another user's product or if SUPPORT
+        404 NOT FOUND: If product or image not found
+        401 UNAUTHORIZED: If not authenticated
+    """
+    db, current_user = user_db  # search_path already set by get_user_db
+
+    # SUPPORT ne peut pas modifier les images (lecture seule)
+    ensure_can_modify(current_user, "produit")
+
+    # Vérifier que le produit existe
+    product = ProductService.get_product_by_id(db, product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with id {product_id} not found",
+        )
+
+    # Vérifier ownership (ADMIN peut, USER doit être propriétaire)
+    ensure_user_owns_resource(current_user, product, "produit", allow_support=False)
+
+    # Mettre à jour le flag label
+    try:
+        image_dict = ProductService.set_label_flag(db, product_id, image_id, is_label)
+        return ProductImageItem(**image_dict)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

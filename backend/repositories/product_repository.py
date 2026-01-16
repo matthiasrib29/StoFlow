@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 
 from sqlalchemy import and_, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from models.user.product import Product, ProductStatus
 from shared.datetime_utils import utc_now
@@ -77,7 +77,11 @@ class ProductRepository:
         if not include_deleted:
             conditions.append(Product.deleted_at.is_(None))
 
-        stmt = select(Product).where(and_(*conditions))
+        stmt = (
+            select(Product)
+            .options(selectinload(Product.product_images))
+            .where(and_(*conditions))
+        )
         return db.execute(stmt).scalar_one_or_none()
 
     @staticmethod
@@ -123,8 +127,11 @@ class ProductRepository:
             count_stmt = count_stmt.where(and_(*conditions))
         total = db.execute(count_stmt).scalar_one() or 0
 
-        # Get products
-        stmt = select(Product)
+        # Get products with images
+        stmt = (
+            select(Product)
+            .options(selectinload(Product.product_images))
+        )
         if conditions:
             stmt = stmt.where(and_(*conditions))
         stmt = stmt.order_by(Product.created_at.desc()).offset(skip).limit(limit)
@@ -206,6 +213,7 @@ class ProductRepository:
         """
         stmt = (
             select(Product)
+            .options(selectinload(Product.product_images))
             .where(Product.status == status, Product.deleted_at.is_(None))
             .order_by(Product.created_at.desc())
             .limit(limit)
@@ -317,6 +325,7 @@ class ProductRepository:
 
         stmt = (
             select(Product)
+            .options(selectinload(Product.product_images))
             .where(Product.created_at >= cutoff, Product.deleted_at.is_(None))
             .order_by(Product.created_at.desc())
             .limit(limit)
@@ -342,6 +351,7 @@ class ProductRepository:
 
         stmt = (
             select(Product)
+            .options(selectinload(Product.product_images))
             .where(
                 Product.deleted_at.is_(None),
                 (Product.title.ilike(search_pattern))

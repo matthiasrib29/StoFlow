@@ -1,0 +1,1 @@
+"""eBay integration tests package."""
