@@ -17,8 +17,6 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
-from alembic.config import Config
-from alembic import command
 
 from main import app
 from models.public.user import User, UserRole, SubscriptionTier
@@ -73,22 +71,61 @@ def setup_test_database():
         print("   docker-compose -f docker-compose.test.yml up -d")
         sys.exit(1)
 
-    # Appliquer les migrations Alembic pour créer la structure identique à prod/dev
-    print("📦 Applying Alembic migrations...")
+    # Initialize database from SQL dump instead of running Alembic migrations
+    # This avoids migration ordering issues and is much faster for tests
+    print("📦 Initializing database from SQL dump...")
     try:
-        # Configurer Alembic pour utiliser la DB de test
-        alembic_cfg = Config("alembic.ini")
-        alembic_cfg.set_main_option("sqlalchemy.url", SQLALCHEMY_TEST_DATABASE_URL)
+        # Read the init SQL script
+        sql_file = os.path.join(os.path.dirname(__file__), "sql", "init_test_db.sql")
 
-        # Appliquer toutes les migrations jusqu'à la version HEAD
-        # Cela crée:
-        # - Schema public (users, subscription_quotas, clothing_prices)
-        # - Schema product_attributes (brands, categories, colors, conditions, etc.)
-        # - Schema template_tenant (products, product_images, vinted_products, etc.)
-        command.upgrade(alembic_cfg, "head")
-        print("✅ Alembic migrations applied")
+        if not os.path.exists(sql_file):
+            raise FileNotFoundError(
+                f"Test database init SQL not found: {sql_file}\n"
+                "This file should be generated from the dev database."
+            )
+
+        # Execute SQL using psql via Docker (more reliable than parsing manually)
+        import subprocess
+
+        # Parse connection URL
+        url_parts = SQLALCHEMY_TEST_DATABASE_URL.replace("postgresql://", "").split("@")
+        user_pass = url_parts[0].split(":")
+        host_port_db = url_parts[1].split("/")
+        host_port = host_port_db[0].split(":")
+
+        username = user_pass[0]
+        password = user_pass[1]
+        host = host_port[0]
+        port = host_port[1]
+        database = host_port_db[1]
+
+        # Execute SQL using docker exec
+        result = subprocess.run(
+            [
+                "docker", "exec", "-i", "stoflow_test_db",
+                "psql",
+                "-U", username,
+                "-d", database,
+                "-f", "-"  # Read from stdin
+            ],
+            stdin=open(sql_file, "r"),
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode != 0:
+            # psql may have warnings but still succeed
+            # Only fail if there are actual errors (not warnings or NOTICE)
+            errors = [line for line in result.stderr.split("\n")
+                     if line and "ERROR" in line and "already exists" not in line.lower()]
+            if errors:
+                print(f"⚠️  SQL execution had errors:\n{chr(10).join(errors)}")
+                raise Exception(f"Failed to initialize database: {chr(10).join(errors)}")
+
+        print("✅ Database initialized from SQL dump")
+
     except Exception as e:
-        print(f"⚠️  Error applying migrations: {e}")
+        print(f"⚠️  Error initializing database: {e}")
         raise
 
     # Créer les schemas user_1, user_2, user_3 pour les tests en clonant template_tenant
