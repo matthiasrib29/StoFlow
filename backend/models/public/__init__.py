@@ -15,7 +15,7 @@ Updated (2024-12-24): Ajout des modèles Documentation (doc_categories, doc_arti
 # Public schema models
 from models.public.admin_audit_log import AdminAuditLog
 from models.public.ai_credit import AICredit
-from models.public.beta_signup import BetaSignup
+from models.beta_signup import BetaSignup
 from models.public.clothing_price import ClothingPrice
 from models.public.doc_article import DocArticle
 from models.public.doc_category import DocCategory

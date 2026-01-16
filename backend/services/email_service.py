@@ -271,7 +271,7 @@ StoFlow - Gestion multi-plateformes pour e-commerce
     def _get_beta_confirmation_email_html(
         cls, name: str, vendor_type: str, monthly_volume: str
     ) -> str:
-        """Generate HTML content for beta confirmation email."""
+        """Generate HTML content for beta confirmation email (minimal version)."""
         return f"""
 <!DOCTYPE html>
 <html lang="fr">
@@ -280,142 +280,56 @@ StoFlow - Gestion multi-plateformes pour e-commerce
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bienvenue dans la beta StoFlow</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f5;">
         <tr>
             <td align="center" style="padding: 40px 20px;">
-                <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);">
-                    <!-- Header avec fond jaune -->
-                    <tr>
-                        <td align="center" style="padding: 40px; background: linear-gradient(135deg, #facc15 0%, #eab308 100%);">
-                            <h1 style="margin: 0; font-size: 36px; font-weight: 800; color: #1a1a1a; letter-spacing: 0.05em;">
-                                STOFLOW
-                            </h1>
-                            <p style="margin: 8px 0 0 0; font-size: 14px; font-weight: 500; color: #1a1a1a; text-transform: uppercase; letter-spacing: 0.1em;">
-                                Beta Testeur
-                            </p>
-                        </td>
-                    </tr>
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
 
-                    <!-- Emoji et titre -->
+                    <!-- Header simple -->
                     <tr>
-                        <td align="center" style="padding: 40px 40px 20px 40px;">
-                            <div style="font-size: 64px; margin-bottom: 20px;">🚀</div>
-                            <h2 style="margin: 0; font-size: 28px; font-weight: 700; color: #1a1a1a;">
-                                Bienvenue {name} !
-                            </h2>
+                        <td style="padding: 40px 40px 0 40px;">
+                            <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #1a1a1a;">
+                                StoFlow
+                            </h1>
                         </td>
                     </tr>
 
                     <!-- Message principal -->
                     <tr>
-                        <td style="padding: 0 40px 30px 40px;">
-                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 26px; color: #52525b; text-align: center;">
-                                Merci de rejoindre l'aventure StoFlow en tant que <strong>beta-testeur</strong> ! 🎉
+                        <td style="padding: 32px 40px;">
+                            <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 24px; color: #1a1a1a;">
+                                Bonjour {name},
                             </p>
-                            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 26px; color: #52525b; text-align: center;">
-                                Votre inscription a bien été enregistrée. Vous recevrez un email de notre part <strong>le 14 février 2026</strong> pour accéder à votre compte.
+                            <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 24px; color: #52525b;">
+                                Merci de votre inscription à la beta StoFlow.
                             </p>
-                        </td>
-                    </tr>
-
-                    <!-- Informations du vendeur -->
-                    <tr>
-                        <td style="padding: 0 40px 30px 40px;">
-                            <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px solid #facc15; border-radius: 12px; padding: 24px;">
-                                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">
-                                    📝 Votre profil
-                                </h3>
-                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                                    <tr>
-                                        <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">
-                                            <strong style="color: #1a1a1a;">Type de vendeur :</strong>
-                                        </td>
-                                        <td align="right" style="padding: 8px 0; font-size: 14px; color: #1a1a1a; font-weight: 500;">
-                                            {vendor_type.capitalize()}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">
-                                            <strong style="color: #1a1a1a;">Volume mensuel :</strong>
-                                        </td>
-                                        <td align="right" style="padding: 8px 0; font-size: 14px; color: #1a1a1a; font-weight: 500;">
-                                            {monthly_volume}
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <!-- Avantages beta -->
-                    <tr>
-                        <td style="padding: 0 40px 30px 40px;">
-                            <h3 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 700; color: #1a1a1a; text-align: center;">
-                                ✨ Vos avantages beta
-                            </h3>
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                                <tr>
-                                    <td style="padding: 12px 0;">
-                                        <div style="display: flex; align-items: flex-start;">
-                                            <span style="font-size: 20px; margin-right: 12px;">✅</span>
-                                            <div>
-                                                <strong style="font-size: 16px; color: #1a1a1a; display: block; margin-bottom: 4px;">Gratuit 1 mois</strong>
-                                                <span style="font-size: 14px; color: #6b7280;">Accès complet sans engagement</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 12px 0;">
-                                        <div style="display: flex; align-items: flex-start;">
-                                            <span style="font-size: 20px; margin-right: 12px;">✅</span>
-                                            <div>
-                                                <strong style="font-size: 16px; color: #1a1a1a; display: block; margin-bottom: 4px;">-50% à vie*</strong>
-                                                <span style="font-size: 14px; color: #6b7280;">14,50€/mois au lieu de 29€</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 12px 0;">
-                                        <div style="display: flex; align-items: flex-start;">
-                                            <span style="font-size: 20px; margin-right: 12px;">✅</span>
-                                            <div>
-                                                <strong style="font-size: 16px; color: #1a1a1a; display: block; margin-bottom: 4px;">Priorité support</strong>
-                                                <span style="font-size: 14px; color: #6b7280;">Réponse garantie sous 24h</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
-                            <p style="margin: 16px 0 0 0; font-size: 12px; color: #9ca3af; font-style: italic;">
-                                * Sous conditions de feedback régulier
+                            <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 24px; color: #52525b;">
+                                Vous recevrez un email de notre part le <strong>14 février 2026</strong> avec vos identifiants de connexion.
                             </p>
-                        </td>
-                    </tr>
 
-                    <!-- Prochaines étapes -->
-                    <tr>
-                        <td style="padding: 0 40px 40px 40px;">
-                            <div style="background: #f9fafb; border-radius: 12px; padding: 24px; border-left: 4px solid #facc15;">
-                                <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">
-                                    📅 Prochaines étapes
-                                </h3>
-                                <p style="margin: 0; font-size: 14px; line-height: 22px; color: #52525b;">
-                                    1️⃣ Vous recevrez vos identifiants le <strong>14 février 2026</strong><br>
-                                    2️⃣ Connectez vos comptes Vinted, eBay et Etsy<br>
-                                    3️⃣ Commencez à publier en 10 secondes ⚡
-                                </p>
-                            </div>
+                            <!-- Avantages - liste simple -->
+                            <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500; color: #1a1a1a;">
+                                En tant que beta-testeur :
+                            </p>
+                            <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #52525b; font-size: 14px; line-height: 22px;">
+                                <li style="margin-bottom: 4px;">1 mois gratuit</li>
+                                <li style="margin-bottom: 4px;">-50% à vie sous condition de feedback régulier</li>
+                                <li style="margin-bottom: 4px;">Support prioritaire</li>
+                            </ul>
+
+                            <p style="margin: 0; font-size: 14px; line-height: 22px; color: #71717a;">
+                                À bientôt,<br>
+                                L'équipe StoFlow
+                            </p>
                         </td>
                     </tr>
 
                     <!-- Footer -->
                     <tr>
-                        <td style="padding: 30px 40px; background: #fafafa; border-top: 1px solid #e5e7eb;">
-                            <p style="margin: 0 0 8px 0; font-size: 14px; line-height: 20px; color: #52525b; text-align: center;">
-                                Des questions ? Répondez simplement à cet email.
+                        <td style="padding: 24px 40px; background-color: #fafafa; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0; font-size: 12px; line-height: 18px; color: #71717a; text-align: center;">
+                                Des questions ? Répondez à cet email.
                             </p>
                             <p style="margin: 0; font-size: 12px; line-height: 18px; color: #a1a1aa; text-align: center;">
                                 <strong style="color: #facc15;">STOFLOW</strong> • Publiez sur Vinted & eBay en 10 secondes<br>
@@ -437,31 +351,26 @@ StoFlow - Gestion multi-plateformes pour e-commerce
     ) -> str:
         """Generate plain text content for beta confirmation email."""
         return f"""
-🚀 BIENVENUE DANS LA BETA STOFLOW !
+STOFLOW - Confirmation inscription beta
 
 Bonjour {name},
 
-Merci de rejoindre l'aventure StoFlow en tant que beta-testeur ! 🎉
+Merci de votre inscription à la beta StoFlow.
 
-Votre inscription a bien été enregistrée :
-- Type de vendeur : {vendor_type.capitalize()}
-- Volume mensuel : {monthly_volume}
+Vous recevrez un email de notre part le 14 février 2026 avec vos identifiants de connexion.
 
-VOS AVANTAGES BETA
-✅ Gratuit 1 mois - Accès complet sans engagement
-✅ -50% à vie* - 14,50€/mois au lieu de 29€
-✅ Priorité support - Réponse garantie sous 24h
+En tant que beta-testeur :
+- 1 mois gratuit
+- -50% à vie sous condition de feedback régulier
+- Support prioritaire
 
-* Sous conditions de feedback régulier
-
-PROCHAINES ÉTAPES
-1️⃣ Vous recevrez vos identifiants le 14 février 2026
-2️⃣ Connectez vos comptes Vinted, eBay et Etsy
-3️⃣ Commencez à publier en 10 secondes ⚡
-
-Des questions ? Répondez simplement à cet email.
+À bientôt,
+L'équipe StoFlow
 
 ---
+
+Des questions ? Répondez à cet email.
+
 STOFLOW • Publiez sur Vinted & eBay en 10 secondes
 © 2026 StoFlow. Tous droits réservés.
 """

@@ -10,7 +10,9 @@ from models.beta_signup import BetaSignup, BetaSignupStatus
 from schemas.beta_signup import BetaSignupCreate, BetaSignupResponse
 from services.email_service import EmailService
 from shared.database import get_db
-from shared.logger import logger
+from shared.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/beta", tags=["beta"])
 

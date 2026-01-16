@@ -27,7 +27,7 @@ async def preview_beta_confirmation_email(
         HTML email template
     """
     html_content = EmailService._get_beta_confirmation_email_html(
-        to_name=name,
+        name=name,
         vendor_type=vendor_type,
         monthly_volume=monthly_volume
     )
