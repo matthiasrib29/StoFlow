@@ -390,11 +390,31 @@ class MarketplaceJobService:
         """
         Increment retry count and check if max retries reached.
 
+        This is a critical method in the retry logic flow:
+        1. Load the job from database
+        2. Increment retry_count (starts at 0)
+        3. Compare with max_retries (default: 3, configurable per action type)
+        4. If max retries exceeded: Mark job as FAILED, update stats, update parent batch
+        5. Return (job, can_retry) tuple
+
+        Retry Logic Example:
+        - Attempt 1 fails: retry_count=0 → 1, can_retry=True (1 < 3)
+        - Attempt 2 fails: retry_count=1 → 2, can_retry=True (2 < 3)
+        - Attempt 3 fails: retry_count=2 → 3, can_retry=False (3 >= 3)
+        - Status changed to FAILED, error_message set
+
+        Why flush() instead of commit():
+        - Preserves search_path context (multi-tenant isolation)
+        - Caller (MarketplaceJobProcessor) will commit after setting status to PENDING
+        - Avoids nested commits which can cause transaction issues
+
         Args:
-            job_id: Job ID
+            job_id: Job ID to increment retry count
 
         Returns:
-            Tuple of (job, can_retry)
+            Tuple of (job, can_retry):
+                - job: Updated MarketplaceJob instance (or None if not found)
+                - can_retry: True if retry_count < max_retries, False otherwise
         """
         job = (
             self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
@@ -402,26 +422,41 @@ class MarketplaceJobService:
         if not job:
             return None, False
 
+        # Get max_retries from job or use default (3)
+        # Can be overridden per job or inherited from action_type
         action_type = self.get_action_type_by_id(job.action_type_id)
         max_retries = job.max_retries if job.max_retries else 3
 
+        # Increment retry counter
+        # retry_count starts at 0, increments after each failure
         job.retry_count += 1
+
+        # Check if we can retry
+        # can_retry = True means job will be reset to PENDING by caller
         can_retry = job.retry_count < max_retries
 
         if not can_retry:
+            # Max retries exceeded - mark as permanently FAILED
             job.status = JobStatus.FAILED
             job.error_message = f"Max retries ({max_retries}) exceeded"
             job.completed_at = datetime.now(timezone.utc)
+
+            # Update daily statistics (failure count)
             self._update_job_stats(job, success=False)
 
-            # Update parent batch if applicable
+            # Update parent batch progress if job belongs to a batch
+            # This ensures batch status reflects failed jobs
             if job.batch_job_id:
                 from services.marketplace.batch_job_service import BatchJobService
 
                 batch_service = BatchJobService(self.db)
                 batch_service.update_batch_progress(job.batch_job_id)
 
-        self.db.flush()  # Use flush, not commit (preserve search_path)
+        # Use flush() instead of commit()
+        # Preserves schema_translate_map (multi-tenant context)
+        # Caller will commit after setting appropriate status
+        self.db.flush()
+
         return job, can_retry
 
     # =========================================================================

@@ -153,16 +153,35 @@ class BaseMarketplaceHandler(ABC):
         Execute a plugin HTTP task (Vinted only).
 
         Uses the browser plugin to make HTTP requests with DataDome bypass.
+        This is the Strategy Pattern implementation for Vinted's communication.
+
+        Communication Flow:
+        1. Backend → WebSocket → Frontend → Plugin → Vinted API
+        2. Backend ← WebSocket ← Frontend ← Plugin ← Vinted API
+
+        Why WebSocket for Vinted:
+        - Vinted uses DataDome anti-bot protection
+        - Direct HTTP requests from backend are blocked
+        - Plugin runs in browser context with valid cookies/headers
+        - WebSocket provides real-time bidirectional communication
+
+        Granular Commit Strategy:
+        - Commits after marking task as PROCESSING (visibility)
+        - Commits after marking task as SUCCESS/FAILED (progress tracking)
+        - Enables frontend to poll for real-time updates
 
         Args:
             task: MarketplaceTask of type plugin_http
-            timeout: Timeout in seconds
+            timeout: Timeout in seconds (default: 60)
 
         Returns:
-            dict: Plugin response
+            dict: Plugin response with marketplace-specific data
+                Example: {"vinted_id": 987, "url": "https://..."}
 
         Raises:
             ValueError: If task is not plugin_http type
+            TimeoutError: If plugin doesn't respond within timeout
+            Exception: Any error from plugin or Vinted API
         """
         if task.task_type != MarketplaceTaskType.PLUGIN_HTTP:
             raise ValueError(
@@ -172,23 +191,30 @@ class BaseMarketplaceHandler(ABC):
         self.log_debug(f"Executing plugin task #{task.id}: {task.description}")
 
         # Mark task as processing
+        # Commit immediately for real-time progress tracking
         task.status = TaskStatus.PROCESSING
         task.started_at = datetime.now(timezone.utc)
         self.db.commit()
 
         try:
             # Call plugin via WebSocket (2026-01-12)
+            # PluginWebSocketHelper handles:
+            # - Finding user's WebSocket connection by user_id
+            # - Sending command to frontend via Socket.IO
+            # - Waiting for response with configurable timeout
+            # - Raising TimeoutError if no response
             result = await PluginWebSocketHelper.call_plugin_http(
                 db=self.db,
-                user_id=self.user_id,
-                http_method=task.http_method,
-                path=task.path,
-                payload=task.payload,
-                timeout=timeout,
-                description=task.description,
+                user_id=self.user_id,  # Required: identifies WebSocket connection
+                http_method=task.http_method,  # POST, PUT, GET, DELETE
+                path=task.path,  # Vinted API path (e.g., /api/v2/items)
+                payload=task.payload,  # Request body
+                timeout=timeout,  # Default 60s
+                description=task.description,  # Human-readable description for logs
             )
 
             # Mark task as success
+            # Commit immediately for real-time progress tracking
             task.status = TaskStatus.SUCCESS
             task.result = result
             task.completed_at = datetime.now(timezone.utc)
@@ -200,6 +226,7 @@ class BaseMarketplaceHandler(ABC):
 
         except Exception as e:
             # Mark task as failed
+            # Commit immediately so retry logic can see the failure
             task.status = TaskStatus.FAILED
             task.error_message = str(e)
             task.completed_at = datetime.now(timezone.utc)
@@ -214,19 +241,36 @@ class BaseMarketplaceHandler(ABC):
         """
         Execute a direct HTTP request from backend (eBay, Etsy, Vinted CDN).
 
-        Makes HTTP request directly without plugin.
+        Makes HTTP request directly without plugin using httpx async client.
+        This is the Strategy Pattern implementation for eBay/Etsy communication.
+
+        Communication Flow:
+        Backend → httpx → eBay/Etsy API (OAuth 2.0)
+
+        Why Direct HTTP for eBay/Etsy:
+        - No anti-bot protection (unlike Vinted)
+        - OAuth 2.0 access tokens provide authentication
+        - Direct communication is faster (no WebSocket overhead)
+        - Simpler architecture (no plugin dependency)
+
+        Granular Commit Strategy:
+        - Same as execute_plugin_task()
+        - Commits after each status change for real-time visibility
 
         Args:
             task: MarketplaceTask of type direct_http
-            headers: Optional HTTP headers
-            timeout: Timeout in seconds
+            headers: Optional HTTP headers (e.g., Authorization bearer token)
+            timeout: Timeout in seconds (default: 30, shorter than plugin)
 
         Returns:
-            dict: HTTP response JSON
+            dict: HTTP response JSON from marketplace API
+                Example: {"sku": "SKU123", "status": "PUBLISHED"}
 
         Raises:
             ValueError: If task is not direct_http type
-            httpx.HTTPError: If request fails
+            httpx.HTTPStatusError: If response status is 4xx or 5xx
+            httpx.TimeoutException: If request exceeds timeout
+            httpx.RequestError: Any other HTTP error
         """
         if task.task_type != MarketplaceTaskType.DIRECT_HTTP:
             raise ValueError(
@@ -236,23 +280,29 @@ class BaseMarketplaceHandler(ABC):
         self.log_debug(f"Executing direct HTTP task #{task.id}: {task.description}")
 
         # Mark task as processing
+        # Commit immediately for real-time progress tracking
         task.status = TaskStatus.PROCESSING
         task.started_at = datetime.now(timezone.utc)
         self.db.commit()
 
         try:
+            # Use httpx async client for non-blocking I/O
+            # Timeout is shorter than plugin (30s vs 60s) since no browser overhead
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.request(
-                    method=task.http_method,
-                    url=task.path,
-                    json=task.payload,
-                    headers=headers,
+                    method=task.http_method,  # POST, PUT, GET, DELETE, PATCH
+                    url=task.path,  # Full URL (e.g., https://api.ebay.com/sell/...)
+                    json=task.payload,  # Request body (serialized to JSON)
+                    headers=headers,  # Auth headers (e.g., Authorization: Bearer ...)
                 )
+                # Raise exception for 4xx/5xx status codes
                 response.raise_for_status()
 
+                # Parse JSON response
                 result = response.json()
 
                 # Mark task as success
+                # Commit immediately for real-time progress tracking
                 task.status = TaskStatus.SUCCESS
                 task.result = result
                 task.completed_at = datetime.now(timezone.utc)
@@ -264,6 +314,7 @@ class BaseMarketplaceHandler(ABC):
 
         except Exception as e:
             # Mark task as failed
+            # Commit immediately so retry logic can see the failure
             task.status = TaskStatus.FAILED
             task.error_message = str(e)
             task.completed_at = datetime.now(timezone.utc)
