@@ -64,21 +64,13 @@ class MarketplaceJob(Base):
         comment="Target marketplace (vinted, ebay, etsy)"
     )
 
-    # Batch reference (NEW - FK to BatchJob)
+    # Batch reference (FK to BatchJob)
     batch_job_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("tenant.batch_jobs.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="Parent BatchJob (for batch operations)"
-    )
-
-    # Batch ID string (DEPRECATED - keep for backward compatibility)
-    batch_id: Mapped[str | None] = mapped_column(
-        String(50),
-        nullable=True,
-        index=True,
-        comment="DEPRECATED: Use batch_job_id instead. Groups jobs from same batch API call"
     )
 
     # Action type reference (FK to vinted.action_types)
