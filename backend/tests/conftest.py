@@ -247,11 +247,11 @@ def _run_cleanup():
 
         # 1. Supprimer d'abord les données dans les schemas user (jobs, produits, images)
         # NOTE: Les schemas user_X peuvent ne pas exister pour les tests qui ne les utilisent pas
-        # NOTE (2026-01-09): marketplace_tasks removed - WebSocket replaced polling
         for user_id in [1, 2, 3]:
             schema = f"user_{user_id}"
             # Execute each TRUNCATE separately to avoid cascading failures
             tables_to_truncate = [
+                "marketplace_tasks",  # Must be before marketplace_jobs (FK)
                 "marketplace_jobs",
                 "batch_jobs",
                 "vinted_products",
