@@ -14,7 +14,8 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
 
     // Forward to backend API
-    const response = await $fetch(`${backendUrl}/api/beta/signup`, {
+    // Note: apiBaseUrl already includes /api prefix
+    const response = await $fetch(`${backendUrl}/beta/signup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

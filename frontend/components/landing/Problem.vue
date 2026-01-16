@@ -25,10 +25,6 @@ const problems = [
     description: 'Upload photo, remplir les champs, vérifier... et recommencer sur eBay, Vinted, Etsy...'
   },
   {
-    title: 'Faire des erreurs de copier-coller',
-    description: 'Oubli de prix, mauvaise catégorie, description incohérente... Les erreurs arrivent.'
-  },
-  {
     title: 'Jongler entre 5 onglets',
     description: 'Vinted, eBay, Etsy, Excel, Photos... Votre navigateur devient ingérable.'
   }

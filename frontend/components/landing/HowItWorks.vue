@@ -11,20 +11,6 @@
           <p class="step-description">{{ step.description }}</p>
         </div>
       </div>
-
-      <div class="time-comparison">
-        <div class="comparison-item old">
-          <div class="comparison-label">AVANT</div>
-          <div class="comparison-value">20 minutes</div>
-        </div>
-
-        <div class="comparison-arrow">→</div>
-
-        <div class="comparison-item new">
-          <div class="comparison-label">AVEC STOFLOW</div>
-          <div class="comparison-value">10 secondes</div>
-        </div>
-      </div>
     </div>
   </section>
 </template>
@@ -114,55 +100,6 @@ const steps = [
   line-height: 1.6;
 }
 
-.time-comparison {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 2rem;
-  flex-wrap: wrap;
-  padding: 3rem;
-  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-  border-radius: 1rem;
-}
-
-.comparison-item {
-  text-align: center;
-  padding: 2rem;
-  border-radius: 0.75rem;
-  min-width: 200px;
-}
-
-.comparison-item.old {
-  background: #fee2e2;
-  border: 2px solid #ef4444;
-}
-
-.comparison-item.new {
-  background: #dcfce7;
-  border: 2px solid #22c55e;
-}
-
-.comparison-label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
-  color: #6b7280;
-}
-
-.comparison-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1a1a1a;
-}
-
-.comparison-arrow {
-  font-size: 2rem;
-  color: #facc15;
-  font-weight: 700;
-}
-
 @media (max-width: 768px) {
   .howitworks-section {
     padding: 3rem 1rem;
@@ -171,15 +108,6 @@ const steps = [
   .steps-container {
     grid-template-columns: 1fr;
     gap: 3rem;
-  }
-
-  .time-comparison {
-    gap: 1rem;
-    padding: 2rem 1rem;
-  }
-
-  .comparison-arrow {
-    transform: rotate(90deg);
   }
 }
 </style>

@@ -29,7 +29,7 @@ const openIndex = ref<number | null>(null)
 const faqItems = [
   {
     question: 'Dois-je payer pour la beta ?',
-    answer: 'Non ! La beta est gratuite pendant 1 mois complet. Après, vous bénéficiez de -50% à vie (14,50€/mois au lieu de 29€).'
+    answer: 'Non ! La beta est gratuite pendant 1 mois complet. Après, vous bénéficiez de -50% à vie (14,50€/mois au lieu de 29€) tant que vous donnez du feedback régulier et participez à l\'amélioration de Stoflow.'
   },
   {
     question: 'Quelles marketplaces sont supportées ?',
@@ -46,10 +46,6 @@ const faqItems = [
   {
     question: 'L\'IA fait-elle des erreurs ?',
     answer: 'Notre IA a un taux de précision de 95%+. Vous pouvez toujours vérifier et modifier les descriptions avant publication.'
-  },
-  {
-    question: 'Combien de produits puis-je publier ?',
-    answer: 'Publications illimitées ! Pas de restriction sur le nombre de produits, photos, ou marketplaces.'
   }
 ]
 

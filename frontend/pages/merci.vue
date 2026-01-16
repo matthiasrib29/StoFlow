@@ -1,19 +1,17 @@
 <template>
   <div class="merci-page">
     <div class="merci-container">
-      <div class="success-icon">✅</div>
+      <div class="success-icon">
+        <i class="pi pi-check-circle"></i>
+      </div>
 
       <h1 class="merci-title">Vous êtes inscrit à la beta !</h1>
 
       <div class="merci-content">
         <div class="info-box">
           <div class="info-item">
-            <span class="info-icon">📧</span>
+            <i class="pi pi-envelope info-icon-svg"></i>
             <p>Vérifiez votre email (spam si besoin)</p>
-          </div>
-          <div class="info-item">
-            <span class="info-icon">⏰</span>
-            <p>On vous contacte dans 48h avec vos accès</p>
           </div>
         </div>
 
@@ -22,33 +20,29 @@
 
           <div class="social-links">
             <a href="#" class="social-link discord" @click.prevent>
-              <span class="social-icon">💬</span>
+              <i class="pi pi-discord"></i>
               <span>Rejoignez notre Discord</span>
-            </a>
-            <a href="#" class="social-link twitter" @click.prevent>
-              <span class="social-icon">🐦</span>
-              <span>Suivez-nous sur Twitter</span>
             </a>
           </div>
         </div>
 
-        <div class="bonus-section">
-          <div class="bonus-box">
-            <div class="bonus-icon">🎁</div>
-            <h3 class="bonus-title">BONUS : Partagez avec 3 amis</h3>
-            <p class="bonus-description">Gagnez 1 mois gratuit supplémentaire</p>
+        <div class="share-section">
+          <h2 class="share-title">Envie d'en parler ?</h2>
+          <p class="share-description">Partagez avec vos amis vendeurs</p>
 
-            <div class="share-buttons">
-              <button class="share-button whatsapp" @click="shareWhatsApp">
-                <span>WhatsApp</span>
-              </button>
-              <button class="share-button twitter" @click="shareTwitter">
-                <span>Twitter</span>
-              </button>
-              <button class="share-button email" @click="shareEmail">
-                <span>Email</span>
-              </button>
-            </div>
+          <div class="share-buttons">
+            <button class="share-button whatsapp" @click="shareWhatsApp">
+              <span>WhatsApp</span>
+            </button>
+            <button class="share-button instagram" @click="shareInstagram">
+              <span>Instagram</span>
+            </button>
+            <button class="share-button tiktok" @click="shareTikTok">
+              <span>TikTok</span>
+            </button>
+            <button class="share-button email" @click="shareEmail">
+              <span>Email</span>
+            </button>
           </div>
         </div>
 
@@ -84,9 +78,42 @@ const shareWhatsApp = () => {
   window.open(url, '_blank')
 }
 
-const shareTwitter = () => {
-  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`
-  window.open(url, '_blank')
+const shareInstagram = async () => {
+  // Use native Web Share API on mobile, fallback to copy link
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Stoflow Beta',
+        text: shareText,
+        url: shareUrl
+      })
+    } catch (err) {
+      console.log('Share cancelled')
+    }
+  } else {
+    // Fallback: copy link to clipboard
+    await navigator.clipboard.writeText(shareUrl)
+    alert('Lien copié ! Collez-le dans votre story Instagram')
+  }
+}
+
+const shareTikTok = async () => {
+  // Use native Web Share API on mobile, fallback to copy link
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Stoflow Beta',
+        text: shareText,
+        url: shareUrl
+      })
+    } catch (err) {
+      console.log('Share cancelled')
+    }
+  } else {
+    // Fallback: copy link to clipboard
+    await navigator.clipboard.writeText(shareUrl)
+    alert('Lien copié ! Collez-le dans votre vidéo TikTok')
+  }
 }
 
 const shareEmail = () => {
@@ -103,32 +130,24 @@ const shareEmail = () => {
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
-  background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+  background: #f9fafb;
 }
 
 .merci-container {
   max-width: 700px;
   width: 100%;
   background: white;
-  border-radius: 2rem;
+  border-radius: 1rem;
   padding: 3rem;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
   text-align: center;
 }
 
 .success-icon {
-  font-size: 5rem;
+  font-size: 4rem;
   margin-bottom: 1.5rem;
-  animation: bounce 1s ease-in-out;
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
+  color: #facc15;
 }
 
 .merci-title {
@@ -160,9 +179,10 @@ const shareEmail = () => {
   text-align: left;
 }
 
-.info-icon {
-  font-size: 2rem;
+.info-icon-svg {
+  font-size: 1.5rem;
   flex-shrink: 0;
+  color: #6b7280;
 }
 
 .info-item p {
@@ -192,64 +212,51 @@ const shareEmail = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  padding: 1rem 2rem;
-  border-radius: 0.75rem;
+  gap: 0.75rem;
+  padding: 0.875rem 1.75rem;
+  border-radius: 0.5rem;
   text-decoration: none;
   font-weight: 600;
-  font-size: 1.1rem;
-  transition: all 0.3s;
-}
-
-.social-link.discord {
-  background: #5865F2;
-  color: white;
-}
-
-.social-link.discord:hover {
-  background: #4752C4;
-  transform: translateY(-2px);
-}
-
-.social-link.twitter {
-  background: #1DA1F2;
-  color: white;
-}
-
-.social-link.twitter:hover {
-  background: #1A91DA;
-  transform: translateY(-2px);
-}
-
-.social-icon {
-  font-size: 1.5rem;
-}
-
-.bonus-section {
-  background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
-  border-radius: 1rem;
-  padding: 2rem;
-}
-
-.bonus-box {
+  font-size: 1rem;
+  transition: all 0.2s;
+  border: 1.5px solid #e5e7eb;
+  background: white;
   color: #1a1a1a;
 }
 
-.bonus-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+.social-link.discord:hover {
+  border-color: #5865F2;
+  background: #f0f1ff;
 }
 
-.bonus-title {
+.social-link.twitter:hover {
+  border-color: #1DA1F2;
+  background: #e8f5ff;
+}
+
+.social-link i {
+  font-size: 1.25rem;
+  color: #6b7280;
+}
+
+.share-section {
+  background: #f9fafb;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 2rem;
+}
+
+.share-title {
   font-size: 1.5rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
+  color: #1a1a1a;
 }
 
-.bonus-description {
-  font-size: 1.1rem;
+.share-description {
+  font-size: 1rem;
   margin-bottom: 1.5rem;
-  opacity: 0.9;
+  color: #6b7280;
 }
 
 .share-buttons {
@@ -262,38 +269,32 @@ const shareEmail = () => {
 .share-button {
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
-  border: none;
+  border: 1.5px solid #e5e7eb;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
-  color: white;
-}
-
-.share-button.whatsapp {
-  background: #25D366;
+  transition: all 0.2s;
+  background: white;
+  color: #1a1a1a;
 }
 
 .share-button.whatsapp:hover {
-  background: #1DA851;
-  transform: translateY(-2px);
+  border-color: #25D366;
+  background: #e8f8f0;
 }
 
-.share-button.twitter {
-  background: #1DA1F2;
+.share-button.instagram:hover {
+  border-color: #E1306C;
+  background: #ffe8f0;
 }
 
-.share-button.twitter:hover {
-  background: #1A91DA;
-  transform: translateY(-2px);
-}
-
-.share-button.email {
-  background: #6b7280;
+.share-button.tiktok:hover {
+  border-color: #000000;
+  background: #f3f4f6;
 }
 
 .share-button.email:hover {
-  background: #4b5563;
-  transform: translateY(-2px);
+  border-color: #6b7280;
+  background: #f3f4f6;
 }
 
 .back-button {
@@ -313,8 +314,39 @@ const shareEmail = () => {
 }
 
 @media (max-width: 768px) {
+  .merci-page {
+    padding: 1rem;
+  }
+
   .merci-container {
-    padding: 2rem 1.5rem;
+    padding: 2rem 1.25rem;
+  }
+
+  .success-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  .merci-title {
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .merci-content {
+    gap: 2rem;
+  }
+
+  .info-box {
+    padding: 1.5rem;
+  }
+
+  .info-item p {
+    font-size: 1rem;
+  }
+
+  .social-title {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
   }
 
   .social-links {
@@ -322,16 +354,40 @@ const shareEmail = () => {
   }
 
   .social-link {
-    font-size: 1rem;
-    padding: 0.875rem 1.5rem;
+    font-size: 0.9375rem;
+    padding: 0.875rem 1.25rem;
+    min-height: 48px;
+  }
+
+  .share-section {
+    padding: 1.5rem;
+  }
+
+  .share-title {
+    font-size: 1.25rem;
+  }
+
+  .share-description {
+    font-size: 0.9375rem;
+    margin-bottom: 1.25rem;
   }
 
   .share-buttons {
     flex-direction: column;
+    gap: 0.75rem;
   }
 
   .share-button {
     width: 100%;
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9375rem;
+    min-height: 48px;
+  }
+
+  .back-button {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.9375rem;
+    min-height: 48px;
   }
 }
 </style>

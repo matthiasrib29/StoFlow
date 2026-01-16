@@ -28,23 +28,8 @@ const features = [
   },
   {
     icon: '✅',
-    title: 'Détourage automatique photos',
-    description: 'Fond blanc automatique pour des photos pro en 1 seconde'
-  },
-  {
-    icon: '✅',
     title: 'Gestion multi-produits en masse',
     description: 'Importez 100 produits d\'un coup, on s\'occupe de tout'
-  },
-  {
-    icon: '✅',
-    title: 'Preview avant publication',
-    description: 'Vérifiez et ajustez avant de publier, zéro erreur'
-  },
-  {
-    icon: '✅',
-    title: 'Analytics de performance',
-    description: 'Tableau de bord complet : vues, ventes, meilleurs produits'
   }
 ]
 </script>

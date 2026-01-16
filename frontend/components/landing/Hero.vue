@@ -11,7 +11,7 @@
         </p>
 
         <div class="hero-cta">
-          <LandingSignupForm :show-full-form="false" />
+          <LandingSignupForm :show-full-form="true" />
 
           <div class="places-counter">
             <span class="counter-icon">⏰</span>
@@ -26,13 +26,15 @@
           </div>
           <div class="benefit">
             <span class="benefit-icon">✅</span>
-            <span>-50% à vie</span>
+            <span>-50% à vie*</span>
           </div>
           <div class="benefit">
             <span class="benefit-icon">✅</span>
             <span>Sans engagement</span>
           </div>
         </div>
+
+        <p class="hero-conditions-note">* Sous conditions de feedback</p>
       </div>
     </div>
   </section>
@@ -126,18 +128,62 @@ const placesRestantes = inject<Ref<number>>('placesRestantes')!
   font-size: 1.2rem;
 }
 
+.hero-conditions-note {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #d1d5db;
+  font-style: italic;
+}
+
 @media (max-width: 768px) {
   .hero-section {
     min-height: auto;
-    padding: 3rem 1rem;
+    padding: 2rem 1rem;
+  }
+
+  .hero-title {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .hero-cta {
+    margin-bottom: 1.5rem;
+  }
+
+  .places-counter {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .counter-icon {
+    font-size: 1rem;
   }
 
   .hero-benefits {
-    gap: 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 2rem;
   }
 
   .benefit {
-    font-size: 0.9rem;
+    font-size: 0.875rem;
+    justify-content: center;
+  }
+
+  .benefit-icon {
+    font-size: 1rem;
+  }
+
+  .hero-conditions-note {
+    font-size: 0.8125rem;
+    margin-top: 0.75rem;
   }
 }
 </style>

@@ -32,7 +32,7 @@
             option-label="label"
             option-value="value"
             placeholder="Type de vendeur (optionnel)"
-            class="form-input"
+            class="w-full"
           />
         </div>
 
@@ -43,7 +43,7 @@
             option-label="label"
             option-value="value"
             placeholder="Volume mensuel (optionnel)"
-            class="form-input"
+            class="w-full"
           />
         </div>
       </template>
@@ -59,10 +59,12 @@
 
       <!-- Success/Error messages -->
       <div v-if="successMessage" class="message success-message">
-        ✅ {{ successMessage }}
+        <i class="pi pi-check-circle"></i>
+        <span>{{ successMessage }}</span>
       </div>
       <div v-if="errorMessage" class="message error-message">
-        ❌ {{ errorMessage }}
+        <i class="pi pi-times-circle"></i>
+        <span>{{ errorMessage }}</span>
       </div>
     </form>
   </div>
@@ -222,18 +224,32 @@ const handleSubmit = async () => {
   border-radius: 0.5rem;
   text-align: center;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .success-message {
-  background: #dcfce7;
+  background: #f0fdf4;
   color: #166534;
-  border: 1px solid #22c55e;
+  border: 1px solid #bbf7d0;
+}
+
+.success-message i {
+  color: #22c55e;
+  font-size: 1.25rem;
 }
 
 .error-message {
-  background: #fee2e2;
+  background: #fef2f2;
   color: #991b1b;
-  border: 1px solid #ef4444;
+  border: 1px solid #fecaca;
+}
+
+.error-message i {
+  color: #ef4444;
+  font-size: 1.25rem;
 }
 
 :deep(.p-error) {
@@ -244,13 +260,33 @@ const handleSubmit = async () => {
 }
 
 @media (max-width: 768px) {
+  .signup-form-wrapper {
+    max-width: 100%;
+  }
+
+  .signup-form {
+    gap: 0.875rem;
+  }
+
   .form-input {
-    font-size: 0.95rem;
-    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    padding: 0.875rem 1rem;
+    min-height: 48px;
   }
 
   .submit-button {
     font-size: 1rem;
+    padding: 0.875rem 1.5rem;
+    min-height: 48px;
+  }
+
+  .message {
+    padding: 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  :deep(.p-error) {
+    font-size: 0.8125rem;
   }
 }
 </style>
