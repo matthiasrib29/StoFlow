@@ -1,8 +1,9 @@
 #!/bin/bash
-# scripts/new-hotfix.sh
-# Creates a new hotfix worktree with dedicated venv and dev environment
-# Usage: ./scripts/new-hotfix.sh <env_num> <hotfix_name>
-# Example: ./scripts/new-hotfix.sh 1 fix-login
+# scripts/new-worktree.sh
+# Creates a new feature/hotfix worktree with dedicated venv and dev environment
+# Usage: ./scripts/new-worktree.sh <env_num> <name> <type>
+# Example: ./scripts/new-worktree.sh 1 add-ebay feature
+# Example: ./scripts/new-worktree.sh 2 fix-login hotfix
 
 set -e
 trap 'echo "❌ Script arrêté à la ligne $LINENO"' ERR
@@ -12,17 +13,20 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+ORANGE='\033[0;33m'
 NC='\033[0m' # No Color
 
 # Parameters
 ENV_NUM=$1
 NAME=$2
+TYPE=$3
 
 # Validation
-if [ -z "$ENV_NUM" ] || [ -z "$NAME" ]; then
+if [ -z "$ENV_NUM" ] || [ -z "$NAME" ] || [ -z "$TYPE" ]; then
     echo -e "${RED}❌ ERREUR: Paramètres manquants${NC}"
-    echo "Usage: $0 <env_num> <name>"
-    echo "Exemple: $0 1 fix-login"
+    echo "Usage: $0 <env_num> <name> <type>"
+    echo "Exemple: $0 1 add-ebay feature"
+    echo "Exemple: $0 2 fix-login hotfix"
     exit 1
 fi
 
@@ -31,14 +35,30 @@ if ! [[ "$ENV_NUM" =~ ^[1-4]$ ]]; then
     exit 1
 fi
 
+if [ "$TYPE" != "feature" ] && [ "$TYPE" != "hotfix" ]; then
+    echo -e "${RED}❌ ERREUR: type doit être 'feature' ou 'hotfix'${NC}"
+    exit 1
+fi
+
 # Calculate ports
 BACKEND_PORT=$((8000 + ENV_NUM - 1))
 FRONTEND_PORT=$((3000 + ENV_NUM - 1))
 
 WORKTREE_DIR="$HOME/StoFlow-$NAME"
-BRANCH_NAME="hotfix/$NAME"
+BRANCH_NAME="$TYPE/$NAME"
 
-echo -e "${RED}🚨 Création du worktree HOTFIX: $NAME${NC}"
+# Set color based on type
+if [ "$TYPE" = "hotfix" ]; then
+    HEADER_COLOR=$RED
+    TYPE_EMOJI="🚨"
+    TYPE_LABEL="HOTFIX"
+else
+    HEADER_COLOR=$GREEN
+    TYPE_EMOJI="🚀"
+    TYPE_LABEL="FEATURE"
+fi
+
+echo -e "${HEADER_COLOR}${TYPE_EMOJI} Création du worktree $TYPE_LABEL: $NAME${NC}"
 echo -e "${BLUE}📍 Environnement: $ENV_NUM (ports $BACKEND_PORT/$FRONTEND_PORT)${NC}"
 echo ""
 
@@ -150,13 +170,11 @@ cp -r ~/StoFlow/backend/keys backend/ || {
 echo -e "${YELLOW}📂 Création du dossier logs...${NC}"
 mkdir -p logs
 
-echo -e "${YELLOW}📦 Installation des dépendances frontend...${NC}"
-cd frontend
-npm install || {
-    echo -e "${RED}❌ ERREUR: Échec npm install${NC}"
+echo -e "${YELLOW}⚙️  Initialisation des dépendances et migrations...${NC}"
+~/StoFlow/.claude/worktree-init.sh "$WORKTREE_DIR" || {
+    echo -e "${RED}❌ ERREUR: Échec worktree-init.sh${NC}"
     exit 1
 }
-cd ..
 
 # ============================================================================
 # LANCEMENT DE L'ENVIRONNEMENT DE DEV
@@ -172,28 +190,28 @@ echo ""
 # ============================================================================
 
 echo ""
-echo -e "${RED}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${RED}║  🚨 HOTFIX WORKTREE CREE + DEV $ENV_NUM LANCE                       ║${NC}"
-echo -e "${RED}╠══════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${RED}║                                                              ║${NC}"
-echo -e "${RED}║  📁 Dossier : $WORKTREE_DIR"
-printf "${RED}║  🌿 Branche : $BRANCH_NAME"
-printf "\n${RED}║  🚀 Env dev : $ENV_NUM (Backend $BACKEND_PORT + Frontend $FRONTEND_PORT)"
-printf "\n${RED}║                                                              ║${NC}"
-echo -e "${RED}╠══════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${RED}║  ⚠️  A PARTIR DE MAINTENANT :                                ║${NC}"
-echo -e "${RED}║                                                              ║${NC}"
-echo -e "${RED}║  TOUTES les modifications doivent etre faites dans :         ║${NC}"
-echo -e "${RED}║  $WORKTREE_DIR/"
-printf "\n${RED}║                                                              ║${NC}"
-echo -e "${RED}║  URLs :                                                      ║${NC}"
-echo -e "${RED}║  • Backend  : http://localhost:$BACKEND_PORT"
-printf "\n${RED}║  • Frontend : http://localhost:$FRONTEND_PORT"
-printf "\n${RED}║                                                              ║${NC}"
-echo -e "${RED}║  ❌ NE PAS modifier ~/StoFlow/ (c'est develop)               ║${NC}"
-echo -e "${RED}║                                                              ║${NC}"
-echo -e "${RED}║  Quand fini : /finish                                        ║${NC}"
-echo -e "${RED}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${HEADER_COLOR}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${HEADER_COLOR}║  ✅ WORKTREE $TYPE_LABEL CREE + DEV $ENV_NUM LANCE                       ║${NC}"
+echo -e "${HEADER_COLOR}╠══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${HEADER_COLOR}║                                                              ║${NC}"
+echo -e "${HEADER_COLOR}║  📁 Dossier : $WORKTREE_DIR"
+printf "${HEADER_COLOR}║  🌿 Branche : $BRANCH_NAME"
+printf "\n${HEADER_COLOR}║  🚀 Env dev : $ENV_NUM (Backend $BACKEND_PORT + Frontend $FRONTEND_PORT)"
+printf "\n${HEADER_COLOR}║                                                              ║${NC}"
+echo -e "${HEADER_COLOR}╠══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${HEADER_COLOR}║  ⚠️  A PARTIR DE MAINTENANT :                                ║${NC}"
+echo -e "${HEADER_COLOR}║                                                              ║${NC}"
+echo -e "${HEADER_COLOR}║  TOUTES les modifications doivent etre faites dans :         ║${NC}"
+echo -e "${HEADER_COLOR}║  $WORKTREE_DIR/"
+printf "\n${HEADER_COLOR}║                                                              ║${NC}"
+echo -e "${HEADER_COLOR}║  URLs :                                                      ║${NC}"
+echo -e "${HEADER_COLOR}║  • Backend  : http://localhost:$BACKEND_PORT"
+printf "\n${HEADER_COLOR}║  • Frontend : http://localhost:$FRONTEND_PORT"
+printf "\n${HEADER_COLOR}║                                                              ║${NC}"
+echo -e "${HEADER_COLOR}║  ❌ NE PAS modifier ~/StoFlow/ (c'est develop)               ║${NC}"
+echo -e "${HEADER_COLOR}║                                                              ║${NC}"
+echo -e "${HEADER_COLOR}║  Quand fini : /finish                                        ║${NC}"
+echo -e "${HEADER_COLOR}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 exit 0
