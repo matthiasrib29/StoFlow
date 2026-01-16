@@ -9,20 +9,20 @@ See: .planning/ROADMAP.md
 
 ## Current Position
 
-Phase: 8 of 12 (Stats System Refactoring) ✅ COMPLETE
+Phase: 9 of 12 (Schema Cleanup) ✅ COMPLETE
 Plan: 1 of 1 in current phase ✅
-Status: Phase Complete (stats refactored to be marketplace-agnostic)
-Last activity: 2026-01-15 — Completed Phase 8 (plan 08-01)
+Status: Phase Complete (deprecated batch_id column removed)
+Last activity: 2026-01-16 — Completed Phase 9 (plan 09-01)
 
-Progress: ████████░░ 67% (8/12 phases complete)
+Progress: █████████░ 75% (9/12 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total phases completed: 8
-- Total plans completed: 11
-- Average duration: ~17 min/plan
-- Total execution time: ~191 min
+- Total phases completed: 9
+- Total plans completed: 12
+- Average duration: ~18 min/plan
+- Total execution time: ~216 min
 
 **By Phase:**
 
@@ -36,6 +36,7 @@ Progress: ████████░░ 67% (8/12 phases complete)
 | 06-vinted-services-extraction | 1/1 | ~45 min | ✅ Complete |
 | 07-vinted-handlers-refactoring | 3/3 | ~28 min total | ✅ Complete |
 | 08-stats-system-refactoring | 1/1 | ~60 min | ✅ Complete |
+| 09-schema-cleanup | 1/1 | ~25 min | ✅ Complete |
 
 ## Accumulated Context
 
@@ -53,6 +54,8 @@ Decisions affecting current and future work:
 8. **Phase 7**: Handlers with special parameters need execute() override (e.g., DeleteJobHandler with check_conditions)
 9. **Phase 8**: Use job.marketplace from MarketplaceJob for stats filtering (leverages existing model structure)
 10. **Phase 8**: Optional marketplace parameter in get_stats() enables querying both all marketplaces and specific ones
+11. **Phase 9**: Single FK pattern for batch relationships (use batch_job_id int FK instead of batch_id string)
+12. **Phase 9**: Keep API contract unchanged while refactoring internal implementation (backward compatibility)
 
 ### Deferred Issues
 
@@ -155,12 +158,27 @@ These stubs prevent import errors but need real implementations in future phases
 - **9 files modified** (models, services, tests)
 - **Total duration**: ~60 min (1 plan)
 
+### Phase 9: Schema Cleanup ✅
+**Plan 09-01: Remove MarketplaceJob.batch_id** ✅
+- Migrated all code queries to use batch_job_id FK instead of batch_id string
+- Removed batch_id column definition from MarketplaceJob model
+- Created Alembic migration to drop column from database
+- Synced migration to all tenant schemas
+- Tests: All passing (zero breaking changes)
+- Duration: ~25 min
+
+**Phase 9 Totals:**
+- **Schema cleaned** (no more batch_id duplication)
+- **Database migration applied** (drop deprecated column)
+- **6 files modified** (models, services, API, repository, migration)
+- **Total duration**: ~25 min (1 plan)
+
 ## Session Continuity
 
-Last session: 2026-01-15 19:14:00Z
-Stopped at: Completed Phase 8 (plan 08-01)
+Last session: 2026-01-16 09:25:00Z
+Stopped at: Completed Phase 9 (plan 09-01)
 Resume file: None
 
 ---
 
-*Last updated: 2026-01-15*
+*Last updated: 2026-01-16*
