@@ -21,25 +21,35 @@
             <i class="pi pi-users" />
             Déjà 500+ vendeurs économisent 5h/semaine
           </p>
-
-          <!-- Beta Signup Form -->
-          <div class="bg-white rounded-xl shadow-lg border border-secondary-200 p-6 mb-6">
-            <LandingSignupForm :show-full-form="true" />
+          <div class="flex flex-col sm:flex-row gap-4">
+            <Button
+              label="Commencer gratuitement"
+              icon="pi pi-arrow-right"
+              icon-pos="right"
+              class="bg-secondary-900 hover:bg-secondary-800 text-white border-0 font-bold text-lg px-8 py-3"
+              @click="navigateTo('/register')"
+            />
+            <Button
+              label="Voir la démo"
+              class="bg-transparent text-secondary-900 border-2 border-secondary-900 hover:bg-secondary-100 font-bold text-lg px-8 py-3 group"
+              @click="$emit('showDemo')"
+            >
+              <template #icon>
+                <span class="inline-flex items-center justify-center w-6 h-6 bg-secondary-900 text-white rounded-full mr-2 group-hover:bg-primary-400 group-hover:text-secondary-900 transition-colors">
+                  <i class="pi pi-play text-xs" />
+                </span>
+              </template>
+            </Button>
           </div>
-
           <!-- Trust badges -->
-          <div class="flex items-center gap-6 text-secondary-700 flex-wrap">
+          <div class="mt-10 flex items-center gap-6 text-secondary-700">
             <div class="flex items-center gap-2">
               <i class="pi pi-check-circle text-primary-500" />
-              <span class="text-sm">Gratuit pendant 1 mois</span>
+              <span>Gratuit 14 jours</span>
             </div>
             <div class="flex items-center gap-2">
               <i class="pi pi-check-circle text-primary-500" />
-              <span class="text-sm">-50% à vie</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <i class="pi pi-check-circle text-primary-500" />
-              <span class="text-sm">Sans engagement</span>
+              <span>Sans engagement</span>
             </div>
           </div>
         </div>
