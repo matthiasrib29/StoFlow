@@ -18,10 +18,11 @@
       <template v-if="showFullForm">
         <div class="form-group">
           <InputText
-            v-model="formData.firstName"
+            v-model="formData.name"
             type="text"
-            placeholder="Votre prénom (optionnel)"
+            placeholder="Votre nom complet"
             class="form-input"
+            required
           />
         </div>
 
@@ -81,22 +82,20 @@ const props = withDefaults(defineProps<Props>(), {
 
 const formData = reactive({
   email: '',
-  firstName: '',
+  name: '',
   vendorType: null as string | null,
   monthlyVolume: null as string | null
 })
 
 const vendorTypes = [
-  { label: 'Particulier', value: 'particular' },
-  { label: 'Semi-pro', value: 'semi-pro' },
-  { label: 'Pro', value: 'pro' }
+  { label: 'Particulier', value: 'particulier' },
+  { label: 'Professionnel', value: 'professionnel' }
 ]
 
 const monthlyVolumes = [
-  { label: 'Moins de 10', value: '<10' },
+  { label: 'Moins de 10', value: '0-10' },
   { label: '10-50', value: '10-50' },
-  { label: '50-200', value: '50-200' },
-  { label: 'Plus de 200', value: '200+' }
+  { label: 'Plus de 50', value: '50+' }
 ]
 
 const errors = reactive({
@@ -139,14 +138,14 @@ const handleSubmit = async () => {
       method: 'POST',
       body: {
         email: formData.email,
-        first_name: formData.firstName || null,
-        vendor_type: formData.vendorType,
-        monthly_volume: formData.monthlyVolume
+        name: formData.name,
+        vendor_type: formData.vendorType || 'particulier',
+        monthly_volume: formData.monthlyVolume || '0-10'
       }
     })
 
     // Success!
-    successMessage.value = 'Inscription réussie !'
+    successMessage.value = 'Inscription réussie ! Vérifiez votre email.'
 
     // Decrement places counter
     if (placesRestantes && placesRestantes.value > 0) {
@@ -157,12 +156,12 @@ const handleSubmit = async () => {
     // Redirect to thank you page
     setTimeout(() => {
       navigateTo('/merci')
-    }, 1000)
+    }, 1500)
   } catch (error: any) {
     console.error('Signup error:', error)
 
-    if (error.statusCode === 400) {
-      errorMessage.value = error.statusMessage || 'Cet email est déjà inscrit.'
+    if (error.statusCode === 409 || error.statusCode === 400) {
+      errorMessage.value = 'Cette adresse email est déjà inscrite à la beta.'
     } else {
       errorMessage.value = 'Une erreur est survenue. Veuillez réessayer.'
     }
