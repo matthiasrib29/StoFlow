@@ -81,6 +81,11 @@ export interface Product {
   updated_at: string
   deleted_at?: string | null
 
+  // Marketplace links (2026-01-19)
+  // Indicates which platforms this product is linked to
+  vinted_id?: number | null
+  ebay_id?: number | null
+
   // Images (from product_images table with rich metadata)
   images?: Array<{
     id: number

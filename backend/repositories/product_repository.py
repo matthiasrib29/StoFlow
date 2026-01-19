@@ -79,7 +79,11 @@ class ProductRepository:
 
         stmt = (
             select(Product)
-            .options(selectinload(Product.product_images))
+            .options(
+                selectinload(Product.product_images),
+                selectinload(Product.vinted_product),
+                selectinload(Product.ebay_product),
+            )
             .where(and_(*conditions))
         )
         return db.execute(stmt).scalar_one_or_none()
@@ -127,10 +131,14 @@ class ProductRepository:
             count_stmt = count_stmt.where(and_(*conditions))
         total = db.execute(count_stmt).scalar_one() or 0
 
-        # Get products with images
+        # Get products with images and marketplace links (2026-01-19)
         stmt = (
             select(Product)
-            .options(selectinload(Product.product_images))
+            .options(
+                selectinload(Product.product_images),
+                selectinload(Product.vinted_product),
+                selectinload(Product.ebay_product),
+            )
         )
         if conditions:
             stmt = stmt.where(and_(*conditions))

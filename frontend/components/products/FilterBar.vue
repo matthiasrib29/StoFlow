@@ -14,29 +14,23 @@
         </div>
       </div>
 
-      <!-- Category Filter -->
-      <div class="w-full md:w-40">
-        <Select
+      <!-- Category Filter (Hierarchical) -->
+      <div class="w-full md:w-48">
+        <ProductsFilterCategorySelect
           :model-value="category"
-          :options="categoryOptions"
-          placeholder="Catégorie"
-          class="w-full h-[42px]"
-          show-clear
           @update:model-value="onCategoryUpdate($event)"
         />
       </div>
 
       <!-- Status Filter -->
-      <div class="w-full md:w-32">
+      <div class="w-full md:w-36">
         <Select
-          :model-value="status"
+          :model-value="status ?? 'all'"
           :options="statusOptions"
           option-label="label"
           option-value="value"
-          placeholder="Statut"
           class="w-full h-[42px]"
-          show-clear
-          @update:model-value="onStatusUpdate($event)"
+          @update:model-value="onStatusUpdate($event === 'all' ? null : $event)"
         />
       </div>
 
@@ -135,16 +129,8 @@ const onStatusUpdate = (value: string | null) => emit('update:status', value)
 const onViewUpdate = (value: 'table' | 'grid') => emit('update:view', value)
 const onBulkStatusChange = (status: 'draft' | 'published' | 'sold' | 'archived') => emit('bulk-status-change', status)
 
-const categoryOptions = [
-  'Vêtements',
-  'Chaussures',
-  'Accessoires',
-  'Maroquinerie',
-  'Bijoux',
-  'Autre'
-]
-
 const statusOptions = [
+  { label: 'Tous les statuts', value: 'all' },
   { label: 'Brouillon', value: 'draft' },
   { label: 'Publié', value: 'published' },
   { label: 'Vendu', value: 'sold' },

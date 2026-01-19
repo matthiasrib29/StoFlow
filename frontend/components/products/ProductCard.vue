@@ -38,10 +38,11 @@
           <i class="pi pi-pencil text-sm"/>
         </button>
         <button
-          class="w-10 h-10 rounded-full bg-white text-gray-600 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center shadow-lg pointer-events-auto"
+          class="w-10 h-10 rounded-full bg-white text-gray-600 hover:bg-gray-600 hover:text-white transition-colors flex items-center justify-center shadow-lg pointer-events-auto"
+          title="Archiver"
           @click.stop="$emit('delete', product)"
         >
-          <i class="pi pi-trash text-sm"/>
+          <i class="pi pi-inbox text-sm"/>
         </button>
       </div>
     </div>
