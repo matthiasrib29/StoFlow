@@ -207,6 +207,53 @@ export const useProductAttributes = () => {
       .slice(0, 50)
   }
 
+  /**
+   * Ensure a specific brand is in the filteredOptions.brands list
+   * Used when editing a product to show its current brand
+   */
+  const ensureBrandInOptions = (brand: string) => {
+    if (!brand) return
+
+    // Check if brand already exists in the list
+    const exists = filteredOptions.brands.some(b => b.value === brand)
+    if (!exists) {
+      // Add the brand at the beginning of the list
+      filteredOptions.brands = [
+        { label: brand, value: brand },
+        ...filteredOptions.brands
+      ]
+      attributeLogger.debug('Added current brand to options:', brand)
+    }
+  }
+
+  /**
+   * Ensure a specific color is in the filteredOptions.colors list
+   */
+  const ensureColorInOptions = (color: string) => {
+    if (!color) return
+    const exists = filteredOptions.colors.some(c => c.value === color)
+    if (!exists) {
+      filteredOptions.colors = [
+        { label: color, value: color },
+        ...filteredOptions.colors
+      ]
+    }
+  }
+
+  /**
+   * Ensure a specific material is in the filteredOptions.materials list
+   */
+  const ensureMaterialInOptions = (material: string) => {
+    if (!material) return
+    const exists = filteredOptions.materials.some(m => m.value === material)
+    if (!exists) {
+      filteredOptions.materials = [
+        { label: material, value: material },
+        ...filteredOptions.materials
+      ]
+    }
+  }
+
   // Watch locale changes and reload
   watch(() => localeStore.locale, () => {
     loadAllAttributes()
@@ -220,6 +267,10 @@ export const useProductAttributes = () => {
     // filterCategories, // No longer used - CategoryWizard handles this
     filterBrands,
     filterColors,
-    filterMaterials
+    filterMaterials,
+    // Ensure functions for edit mode
+    ensureBrandInOptions,
+    ensureColorInOptions,
+    ensureMaterialInOptions
   }
 }

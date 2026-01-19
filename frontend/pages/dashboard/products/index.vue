@@ -21,9 +21,7 @@
       v-model:status="selectedStatus"
       v-model:view="viewMode"
       :selected-count="selectedProducts.length"
-      @bulk-activate="bulkActivate"
-      @bulk-deactivate="bulkDeactivate"
-      @bulk-delete="confirmBulkDelete"
+      @bulk-status-change="bulkStatusChange"
     />
 
     <!-- Loading State with Skeleton Cards -->
@@ -208,8 +206,7 @@ const {
   handleDelete,
   confirmBulkDelete,
   handleBulkDelete,
-  bulkActivate,
-  bulkDeactivate,
+  bulkStatusChange,
 } = useProductsPage()
 
 // Fetch products on mount

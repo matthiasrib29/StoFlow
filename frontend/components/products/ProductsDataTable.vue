@@ -70,28 +70,14 @@
       </template>
     </Column>
 
-    <Column field="stock_quantity" header="Stock" sortable style="width: 80px">
+    <Column field="status" header="Statut" sortable style="width: 100px">
       <template #body="slotProps">
         <span
-          class="text-sm font-medium"
-          :class="slotProps.data.stock_quantity > 0 ? 'text-success-600' : 'text-error-500'"
+          class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium"
+          :class="getStatusClass(slotProps.data.status)"
         >
-          {{ slotProps.data.stock_quantity }}
-        </span>
-      </template>
-    </Column>
-
-    <Column field="is_active" header="Statut" sortable style="width: 90px">
-      <template #body="slotProps">
-        <span
-          class="inline-flex items-center gap-1.5 text-xs font-medium"
-          :class="slotProps.data.is_active ? 'text-success-600' : 'text-gray-400'"
-        >
-          <span
-            class="w-2 h-2 rounded-full"
-            :class="slotProps.data.is_active ? 'bg-success-500' : 'bg-gray-300'"
-          />
-          {{ slotProps.data.is_active ? 'Actif' : 'Inactif' }}
+          <span class="w-1.5 h-1.5 rounded-full" :class="getStatusDotClass(slotProps.data.status)" />
+          {{ getStatusLabel(slotProps.data.status) }}
         </span>
       </template>
     </Column>
@@ -121,6 +107,18 @@
 import type { Product } from '~/stores/products'
 import { getProductImageUrl } from '~/stores/products'
 import { formatPrice } from '~/utils/formatters'
+
+// Status helpers (values match API response: lowercase)
+const statusConfig: Record<string, { label: string; class: string; dot: string }> = {
+  draft: { label: 'Brouillon', class: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' },
+  published: { label: 'Publié', class: 'bg-success-50 text-success-700', dot: 'bg-success-500' },
+  sold: { label: 'Vendu', class: 'bg-primary-100 text-primary-700', dot: 'bg-primary-500' },
+  archived: { label: 'Archivé', class: 'bg-gray-100 text-gray-500', dot: 'bg-gray-300' }
+}
+
+const getStatusLabel = (status: string) => statusConfig[status]?.label || status
+const getStatusClass = (status: string) => statusConfig[status]?.class || 'bg-gray-100 text-gray-600'
+const getStatusDotClass = (status: string) => statusConfig[status]?.dot || 'bg-gray-400'
 
 defineProps<{
   products: Product[]

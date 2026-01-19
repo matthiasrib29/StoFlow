@@ -1,98 +1,104 @@
 <template>
-  <Card class="filter-bar shadow-sm mb-6 border border-gray-100">
-    <template #content>
-      <div class="flex flex-col md:flex-row gap-4 items-stretch">
-        <!-- Search -->
-        <div class="flex-1 min-w-0">
-          <div class="relative h-[42px]">
-            <i class="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-10"/>
-            <InputText
-              :model-value="search"
-              placeholder="Rechercher..."
-              class="search-input w-full h-full"
-              @update:model-value="onSearchUpdate($event as string)"
-            />
-          </div>
-        </div>
-
-        <!-- Category Filter -->
-        <div class="w-full md:w-40">
-          <Select
-            :model-value="category"
-            :options="categoryOptions"
-            placeholder="Catégorie"
-            class="w-full h-[42px]"
-            show-clear
-            @update:model-value="onCategoryUpdate($event)"
+  <div class="filter-bar mb-6">
+    <div class="flex flex-col md:flex-row gap-4 items-stretch">
+      <!-- Search -->
+      <div class="flex-1 min-w-0">
+        <div class="relative h-[42px]">
+          <i class="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-10"/>
+          <InputText
+            :model-value="search"
+            placeholder="Rechercher..."
+            class="search-input w-full h-full"
+            @update:model-value="onSearchUpdate($event as string)"
           />
-        </div>
-
-        <!-- Status Filter -->
-        <div class="w-full md:w-32">
-          <Select
-            :model-value="status"
-            :options="statusOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="Statut"
-            class="w-full h-[42px]"
-            show-clear
-            @update:model-value="onStatusUpdate($event)"
-          />
-        </div>
-
-        <!-- View Toggle -->
-        <div v-if="showViewToggle" class="view-toggle flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            :class="['view-btn', view === 'table' ? 'active' : '']"
-            @click="onViewUpdate('table')"
-          >
-            <i class="pi pi-list"/>
-          </button>
-          <button
-            type="button"
-            :class="['view-btn', view === 'grid' ? 'active' : '']"
-            @click="onViewUpdate('grid')"
-          >
-            <i class="pi pi-th-large"/>
-          </button>
         </div>
       </div>
 
-      <!-- Selection Actions -->
-      <div v-if="selectedCount > 0" class="mt-4 pt-4 border-t border-gray-100">
-        <div class="flex items-center gap-3 flex-wrap">
-          <span class="text-sm font-semibold text-secondary-900 bg-primary-100 px-3 py-1.5 rounded-full">
-            {{ selectedCount }} sélectionné{{ selectedCount > 1 ? 's' : '' }}
-          </span>
-          <div class="flex gap-2">
-            <Button
-              label="Activer"
-              icon="pi pi-check"
-              class="btn-success-solid"
-              size="small"
-              @click="onBulkActivate"
-            />
-            <Button
-              label="Désactiver"
-              icon="pi pi-ban"
-              class="bg-warning-500 hover:bg-warning-600 text-white border-0 font-medium rounded-lg"
-              size="small"
-              @click="onBulkDeactivate"
-            />
-            <Button
-              label="Supprimer"
-              icon="pi pi-trash"
-              class="btn-danger-solid"
-              size="small"
-              @click="onBulkDelete"
-            />
-          </div>
+      <!-- Category Filter -->
+      <div class="w-full md:w-40">
+        <Select
+          :model-value="category"
+          :options="categoryOptions"
+          placeholder="Catégorie"
+          class="w-full h-[42px]"
+          show-clear
+          @update:model-value="onCategoryUpdate($event)"
+        />
+      </div>
+
+      <!-- Status Filter -->
+      <div class="w-full md:w-32">
+        <Select
+          :model-value="status"
+          :options="statusOptions"
+          option-label="label"
+          option-value="value"
+          placeholder="Statut"
+          class="w-full h-[42px]"
+          show-clear
+          @update:model-value="onStatusUpdate($event)"
+        />
+      </div>
+
+      <!-- View Toggle -->
+      <div v-if="showViewToggle" class="view-toggle flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          :class="['view-btn', view === 'table' ? 'active' : '']"
+          @click="onViewUpdate('table')"
+        >
+          <i class="pi pi-list"/>
+        </button>
+        <button
+          type="button"
+          :class="['view-btn', view === 'grid' ? 'active' : '']"
+          @click="onViewUpdate('grid')"
+        >
+          <i class="pi pi-th-large"/>
+        </button>
+      </div>
+    </div>
+
+    <!-- Selection Actions -->
+    <div v-if="selectedCount > 0" class="mt-4 pt-4 border-t border-gray-200">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-sm font-semibold text-secondary-900 bg-primary-100 px-3 py-1.5 rounded-full">
+          {{ selectedCount }} sélectionné{{ selectedCount > 1 ? 's' : '' }}
+        </span>
+        <div class="flex gap-2 items-center">
+          <span class="text-sm text-gray-500">Changer en :</span>
+          <Button
+            label="Brouillon"
+            icon="pi pi-file"
+            class="bg-gray-100 hover:bg-gray-200 text-gray-700 border-0 font-medium rounded-lg"
+            size="small"
+            @click="onBulkStatusChange('draft')"
+          />
+          <Button
+            label="Publié"
+            icon="pi pi-check-circle"
+            class="btn-success-solid"
+            size="small"
+            @click="onBulkStatusChange('published')"
+          />
+          <Button
+            label="Vendu"
+            icon="pi pi-tag"
+            class="bg-primary-500 hover:bg-primary-600 text-white border-0 font-medium rounded-lg"
+            size="small"
+            @click="onBulkStatusChange('sold')"
+          />
+          <Button
+            label="Archiver"
+            icon="pi pi-inbox"
+            class="bg-gray-500 hover:bg-gray-600 text-white border-0 font-medium rounded-lg"
+            size="small"
+            @click="onBulkStatusChange('archived')"
+          />
         </div>
       </div>
-    </template>
-  </Card>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -119,9 +125,7 @@ const emit = defineEmits<{
   'update:category': [value: string | null]
   'update:status': [value: string | null]
   'update:view': [value: 'table' | 'grid']
-  'bulk-activate': []
-  'bulk-deactivate': []
-  'bulk-delete': []
+  'bulk-status-change': [status: 'draft' | 'published' | 'sold' | 'archived']
 }>()
 
 // Handlers for template
@@ -129,9 +133,7 @@ const onSearchUpdate = (value: string) => emit('update:search', value)
 const onCategoryUpdate = (value: string | null) => emit('update:category', value)
 const onStatusUpdate = (value: string | null) => emit('update:status', value)
 const onViewUpdate = (value: 'table' | 'grid') => emit('update:view', value)
-const onBulkActivate = () => emit('bulk-activate')
-const onBulkDeactivate = () => emit('bulk-deactivate')
-const onBulkDelete = () => emit('bulk-delete')
+const onBulkStatusChange = (status: 'draft' | 'published' | 'sold' | 'archived') => emit('bulk-status-change', status)
 
 const categoryOptions = [
   'Vêtements',
@@ -143,8 +145,10 @@ const categoryOptions = [
 ]
 
 const statusOptions = [
-  { label: 'Actif', value: 'active' },
-  { label: 'Inactif', value: 'inactive' }
+  { label: 'Brouillon', value: 'draft' },
+  { label: 'Publié', value: 'published' },
+  { label: 'Vendu', value: 'sold' },
+  { label: 'Archivé', value: 'archived' }
 ]
 </script>
 
@@ -214,14 +218,5 @@ const statusOptions = [
 :deep(.p-select .p-select-label) {
   padding: 0.625rem 0.75rem;
   font-size: 0.875rem;
-}
-
-/* Fix Card padding */
-:deep(.filter-bar .p-card-body) {
-  padding: 1rem;
-}
-
-:deep(.filter-bar .p-card-content) {
-  padding: 0;
 }
 </style>

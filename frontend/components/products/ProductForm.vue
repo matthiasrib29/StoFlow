@@ -115,7 +115,7 @@
       />
     </div>
 
-    <!-- ===== SECTION 3: MESURES & TARIFICATION ===== -->
+    <!-- ===== SECTION 3: MESURES ===== -->
     <div id="section-measures">
       <ProductsFormsProductFormMeasures
         :category="modelValue.category"
@@ -125,18 +125,12 @@
         :dim4="modelValue.dim4"
         :dim5="modelValue.dim5"
         :dim6="modelValue.dim6"
-        :pricing-rarity="modelValue.pricing_rarity"
-        :pricing-quality="modelValue.pricing_quality"
-        :pricing-style="modelValue.pricing_style"
         @update:dim1="updateField('dim1', $event)"
         @update:dim2="updateField('dim2', $event)"
         @update:dim3="updateField('dim3', $event)"
         @update:dim4="updateField('dim4', $event)"
         @update:dim5="updateField('dim5', $event)"
         @update:dim6="updateField('dim6', $event)"
-        @update:pricing-rarity="updateField('pricing_rarity', $event)"
-        @update:pricing-quality="updateField('pricing_quality', $event)"
-        @update:pricing-style="updateField('pricing_style', $event)"
       />
     </div>
 

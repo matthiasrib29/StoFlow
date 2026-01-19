@@ -158,21 +158,21 @@ class ProductRepository:
         return product
 
     @staticmethod
-    def soft_delete(db: Session, product: Product) -> Product:
+    def archive(db: Session, product: Product) -> Product:
         """
-        Soft delete un Product (marque deleted_at).
+        Archive un Product (passe en status ARCHIVED).
 
         Args:
             db: Session SQLAlchemy
-            product: Instance Product à supprimer
+            product: Instance Product à archiver
 
         Returns:
-            Product: Instance avec deleted_at défini
+            Product: Instance avec status ARCHIVED
         """
-        product.deleted_at = utc_now()
+        product.status = ProductStatus.ARCHIVED
         db.flush()
 
-        logger.info(f"[ProductRepository] Product soft deleted: id={product.id}")
+        logger.info(f"[ProductRepository] Product archived: id={product.id}")
 
         return product
 

@@ -48,8 +48,7 @@ export function useProductsPage() {
     }
 
     if (selectedStatus.value) {
-      const isActive = selectedStatus.value === 'active'
-      products = products.filter(p => p.is_active === isActive)
+      products = products.filter(p => p.status === selectedStatus.value)
     }
 
     return products
@@ -134,33 +133,49 @@ export function useProductsPage() {
     }
   }
 
-  // Bulk activate
-  const bulkActivate = async () => {
-    try {
-      await Promise.all(
-        selectedProducts.value.map(p =>
-          productsStore.updateProduct(p.id, { is_active: true })
-        )
-      )
-      showSuccess('Produits activés', `${selectedProducts.value.length} produit(s) activé(s)`, 3000)
-      selectedProducts.value = []
-    } catch (error: any) {
-      showError('Erreur', 'Impossible d\'activer les produits', 5000)
-    }
-  }
+  // Bulk status change
+  const bulkStatusChange = async (status: 'draft' | 'published' | 'sold' | 'archived') => {
+    if (selectedProducts.value.length === 0) return
 
-  // Bulk deactivate
-  const bulkDeactivate = async () => {
+    const statusLabels: Record<string, string> = {
+      draft: 'Brouillon',
+      published: 'Publié',
+      sold: 'Vendu',
+      archived: 'Archivé'
+    }
+
     try {
-      await Promise.all(
-        selectedProducts.value.map(p =>
-          productsStore.updateProduct(p.id, { is_active: false })
+      const productIds = selectedProducts.value.map(p => p.id)
+      const response = await productsStore.bulkUpdateStatus(productIds, status)
+
+      if (response.error_count === 0) {
+        showSuccess(
+          'Statut mis à jour',
+          `${response.success_count} produit(s) passé(s) en "${statusLabels[status]}"`,
+          3000
         )
-      )
-      showSuccess('Produits désactivés', `${selectedProducts.value.length} produit(s) désactivé(s)`, 3000)
+      } else if (response.success_count > 0) {
+        // Partial success - show warning with details
+        const errors = response.results
+          .filter(r => !r.success)
+          .map(r => `• Produit ${r.product_id}: ${r.error}`)
+          .join('\n')
+
+        showSuccess(
+          'Mise à jour partielle',
+          `${response.success_count} réussi(s), ${response.error_count} erreur(s)`,
+          5000
+        )
+        console.warn('Bulk status errors:', errors)
+      } else {
+        // All failed
+        const firstError = response.results.find(r => !r.success)?.error || 'Erreur inconnue'
+        showError('Erreur', firstError, 5000)
+      }
+
       selectedProducts.value = []
     } catch (error: any) {
-      showError('Erreur', 'Impossible de désactiver les produits', 5000)
+      showError('Erreur', error.message || 'Impossible de changer le statut', 5000)
     }
   }
 
@@ -200,7 +215,6 @@ export function useProductsPage() {
     handleDelete,
     confirmBulkDelete,
     handleBulkDelete,
-    bulkActivate,
-    bulkDeactivate,
+    bulkStatusChange,
   }
 }

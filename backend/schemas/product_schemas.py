@@ -548,3 +548,57 @@ class ProductListResponse(BaseModel):
             }
         }
     }
+
+
+# ===== BULK STATUS UPDATE SCHEMAS =====
+
+
+class BulkStatusUpdateRequest(BaseModel):
+    """
+    Request schema for bulk status update.
+
+    Business Rules:
+    - Max 100 products per request
+    - All products must belong to current user (checked in API)
+    - Validation applied when changing to PUBLISHED
+    """
+
+    product_ids: list[int] = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="List of product IDs to update (max 100)"
+    )
+    status: str = Field(
+        ...,
+        description="New status: draft, published, sold, archived"
+    )
+
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        allowed = ['draft', 'published', 'sold', 'archived']
+        if v.lower() not in allowed:
+            raise ValueError(f"Status must be one of: {', '.join(allowed)}")
+        return v.lower()
+
+
+class BulkStatusUpdateResult(BaseModel):
+    """Result for a single product in bulk update."""
+
+    product_id: int
+    success: bool
+    error: str | None = None
+
+
+class BulkStatusUpdateResponse(BaseModel):
+    """
+    Response schema for bulk status update.
+
+    Returns success/failure for each product.
+    """
+
+    total: int = Field(..., description="Total products processed")
+    success_count: int = Field(..., description="Products successfully updated")
+    error_count: int = Field(..., description="Products that failed")
+    results: list[BulkStatusUpdateResult] = Field(..., description="Per-product results")
