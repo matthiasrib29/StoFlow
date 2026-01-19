@@ -1,2 +1,2 @@
-web: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
-# Force rebuild dim. 19 janv. 2026 19:47:00 CET - Added lining fix migration
+web: python -c "from shared.database import engine; from sqlalchemy import text; conn = engine.connect(); schemas = [r[0] for r in conn.execute(text(\"SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'user_%' OR schema_name = 'template_tenant'\"))]; [conn.execute(text(f'ALTER TABLE {s}.products ADD COLUMN IF NOT EXISTS lining VARCHAR(100)')) for s in schemas]; conn.commit(); print(f'Added lining to {schemas}')" && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
+# Force rebuild dim. 19 janv. 2026 20:02:00 CET - Direct SQL for lining column
