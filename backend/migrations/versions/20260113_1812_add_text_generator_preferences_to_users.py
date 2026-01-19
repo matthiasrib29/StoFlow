@@ -88,27 +88,38 @@ def upgrade() -> None:
         print("  - default_description_style column already exists, skipping")
 
     # Add CHECK constraints for valid values (1-3 or NULL) - idempotent
-    if not constraint_exists(conn, 'public', 'ck_users_default_title_format_valid'):
+    # Note: Check both possible constraint names (with and without ck_users_ prefix)
+    title_constraint_exists = (
+        constraint_exists(conn, 'public', 'ck_users_default_title_format_valid') or
+        constraint_exists(conn, 'public', 'ck_users_ck_users_default_title_format_valid') or
+        constraint_exists(conn, 'public', 'default_title_format_valid')
+    )
+    if not title_constraint_exists:
         op.create_check_constraint(
-            'ck_users_default_title_format_valid',
+            'default_title_format_valid',  # Alembic adds ck_users_ prefix automatically
             'users',
             'default_title_format IS NULL OR (default_title_format >= 1 AND default_title_format <= 3)',
             schema='public'
         )
-        print("  ✓ Added ck_users_default_title_format_valid constraint")
+        print("  ✓ Added default_title_format_valid constraint")
     else:
-        print("  - ck_users_default_title_format_valid constraint already exists, skipping")
+        print("  - default_title_format constraint already exists, skipping")
 
-    if not constraint_exists(conn, 'public', 'ck_users_default_description_style_valid'):
+    desc_constraint_exists = (
+        constraint_exists(conn, 'public', 'ck_users_default_description_style_valid') or
+        constraint_exists(conn, 'public', 'ck_users_ck_users_default_description_style_valid') or
+        constraint_exists(conn, 'public', 'default_description_style_valid')
+    )
+    if not desc_constraint_exists:
         op.create_check_constraint(
-            'ck_users_default_description_style_valid',
+            'default_description_style_valid',  # Alembic adds ck_users_ prefix automatically
             'users',
             'default_description_style IS NULL OR (default_description_style >= 1 AND default_description_style <= 3)',
             schema='public'
         )
-        print("  ✓ Added ck_users_default_description_style_valid constraint")
+        print("  ✓ Added default_description_style_valid constraint")
     else:
-        print("  - ck_users_default_description_style_valid constraint already exists, skipping")
+        print("  - default_description_style constraint already exists, skipping")
 
 
 def downgrade() -> None:
