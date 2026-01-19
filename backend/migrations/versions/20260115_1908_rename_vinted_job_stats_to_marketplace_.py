@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -16,6 +17,17 @@ revision: str = '307a8e381a2b'
 down_revision: Union[str, None] = '381503c3aa77'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+
+def table_exists(conn, table):
+    """Check if table exists in template_tenant schema."""
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'template_tenant' AND table_name = :table
+        )
+    """), {"table": table})
+    return result.scalar()
 
 
 def upgrade() -> None:
@@ -28,6 +40,18 @@ def upgrade() -> None:
 
     Note: schema='tenant' handled by schema_translate_map in env.py
     """
+    conn = op.get_bind()
+
+    # Check if already migrated (marketplace_job_stats exists)
+    if table_exists(conn, 'marketplace_job_stats'):
+        print("  - marketplace_job_stats already exists, skipping migration")
+        return
+
+    # Check if source table exists
+    if not table_exists(conn, 'vinted_job_stats'):
+        print("  - vinted_job_stats does not exist, skipping migration")
+        return
+
     # Add marketplace column with default 'vinted' for existing rows
     op.add_column(
         'vinted_job_stats',
@@ -67,6 +91,7 @@ def upgrade() -> None:
         'vinted_job_stats',
         'marketplace_job_stats'
     )
+    print("  ✓ Renamed vinted_job_stats to marketplace_job_stats")
 
 
 def downgrade() -> None:
