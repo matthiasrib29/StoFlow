@@ -267,7 +267,7 @@ class ProductService:
         List products with filters and pagination.
 
         Business Rules:
-        - Ignores soft-deleted products
+        - Ignores soft-deleted products (deleted_at IS NOT NULL)
         - Default sort: created_at DESC (newest first)
         - Max limit: 100 (defined by API)
 
@@ -449,31 +449,31 @@ class ProductService:
     @staticmethod
     def delete_product(db: Session, product_id: int) -> bool:
         """
-        Delete a product (soft delete).
+        Archive a product (sets status to ARCHIVED).
 
-        Business Rules (2025-12-04):
-        - Soft delete: marks deleted_at instead of physical deletion
+        Business Rules:
+        - Archives the product by setting status to ARCHIVED
+        - Product remains visible when filtering by ARCHIVED status
         - Images are NOT deleted (kept for history)
-        - Product remains visible in reports but invisible in lists
 
         Args:
             db: SQLAlchemy Session
-            product_id: Product ID to delete
+            product_id: Product ID to archive
 
         Returns:
-            bool: True if deleted, False if not found
+            bool: True if archived, False if not found
         """
-        logger.info(f"[ProductService] Starting delete_product: product_id={product_id}")
+        logger.info(f"[ProductService] Starting delete_product (archive): product_id={product_id}")
 
         product = ProductRepository.get_by_id(db, product_id)
         if not product:
             logger.warning(f"[ProductService] delete_product: product_id={product_id} not found")
             return False
 
-        ProductRepository.soft_delete(db, product)
+        ProductRepository.archive(db, product)
         db.commit()
 
-        logger.info(f"[ProductService] delete_product completed: product_id={product_id} (soft deleted)")
+        logger.info(f"[ProductService] delete_product completed: product_id={product_id} (archived)")
 
         return True
 

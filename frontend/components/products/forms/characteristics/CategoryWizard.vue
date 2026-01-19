@@ -113,11 +113,15 @@ const isOpen = ref(false)
  * Filters by selected gender and skips "Autre"/"Vêtements" parents
  */
 const getCategoriesAtLevel = (parentValue: string | null): CategoryOption[] => {
+  // Normalize gender for comparison (API returns "Men" but categories store "men")
+  const normalizedGender = selectedGender.value?.toLowerCase()
+
   // At root level (after gender selection), show children of "Autre" and "Vêtements"
-  if (parentValue === null && selectedGender.value) {
+  if (parentValue === null && normalizedGender) {
     return props.categories.filter(cat => {
       const parent = cat.parent_category === undefined ? null : cat.parent_category
-      const hasMatchingGender = cat.genders?.includes(selectedGender.value!) || !cat.genders
+      // Compare lowercase values for gender matching
+      const hasMatchingGender = cat.genders?.some(g => g.toLowerCase() === normalizedGender) || !cat.genders
       return (parent === 'other' || parent === 'clothing') && hasMatchingGender
     })
   }
@@ -125,7 +129,8 @@ const getCategoriesAtLevel = (parentValue: string | null): CategoryOption[] => {
   // For other levels, filter by parent and gender
   return props.categories.filter(cat => {
     const parent = cat.parent_category === undefined ? null : cat.parent_category
-    const hasMatchingGender = cat.genders?.includes(selectedGender.value!) || !cat.genders
+    // Compare lowercase values for gender matching
+    const hasMatchingGender = cat.genders?.some(g => g.toLowerCase() === normalizedGender) || !cat.genders
     return parent === parentValue && hasMatchingGender
   })
 }

@@ -17,6 +17,9 @@ from api.dependencies import get_current_user, get_user_db
 from models.public.user import User, UserRole
 from models.user.product import ProductStatus
 from schemas.product_schemas import (
+    BulkStatusUpdateRequest,
+    BulkStatusUpdateResponse,
+    BulkStatusUpdateResult,
     ProductCreate,
     ProductListResponse,
     ProductResponse,
@@ -339,6 +342,107 @@ def delete_product(
         )
 
     logger.info(f"[API:products] delete_product success: user_id={current_user.id}, product_id={product_id}")
+
+
+@router.patch("/bulk/status", response_model=BulkStatusUpdateResponse, status_code=status.HTTP_200_OK)
+def bulk_update_status(
+    request: BulkStatusUpdateRequest,
+    user_db: tuple = Depends(get_user_db),
+) -> BulkStatusUpdateResponse:
+    """
+    Met à jour le statut de plusieurs produits en une seule requête.
+
+    Business Rules:
+    - Authentification requise
+    - USER: peut uniquement modifier SES produits
+    - ADMIN: peut modifier tous les produits
+    - SUPPORT: lecture seule (ne peut pas modifier)
+    - Validation pour PUBLISHED: stock > 0, images >= 1
+    - Transitions MVP autorisées (voir update_product_status)
+    - Retourne succès/erreur pour chaque produit
+
+    Raises:
+        403 FORBIDDEN: Si SUPPORT essaie de modifier
+        401 UNAUTHORIZED: Si pas authentifié
+    """
+    db, current_user = user_db
+
+    logger.info(
+        f"[API:products] bulk_update_status: user_id={current_user.id}, "
+        f"product_count={len(request.product_ids)}, target_status={request.status}"
+    )
+
+    # SUPPORT ne peut pas modifier (lecture seule)
+    ensure_can_modify(current_user, "produit")
+
+    # Convert string status to enum
+    status_map = {
+        'draft': ProductStatus.DRAFT,
+        'published': ProductStatus.PUBLISHED,
+        'sold': ProductStatus.SOLD,
+        'archived': ProductStatus.ARCHIVED,
+    }
+    target_status = status_map[request.status]
+
+    results: list[BulkStatusUpdateResult] = []
+    success_count = 0
+    error_count = 0
+
+    for product_id in request.product_ids:
+        try:
+            # Get product to verify ownership
+            product = ProductService.get_product_by_id(db, product_id)
+
+            if not product:
+                results.append(BulkStatusUpdateResult(
+                    product_id=product_id,
+                    success=False,
+                    error=f"Produit {product_id} non trouvé"
+                ))
+                error_count += 1
+                continue
+
+            # Verify ownership (ADMIN can modify all, USER only their own)
+            try:
+                ensure_user_owns_resource(current_user, product, "produit", allow_support=False)
+            except HTTPException:
+                results.append(BulkStatusUpdateResult(
+                    product_id=product_id,
+                    success=False,
+                    error="Vous n'êtes pas propriétaire de ce produit"
+                ))
+                error_count += 1
+                continue
+
+            # Update status (validates transitions and publication requirements)
+            ProductService.update_product_status(db, product_id, target_status)
+
+            results.append(BulkStatusUpdateResult(
+                product_id=product_id,
+                success=True,
+                error=None
+            ))
+            success_count += 1
+
+        except ValueError as e:
+            results.append(BulkStatusUpdateResult(
+                product_id=product_id,
+                success=False,
+                error=str(e)
+            ))
+            error_count += 1
+
+    logger.info(
+        f"[API:products] bulk_update_status completed: user_id={current_user.id}, "
+        f"success={success_count}, errors={error_count}"
+    )
+
+    return BulkStatusUpdateResponse(
+        total=len(request.product_ids),
+        success_count=success_count,
+        error_count=error_count,
+        results=results
+    )
 
 
 @router.patch("/{product_id}/status", response_model=ProductResponse, status_code=status.HTTP_200_OK)

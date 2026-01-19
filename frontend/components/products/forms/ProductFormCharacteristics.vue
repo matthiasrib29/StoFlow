@@ -205,8 +205,25 @@ const {
   loadAllAttributes,
   filterBrands,
   filterColors,
-  filterMaterials
+  filterMaterials,
+  ensureBrandInOptions,
+  ensureColorInOptions,
+  ensureMaterialInOptions
 } = useProductAttributes()
+
+// Ensure current values are in options when props change (edit mode)
+// Note: Not using immediate:true because loadAllAttributes would overwrite the values
+watch(() => props.brand, (newBrand) => {
+  if (newBrand) ensureBrandInOptions(newBrand)
+})
+
+watch(() => props.color, (newColor) => {
+  if (newColor) ensureColorInOptions(newColor)
+})
+
+watch(() => props.material, (newMaterial) => {
+  if (newMaterial) ensureMaterialInOptions(newMaterial)
+})
 
 // Computed options for each section
 const clothingOptions = computed(() => ({
@@ -254,8 +271,12 @@ const detailsFilledCount = computed(() => {
   return count
 })
 
-// Load attributes on mount
-onMounted(() => {
-  loadAllAttributes()
+// Load attributes on mount, then ensure current values are in options (edit mode)
+onMounted(async () => {
+  await loadAllAttributes()
+  // After loading, ensure current product values are in filtered options
+  if (props.brand) ensureBrandInOptions(props.brand)
+  if (props.color) ensureColorInOptions(props.color)
+  if (props.material) ensureMaterialInOptions(props.material)
 })
 </script>

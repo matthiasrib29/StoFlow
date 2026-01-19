@@ -13,7 +13,6 @@
       </h3>
 
       <button
-        v-if="hasPhotos"
         type="button"
         class="flex items-center gap-2 bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-semibold px-3 py-1.5 rounded-md transition-colors"
         :disabled="!canAddMore"
@@ -105,7 +104,7 @@ defineExpose({
 .sticky-photos-container {
   position: sticky;
   top: 0;
-  padding: 1rem 1.5rem 0.25rem;
+  padding: 0.5rem 1.5rem 0.25rem;
   margin-bottom: 0;
   border-bottom: 1px solid transparent;
   transition: all 0.3s ease;

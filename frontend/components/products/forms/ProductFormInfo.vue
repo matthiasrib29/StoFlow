@@ -68,30 +68,6 @@
         </small>
       </div>
 
-      <!-- Prix -->
-      <div>
-        <label for="price" class="block text-xs font-semibold mb-1 text-secondary-900">
-          Prix (EUR)
-          <span class="text-xs text-gray-500 font-normal ml-1">
-            (auto-calculé si vide)
-          </span>
-        </label>
-        <InputNumber
-          id="price"
-          :model-value="price"
-          mode="currency"
-          currency="EUR"
-          locale="fr-FR"
-          class="w-full"
-          :min="0"
-          :min-fraction-digits="2"
-          placeholder="Laisser vide = calcul auto"
-          @update:model-value="$emit('update:price', $event)"
-        />
-        <p v-if="suggestedPrice" class="text-xs text-green-600 mt-1">
-          Prix suggéré: {{ suggestedPrice }} EUR
-        </p>
-      </div>
     </div>
 
     <!-- Text Preview Modal -->
@@ -114,8 +90,6 @@ import type { TextPreviewInput } from '~/types/textGenerator'
 interface Props {
   title: string
   description: string
-  price: number | null
-  suggestedPrice?: number | null
   validation?: any
   // Text generator props
   productId?: number
@@ -139,7 +113,6 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  suggestedPrice: null,
   validation: undefined,
   productId: undefined,
   brand: undefined,
@@ -164,7 +137,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:title': [value: string]
   'update:description': [value: string]
-  'update:price': [value: number | null]
 }>()
 
 // Text generator state

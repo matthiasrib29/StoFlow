@@ -2,7 +2,7 @@
   <div class="form-subsection-spacing">
     <h3 class="form-section-title">
       <i class="pi pi-arrows-alt" />
-      Mesures & Tarification
+      Mesures
     </h3>
 
     <!-- ===== DIMENSIONS ===== -->
@@ -127,62 +127,6 @@
         </span>
       </div>
     </div>
-
-    <!-- ===== TARIFICATION ===== -->
-    <div class="border border-gray-200 rounded-lg p-4 form-field-spacing">
-      <h4 class="text-xs font-semibold text-gray-600 uppercase flex items-center gap-2">
-        <i class="pi pi-euro text-xs" />
-        Tarification
-        <span class="text-gray-400 font-normal">(pour calcul automatique du prix)</span>
-      </h4>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 form-grid-spacing">
-        <!-- Rareté -->
-        <div>
-          <label class="block text-xs font-semibold mb-1 text-secondary-900">Rareté</label>
-          <Select
-            :model-value="pricingRarity"
-            :options="rarityOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="..."
-            class="w-full"
-            show-clear
-            @update:model-value="$emit('update:pricingRarity', $event)"
-          />
-        </div>
-
-        <!-- Qualité -->
-        <div>
-          <label class="block text-xs font-semibold mb-1 text-secondary-900">Qualité</label>
-          <Select
-            :model-value="pricingQuality"
-            :options="qualityOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="..."
-            class="w-full"
-            show-clear
-            @update:model-value="$emit('update:pricingQuality', $event)"
-          />
-        </div>
-
-        <!-- Style -->
-        <div>
-          <label class="block text-xs font-semibold mb-1 text-secondary-900">Style</label>
-          <Select
-            :model-value="pricingStyle"
-            :options="styleOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="..."
-            class="w-full"
-            show-clear
-            @update:model-value="$emit('update:pricingStyle', $event)"
-          />
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -205,11 +149,6 @@ interface Props {
   dim4: number | null
   dim5: number | null
   dim6: number | null
-  // Pricing
-  pricingRarity: string | null
-  pricingQuality: string | null
-  pricingStyle: string | null
-  // pricingDetails removed - not needed
 }
 
 const props = defineProps<Props>()
@@ -221,10 +160,6 @@ defineEmits<{
   'update:dim4': [value: number | null]
   'update:dim5': [value: number | null]
   'update:dim6': [value: number | null]
-  'update:pricingRarity': [value: string | null]
-  'update:pricingQuality': [value: string | null]
-  'update:pricingStyle': [value: string | null]
-  // 'update:pricingDetails' removed - not needed
 }>()
 
 // Détecter le type de catégorie
@@ -291,31 +226,4 @@ const suggestedSize = computed(() => {
 
   return null
 })
-
-// Options pour les dropdowns de pricing
-const rarityOptions = [
-  { label: 'Commun', value: 'common' },
-  { label: 'Peu courant', value: 'uncommon' },
-  { label: 'Rare', value: 'rare' },
-  { label: 'Très rare', value: 'very_rare' },
-  { label: 'Exceptionnel', value: 'exceptional' }
-]
-
-const qualityOptions = [
-  { label: 'Basique', value: 'basic' },
-  { label: 'Standard', value: 'standard' },
-  { label: 'Premium', value: 'premium' },
-  { label: 'Luxe', value: 'luxury' },
-  { label: 'Haute couture', value: 'haute_couture' }
-]
-
-const styleOptions = [
-  { label: 'Casual', value: 'casual' },
-  { label: 'Streetwear', value: 'streetwear' },
-  { label: 'Vintage', value: 'vintage' },
-  { label: 'Sportswear', value: 'sportswear' },
-  { label: 'Formel', value: 'formal' },
-  { label: 'Bohème', value: 'bohemian' },
-  { label: 'Minimaliste', value: 'minimalist' }
-]
 </script>
