@@ -47,7 +47,7 @@
     >
       <template v-if="showColorPreview" #option="{ option }">
         <div
-          class="flex items-center gap-2.5 -mx-3 -my-1.5 px-3 py-2 rounded-md transition-all"
+          class="flex items-center gap-2.5 -mx-4 -my-2 px-4 py-2.5 transition-all"
           :style="getOptionBackgroundStyle(option)"
         >
           <span
@@ -102,7 +102,7 @@
     >
       <template v-if="showColorPreview" #option="{ option }">
         <div
-          class="flex items-center gap-2.5 -mx-3 -my-1.5 px-3 py-2 rounded-md transition-all"
+          class="flex items-center gap-2.5 -mx-4 -my-2 px-4 py-2.5 transition-all"
           :style="getOptionBackgroundStyle(option)"
         >
           <span
@@ -286,14 +286,14 @@ const getColorLabel = (value: string): string => {
   return option?.label || value
 }
 
-// Get background style with color at 25% opacity
+// Get background style with color at ~10% opacity
 const getOptionBackgroundStyle = (option: any): Record<string, string> => {
   if (option.hex_code) {
-    return { backgroundColor: `${option.hex_code}30` } // 30 = ~19% opacity in hex
+    return { backgroundColor: `${option.hex_code}1A` } // 1A = ~10% opacity in hex
   }
   if (option.value === 'Multicolor') {
     return {
-      background: 'linear-gradient(90deg, rgba(255,0,0,0.2), rgba(255,165,0,0.2), rgba(255,255,0,0.2), rgba(0,128,0,0.2), rgba(0,0,255,0.2), rgba(128,0,128,0.2))'
+      background: 'linear-gradient(90deg, rgba(255,0,0,0.1), rgba(255,165,0,0.1), rgba(255,255,0,0.1), rgba(0,128,0,0.1), rgba(0,0,255,0.1), rgba(128,0,128,0.1))'
     }
   }
   return {}
