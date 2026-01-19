@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -18,8 +19,25 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def table_exists(conn, schema, table):
+    """Check if table exists."""
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = :schema AND table_name = :table
+        )
+    """), {"schema": schema, "table": table})
+    return result.scalar()
+
+
 def upgrade() -> None:
     """Create beta_signups table in public schema."""
+    conn = op.get_bind()
+
+    if table_exists(conn, 'public', 'beta_signups'):
+        print("  - beta_signups table already exists, skipping")
+        return
+
     op.create_table(
         'beta_signups',
         sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),
@@ -31,6 +49,7 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
         schema='public'
     )
+    print("  ✓ Created beta_signups table")
 
 
 def downgrade() -> None:

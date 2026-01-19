@@ -115,10 +115,10 @@ class VintedProductEnricher:
         batch_pause_max: float = 30.0   # Increased from 15s
     ) -> dict[str, Any]:
         """
-        Enrichit les produits sans description via parsing HTML.
+        Enrichit les produits sans description via l'API item_upload.
 
         Pour chaque produit sans description:
-        1. Fetch la page HTML via le plugin
+        1. Fetch les donnees via l'API /api/v2/item_upload/items/{id}
         2. Extrait TOUTES les donnees (description, IDs, dimensions, frais)
         3. Met a jour le produit en BDD
 
@@ -153,7 +153,7 @@ class VintedProductEnricher:
             return {"enriched": 0, "errors": 0, "skipped": 0}
 
         total = len(products_to_enrich)
-        logger.info(f"Enrichissement de {total} produits via HTML")
+        logger.info(f"Enrichissement de {total} produits via API item_upload")
 
         enriched = 0
         errors = 0

@@ -45,8 +45,10 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import JobStatus, MarketplaceJob
+from models.user.product import Product, ProductStatus
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
+from services.product_status_manager import ProductStatusManager
 from services.vinted.vinted_data_extractor import VintedDataExtractor
 from services.vinted.vinted_product_enricher import VintedProductEnricher
 from shared.vinted_constants import VintedProductAPI
@@ -205,10 +207,22 @@ class VintedApiSyncService:
 
         # Phase 1.5: Mark products NOT in API response as sold/closed (2026-01-19)
         # Products that disappear from the wardrobe are usually sold or deleted
-        marked_sold = 0
+        vinted_marked_sold = 0
+        stoflow_marked_sold = 0
         if synced_vinted_ids and not last_error:  # Only if we got some products and no fatal error
-            marked_sold = self._mark_missing_products_as_sold(db, synced_vinted_ids)
-            logger.info(f"Produits marqués comme vendus (absents de l'API): {marked_sold}")
+            vinted_marked_sold, stoflow_marked_sold = self._mark_missing_products_as_sold(
+                db, synced_vinted_ids
+            )
+            logger.info(
+                f"Marked as sold: {vinted_marked_sold} VintedProducts, "
+                f"{stoflow_marked_sold} StoFlow Products"
+            )
+
+        # Phase 1.6: Double-check - catch up any mismatched statuses from history (2026-01-19)
+        catchup_synced = self._sync_existing_sold_status(db)
+        if catchup_synced > 0:
+            logger.info(f"[Catchup] {catchup_synced} StoFlow products synced from history")
+            stoflow_marked_sold += catchup_synced
 
         # Phase 2: Enrichir les produits sans description via HTML
         enrichment_result = await self.enricher.enrich_products_without_description(
@@ -220,7 +234,8 @@ class VintedApiSyncService:
             "created": created,
             "updated": updated,
             "errors": errors,
-            "marked_sold": marked_sold,  # Products no longer in wardrobe (2026-01-19)
+            "marked_sold": vinted_marked_sold,  # VintedProducts no longer in wardrobe (2026-01-19)
+            "stoflow_marked_sold": stoflow_marked_sold,  # Linked StoFlow Products marked SOLD (2026-01-19)
             "enriched": enrichment_result.get("enriched", 0),
             "enrichment_errors": enrichment_result.get("errors", 0),
         }
@@ -436,19 +451,21 @@ class VintedApiSyncService:
         self,
         db: Session,
         synced_vinted_ids: set[int]
-    ) -> int:
+    ) -> tuple[int, int]:
         """
         Mark products NOT in API response as sold/closed.
 
         Products that disappear from the wardrobe are usually sold or deleted.
         This prevents the enrichment from trying to fetch 404 products.
 
+        Also propagates SOLD status to linked StoFlow Products (2026-01-19).
+
         Args:
             db: SQLAlchemy session
             synced_vinted_ids: Set of vinted_ids that were returned by the API
 
         Returns:
-            int: Number of products marked as sold
+            tuple[int, int]: (vinted_products_marked, stoflow_products_marked)
         """
         # Find products in DB that are still "active" but not in the API response
         missing_products = db.query(VintedProduct).filter(
@@ -457,19 +474,82 @@ class VintedApiSyncService:
             VintedProduct.is_closed == False
         ).all()
 
-        count = 0
-        for product in missing_products:
-            logger.debug(
-                f"Marking product {product.vinted_id} as sold (no longer in wardrobe)"
-            )
-            product.status = 'sold'
-            product.is_closed = True
-            count += 1
+        vinted_count = 0
+        stoflow_count = 0
 
-        if count > 0:
+        for vinted_product in missing_products:
+            logger.debug(
+                f"Marking VintedProduct {vinted_product.vinted_id} as sold (no longer in wardrobe)"
+            )
+            vinted_product.status = 'sold'
+            vinted_product.is_closed = True
+            vinted_count += 1
+
+            # Propagate to linked StoFlow Product if exists (2026-01-19)
+            if vinted_product.product_id:
+                try:
+                    linked_product = vinted_product.product
+                    if linked_product and linked_product.status == ProductStatus.PUBLISHED:
+                        ProductStatusManager.update_status(
+                            db,
+                            vinted_product.product_id,
+                            ProductStatus.SOLD
+                        )
+                        logger.info(
+                            f"Product #{vinted_product.product_id} marked as SOLD "
+                            f"(linked to VintedProduct {vinted_product.vinted_id})"
+                        )
+                        stoflow_count += 1
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to mark Product #{vinted_product.product_id} as SOLD: {e}"
+                    )
+
+        if vinted_count > 0:
             db.commit()
 
-        return count
+        return vinted_count, stoflow_count
+
+    def _sync_existing_sold_status(self, db: Session) -> int:
+        """
+        Double vérification: synchronise le statut SOLD pour les produits
+        déjà marqués sold sur Vinted mais pas encore sur StoFlow.
+
+        Ceci rattrape les incohérences historiques à chaque sync (2026-01-19).
+
+        Returns:
+            int: Number of StoFlow products marked as SOLD
+        """
+        # Find VintedProducts that are sold but linked Product is still PUBLISHED
+        mismatched = db.query(VintedProduct).join(
+            Product, VintedProduct.product_id == Product.id
+        ).filter(
+            VintedProduct.status == 'sold',
+            VintedProduct.product_id.isnot(None),
+            Product.status == ProductStatus.PUBLISHED
+        ).all()
+
+        synced = 0
+        for vinted_product in mismatched:
+            try:
+                ProductStatusManager.update_status(
+                    db,
+                    vinted_product.product_id,
+                    ProductStatus.SOLD
+                )
+                db.commit()
+                synced += 1
+                logger.info(
+                    f"[Catchup] Product #{vinted_product.product_id} marked as SOLD "
+                    f"(VintedProduct {vinted_product.vinted_id} was already sold)"
+                )
+            except Exception as e:
+                db.rollback()
+                logger.warning(
+                    f"[Catchup] Failed to mark Product #{vinted_product.product_id} as SOLD: {e}"
+                )
+
+        return synced
 
     async def delete_orphan_product(self, db: Session, vinted_id: int):
         """

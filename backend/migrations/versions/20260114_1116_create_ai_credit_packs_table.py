@@ -45,8 +45,26 @@ CREDIT_PACKS = [
 ]
 
 
+def table_exists(conn, schema, table):
+    """Check if table exists."""
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = :schema AND table_name = :table
+        )
+    """), {"schema": schema, "table": table})
+    return result.scalar()
+
+
 def upgrade() -> None:
     """Create ai_credit_packs table and seed with initial data."""
+    conn = op.get_bind()
+
+    # Check if table already exists (idempotent)
+    if table_exists(conn, 'public', 'ai_credit_packs'):
+        print("  - ai_credit_packs table already exists, skipping")
+        return
+
     # Create table
     op.create_table(
         'ai_credit_packs',
@@ -59,12 +77,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema='public'
     )
+    print("  ✓ Created ai_credit_packs table")
 
     # Create index on display_order for sorting
     op.create_index('ix_ai_credit_packs_display_order', 'ai_credit_packs', ['display_order'], schema='public')
 
     # Seed initial packs
-    conn = op.get_bind()
     for pack in CREDIT_PACKS:
         conn.execute(
             text("""
@@ -73,6 +91,7 @@ def upgrade() -> None:
             """),
             pack
         )
+    print("  ✓ Seeded ai_credit_packs with initial data")
 
 
 def downgrade() -> None:
