@@ -25,6 +25,7 @@ logger = get_logger(__name__)
 # Note: cors_allowed_origins="*" in dev, specific origins in prod (env-based)
 # DEBUG 2026-01-19: Added logger=True to debug 403 connection rejections
 # FIX 2026-01-19: Increased ping_timeout to prevent disconnections during long API calls
+# FIX 2026-01-19: Increased max_http_buffer_size to 10MB to prevent disconnects on large payloads
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",  # Allow all origins in dev (TODO: configure via env)
@@ -32,6 +33,7 @@ sio = socketio.AsyncServer(
     engineio_logger=True,  # Enable Engine.IO debug logging
     ping_timeout=120,  # Wait 120s for pong before disconnect (default: 20s)
     ping_interval=25,  # Send ping every 25s (default: 25s)
+    max_http_buffer_size=10 * 1024 * 1024,  # 10MB (default: 1MB) - prevents disconnect on large messages
 )
 
 # Store pending requests awaiting responses
