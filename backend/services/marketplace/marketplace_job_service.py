@@ -29,7 +29,8 @@ from sqlalchemy.orm import Session
 from models.public.marketplace_action_type import MarketplaceActionType
 from models.user.marketplace_task import MarketplaceTask, TaskStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
-from models.user.vinted_job_stats import VintedJobStats
+from models.user.batch_job import BatchJob
+from models.user.marketplace_job_stats import MarketplaceJobStats
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -144,7 +145,7 @@ class MarketplaceJobService:
             marketplace=marketplace,
             action_type_id=action_type.id,
             product_id=product_id,
-            batch_id=batch_id,  # Deprecated, kept for backward compatibility
+            # batch_id removed - column no longer exists in model
             batch_job_id=batch_job_id,
             status=JobStatus.PENDING,
             priority=priority if priority is not None else action_type.priority,
@@ -362,29 +363,73 @@ class MarketplaceJobService:
 
     def cancel_job(self, job_id: int) -> MarketplaceJob | None:
         """
-        Cancel a job.
+        Request job cancellation (cooperative pattern - 2026-01-15).
+
+        For PENDING jobs: cancels immediately
+        For RUNNING jobs: sets cancel_requested flag for graceful shutdown
+        For TERMINAL jobs: returns None (already finished)
 
         Args:
             job_id: Job ID
 
         Returns:
-            Updated MarketplaceJob or None if not found
+            Updated MarketplaceJob or None if not found/terminal
         """
         job = (
             self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
         )
-        if not job or job.is_terminal:
+
+        if not job:
             return None
+
+        # Terminal jobs can't be cancelled
+        if job.is_terminal:
+            logger.warning(f"[MarketplaceJobService] Cannot cancel job #{job_id} - already terminal ({job.status})")
+            return None
+
+        # If job is PENDING, cancel immediately (not started yet)
+        if job.status == JobStatus.PENDING:
+            job.status = JobStatus.CANCELLED
+            job.completed_at = datetime.now(timezone.utc)
+            self.db.flush()  # Use flush, not commit (preserve search_path)
+
+            # Cancel associated pending tasks
+            self._cancel_job_tasks(job_id)
+
+            logger.info(f"[MarketplaceJobService] Job #{job_id} cancelled immediately (was pending)")
+            return job
+
+        # If job is RUNNING, set flag for cooperative cancellation
+        if job.status == JobStatus.RUNNING:
+            job.cancel_requested = True
+            self.db.flush()  # Use flush, not commit (preserve search_path)
+            logger.info(f"[MarketplaceJobService] Job #{job_id} cancellation requested (will stop gracefully)")
+            return job
+
+        # Other statuses (shouldn't happen but handle gracefully)
+        return job
+
+    def mark_job_cancelled(self, job_id: int) -> None:
+        """
+        Mark a job as cancelled (called by handler after cleanup).
+
+        This is the final step of cooperative cancellation (2026-01-15).
+        Called by handlers after they detect cancel_requested and clean up.
+
+        Args:
+            job_id: Job ID to mark as cancelled
+        """
+        job = self.db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
+
+        if not job:
+            return
 
         job.status = JobStatus.CANCELLED
         job.completed_at = datetime.now(timezone.utc)
+        job.cancel_requested = False  # Reset flag
         self.db.flush()  # Use flush, not commit (preserve search_path)
 
-        # Cancel associated pending tasks
-        self._cancel_job_tasks(job_id)
-
-        logger.info(f"[MarketplaceJobService] Cancelled job #{job_id}")
-        return job
+        logger.info(f"[MarketplaceJobService] Job #{job_id} marked as CANCELLED")
 
     def increment_retry(self, job_id: int) -> tuple[MarketplaceJob | None, bool]:
         """
@@ -530,9 +575,15 @@ class MarketplaceJobService:
         Returns:
             List of MarketplaceJob in the batch
         """
+        # Get BatchJob by batch_id string first
+        batch = self.db.query(BatchJob).filter(BatchJob.batch_id == batch_id).first()
+        if not batch:
+            return []
+
+        # Then filter by FK
         return (
             self.db.query(MarketplaceJob)
-            .filter(MarketplaceJob.batch_id == batch_id)
+            .filter(MarketplaceJob.batch_job_id == batch.id)
             .order_by(MarketplaceJob.created_at)
             .all()
         )
@@ -651,18 +702,20 @@ class MarketplaceJobService:
         """
         today = datetime.now(timezone.utc).date()
 
-        # Get or create stats record
+        # Get or create stats record (filtered by marketplace)
         stats = (
-            self.db.query(VintedJobStats)
+            self.db.query(MarketplaceJobStats)
             .filter(
-                VintedJobStats.action_type_id == job.action_type_id,
-                VintedJobStats.date == today,
+                MarketplaceJobStats.action_type_id == job.action_type_id,
+                MarketplaceJobStats.marketplace == job.marketplace,
+                MarketplaceJobStats.date == today,
             )
             .first()
         )
 
         if not stats:
-            stats = VintedJobStats(
+            stats = MarketplaceJobStats(
+                marketplace=job.marketplace,
                 action_type_id=job.action_type_id,
                 date=today,
                 total_jobs=0,
@@ -693,24 +746,27 @@ class MarketplaceJobService:
 
         self.db.flush()  # Use flush, not commit (preserve search_path)
 
-    def get_stats(self, days: int = 7) -> list[dict]:
+    def get_stats(self, days: int = 7, marketplace: str | None = None) -> list[dict]:
         """
         Get job statistics for the last N days.
 
         Args:
             days: Number of days to look back
+            marketplace: Optional marketplace filter (vinted, ebay, etsy). If None, returns all marketplaces.
 
         Returns:
             List of daily stats with action type info
         """
         start_date = datetime.now(timezone.utc).date() - timedelta(days=days)
 
-        stats = (
-            self.db.query(VintedJobStats)
-            .filter(VintedJobStats.date >= start_date)
-            .order_by(VintedJobStats.date.desc())
-            .all()
+        query = self.db.query(MarketplaceJobStats).filter(
+            MarketplaceJobStats.date >= start_date
         )
+
+        if marketplace:
+            query = query.filter(MarketplaceJobStats.marketplace == marketplace)
+
+        stats = query.order_by(MarketplaceJobStats.date.desc()).all()
 
         result = []
         for stat in stats:
@@ -718,6 +774,7 @@ class MarketplaceJobService:
             result.append(
                 {
                     "date": stat.date.isoformat(),
+                    "marketplace": stat.marketplace,
                     "action_code": action_type.code if action_type else "unknown",
                     "action_name": action_type.name if action_type else "Unknown",
                     "total_jobs": stat.total_jobs,

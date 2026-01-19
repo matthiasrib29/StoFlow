@@ -44,7 +44,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.user.marketplace_job import MarketplaceJob
+from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_data_extractor import VintedDataExtractor
@@ -126,11 +126,13 @@ class VintedApiSyncService:
                     db.rollback()  # CRITICAL: Rollback to prevent idle transaction
 
         while True:
-            # CRITICAL: Check if job was cancelled (2026-01-14)
+            # CRITICAL: Check if job was cancelled (cooperative pattern - 2026-01-15)
             if job:
                 db.refresh(job)  # Get latest status from DB
-                if job.status == 'cancelled':
-                    logger.info(f"Job #{job.id} cancelled, stopping sync")
+                if job.cancel_requested or job.status == JobStatus.CANCELLED:
+                    logger.info(f"Job #{job.id} cancellation detected, stopping sync")
+                    # Cleanup: commit current progress before stopping
+                    db.commit()
                     break
 
             try:
@@ -155,11 +157,13 @@ class VintedApiSyncService:
             logger.info(f"Page {page}: {len(items)} produits recuperes")
 
             for item in items:
-                # CRITICAL: Check if job was cancelled (2026-01-14)
+                # CRITICAL: Check if job was cancelled (cooperative pattern - 2026-01-15)
                 if job:
                     db.refresh(job)  # Get latest status from DB
-                    if job.status == 'cancelled':
-                        logger.info(f"Job #{job.id} cancelled, stopping sync")
+                    if job.cancel_requested or job.status == JobStatus.CANCELLED:
+                        logger.info(f"Job #{job.id} cancellation detected, stopping sync")
+                        # Cleanup: commit current progress before stopping
+                        db.commit()
                         break
 
                 try:

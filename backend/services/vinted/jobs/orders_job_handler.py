@@ -1,149 +1,115 @@
 """
 Orders Job Handler - Synchronisation des commandes Vinted
 
-Délègue à VintedOrderSyncService pour:
-- Récupération des transactions via /my_orders ou /wallet/invoices
-- Parsing et sauvegarde des commandes
-- Gestion des doublons
+Thin handler that delegates to VintedOrdersService.
 
-Usage:
-- Sans paramètres: sync via /my_orders (captures ALL orders)
-- Avec year/month: sync via /wallet/invoices (wallet transactions only)
+Modes:
+- Default: sync all orders via /my_orders
+- Optional: sync by month via /wallet/invoices
 
-Note: sync_orders() (via /my_orders) est la méthode par défaut car
-      /wallet/invoices ne capture pas les paiements par carte directe.
+Note: /my_orders is default because /wallet/invoices doesn't capture direct card payments.
 
 Author: Claude
 Date: 2025-12-19
-Updated: 2026-01-13 - sync_orders() par défaut, sync_orders_by_month optionnel
+Updated: 2026-01-15 - Refactored to follow standard pattern
 """
 
-import time
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import MarketplaceJob
+from services.vinted.vinted_orders_service import VintedOrdersService
 from .base_job_handler import BaseJobHandler
 
 
 class OrdersJobHandler(BaseJobHandler):
     """
-    Handler pour la synchronisation des commandes Vinted.
+    Handler for synchronizing Vinted orders.
 
-    Modes de fonctionnement:
-    - Sans paramètres: sync_orders() via /my_orders (ALL orders)
-    - Avec year/month: sync_orders_by_month() via /wallet/invoices
-
-    sync_orders() est la méthode par défaut car /wallet/invoices
-    ne capture que les transactions wallet, pas les paiements carte.
+    Delegates all business logic to VintedOrdersService.
     """
 
     ACTION_CODE = "orders"
 
-    def __init__(
-        self,
-        db: Session,
-        shop_id: int | None = None,
-        job_id: int | None = None
-    ):
-        super().__init__(db, shop_id, job_id)
-        self._order_sync = None
+    def create_tasks(self, job: MarketplaceJob) -> list[str]:
+        """
+        Define task steps for order synchronization.
 
-    @property
-    def order_sync(self):
-        """Lazy-load order sync service."""
-        if self._order_sync is None:
-            from services.vinted.vinted_order_sync import VintedOrderSyncService
-            self._order_sync = VintedOrderSyncService(user_id=self.user_id)
-        return self._order_sync
+        Args:
+            job: MarketplaceJob
+
+        Returns:
+            List of task step descriptions
+        """
+        params = job.result_data if isinstance(job.result_data, dict) else {}
+        year = params.get('year')
+        month = params.get('month')
+
+        if year and month:
+            return [
+                f"Fetch orders from {year}-{month:02d}",
+                "Parse order transactions",
+                "Save to database"
+            ]
+        else:
+            return [
+                "Fetch all orders from Vinted",
+                "Parse order transactions",
+                "Save to database"
+            ]
+
+    def get_service(self) -> VintedOrdersService:
+        """
+        Get service instance for order operations.
+
+        Returns:
+            VintedOrdersService instance
+        """
+        return VintedOrdersService(self.db)
 
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
-        Synchronise les commandes depuis Vinted.
+        Execute order synchronization by delegating to service.
 
         Args:
-            job: MarketplaceJob avec result_data optionnel:
-                - {} ou None: sync via /my_orders (DEFAULT - all orders)
-                - {"year": int, "month": int}: sync via /wallet/invoices
+            job: MarketplaceJob with optional result_data:
+                - {} or None: sync all orders via /my_orders (default)
+                - {"year": int, "month": int}: sync by month via /wallet/invoices
 
         Returns:
             dict: {
                 "success": bool,
-                "synced": int,
-                "duplicates": int,
-                "errors": int,
+                "orders_synced": int,
                 "mode": "classic" | "month",
                 "error": str | None
             }
         """
-        start_time = time.time()
-
-        # Extraire paramètres du job
+        # Extract parameters from job
         params = job.result_data if isinstance(job.result_data, dict) else {}
         year = params.get('year')
         month = params.get('month')
 
         try:
-            # With year+month: sync by month (wallet/invoices)
-            if year and month:
-                return await self._sync_by_month(year, month, start_time)
+            mode = f"month {year}-{month:02d}" if year and month else "all orders"
+            self.log_start(f"Sync orders ({mode})")
 
-            # Default: sync all orders via /my_orders
-            return await self._sync_all(start_time)
+            # Delegate to service
+            service = self.get_service()
+            result = await service.sync_orders(
+                shop_id=self.shop_id or 0,
+                user_id=self.user_id,
+                params=params
+            )
+
+            if result.get("success"):
+                synced = result.get("orders_synced", 0)
+                self.log_success(f"{synced} orders synced")
+            else:
+                self.log_error(f"Sync failed: {result.get('error')}")
+
+            return result
 
         except Exception as e:
-            elapsed = time.time() - start_time
-            self.log_error(f"Erreur sync commandes: {e} ({elapsed:.1f}s)", exc_info=True)
+            self.log_error(f"Orders sync error: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
-
-    async def _sync_by_month(
-        self,
-        year: int,
-        month: int,
-        start_time: float
-    ) -> dict[str, Any]:
-        """Sync les commandes d'un mois spécifique."""
-        self.log_start(f"Synchronisation commandes {year}-{month:02d}")
-
-        result = await self.order_sync.sync_orders_by_month(
-            self.db, year, month
-        )
-
-        elapsed = time.time() - start_time
-        synced = result.get('synced', 0)
-
-        self.log_success(
-            f"{synced} commandes {year}-{month:02d} ({elapsed:.1f}s)"
-        )
-
-        return {
-            "success": True,
-            "mode": "month",
-            "year": year,
-            "month": month,
-            "synced": synced,
-            **result
-        }
-
-    async def _sync_all(self, start_time: float) -> dict[str, Any]:
-        """
-        Sync all orders via /my_orders (default method).
-
-        This captures ALL completed orders, including direct card payments.
-        """
-        self.log_start("Synchronisation commandes (via /my_orders)")
-
-        result = await self.order_sync.sync_orders(self.db)
-
-        elapsed = time.time() - start_time
-        synced = result.get('synced', 0)
-
-        self.log_success(f"{synced} commandes sync ({elapsed:.1f}s)")
-
-        return {
-            "success": True,
-            "mode": "classic",
-            "synced": synced,
-            **result
-        }

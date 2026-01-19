@@ -47,7 +47,7 @@ class TestConcurrentPublication:
             """Simulate worker loading product with lock."""
             db = SessionLocal()
             try:
-                # Simulate BasePublishHandler._load_product() logic
+                # Simulate product loading with SELECT FOR UPDATE lock
                 from sqlalchemy.exc import OperationalError
                 try:
                     product = (

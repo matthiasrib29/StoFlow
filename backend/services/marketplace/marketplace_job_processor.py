@@ -8,6 +8,7 @@ Author: Claude
 Date: 2026-01-09
 """
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -66,26 +67,18 @@ class MarketplaceJobProcessor:
         """
         Process the next pending job in the queue.
 
-        This method implements a priority queue pattern where jobs are selected
-        based on priority (1=highest) and age (oldest first). It handles:
-        1. Expiration of old jobs (pending > 1 hour)
-        2. Job selection from queue
-        3. Dispatching to appropriate handler
-
         Returns:
-            dict: Result of job execution with success status, or None if queue is empty
-                Example: {"success": True, "job_id": 123, "duration_ms": 5000}
+            dict: Result of job execution, or None if no pending jobs
         """
-        # Clean up expired jobs before processing
-        # This prevents stale jobs from clogging the queue
-        # Expiration time: 1 hour from creation (configurable in job_service)
+        # Timeout fallback: force-cancel stale jobs (cooperative pattern - 2026-01-15)
+        self._force_cancel_stale_jobs()
+
+        # Expire old jobs
         expired_count = self.job_service.expire_old_jobs(marketplace=self.marketplace)
         if expired_count > 0:
             logger.info(f"[JobProcessor] Expired {expired_count} old jobs")
 
-        # Get highest priority pending job
-        # Priority order: 1 (CRITICAL) > 2 (HIGH) > 3 (NORMAL) > 4 (LOW)
-        # Within same priority: FIFO (oldest first)
+        # Get next pending job
         job = self.job_service.get_next_pending_job(marketplace=self.marketplace)
         if not job:
             logger.debug("[JobProcessor] No pending jobs")
@@ -93,47 +86,67 @@ class MarketplaceJobProcessor:
 
         return await self._execute_job(job)
 
+    def _force_cancel_stale_jobs(self) -> int:
+        """
+        Force-cancel jobs that didn't respond to cancellation within 60s.
+
+        This is a safety net for handlers that don't check cancel_requested
+        frequently enough. Jobs with cancel_requested=True and still RUNNING
+        after 60s are force-cancelled.
+
+        Returns:
+            int: Number of jobs force-cancelled
+        """
+        try:
+            # Find stale jobs: cancel_requested + RUNNING + updated_at > 60s ago
+            cutoff_time = datetime.now(timezone.utc) - timedelta(seconds=60)
+
+            stale_jobs = self.db.query(MarketplaceJob).filter(
+                MarketplaceJob.cancel_requested == True,
+                MarketplaceJob.status == JobStatus.RUNNING,
+                MarketplaceJob.updated_at < cutoff_time
+            ).all()
+
+            if stale_jobs:
+                logger.warning(
+                    f"[JobProcessor] Found {len(stale_jobs)} stale jobs "
+                    "with unresponsive cancellation - forcing CANCELLED"
+                )
+
+                for job in stale_jobs:
+                    logger.warning(
+                        f"[JobProcessor] Job #{job.id} didn't respond to cancellation "
+                        "within 60s - forcing CANCELLED"
+                    )
+                    self.job_service.mark_job_cancelled(job.id)
+
+                return len(stale_jobs)
+
+            return 0
+
+        except Exception as e:
+            logger.exception(f"[JobProcessor] Error in timeout watcher: {e}")
+            return 0
+
     async def _execute_job(self, job: MarketplaceJob) -> dict[str, Any]:
         """
         Execute a single job by dispatching to the appropriate handler.
-
-        This is the main orchestration logic that:
-        1. Determines which handler to use (factory pattern)
-        2. Instantiates the handler with correct parameters
-        3. Executes the handler (which creates and executes tasks)
-        4. Handles success/failure with retry logic
-
-        Handler Selection:
-        - Uses global registry ALL_HANDLERS
-        - Key format: "{action_code}_{marketplace}" (e.g., "publish_vinted")
-        - Raises ValueError if handler not found
 
         Args:
             job: The MarketplaceJob to execute
 
         Returns:
-            dict: Execution result with keys:
-                - success (bool): Whether job succeeded
-                - job_id (int): Job ID
-                - marketplace (str): Marketplace name
-                - action (str): Action code
-                - result (dict): Handler-specific result data
-                - duration_ms (int): Execution duration in milliseconds
-                - will_retry (bool): Only present on failure if retry available
-                - retry_count (int): Only present on failure with retry
+            dict: Execution result
         """
         start_time = time.time()
         job_id = job.id
         marketplace = job.marketplace
 
-        # Load action type from public.marketplace_action_types table
-        # This is cached in MarketplaceJobService for performance
+        # Get action type
         action_type = self.job_service.get_action_type_by_id(job.action_type_id)
         action_code = action_type.code if action_type else "unknown"
 
-        # Build full action code for handler lookup
-        # Format: "{action_code}_{marketplace}"
-        # Examples: "publish_vinted", "update_ebay", "sync_etsy"
+        # Build full action code (e.g., "publish_vinted", "publish_ebay")
         full_action_code = f"{action_code}_{marketplace}"
 
         logger.info(
@@ -141,41 +154,42 @@ class MarketplaceJobProcessor:
             f"(marketplace={marketplace}, action={action_code}, product={job.product_id})"
         )
 
-        # Mark job as running (updates status and started_at timestamp)
-        # Uses flush() instead of commit() to preserve schema context
+        # Mark job as running
         self.job_service.start_job(job_id)
 
+        # Check if cancellation was requested before we started
+        self.db.refresh(job)
+        if job.cancel_requested:
+            logger.info(f"[JobProcessor] Job #{job_id} cancelled before execution started")
+            self.job_service.mark_job_cancelled(job_id)
+            return {
+                "job_id": job_id,
+                "marketplace": marketplace,
+                "action": action_code,
+                "success": False,
+                "status": "cancelled",
+                "reason": "cancelled_before_start"
+            }
+
         try:
-            # Handler factory pattern: Look up handler class by action code
-            # ALL_HANDLERS is a global registry combining:
-            # - VINTED_HANDLERS (WebSocket-based)
-            # - EBAY_HANDLERS (Direct HTTP OAuth 2.0)
-            # - ETSY_HANDLERS (Direct HTTP OAuth 2.0)
+            # Get handler for this action
             handler_class = ALL_HANDLERS.get(full_action_code)
 
             if not handler_class:
                 raise ValueError(f"Unknown action: {full_action_code}")
 
-            # Instantiate handler with dependencies
-            # All handlers inherit from BaseMarketplaceHandler
+            # Create handler instance
             handler = handler_class(
                 db=self.db,
-                shop_id=self.shop_id,  # Vinted shop ID (optional, can be None)
+                shop_id=self.shop_id,
                 job_id=job_id
             )
 
             # Set user_id for WebSocket communication (Vinted only)
-            # Required for PluginWebSocketHelper to identify WebSocket connection
-            # Not needed for eBay/Etsy (direct HTTP with OAuth tokens)
             if marketplace == "vinted":
                 handler.user_id = self.user_id
 
             # Execute the handler
-            # Handler is responsible for:
-            # 1. Creating MarketplaceTasks
-            # 2. Executing tasks (via plugin or direct HTTP)
-            # 3. Handling idempotence checks
-            # 4. Returning result dict
             result = await handler.execute(job)
 
             # Check if operation succeeded
@@ -217,60 +231,30 @@ class MarketplaceJobProcessor:
         """
         Handle job failure with retry logic.
 
-        This method implements intelligent retry behavior:
-        1. Rollback failed transaction (database cleanup)
-        2. Increment retry counter
-        3. Check if max retries reached
-        4. If retry available: Reset to PENDING, return to queue
-        5. If max retries exceeded: Mark as FAILED, update parent batch
-
-        Retry Count:
-        - Default max_retries: 3 (configurable per action type)
-        - retry_count starts at 0
-        - After 3 failures: retry_count=3, status=FAILED
-
-        Schema Context Preservation:
-        - SQLAlchemy schema_translate_map survives rollback
-        - No need to reset search_path after rollback
-        - Schema context remains user_X
-
         Args:
             job_id: The ID of the MarketplaceJob that failed
             marketplace: The marketplace name (vinted, ebay, etsy)
             action_code: Full action code (e.g., "publish_ebay")
-            error_msg: Error message from handler or exception
-            start_time: Job start timestamp (for duration calculation)
+            error_msg: Error message
+            start_time: Job start timestamp
 
         Returns:
-            dict: Failure result with keys:
-                - success: Always False
-                - job_id: Job ID
-                - marketplace: Marketplace name
-                - action: Action code
-                - error: Error message
-                - will_retry: True if retry available, False if max retries reached
-                - retry_count: Current retry count (only if will_retry=True)
-                - duration_ms: Execution duration in milliseconds
+            dict: Failure result with retry information
         """
         elapsed = time.time() - start_time
 
-        # Rollback any failed transaction
-        # This is critical to prevent "current transaction is aborted" errors
         # schema_translate_map survives rollback - no need to restore search_path
+        # Just rollback any failed transaction before checking retry
         try:
             self.db.rollback()
         except Exception:
             pass  # Ignore if no transaction active
 
-        # Increment retry count and check if we can retry
-        # Returns: (updated_job, can_retry)
-        # can_retry = True if retry_count < max_retries
+        # Check if we can retry
         updated_job, can_retry = self.job_service.increment_retry(job_id)
 
         if can_retry:
             # Reset to pending for retry
-            # Job will be picked up again by process_next_job()
-            # Tasks with status='success' will be skipped (idempotence)
             updated_job.status = JobStatus.PENDING
             self.db.commit()
 
@@ -290,8 +274,7 @@ class MarketplaceJobProcessor:
                 "duration_ms": int(elapsed * 1000),
             }
         else:
-            # Max retries reached, mark job as permanently FAILED
-            # This also updates parent BatchJob progress if applicable
+            # Max retries reached, job is now FAILED
             self.job_service.fail_job(job_id, error_msg)
 
             logger.error(

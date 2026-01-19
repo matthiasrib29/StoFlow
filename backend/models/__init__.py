@@ -78,10 +78,10 @@ from models.user import (
     VintedOrder,
     VintedOrderProduct,
     VintedDeletion,
-    # Vinted Job System
+    # Marketplace Job System
     MarketplaceJob,
     JobStatus,
-    VintedJobStats,
+    MarketplaceJobStats,
     # eBay
     EbayCredentials,
     EbayProductMarketplace,
@@ -152,10 +152,10 @@ __all__ = [
     "VintedOrder",
     "VintedOrderProduct",
     "VintedDeletion",
-    # Vinted Job System (user)
+    # Marketplace Job System (user)
     "MarketplaceJob",
     "JobStatus",
-    "VintedJobStats",
+    "MarketplaceJobStats",
     # eBay
     "EbayCredentials",
     "EbayProductMarketplace",

@@ -130,14 +130,15 @@ class TestMarketplaceJobServiceFail:
 
 
 class TestMarketplaceJobServiceCancel:
-    """Test job cancellation."""
+    """Test job cancellation (cooperative pattern - 2026-01-15)."""
 
     @patch.object(MarketplaceJobService, '_cancel_job_tasks', return_value=0)
-    def test_cancel_job_pending_success(self, mock_cancel_tasks, db_session, mock_job):
-        """Should cancel a pending job."""
+    def test_cancel_pending_job_immediate(self, mock_cancel_tasks, db_session, mock_job):
+        """Pending jobs should be cancelled immediately."""
         service = MarketplaceJobService(db_session)
 
         mock_job.status = JobStatus.PENDING
+        mock_job.cancel_requested = False
 
         # Mock query
         db_session.query = Mock(return_value=Mock(
@@ -147,17 +148,21 @@ class TestMarketplaceJobServiceCancel:
         ))
 
         # Cancel job
-        cancelled = service.cancel_job(1)
+        result = service.cancel_job(1)
 
-        assert cancelled is not None
-        assert cancelled.status == JobStatus.CANCELLED
+        # Should cancel immediately (not just set flag)
+        assert result is not None
+        assert result.status == JobStatus.CANCELLED
+        assert result.cancel_requested == False  # Flag not used for PENDING
+        mock_cancel_tasks.assert_called_once_with(1)
 
     @patch.object(MarketplaceJobService, '_cancel_job_tasks', return_value=0)
-    def test_cancel_job_running_success(self, mock_cancel_tasks, db_session, mock_job):
-        """Should cancel a running job."""
+    def test_cancel_running_job_sets_flag(self, mock_cancel_tasks, db_session, mock_job):
+        """Running jobs should have cancel_requested flag set (cooperative pattern)."""
         service = MarketplaceJobService(db_session)
 
         mock_job.status = JobStatus.RUNNING
+        mock_job.cancel_requested = False
 
         # Mock query
         db_session.query = Mock(return_value=Mock(
@@ -167,35 +172,62 @@ class TestMarketplaceJobServiceCancel:
         ))
 
         # Cancel job
-        cancelled = service.cancel_job(1)
+        result = service.cancel_job(1)
 
-        assert cancelled is not None
-        assert cancelled.status == JobStatus.CANCELLED
+        # Should set cancel_requested flag (not change status)
+        assert result is not None
+        assert result.status == JobStatus.RUNNING  # Still RUNNING
+        assert result.cancel_requested == True  # Flag set for cooperative cancellation
+        mock_cancel_tasks.assert_not_called()  # Tasks not cancelled for RUNNING jobs
 
-    def test_cancel_job_completed_returns_none(self, db_session, mock_job):
-        """Should not cancel a completed job."""
+    def test_cancel_terminal_job_returns_none(self, db_session, mock_job):
+        """Terminal jobs (COMPLETED, FAILED, CANCELLED) can't be cancelled."""
         service = MarketplaceJobService(db_session)
 
+        # Test COMPLETED
         mock_job.status = JobStatus.COMPLETED
-
-        # Mock query
         db_session.query = Mock(return_value=Mock(
             filter=Mock(return_value=Mock(
                 first=Mock(return_value=mock_job)
             ))
         ))
-
-        # Try to cancel completed job
         result = service.cancel_job(1)
-
-        # Should return None (cannot cancel terminal status)
         assert result is None
 
-    def test_cancel_job_failed_returns_none(self, db_session, mock_job):
-        """Should not cancel a failed job."""
+        # Test FAILED
+        mock_job.status = JobStatus.FAILED
+        result = service.cancel_job(1)
+        assert result is None
+
+        # Test CANCELLED
+        mock_job.status = JobStatus.CANCELLED
+        result = service.cancel_job(1)
+        assert result is None
+
+    def test_cancel_job_not_found_returns_none(self, db_session):
+        """Should return None when job not found."""
         service = MarketplaceJobService(db_session)
 
-        mock_job.status = JobStatus.FAILED
+        # Mock job not found
+        db_session.query = Mock(return_value=Mock(
+            filter=Mock(return_value=Mock(
+                first=Mock(return_value=None)
+            ))
+        ))
+
+        result = service.cancel_job(999)
+        assert result is None
+
+
+class TestMarketplaceJobServiceMarkCancelled:
+    """Test mark_job_cancelled() for cooperative cancellation pattern."""
+
+    def test_mark_job_cancelled_success(self, db_session, mock_job):
+        """Should mark job as CANCELLED and reset cancel_requested flag."""
+        service = MarketplaceJobService(db_session)
+
+        mock_job.status = JobStatus.RUNNING
+        mock_job.cancel_requested = True
 
         # Mock query
         db_session.query = Mock(return_value=Mock(
@@ -204,11 +236,29 @@ class TestMarketplaceJobServiceCancel:
             ))
         ))
 
-        # Try to cancel failed job
-        result = service.cancel_job(1)
+        # Mark as cancelled
+        service.mark_job_cancelled(1)
 
-        # Should return None (cannot cancel terminal status)
-        assert result is None
+        # Should update status and reset flag
+        assert mock_job.status == JobStatus.CANCELLED
+        assert mock_job.cancel_requested == False
+        assert mock_job.completed_at is not None
+        db_session.flush.assert_called()  # Uses flush, not commit
+
+    def test_mark_job_cancelled_not_found(self, db_session):
+        """Should do nothing when job not found."""
+        service = MarketplaceJobService(db_session)
+
+        # Mock job not found
+        db_session.query = Mock(return_value=Mock(
+            filter=Mock(return_value=Mock(
+                first=Mock(return_value=None)
+            ))
+        ))
+
+        # Should not raise error
+        service.mark_job_cancelled(999)
+        db_session.flush.assert_not_called()  # Uses flush, not commit
 
 
 class TestMarketplaceJobServiceGet:

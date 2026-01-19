@@ -1,52 +1,74 @@
 """
 Link Product Job Handler
 
-Gère la liaison VintedProduct → Product avec téléchargement d'images en arrière-plan.
+Thin handler that delegates to VintedLinkProductService.
 
 Workflow:
-1. Créer Product depuis VintedProduct (via VintedLinkService)
-2. Télécharger images de Vinted vers R2
+1. Create Product from VintedProduct
+2. Download images from Vinted to R2
 3. Commit
 
 Author: Claude
 Date: 2026-01-06
+Updated: 2026-01-15 - Refactored to follow standard pattern
 """
 
 from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.user.product import Product
-from models.user.vinted_product import VintedProduct
 from models.user.marketplace_job import MarketplaceJob
-from services.vinted.vinted_link_service import VintedLinkService
-from services.vinted.vinted_image_downloader import VintedImageDownloader
+from services.vinted.vinted_link_product_service import VintedLinkProductService
 from shared.database import get_tenant_schema
 from .base_job_handler import BaseJobHandler
 
 
 class LinkProductJobHandler(BaseJobHandler):
     """
-    Handler pour la liaison de produits Vinted.
+    Handler for linking Vinted products.
 
-    Workflow:
-    1. Créer Product depuis VintedProduct (via VintedLinkService)
-    2. Télécharger images en arrière-plan (async)
-    3. Commit en BDD
+    Delegates all business logic to VintedLinkProductService.
     """
 
     ACTION_CODE = "link_product"
 
-    async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
+    def create_tasks(self, job: MarketplaceJob) -> list[str]:
         """
-        Lie un VintedProduct à un nouveau Product et télécharge les images.
+        Define task steps for product linking.
 
         Args:
-            job: MarketplaceJob avec product_id = vinted_id dans ce cas
+            job: MarketplaceJob
 
         Returns:
-            {
+            List of task step descriptions
+        """
+        return [
+            "Fetch VintedProduct data",
+            "Create Product from VintedProduct",
+            "Download images to R2",
+            "Save and commit"
+        ]
+
+    def get_service(self) -> VintedLinkProductService:
+        """
+        Get service instance for link operations.
+
+        Returns:
+            VintedLinkProductService instance
+        """
+        return VintedLinkProductService(self.db)
+
+    async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
+        """
+        Execute product linking by delegating to service.
+
+        Args:
+            job: MarketplaceJob (product_id contains vinted_id)
+
+        Returns:
+            dict: {
                 "success": bool,
+                "linked": bool,
                 "product_id": int | None,
                 "vinted_id": int,
                 "images_copied": int,
@@ -55,62 +77,39 @@ class LinkProductJobHandler(BaseJobHandler):
                 "error": str | None
             }
         """
-        # Note: job.product_id contient le vinted_id pour cette action
+        # Note: job.product_id contains vinted_id for this action
         vinted_id = job.product_id
 
         if not vinted_id:
             return {"success": False, "error": "vinted_id required"}
 
         try:
-            self.log_start(f"Linking VintedProduct #{vinted_id}")
+            self.log_start(f"Link VintedProduct #{vinted_id}")
 
-            # Get user_id from schema_translate_map (returns "user_123" -> extract 123)
+            # Get user_id from schema
             schema = get_tenant_schema(self.db)
             if not schema or not schema.startswith("user_"):
-                self.log_error(f"Invalid schema: {schema}")
                 return {"success": False, "error": "Invalid user schema"}
 
             user_id = int(schema.replace("user_", ""))
 
-            # 1. Create Product from VintedProduct
-            link_service = VintedLinkService(self.db)
-            product, vinted_product = link_service.create_product_from_vinted(
-                vinted_id=vinted_id,
-                override_data=None
-            )
-            self.db.flush()  # Get product.id
-
-            self.log_success(f"Product #{product.id} created from Vinted #{vinted_id}")
-
-            # 2. Download images in background
-            download_result = await VintedImageDownloader.download_and_attach_images(
-                db=self.db,
-                user_id=user_id,
-                product_id=product.id,
-                photos_data=vinted_product.photos_data
+            # Delegate to service
+            service = self.get_service()
+            result = await service.link_product(
+                vinted_product_id=vinted_id,
+                product_id=None,  # Unused parameter
+                user_id=user_id
             )
 
-            self.db.commit()
+            if result.get("success"):
+                product_id = result.get("product_id")
+                images_copied = result.get("images_copied", 0)
+                self.log_success(f"Linked Product #{product_id}, {images_copied} images")
+            else:
+                self.log_error(f"Link failed: {result.get('error')}")
 
-            self.log_success(
-                f"Linked successfully: {download_result['images_copied']} images copied, "
-                f"{download_result['images_failed']} failed"
-            )
-
-            return {
-                "success": True,
-                "product_id": product.id,
-                "vinted_id": vinted_id,
-                "images_copied": download_result["images_copied"],
-                "images_failed": download_result["images_failed"],
-                "total_images": download_result["total_images"],
-            }
+            return result
 
         except Exception as e:
-            self.db.rollback()
-            self.log_error(f"Failed to link Vinted #{vinted_id}: {e}", exc_info=True)
-            return {
-                "success": False,
-                "vinted_id": vinted_id,
-                "error": str(e)
-            }
+            self.log_error(f"Link error: {e}", exc_info=True)
+            return {"success": False, "vinted_id": vinted_id, "error": str(e)}

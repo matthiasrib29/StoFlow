@@ -75,7 +75,8 @@ class MarketplaceTask(Base):
     """
     __tablename__ = "marketplace_tasks"
     __table_args__ = (
-        Index('ix_marketplace_tasks_job_position', 'job_id', 'position'),
+        # TODO(2026-01-16): Re-enable when 'position' column is added via migration
+        # Index('ix_marketplace_tasks_job_position', 'job_id', 'position'),
         Index('ix_marketplace_tasks_job_status', 'job_id', 'status'),
         {"schema": "tenant"}  # Placeholder for schema_translate_map
     )
@@ -83,13 +84,12 @@ class MarketplaceTask(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
     # Task type
-    task_type: Mapped[MarketplaceTaskType] = mapped_column(
+    task_type: Mapped[MarketplaceTaskType | None] = mapped_column(
         SQLEnum(
             MarketplaceTaskType,
             values_callable=lambda x: [e.value for e in x]
         ),
-        default=MarketplaceTaskType.PLUGIN_HTTP,
-        nullable=False,
+        nullable=True,
         index=True,
         comment="Type of task (plugin_http, direct_http, db_operation, file_operation)"
     )
@@ -102,11 +102,12 @@ class MarketplaceTask(Base):
     )
 
     # Task position (for ordered execution within a job)
-    position: Mapped[int | None] = mapped_column(
-        Integer,
-        nullable=True,
-        comment="Execution order within job (1, 2, 3...). Enables intelligent retry: skip completed tasks, retry only failed."
-    )
+    # TODO(2026-01-16): Temporarily commented out until migration adds this column to DB
+    # position: Mapped[int | None] = mapped_column(
+    #     Integer,
+    #     nullable=True,
+    #     comment="Execution order within job (1, 2, 3...). Enables intelligent retry: skip completed tasks, retry only failed."
+    # )
 
     # Status
     status: Mapped[TaskStatus] = mapped_column(

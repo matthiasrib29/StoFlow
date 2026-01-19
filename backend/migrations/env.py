@@ -52,7 +52,7 @@ from models.user.marketplace_task import MarketplaceTask
 from models.user.vinted_connection import VintedConnection
 from models.user.vinted_conversation import VintedConversation, VintedMessage
 from models.user.vinted_error_log import VintedErrorLog
-from models.user.vinted_job_stats import VintedJobStats
+from models.user.marketplace_job_stats import MarketplaceJobStats
 from models.user.ebay_credentials import EbayCredentials
 from models.user.ebay_product import EbayProduct
 from models.user.ebay_product_marketplace import EbayProductMarketplace
