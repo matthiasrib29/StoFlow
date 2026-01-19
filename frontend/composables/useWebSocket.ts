@@ -144,6 +144,14 @@ export function useWebSocket() {
           result = await vintedBridge.executeApiCall(data.payload)
           break
 
+        case 'VINTED_FETCH_USERS':
+          result = await vintedBridge.fetchUsers(
+            data.payload.search_text,
+            data.payload.page,
+            data.payload.per_page
+          )
+          break
+
         default:
           throw new Error(`Unknown action: ${data.action}`)
       }

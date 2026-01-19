@@ -478,6 +478,55 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     return true; // Async response
   }
+
+  /**
+   * VINTED_FETCH_USERS - Search for Vinted users via the users API
+   * Used by admin prospect feature to find power sellers
+   * Calls: GET /api/v2/users?search_text=X&per_page=100&page=Y
+   */
+  if (action === 'VINTED_FETCH_USERS') {
+    const { search_text, page, per_page } = message;
+
+    VintedLogger.debug(`👥 [VINTED] VINTED_FETCH_USERS: search="${search_text}", page=${page}, per_page=${per_page}`);
+
+    (async () => {
+      const response = await sendPostMessageRequest({
+        messageType: 'STOFLOW_API_CALL',
+        responseType: 'STOFLOW_API_RESPONSE',
+        payload: {
+          method: 'GET',
+          endpoint: '/users',
+          params: {
+            search_text: search_text || '',
+            page: page || 1,
+            per_page: per_page || 100
+          },
+          data: null,
+          config: {}
+        },
+        timeout: 30000,
+        logContext: '👥 [USERS]'
+      });
+
+      if (response.success) {
+        VintedLogger.debug(`👥 ✅ Users found: ${response.data?.users?.length || 0}`);
+        sendResponse({
+          success: true,
+          status: response.status || 200,
+          data: response.data
+        });
+      } else {
+        VintedLogger.error(`👥 ❌ VINTED_FETCH_USERS error:`, response.error);
+        sendResponse({
+          success: false,
+          status: response.status || 500,
+          error: response.error || 'Unknown error'
+        });
+      }
+    })();
+
+    return true; // Async response
+  }
 });
 
 VintedLogger.debug('[Stoflow] Content script loaded');
