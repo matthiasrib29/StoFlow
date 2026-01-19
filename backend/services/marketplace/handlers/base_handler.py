@@ -28,6 +28,7 @@ from models.user.marketplace_task import (
     MarketplaceTaskType,
     TaskStatus,
 )
+from services.marketplace.task_metrics_service import TaskMetricsService  # Phase 12-01
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from shared.config import settings
 from shared.logging_setup import get_logger
@@ -220,6 +221,10 @@ class BaseMarketplaceHandler(ABC):
             task.completed_at = datetime.now(timezone.utc)
             self.db.commit()
 
+            # Log task metrics and update stats (Phase 12-01)
+            TaskMetricsService.log_task_complete(task)
+            TaskMetricsService.update_task_stats(self.db, task, success=True)
+
             self.log_debug(f"Plugin task #{task.id} completed successfully")
 
             return result
@@ -231,6 +236,10 @@ class BaseMarketplaceHandler(ABC):
             task.error_message = str(e)
             task.completed_at = datetime.now(timezone.utc)
             self.db.commit()
+
+            # Log task metrics and update stats even on failure (Phase 12-01)
+            TaskMetricsService.log_task_complete(task)
+            TaskMetricsService.update_task_stats(self.db, task, success=False)
 
             self.log_error(f"Plugin task #{task.id} failed: {e}")
             raise
@@ -308,6 +317,9 @@ class BaseMarketplaceHandler(ABC):
                 task.completed_at = datetime.now(timezone.utc)
                 self.db.commit()
 
+                # Log task metrics (Phase 12-01)
+                TaskMetricsService.log_task_complete(task)
+
                 self.log_debug(f"Direct HTTP task #{task.id} completed successfully")
 
                 return result
@@ -319,6 +331,9 @@ class BaseMarketplaceHandler(ABC):
             task.error_message = str(e)
             task.completed_at = datetime.now(timezone.utc)
             self.db.commit()
+
+            # Log task metrics even on failure (Phase 12-01)
+            TaskMetricsService.log_task_complete(task)
 
             self.log_error(f"Direct HTTP task #{task.id} failed: {e}")
             raise

@@ -29,6 +29,7 @@ from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from models.vinted.vinted_deletion import VintedDeletion
 from models.user.batch_job import BatchJob
 from models.user.marketplace_job import MarketplaceJob, JobStatus
+from models.user.marketplace_task_stats import MarketplaceTaskStats
 from models.user.vinted_job_stats import VintedJobStats
 
 __all__ = [
@@ -61,5 +62,6 @@ __all__ = [
     "BatchJob",
     "MarketplaceJob",
     "JobStatus",
+    "MarketplaceTaskStats",
     "VintedJobStats",
 ]
