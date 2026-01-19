@@ -12,6 +12,18 @@ import {
 } from '~/utils/secureStorage'
 import { authLogger } from '~/utils/logger'
 
+// Lazy-loaded WebSocket composable to avoid circular dependencies
+// The composable is cached after first import
+let wsComposable: ReturnType<typeof import('~/composables/useWebSocket').useWebSocket> | null = null
+
+async function getWebSocket() {
+  if (!wsComposable) {
+    const { useWebSocket } = await import('~/composables/useWebSocket')
+    wsComposable = useWebSocket()
+  }
+  return wsComposable
+}
+
 /**
  * Interface User basée sur le backend FastAPI
  * Correspond au modèle User dans /Stoflow_BackEnd/models/public/user.py
