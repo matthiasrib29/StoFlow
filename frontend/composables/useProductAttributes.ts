@@ -252,16 +252,25 @@ export const useProductAttributes = () => {
   }
 
   /**
-   * Ensure a specific material is in the filteredOptions.materials list
+   * Ensure a specific material (or materials) is in the filteredOptions.materials list
+   * Handles comma-separated material strings for multiselect
    */
   const ensureMaterialInOptions = (material: string) => {
     if (!material) return
-    const exists = filteredOptions.materials.some(m => m.value === material)
-    if (!exists) {
-      filteredOptions.materials = [
-        { label: material, value: material },
-        ...filteredOptions.materials
-      ]
+
+    // Handle comma-separated materials
+    const materials = material.includes(',')
+      ? material.split(',').map(m => m.trim()).filter(Boolean)
+      : [material]
+
+    for (const m of materials) {
+      const exists = filteredOptions.materials.some(opt => opt.value === m)
+      if (!exists) {
+        filteredOptions.materials = [
+          { label: m, value: m },
+          ...filteredOptions.materials
+        ]
+      }
     }
   }
 

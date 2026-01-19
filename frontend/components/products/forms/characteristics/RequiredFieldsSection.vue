@@ -118,17 +118,17 @@
         @blur="validation?.touch('color')"
       />
 
-      <!-- Material -->
+      <!-- Material (multiselect with max 3) -->
       <ProductsFormsCharacteristicsAttributeField
-        type="select"
+        type="multiselect"
         label="Matière"
-        :model-value="material"
+        :model-value="materialArray"
         :options="filteredOptions.materials"
         filter-mode="local"
         filter-placeholder="Rechercher une matière..."
         placeholder="Ex: Coton, Denim..."
         :required="true"
-        :show-clear="false"
+        :max-selection="3"
         :has-error="validation?.hasError('material')"
         :error-message="validation?.getError('material')"
         :is-valid="validation?.isFieldValid?.('material')"
@@ -217,6 +217,15 @@ const colorArray = computed(() => {
   return [props.color]
 })
 
+// Convert material string to array for multiselect
+const materialArray = computed(() => {
+  if (!props.material) return []
+  if (props.material.includes(',')) {
+    return props.material.split(',').map(m => m.trim()).filter(Boolean)
+  }
+  return [props.material]
+})
+
 // Handlers with validation
 const handleCategoryChange = (value: string | string[] | null) => {
   const val = (typeof value === 'string' ? value : '') || ''
@@ -251,7 +260,13 @@ const handleColorChange = (value: string | string[] | null) => {
 }
 
 const handleMaterialChange = (value: string | string[] | null) => {
-  const val = (typeof value === 'string' ? value : '') || ''
+  // Convert array to comma-separated string for backend storage
+  let val = ''
+  if (Array.isArray(value)) {
+    val = value.join(', ')
+  } else if (typeof value === 'string') {
+    val = value
+  }
   emit('update:material', val)
   props.validation?.validateDebounced?.('material', val)
 }
