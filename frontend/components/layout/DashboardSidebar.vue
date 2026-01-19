@@ -227,6 +227,14 @@
           <i class="pi pi-link text-sm"/>
           <span>Intégrations</span>
         </NuxtLink>
+        <NuxtLink
+          to="/dashboard/settings/products"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+          active-class="bg-primary-50 text-secondary-900 font-semibold"
+        >
+          <i class="pi pi-box text-sm"/>
+          <span>Produits</span>
+        </NuxtLink>
       </SidebarMenuItemWithLink>
 
       <!-- Documentation -->

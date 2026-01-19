@@ -140,12 +140,14 @@
                 <div>
                   <div class="flex items-center gap-2">
                     <a
+                      v-if="data.url"
                       :href="data.url"
                       target="_blank"
-                      class="font-medium text-primary-600 hover:underline"
+                      class="font-medium text-secondary-900 hover:text-primary-600 hover:underline transition-colors"
                     >
                       {{ data.title }}
                     </a>
+                    <span v-else class="font-medium text-secondary-900">{{ data.title }}</span>
                     <i
                       v-if="data.description"
                       class="pi pi-file-edit text-primary-500"
@@ -203,17 +205,10 @@
               </template>
             </Column>
 
-            <!-- Brand -->
-            <Column field="brand" header="Marque" sortable style="width: 120px">
-              <template #body="{ data }">
-                {{ data.brand || '-' }}
-              </template>
-            </Column>
-
             <!-- Published -->
-            <Column field="published_at" header="Publié" sortable style="width: 120px">
+            <Column field="published_at" header="Publié" sortable style="width: 100px">
               <template #body="{ data }">
-                {{ formatDate(data.published_at) }}
+                {{ data.published_at ? new Date(data.published_at).toLocaleDateString('fr-FR') : '-' }}
               </template>
             </Column>
 
@@ -249,19 +244,6 @@
               </template>
             </Column>
 
-            <!-- Actions -->
-            <Column header="Actions" style="width: 80px">
-              <template #body="{ data }">
-                <div class="flex gap-2">
-                  <Button
-                    icon="pi pi-external-link"
-                    class="p-button-text p-button-sm"
-                    v-tooltip.top="'Voir sur Vinted'"
-                    @click="openVinted(data.url)"
-                  />
-                </div>
-              </template>
-            </Column>
           </DataTable>
         </div>
 
@@ -280,7 +262,7 @@ import { useToast } from 'primevue/usetoast'
 import LinkProductModal from '~/components/vinted/LinkProductModal.vue'
 import InfoBox from '~/components/ui/InfoBox.vue'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
-import { formatDate, getStatusLabel, getStatusSeverity } from '~/utils/formatters'
+import { getStatusLabel, getStatusSeverity } from '~/utils/formatters'
 import { vintedLogger } from '~/utils/logger'
 
 definePageMeta({
@@ -388,12 +370,6 @@ async function syncProducts() {
   }
 }
 
-
-function openVinted(url: string | null) {
-  if (url) {
-    window.open(url, '_blank')
-  }
-}
 
 // Link functions
 function openLinkModal(product: VintedProduct) {

@@ -818,3 +818,184 @@ async def get_ebay_stats(
         "by_status": status_counts,
         "by_marketplace": marketplace_counts,
     }
+
+
+# ============================================================================
+# LINK / UNLINK ENDPOINTS
+# ============================================================================
+
+
+class LinkProductRequest(BaseModel):
+    """
+    Request body for linking EbayProduct to Product.
+
+    - If product_id is provided: link to existing Product
+    - If product_id is None: create new Product from EbayProduct data
+    """
+    product_id: Optional[int] = None  # None = create new Product
+
+    # Optional overrides when creating new Product (ignored if product_id is set)
+    title: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    category: Optional[str] = None
+    brand: Optional[str] = None
+
+
+class EbayLinkResponse(BaseModel):
+    """Response for link operation."""
+    success: bool
+    ebay_product_id: int
+    product_id: int
+    created: bool
+    images_copied: Optional[int] = None
+    product: Optional[dict] = None
+
+
+class EbayUnlinkResponse(BaseModel):
+    """Response for unlink operation."""
+    success: bool
+    ebay_product_id: int
+
+
+@router.post("/products/{ebay_product_id}/link", response_model=EbayLinkResponse)
+async def link_ebay_product(
+    ebay_product_id: int,
+    request: LinkProductRequest = Body(default=None),
+    user_db: tuple = Depends(get_user_db),
+):
+    """
+    Lie un produit eBay à un produit Stoflow.
+
+    - Si product_id fourni : lie au Product existant
+    - Si product_id absent/null : crée un nouveau Product depuis EbayProduct
+
+    Args:
+        ebay_product_id: ID interne de l'EbayProduct
+        request.product_id: ID Product existant (optionnel)
+        request.title/description/...: Overrides pour création (optionnel)
+
+    Returns:
+        EbayLinkResponse: Résultat liaison/création
+    """
+    from decimal import Decimal
+    from services.ebay.ebay_link_service import EbayLinkService
+
+    db, current_user = user_db
+
+    try:
+        link_service = EbayLinkService(db)
+
+        # Case 1: Link to existing Product
+        if request and request.product_id:
+            ebay_product = link_service.link_to_existing_product(
+                ebay_product_id=ebay_product_id,
+                product_id=request.product_id
+            )
+            db.commit()
+
+            return {
+                "success": True,
+                "ebay_product_id": ebay_product_id,
+                "product_id": ebay_product.product_id,
+                "created": False
+            }
+
+        # Case 2: Create new Product from EbayProduct
+        override_data = {}
+        if request:
+            if request.title:
+                override_data["title"] = request.title
+            if request.description:
+                override_data["description"] = request.description
+            if request.price:
+                override_data["price"] = Decimal(str(request.price))
+            if request.category:
+                override_data["category"] = request.category
+            if request.brand:
+                override_data["brand"] = request.brand
+
+        product, ebay_product = link_service.create_product_from_ebay(
+            ebay_product_id=ebay_product_id,
+            override_data=override_data if override_data else None
+        )
+
+        db.commit()
+
+        # Note: Image copying from eBay CDN to R2 can be added later
+        # For now, we just link without image transfer
+        return {
+            "success": True,
+            "ebay_product_id": ebay_product_id,
+            "product_id": product.id,
+            "created": True,
+            "images_copied": 0,  # TODO: Implement image sync from eBay to R2
+            "product": {
+                "id": product.id,
+                "title": product.title,
+                "description": product.description,
+                "price": float(product.price) if product.price else None,
+                "category": product.category,
+                "brand": product.brand,
+                "condition": product.condition,
+                "status": product.status.value if product.status else None,
+            }
+        }
+
+    except ValueError as e:
+        db.rollback()
+        # Business logic error from service
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to link eBay product {ebay_product_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to link product: {str(e)}"
+        )
+
+
+@router.delete("/products/{ebay_product_id}/link", response_model=EbayUnlinkResponse)
+async def unlink_ebay_product(
+    ebay_product_id: int,
+    user_db: tuple = Depends(get_user_db),
+):
+    """
+    Délie un produit eBay de son produit Stoflow.
+
+    Args:
+        ebay_product_id: ID interne de l'EbayProduct
+
+    Returns:
+        EbayUnlinkResponse: Confirmation de déliaison
+    """
+    from services.ebay.ebay_link_service import EbayLinkService
+
+    db, current_user = user_db
+
+    try:
+        link_service = EbayLinkService(db)
+        link_service.unlink(ebay_product_id=ebay_product_id)
+        db.commit()
+
+        return {
+            "success": True,
+            "ebay_product_id": ebay_product_id
+        }
+
+    except ValueError as e:
+        # Business logic error from service
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to unlink eBay product {ebay_product_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to unlink product: {str(e)}"
+        )

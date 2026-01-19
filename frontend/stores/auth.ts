@@ -404,6 +404,11 @@ export const useAuthStore = defineStore('auth', {
         if (import.meta.client) {
           // Update access token in secure storage
           setAccessToken(data.access_token, 3600) // 1 hour default
+
+          // Update WebSocket auth without reconnecting (2026-01-19)
+          if (wsComposable && this.user) {
+            wsComposable.updateAuth(data.access_token, this.user.id)
+          }
         }
 
         return true

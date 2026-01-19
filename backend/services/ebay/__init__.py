@@ -23,6 +23,7 @@ from services.ebay.ebay_base_client import EbayBaseClient
 from services.ebay.ebay_fulfillment_client import EbayFulfillmentClient
 from services.ebay.ebay_inventory_client import EbayInventoryClient
 from services.ebay.ebay_inventory_group_client import EbayInventoryGroupClient
+from services.ebay.ebay_link_service import EbayLinkService
 from services.ebay.ebay_marketing_client import EbayMarketingClient
 from services.ebay.ebay_offer_client import EbayOfferClient
 from services.ebay.ebay_product_conversion_service import EbayProductConversionService
@@ -43,6 +44,7 @@ __all__ = [
     "EbayOfferClient",
     "EbayAccountClient",
     "EbayFulfillmentClient",
+    "EbayLinkService",
     "EbayMarketingClient",
     "EbayAnalyticsClient",
     "EbayTaxonomyClient",

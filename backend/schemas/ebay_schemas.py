@@ -260,3 +260,42 @@ class EbayOAuthCallbackRequest(BaseModel):
 
     code: str = Field(..., description="Authorization code from eBay")
     state: Optional[str] = Field(None, description="State parameter for CSRF protection")
+
+
+# ============================================================================
+# LINK / UNLINK (Product Linking)
+# ============================================================================
+
+
+class EbayLinkRequest(BaseModel):
+    """Request to link an EbayProduct to a Product."""
+
+    product_id: Optional[int] = Field(
+        None,
+        description="ID of existing Product to link. If None, creates a new Product from eBay data."
+    )
+
+    # Optional overrides when creating new Product (ignored if product_id is set)
+    title: Optional[str] = Field(None, description="Override title for new Product")
+    description: Optional[str] = Field(None, description="Override description for new Product")
+    price: Optional[float] = Field(None, description="Override price for new Product")
+    category: Optional[str] = Field(None, description="Override category for new Product")
+    brand: Optional[str] = Field(None, description="Override brand for new Product")
+
+
+class EbayLinkResponse(BaseModel):
+    """Response for link/create operation."""
+
+    success: bool = Field(..., description="Operation success")
+    ebay_product_id: int = Field(..., description="eBay product internal ID")
+    product_id: int = Field(..., description="Stoflow Product ID")
+    created: bool = Field(..., description="True if new Product created, False if linked to existing")
+    images_copied: Optional[int] = Field(None, description="Number of images copied (if created)")
+    product: Optional[dict] = Field(None, description="Created Product details (if created)")
+
+
+class EbayUnlinkResponse(BaseModel):
+    """Response for unlink operation."""
+
+    success: bool = Field(..., description="Operation success")
+    ebay_product_id: int = Field(..., description="eBay product internal ID")
