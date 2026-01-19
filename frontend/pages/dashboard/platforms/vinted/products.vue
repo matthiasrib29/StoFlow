@@ -113,9 +113,12 @@
             v-else
             :value="filteredProducts"
             :paginator="true"
-            :rows="20"
-            :rowsPerPageOptions="[10, 20, 50]"
-            dataKey="id"
+            :rows="pageSize"
+            :totalRecords="totalProducts"
+            :rowsPerPageOptions="[10, 20, 50, 100]"
+            :lazy="true"
+            @page="onPageChange"
+            dataKey="vinted_id"
             responsiveLayout="scroll"
             class="p-datatable-sm"
           >
@@ -303,6 +306,11 @@ const error = ref<string | null>(null)
 const searchQuery = ref('')
 const statusFilter = ref<string | null>(null)
 
+// Pagination state
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalProducts = ref(0)
+
 // Link modal state
 const showLinkModal = ref(false)
 const selectedVintedProduct = ref<VintedProduct | null>(null)
@@ -316,38 +324,48 @@ const statusOptions = [
   { label: 'Brouillon', value: 'draft' },
 ]
 
-// Computed
+// Computed - client-side search only (status filter is handled by backend)
 const filteredProducts = computed(() => {
-  let result = products.value
+  if (!searchQuery.value) return products.value
 
-  // Filter by status
-  if (statusFilter.value) {
-    result = result.filter(p => p.status === statusFilter.value)
-  }
-
-  // Filter by search
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(p =>
-      p.title?.toLowerCase().includes(query) ||
-      p.brand?.toLowerCase().includes(query) ||
-      p.vinted_id?.toString().includes(query)
-    )
-  }
-
-  return result
+  const query = searchQuery.value.toLowerCase()
+  return products.value.filter(p =>
+    p.title?.toLowerCase().includes(query) ||
+    p.brand?.toLowerCase().includes(query) ||
+    p.vinted_id?.toString().includes(query)
+  )
 })
 
 // Methods
 const api = useApi()
 
-async function fetchProducts() {
+async function fetchProducts(page: number = 1, limit: number = 20) {
   loading.value = true
   error.value = null
 
   try {
-    const response = await api.get<{ products: VintedProduct[] }>('/vinted/products?limit=500')
+    const offset = (page - 1) * limit
+    const params = new URLSearchParams({
+      offset: offset.toString(),
+      limit: limit.toString(),
+    })
+
+    // Send status filter to backend
+    if (statusFilter.value) {
+      params.append('status_filter', statusFilter.value)
+    }
+
+    const response = await api.get<{
+      products: VintedProduct[]
+      total: number
+      limit: number
+      offset: number
+    }>(`/vinted/products?${params.toString()}`)
+
     products.value = response?.products || []
+    totalProducts.value = response?.total || 0
+    currentPage.value = page
+    pageSize.value = limit
   } catch (e: any) {
     vintedLogger.error('Failed to fetch Vinted products', { error: e.message })
     error.value = e.message || 'Erreur lors du chargement des produits'
@@ -361,7 +379,8 @@ async function syncProducts() {
 
   try {
     await api.post('/vinted/products/sync')
-    await fetchProducts()
+    // Reload first page after sync
+    await fetchProducts(1, pageSize.value)
   } catch (e: any) {
     vintedLogger.error('Failed to sync Vinted products', { error: e.message })
     error.value = e.message || 'Erreur lors de la synchronisation'
@@ -370,6 +389,11 @@ async function syncProducts() {
   }
 }
 
+// Pagination handler
+function onPageChange(event: { first: number; rows: number }) {
+  const newPage = Math.floor(event.first / event.rows) + 1
+  fetchProducts(newPage, event.rows)
+}
 
 // Link functions
 function openLinkModal(product: VintedProduct) {
@@ -431,10 +455,16 @@ onMounted(async () => {
   await fetchProducts()
 })
 
+// Reload when status filter changes
+watch(statusFilter, () => {
+  currentPage.value = 1
+  fetchProducts(1, pageSize.value)
+})
+
 // Rafraîchir les produits à la reconnexion
 watch(isConnected, async (connected) => {
   if (connected) {
-    await fetchProducts()
+    await fetchProducts(1, pageSize.value)
   }
 })
 </script>

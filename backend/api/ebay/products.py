@@ -451,7 +451,7 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
     from models.user.marketplace_job import JobStatus, MarketplaceJob
     from sqlalchemy import text
 
-    ENRICHMENT_BATCH_SIZE = 10  # Number of parallel API calls
+    ENRICHMENT_BATCH_SIZE = 30  # Number of parallel API calls
 
     schema_name = f"user_{user_id}"
     db = SessionLocal()
@@ -526,6 +526,11 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
 
                 except Exception as e:
                     logger.error(f"[Background Import] Failed to import item SKU={sku}: {type(e).__name__}: {e}")
+                    # Rollback failed transaction to allow subsequent items to be processed
+                    db.rollback()
+                    # Reconfigure schema after rollback
+                    configure_schema_translate_map(db, schema_name)
+                    db.execute(text(f"SET search_path TO {schema_name}, public"))
 
             db.commit()
 
