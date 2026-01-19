@@ -70,11 +70,12 @@ def get_user_schemas(conn) -> list[str]:
 def upgrade() -> None:
     conn = op.get_bind()
     schemas = get_user_schemas(conn)
+    print(f"  [lining] Found {len(schemas)} user schemas: {schemas}")
 
     # Add to all user schemas
     for schema in schemas:
         if not table_exists(conn, schema, 'products'):
-            logger.info(f"Table products does not exist in {schema}, skipping")
+            print(f"  - Table products does not exist in {schema}, skipping")
             continue
 
         if not column_exists(conn, schema, 'products', 'lining'):
@@ -88,7 +89,9 @@ def upgrade() -> None:
                 ),
                 schema=schema
             )
-            logger.info(f"Added lining column to {schema}.products")
+            print(f"  ✓ Added lining column to {schema}.products")
+        else:
+            print(f"  - lining column already exists in {schema}.products, skipping")
 
     # Also update template_tenant schema
     if table_exists(conn, 'template_tenant', 'products'):
@@ -103,9 +106,11 @@ def upgrade() -> None:
                 ),
                 schema='template_tenant'
             )
-            logger.info("Added lining column to template_tenant.products")
+            print("  ✓ Added lining column to template_tenant.products")
+        else:
+            print("  - lining column already exists in template_tenant.products, skipping")
 
-    logger.info("Migration completed successfully")
+    print("  ✓ Lining migration completed")
 
 
 def downgrade() -> None:
