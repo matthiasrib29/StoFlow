@@ -207,6 +207,73 @@ export const useProductAttributes = () => {
       .slice(0, 50)
   }
 
+  /**
+   * Ensure a specific brand is in the filteredOptions.brands list
+   * Used when editing a product to show its current brand
+   */
+  const ensureBrandInOptions = (brand: string) => {
+    if (!brand) return
+
+    // Check if brand already exists in the list
+    const exists = filteredOptions.brands.some(b => b.value === brand)
+    if (!exists) {
+      // Add the brand at the beginning of the list
+      filteredOptions.brands = [
+        { label: brand, value: brand },
+        ...filteredOptions.brands
+      ]
+      attributeLogger.debug('Added current brand to options:', brand)
+    }
+  }
+
+  /**
+   * Ensure a specific color (or colors) is in the filteredOptions.colors list
+   * Handles comma-separated color strings for multiselect
+   */
+  const ensureColorInOptions = (color: string) => {
+    if (!color) return
+
+    // Handle comma-separated colors
+    const colors = color.includes(',')
+      ? color.split(',').map(c => c.trim()).filter(Boolean)
+      : [color]
+
+    for (const c of colors) {
+      const exists = filteredOptions.colors.some(opt => opt.value === c)
+      if (!exists) {
+        // Try to find hex_code from full options list
+        const fullOption = options.colors.find(opt => opt.value === c)
+        filteredOptions.colors = [
+          { label: c, value: c, hex_code: fullOption?.hex_code },
+          ...filteredOptions.colors
+        ]
+      }
+    }
+  }
+
+  /**
+   * Ensure a specific material (or materials) is in the filteredOptions.materials list
+   * Handles comma-separated material strings for multiselect
+   */
+  const ensureMaterialInOptions = (material: string) => {
+    if (!material) return
+
+    // Handle comma-separated materials
+    const materials = material.includes(',')
+      ? material.split(',').map(m => m.trim()).filter(Boolean)
+      : [material]
+
+    for (const m of materials) {
+      const exists = filteredOptions.materials.some(opt => opt.value === m)
+      if (!exists) {
+        filteredOptions.materials = [
+          { label: m, value: m },
+          ...filteredOptions.materials
+        ]
+      }
+    }
+  }
+
   // Watch locale changes and reload
   watch(() => localeStore.locale, () => {
     loadAllAttributes()
@@ -220,6 +287,10 @@ export const useProductAttributes = () => {
     // filterCategories, // No longer used - CategoryWizard handles this
     filterBrands,
     filterColors,
-    filterMaterials
+    filterMaterials,
+    // Ensure functions for edit mode
+    ensureBrandInOptions,
+    ensureColorInOptions,
+    ensureMaterialInOptions
   }
 }

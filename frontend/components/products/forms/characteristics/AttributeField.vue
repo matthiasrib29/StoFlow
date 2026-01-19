@@ -7,6 +7,9 @@
         v-if="isValid"
         class="pi pi-check-circle text-green-500 text-xs"
       />
+      <span v-if="maxSelection && type === 'multiselect'" class="text-gray-400 font-normal text-[10px]">
+        (max {{ maxSelection }})
+      </span>
     </label>
 
     <!-- AutoComplete -->
@@ -24,7 +27,7 @@
       @blur="$emit('blur')"
     />
 
-    <!-- Select -->
+    <!-- Select with color preview -->
     <Select
       v-else-if="type === 'select'"
       :model-value="stringValue"
@@ -41,7 +44,90 @@
       @update:model-value="handleChange"
       @filter="handleFilter"
       @blur="$emit('blur')"
-    />
+    >
+      <template v-if="showColorPreview" #option="{ option }">
+        <div class="flex items-center gap-3">
+          <span
+            v-if="option.hex_code"
+            class="w-6 h-6 rounded-full border border-gray-200 flex-shrink-0 shadow-sm"
+            :style="{ backgroundColor: option.hex_code }"
+          />
+          <span
+            v-else-if="option.value === 'Multicolor'"
+            class="w-6 h-6 rounded-full border border-gray-200 flex-shrink-0 shadow-sm"
+            style="background: conic-gradient(red, orange, yellow, green, blue, purple, red)"
+          />
+          <span>{{ option.label }}</span>
+        </div>
+      </template>
+      <template v-if="showColorPreview" #value="{ value }">
+        <div v-if="value" class="flex items-center gap-2">
+          <span
+            v-if="getColorHex(value)"
+            class="w-4 h-4 rounded border border-gray-300 flex-shrink-0"
+            :style="{ backgroundColor: getColorHex(value) }"
+          />
+          <span
+            v-else-if="value === 'Multicolor'"
+            class="w-4 h-4 rounded border border-gray-300 flex-shrink-0"
+            style="background: linear-gradient(135deg, red, orange, yellow, green, blue, purple)"
+          />
+          <span>{{ getColorLabel(value) }}</span>
+        </div>
+        <span v-else class="text-gray-400">{{ placeholder }}</span>
+      </template>
+    </Select>
+
+    <!-- MultiSelect with color preview -->
+    <MultiSelect
+      v-else-if="type === 'multiselect'"
+      :model-value="arrayValue"
+      :options="options"
+      option-label="label"
+      option-value="value"
+      :placeholder="placeholder"
+      class="w-full"
+      :class="fieldClasses"
+      :loading="loading"
+      :filter="filterMode !== 'none'"
+      :filter-placeholder="filterPlaceholder"
+      :selection-limit="maxSelection"
+      display="chip"
+      @update:model-value="handleMultiSelectChange"
+      @filter="handleFilter"
+      @blur="$emit('blur')"
+    >
+      <template v-if="showColorPreview" #option="{ option }">
+        <div class="flex items-center gap-3">
+          <span
+            v-if="option.hex_code"
+            class="w-6 h-6 rounded-full border border-gray-200 flex-shrink-0 shadow-sm"
+            :style="{ backgroundColor: option.hex_code }"
+          />
+          <span
+            v-else-if="option.value === 'Multicolor'"
+            class="w-6 h-6 rounded-full border border-gray-200 flex-shrink-0 shadow-sm"
+            style="background: conic-gradient(red, orange, yellow, green, blue, purple, red)"
+          />
+          <span>{{ option.label }}</span>
+        </div>
+      </template>
+      <template v-if="showColorPreview" #chip="{ value }">
+        <div class="inline-flex items-center gap-1.5 bg-gray-100 rounded-full px-2.5 py-1 mr-1">
+          <span
+            v-if="getColorHex(value)"
+            class="w-3.5 h-3.5 rounded-full border border-gray-300 flex-shrink-0 shadow-sm"
+            :style="{ backgroundColor: getColorHex(value) }"
+          />
+          <span
+            v-else-if="value === 'Multicolor'"
+            class="w-3.5 h-3.5 rounded-full border border-gray-300 flex-shrink-0 shadow-sm"
+            style="background: conic-gradient(red, orange, yellow, green, blue, purple, red)"
+          />
+          <span class="text-xs font-medium text-gray-700">{{ getColorLabel(value) }}</span>
+        </div>
+      </template>
+    </MultiSelect>
 
     <!-- InputText -->
     <InputText
@@ -89,7 +175,7 @@
 import type { AttributeOption } from '~/composables/useAttributes'
 import { useDebounceFn } from '@vueuse/core'
 
-type FieldType = 'autocomplete' | 'select' | 'text' | 'chips' | 'textarea'
+type FieldType = 'autocomplete' | 'select' | 'multiselect' | 'text' | 'chips' | 'textarea'
 
 interface Props {
   type: FieldType
@@ -106,11 +192,15 @@ interface Props {
   rows?: number
   // For autocomplete
   suggestions?: string[]
-  // For select
+  // For select/multiselect
   options?: AttributeOption[]
   // For searchable select
   filterMode?: 'local' | 'api' | 'none'
   filterPlaceholder?: string
+  // For multiselect
+  maxSelection?: number
+  // For color preview
+  showColorPreview?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -126,7 +216,9 @@ const props = withDefaults(defineProps<Props>(), {
   suggestions: () => [],
   options: () => [],
   filterMode: 'none',
-  filterPlaceholder: 'Rechercher...'
+  filterPlaceholder: 'Rechercher...',
+  maxSelection: undefined,
+  showColorPreview: false
 })
 
 const emit = defineEmits<{
@@ -149,11 +241,17 @@ const stringValue = computed(() => {
 
 const arrayValue = computed(() => {
   if (Array.isArray(props.modelValue)) return props.modelValue
+  // If single string value, convert to array for multiselect
+  if (typeof props.modelValue === 'string' && props.modelValue) return [props.modelValue]
   return []
 })
 
 const handleChange = (value: string | string[] | null | undefined) => {
   emit('update:modelValue', value ?? null)
+}
+
+const handleMultiSelectChange = (value: string[] | null | undefined) => {
+  emit('update:modelValue', value ?? [])
 }
 
 // Handle filter events for searchable select
@@ -170,4 +268,16 @@ const handleFilter = (event: any) => {
 const debouncedApiFilter = useDebounceFn((query: string) => {
   emit('filter', query)
 }, 300)
+
+// Helper functions for color preview
+const getColorHex = (value: string): string | null => {
+  const option = props.options?.find(o => o.value === value)
+  return option?.hex_code || null
+}
+
+const getColorLabel = (value: string): string => {
+  const option = props.options?.find(o => o.value === value)
+  return option?.label || value
+}
+
 </script>

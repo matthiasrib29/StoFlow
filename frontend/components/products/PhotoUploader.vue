@@ -87,11 +87,6 @@
                 Principale
               </div>
 
-              <!-- New Badge - Bottom Left (for new photos) -->
-              <div v-if="element.type === 'new'" class="absolute bottom-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded z-20">
-                Nouvelle
-              </div>
-
               <!-- Drag Handle Indicator -->
               <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                 <i class="pi pi-arrows-alt text-xs"/>

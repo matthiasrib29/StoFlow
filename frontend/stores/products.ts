@@ -276,7 +276,7 @@ export const useProductsStore = defineStore('products', {
     },
 
     /**
-     * Supprimer un produit via l'API (soft delete)
+     * Supprimer un produit via l'API (soft delete -> archived)
      */
     async deleteProduct(id: number) {
       this.isLoading = true
@@ -294,6 +294,51 @@ export const useProductsStore = defineStore('products', {
       } catch (error: any) {
         this.error = error.message
         productLogger.error('Error deleting product', { error: error?.message })
+        throw error
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    /**
+     * Mettre à jour le statut de plusieurs produits en masse
+     */
+    async bulkUpdateStatus(productIds: number[], status: 'draft' | 'published' | 'sold' | 'archived') {
+      this.isLoading = true
+      this.error = null
+
+      try {
+        const api = useApi()
+        const response = await api.patch<{
+          total: number
+          success_count: number
+          error_count: number
+          results: Array<{ product_id: number; success: boolean; error: string | null }>
+        }>('/products/bulk/status', {
+          product_ids: productIds,
+          status
+        })
+
+        // Update local products that were successfully updated
+        for (const result of response.results) {
+          if (result.success) {
+            const product = this.products.find(p => p.id === result.product_id)
+            if (product) {
+              product.status = status
+            }
+          }
+        }
+
+        productLogger.info('Bulk status update', {
+          total: response.total,
+          success: response.success_count,
+          errors: response.error_count
+        })
+
+        return response
+      } catch (error: any) {
+        this.error = error.message
+        productLogger.error('Error bulk updating status', { error: error?.message })
         throw error
       } finally {
         this.isLoading = false

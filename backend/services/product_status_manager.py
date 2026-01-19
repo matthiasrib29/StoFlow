@@ -3,13 +3,13 @@ Product Status Manager
 
 Service for managing product status transitions.
 
-Business Rules (MVP - 2025-12-04):
+Business Rules (MVP - 2025-12-04, updated 2026-01-19):
 - Allowed statuses: DRAFT, PUBLISHED, SOLD, ARCHIVED
 - Valid transitions:
-  - DRAFT -> PUBLISHED
-  - PUBLISHED -> SOLD
-  - PUBLISHED -> ARCHIVED
+  - DRAFT -> PUBLISHED, ARCHIVED
+  - PUBLISHED -> SOLD, ARCHIVED
   - SOLD -> ARCHIVED
+  - ARCHIVED -> DRAFT, PUBLISHED (unarchiving)
 - Publication requires: stock > 0, images >= 1
 
 Created: 2026-01-06
@@ -42,7 +42,7 @@ VALID_TRANSITIONS = {
     ProductStatus.DRAFT: [ProductStatus.PUBLISHED, ProductStatus.ARCHIVED],
     ProductStatus.PUBLISHED: [ProductStatus.SOLD, ProductStatus.ARCHIVED],
     ProductStatus.SOLD: [ProductStatus.ARCHIVED],
-    ProductStatus.ARCHIVED: [],  # No transitions from ARCHIVED
+    ProductStatus.ARCHIVED: [ProductStatus.DRAFT, ProductStatus.PUBLISHED],  # Allow unarchiving
 }
 
 
@@ -56,13 +56,12 @@ class ProductStatusManager:
         """
         Update product status.
 
-        Business Rules (MVP - 2025-12-04):
+        Business Rules (MVP - 2025-12-04, updated 2026-01-19):
         - MVP allowed transitions:
-          - DRAFT -> PUBLISHED
-          - PUBLISHED -> SOLD
-          - PUBLISHED -> ARCHIVED
+          - DRAFT -> PUBLISHED, ARCHIVED
+          - PUBLISHED -> SOLD, ARCHIVED
           - SOLD -> ARCHIVED
-        - Other statuses not allowed for MVP
+          - ARCHIVED -> DRAFT, PUBLISHED (unarchiving)
 
         Args:
             db: SQLAlchemy Session
@@ -176,9 +175,14 @@ class ProductStatusManager:
         """
         Validate product can be published.
 
-        Business Rules (2025-12-05):
-        - Cannot publish with zero stock
-        - Cannot publish without images (min 1 required)
+        Business Rules (2025-12-05, updated 2026-01-19):
+        - title: required, non-empty
+        - description: required, non-empty
+        - price: required, > 0
+        - category: required, non-empty
+        - condition: required (0-10)
+        - stock_quantity: > 0
+        - images: at least 1 required
 
         Args:
             product: Product to validate
@@ -186,19 +190,40 @@ class ProductStatusManager:
         Raises:
             ValueError: If validation fails
         """
-        # Cannot publish with zero stock
-        if product.stock_quantity <= 0:
-            raise ValueError(
-                f"Cannot publish product with zero or negative stock. "
-                f"Current stock: {product.stock_quantity}. Please add inventory first."
-            )
+        errors = []
 
-        # Cannot publish without images (min 1 required)
+        # Title validation
+        if not product.title or not product.title.strip():
+            errors.append("Title is required")
+
+        # Description validation
+        if not product.description or not product.description.strip():
+            errors.append("Description is required")
+
+        # Price validation
+        if product.price is None or product.price <= 0:
+            errors.append("Price must be greater than 0")
+
+        # Category validation
+        if not product.category or not product.category.strip():
+            errors.append("Category is required")
+
+        # Condition validation
+        if product.condition is None:
+            errors.append("Condition is required (0-10)")
+
+        # Stock validation
+        if product.stock_quantity is None or product.stock_quantity <= 0:
+            errors.append(f"Stock must be greater than 0 (current: {product.stock_quantity})")
+
+        # Images validation
         image_count = len(product.images or [])
         if image_count == 0:
+            errors.append("At least 1 image is required")
+
+        if errors:
             raise ValueError(
-                "Cannot publish product without images. "
-                "Please add at least 1 product image before publishing."
+                f"Cannot publish product. Missing required fields: {'; '.join(errors)}"
             )
 
     @staticmethod

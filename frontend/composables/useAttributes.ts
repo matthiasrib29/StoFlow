@@ -16,6 +16,7 @@ import { attributeLogger } from '~/utils/logger'
 export interface AttributeOption {
   value: string
   label: string
+  hex_code?: string | null
 }
 
 export interface CategoryOption extends AttributeOption {
