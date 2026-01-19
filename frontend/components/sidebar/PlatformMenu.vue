@@ -37,7 +37,9 @@
           <i class="pi pi-shopping-bag text-sm"/>
           <span>Commandes</span>
         </NuxtLink>
+        <!-- PMV2: Statistiques cachées pour la phase 1 -->
         <NuxtLink
+          v-if="showPlatformStatistics"
           :to="`/dashboard/platforms/${platform}/statistics`"
           class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
           active-class="bg-primary-50 text-secondary-900 font-semibold"
@@ -54,8 +56,8 @@
           <span>Paramètres</span>
         </NuxtLink>
 
-        <!-- eBay-specific: Post-Sale Management -->
-        <template v-if="platform === 'ebay'">
+        <!-- PMV2: eBay Post-Sale Management caché pour la phase 1 -->
+        <template v-if="platform === 'ebay' && showEbayPostSale">
           <div class="my-2 border-t border-gray-100" />
           <NuxtLink
             to="/dashboard/platforms/ebay/post-sale"
@@ -125,4 +127,5 @@ defineEmits<{
 }>()
 
 const route = useRoute()
+const { showPlatformStatistics, showEbayPostSale } = useFeatureFlags()
 </script>

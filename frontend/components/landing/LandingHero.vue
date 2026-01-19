@@ -13,8 +13,9 @@
             <span class="bg-gradient-to-r from-secondary-900 to-secondary-700 bg-clip-text text-transparent">plusieurs marketplaces</span>
             en un clic
           </h1>
+          <!-- PMV2: Etsy removed from description -->
           <p class="text-xl text-secondary-600 mb-4 max-w-lg">
-            Gérez vos produits Vinted, eBay et Etsy depuis une seule plateforme.
+            Gérez vos produits Vinted et eBay depuis une seule plateforme.
             Synchronisez vos stocks, automatisez vos publications.
           </p>
           <p class="text-sm text-primary-600 font-medium mb-8 flex items-center gap-2">
@@ -61,10 +62,10 @@
             <div class="bg-gray-50 rounded-lg p-4 mb-4">
               <div class="flex items-center justify-between mb-4">
                 <span class="font-bold text-secondary-900">Tableau de bord</span>
+                <!-- PMV2: Etsy dot removed -->
                 <div class="flex gap-2">
                   <div class="w-3 h-3 rounded-full bg-platform-vinted" />
                   <div class="w-3 h-3 rounded-full bg-platform-ebay" />
-                  <div class="w-3 h-3 rounded-full bg-platform-etsy" />
                 </div>
               </div>
               <div class="grid grid-cols-3 gap-3">

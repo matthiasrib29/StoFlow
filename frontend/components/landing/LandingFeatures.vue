@@ -38,7 +38,8 @@ const features = [
   {
     icon: 'pi-bolt',
     title: 'Publication en un clic',
-    description: 'Créez une annonce une fois, publiez-la sur Vinted, eBay et Etsy automatiquement avec les bons formats.'
+    // PMV2: Etsy removed
+    description: 'Créez une annonce une fois, publiez-la sur Vinted et eBay automatiquement avec les bons formats.'
   },
   {
     icon: 'pi-sparkles',
