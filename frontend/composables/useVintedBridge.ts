@@ -483,6 +483,35 @@ export function useVintedBridge() {
   }
 
   /**
+   * Fetch Vinted users for prospection
+   */
+  async function fetchUsers(searchText: string, page = 1, perPage = 100): Promise<BridgeResponse> {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const response = await sendMessage({
+        action: 'VINTED_FETCH_USERS',
+        search_text: searchText,
+        page,
+        per_page: perPage
+      }, 60000) // 60s timeout for user searches
+
+      if (!response.success) {
+        error.value = response.error || 'Failed to fetch users'
+        lastError.value = response
+      }
+
+      return response
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
    * Publish a product to Vinted
    */
   async function publishProduct(productData: any): Promise<BridgeResponse> {
@@ -714,6 +743,7 @@ export function useVintedBridge() {
     getUserProfile,
     getWardrobe,
     executeApiCall,
+    fetchUsers,
     publishProduct,
     updateProduct,
     deleteProduct,

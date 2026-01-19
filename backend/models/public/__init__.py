@@ -54,6 +54,7 @@ from models.public.trend import Trend
 from models.public.unique_feature import UniqueFeature
 # Vinted schema models (re-exported for compatibility)
 from models.vinted.vinted_action_type import VintedActionType
+from models.public.vinted_prospect import VintedProspect
 
 __all__ = [
     # Public schema
@@ -80,6 +81,8 @@ __all__ = [
     "ExchangeRate",
     # Vinted job system
     "VintedActionType",
+    # Vinted prospection
+    "VintedProspect",
     # Product attributes schema
     "Brand",
     "Category",
