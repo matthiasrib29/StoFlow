@@ -13,7 +13,7 @@
  * @date 2026-01-06
  */
 
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, getCurrentInstance } from 'vue'
 
 // ============================================================
 // TYPES
@@ -680,11 +680,16 @@ export function useVintedBridge() {
     log.debug('VintedBridge cleanup skipped (singleton)')
   }
 
-  // Auto-init on mount if used in component
-  if (import.meta.client) {
+  // Auto-init on mount if used in component context
+  // Only register lifecycle hooks if there's an active component instance
+  // This prevents warnings when composable is used in stores or other composables
+  if (import.meta.client && getCurrentInstance()) {
     onMounted(init)
     // Note: cleanup is now a no-op for singleton pattern
     onUnmounted(cleanup)
+  } else if (import.meta.client) {
+    // If no component instance, init immediately (for stores/other composables)
+    init()
   }
 
   // ============================================================

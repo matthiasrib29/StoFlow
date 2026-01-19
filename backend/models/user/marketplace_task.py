@@ -55,8 +55,22 @@ class MarketplaceTask(Base):
     A task represents a single atomic operation (HTTP request, DB operation, etc.)
     within a MarketplaceJob. Each job can have multiple tasks.
 
+    Task State Machine:
+    PENDING → PROCESSING → SUCCESS/FAILED/TIMEOUT/CANCELLED
+
+    Retry Intelligence (2026-01-15):
+    Tasks with status='success' are SKIPPED during job retry (idempotence guarantee).
+    Only tasks with status='failed' or 'pending' are re-executed.
+
+    Example Job with 5 Tasks:
+    - Task 1 (pos=1): Upload image 1/3 → success → SKIPPED on retry
+    - Task 2 (pos=2): Upload image 2/3 → success → SKIPPED on retry
+    - Task 3 (pos=3): Upload image 3/3 → failed  → RE-EXECUTED on retry
+    - Task 4 (pos=4): Create listing    → pending → EXECUTED on retry
+    - Task 5 (pos=5): Save listing ID   → pending → EXECUTED on retry
+
     Indexes:
-    - (job_id, position): For ordered task retrieval and retry intelligent
+    - (job_id, position): For ordered task retrieval and retry intelligence
     - (job_id, status): For querying failed/pending tasks to retry
     """
     __tablename__ = "marketplace_tasks"
@@ -198,15 +212,49 @@ class MarketplaceTask(Base):
 
     @property
     def is_plugin_task(self) -> bool:
-        """Check if this task requires plugin execution."""
+        """
+        Check if this task requires plugin execution.
+
+        Plugin tasks (task_type=plugin_http) are executed via WebSocket:
+        Backend → WebSocket → Frontend → Plugin → Vinted API
+
+        Used by handlers to determine communication strategy:
+        - plugin_http → execute_plugin_task() (WebSocket with 60s timeout)
+        - direct_http → execute_direct_http() (httpx with 30s timeout)
+
+        Returns:
+            True if task_type is PLUGIN_HTTP, False otherwise
+        """
         return self.task_type == MarketplaceTaskType.PLUGIN_HTTP
 
     @property
     def is_active(self) -> bool:
-        """Check if task is still active (not terminal)."""
+        """
+        Check if task is still active (not terminal).
+
+        Active tasks are currently being processed or waiting for execution.
+        Used to determine if a job is still running.
+
+        Returns:
+            True if status is PENDING or PROCESSING, False otherwise
+        """
         return self.status in (TaskStatus.PENDING, TaskStatus.PROCESSING)
 
     @property
     def is_terminal(self) -> bool:
-        """Check if task has reached a terminal state."""
+        """
+        Check if task has reached a terminal state.
+
+        Terminal states indicate the task has finished (successfully or not).
+        Terminal tasks are not re-executed unless their parent job is retried.
+
+        Retry Behavior by Terminal Status:
+        - SUCCESS: SKIPPED on retry (idempotence)
+        - FAILED: RE-EXECUTED on retry
+        - TIMEOUT: RE-EXECUTED on retry
+        - CANCELLED: SKIPPED on retry
+
+        Returns:
+            True if status is terminal (SUCCESS/FAILED/TIMEOUT/CANCELLED), False otherwise
+        """
         return self.status in (TaskStatus.SUCCESS, TaskStatus.FAILED, TaskStatus.TIMEOUT, TaskStatus.CANCELLED)

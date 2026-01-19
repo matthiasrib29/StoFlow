@@ -24,23 +24,16 @@ export default defineNuxtRouteMiddleware((to, from) => {
   }
 
   // Define public routes that don't require authentication
-  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/beta', '/merci']
+  const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password']
   const isPublicRoute = publicRoutes.some(route =>
     to.path === route || to.path.startsWith('/reset-password/')
   )
 
-  // Define protected routes (dashboard, homepage and all sub-routes)
-  const isProtectedRoute = to.path.startsWith('/dashboard') || to.path === '/'
+  // Define protected routes (dashboard and all sub-routes)
+  const isProtectedRoute = to.path.startsWith('/dashboard')
 
   // Case 1: User is NOT authenticated and trying to access protected route
   if (isProtectedRoute && !authStore.isAuthenticated) {
-    // Special case: redirect homepage to beta landing page
-    if (to.path === '/') {
-      authLogger.debug('Unauthenticated access to homepage, redirecting to beta')
-      return navigateTo('/beta')
-    }
-
-    // Other protected routes: redirect to login
     authLogger.debug('Unauthenticated access to protected route, redirecting to login')
 
     // Store the intended destination for redirect after login

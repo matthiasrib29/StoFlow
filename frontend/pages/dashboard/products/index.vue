@@ -41,24 +41,80 @@
 
     <!-- Table Mode Container -->
     <div v-else-if="viewMode === 'table'">
-      <!-- Desktop: DataTable -->
+      <!-- Desktop: DataTable - ClientOnly to prevent PrimeVue checkbox hydration mismatch -->
       <div class="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <ProductsDataTable
-          v-model:selection="selectedProducts"
-          :products="filteredProducts"
-          :total-records="pagination.total"
-          :current-page="currentPage"
-          :rows-per-page="rowsPerPage"
-          :loading="isLoading"
-          @page="onPageChange"
-          @edit="editProduct"
-          @delete="confirmDelete"
-          @create="$router.push('/dashboard/products/create')"
-        />
+        <ClientOnly>
+          <ProductsDataTable
+            v-model:selection="selectedProducts"
+            :products="filteredProducts"
+            :total-records="pagination.total"
+            :current-page="currentPage"
+            :rows-per-page="rowsPerPage"
+            :loading="isLoading"
+            @page="onPageChange"
+            @edit="editProduct"
+            @delete="confirmDelete"
+            @create="$router.push('/dashboard/products/create')"
+          />
+          <template #fallback>
+            <div class="p-8 text-center text-gray-500">
+              <i class="pi pi-spin pi-spinner text-2xl mb-2"></i>
+              <p>Chargement...</p>
+            </div>
+          </template>
+        </ClientOnly>
       </div>
 
       <!-- Mobile: Cards View -->
-      <div class="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="lg:hidden">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ProductsProductCard
+            v-for="product in filteredProducts"
+            :key="product.id"
+            :product="product"
+            :selectable="true"
+            :is-selected="selectedProducts.some(p => p.id === product.id)"
+            @click="editProduct"
+            @edit="editProduct"
+            @delete="confirmDelete"
+            @toggle-selection="toggleSelection"
+          />
+
+          <!-- Empty State for Mobile -->
+          <div v-if="filteredProducts.length === 0" class="col-span-full">
+            <Card class="shadow-md">
+              <template #content>
+                <EmptyState
+                  animation-type="empty-box"
+                  title="Aucun produit trouvé"
+                  description="Commencez par créer votre premier produit"
+                  action-label="Créer un produit"
+                  action-icon="pi pi-plus"
+                  @action="$router.push('/dashboard/products/create')"
+                />
+              </template>
+            </Card>
+          </div>
+        </div>
+
+        <!-- Pagination for Mobile -->
+        <div v-if="pagination.total > rowsPerPage" class="mt-4">
+          <ClientOnly>
+            <Paginator
+              :rows="rowsPerPage"
+              :total-records="pagination.total"
+              :first="(currentPage - 1) * rowsPerPage"
+              :rows-per-page-options="[10, 20, 50]"
+              @page="onPageChange"
+            />
+          </ClientOnly>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid View -->
+    <div v-else>
+      <div v-auto-animate class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 stagger-grid">
         <ProductsProductCard
           v-for="product in filteredProducts"
           :key="product.id"
@@ -71,15 +127,15 @@
           @toggle-selection="toggleSelection"
         />
 
-        <!-- Empty State for Mobile -->
+        <!-- Empty State for Grid -->
         <div v-if="filteredProducts.length === 0" class="col-span-full">
           <Card class="shadow-md">
             <template #content>
               <EmptyState
                 animation-type="empty-box"
                 title="Aucun produit trouvé"
-                description="Commencez par créer votre premier produit"
-                action-label="Créer un produit"
+                description="Commencez par créer votre premier produit pour le voir apparaître ici"
+                action-label="Créer votre premier produit"
                 action-icon="pi pi-plus"
                 @action="$router.push('/dashboard/products/create')"
               />
@@ -87,36 +143,18 @@
           </Card>
         </div>
       </div>
-    </div>
 
-    <!-- Grid View -->
-    <div v-else v-auto-animate class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 stagger-grid">
-      <ProductsProductCard
-        v-for="product in filteredProducts"
-        :key="product.id"
-        :product="product"
-        :selectable="true"
-        :is-selected="selectedProducts.some(p => p.id === product.id)"
-        @click="editProduct"
-        @edit="editProduct"
-        @delete="confirmDelete"
-        @toggle-selection="toggleSelection"
-      />
-
-      <!-- Empty State for Grid -->
-      <div v-if="filteredProducts.length === 0" class="col-span-full">
-        <Card class="shadow-md">
-          <template #content>
-            <EmptyState
-              animation-type="empty-box"
-              title="Aucun produit trouvé"
-              description="Commencez par créer votre premier produit pour le voir apparaître ici"
-              action-label="Créer votre premier produit"
-              action-icon="pi pi-plus"
-              @action="$router.push('/dashboard/products/create')"
-            />
-          </template>
-        </Card>
+      <!-- Pagination for Grid View -->
+      <div v-if="pagination.total > rowsPerPage" class="mt-4">
+        <ClientOnly>
+          <Paginator
+            :rows="rowsPerPage"
+            :total-records="pagination.total"
+            :first="(currentPage - 1) * rowsPerPage"
+            :rows-per-page-options="[10, 20, 50]"
+            @page="onPageChange"
+          />
+        </ClientOnly>
       </div>
     </div>
 

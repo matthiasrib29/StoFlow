@@ -10,6 +10,7 @@ import Password from 'primevue/password'
 import Card from 'primevue/card'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
+import Paginator from 'primevue/paginator'
 
 // Services
 import Toast from 'primevue/toast'
@@ -110,6 +111,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('Card', Card)
   nuxtApp.vueApp.component('DataTable', DataTable)
   nuxtApp.vueApp.component('Column', Column)
+  nuxtApp.vueApp.component('Paginator', Paginator)
   nuxtApp.vueApp.component('Toast', Toast)
   nuxtApp.vueApp.component('ConfirmDialog', ConfirmDialog)
   nuxtApp.vueApp.component('Dialog', Dialog)

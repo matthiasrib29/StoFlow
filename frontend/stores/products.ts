@@ -178,7 +178,7 @@ export const useProductsStore = defineStore('products', {
         if (options?.brand) params.append('brand', options.brand)
 
         const queryString = params.toString()
-        const endpoint = `/products?${queryString}`
+        const endpoint = `/products/?${queryString}`
 
         const data = await api.get<{
           products: Product[]
@@ -234,7 +234,7 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        const newProduct = await api.post<Product>('/products', productData)
+        const newProduct = await api.post<Product>('/products/', productData)
         if (newProduct) {
           this.products.push(newProduct)
         }

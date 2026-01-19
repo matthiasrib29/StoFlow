@@ -25,7 +25,6 @@ from api.admin_stats import router as admin_stats_router
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
 from api.batches import router as batches_router
-from api.beta import router as beta_router
 from api.docs import router as docs_router
 # eBay routers (re-enabled 2026-01-03)
 from api.ebay import router as ebay_router, products_router as ebay_products_router, returns_router as ebay_returns_router, cancellations_router as ebay_cancellations_router, refunds_router as ebay_refunds_router, payment_disputes_router as ebay_payment_disputes_router, inquiries_router as ebay_inquiries_router, dashboard_router as ebay_dashboard_router
@@ -37,7 +36,6 @@ from api.ebay_webhook import router as ebay_webhook_router
 # REMOVED (2026-01-09): Plugin now communicates via WebSocket (no HTTP endpoints needed)
 # from api.plugin import router as plugin_router
 from api.pricing import router as pricing_router
-from api.preview import router as preview_router
 from api.products import router as products_router
 from api.text_generator import router as text_generator_router
 from api.user_settings import router as user_settings_router
@@ -242,8 +240,6 @@ app.include_router(admin_attributes_router, prefix="/api")
 app.include_router(admin_audit_router, prefix="/api")
 app.include_router(admin_stats_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
-app.include_router(beta_router, prefix="/api")  # Beta signup (public, no auth required)
-app.include_router(preview_router, prefix="/api")  # Email template previews (dev only)
 app.include_router(batches_router, prefix="/api")  # Generic batch jobs (multi-marketplace)
 app.include_router(docs_router, prefix="/api")  # Public documentation (no auth required)
 app.include_router(admin_docs_router, prefix="/api")  # Admin documentation CRUD (admin only)
