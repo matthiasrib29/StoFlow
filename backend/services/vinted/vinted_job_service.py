@@ -306,6 +306,8 @@ class VintedJobService:
         For RUNNING jobs: sets cancel_requested flag for graceful shutdown
         For TERMINAL jobs: returns None (already finished)
 
+        Uses non-blocking UPDATE to avoid lock contention with running jobs.
+
         Args:
             job_id: Job ID
 
@@ -324,22 +326,65 @@ class VintedJobService:
 
         # If job is PENDING, cancel immediately (not started yet)
         if job.status == JobStatus.PENDING:
-            job.status = JobStatus.CANCELLED
-            job.completed_at = datetime.now(timezone.utc)
-            self.db.commit()
+            try:
+                job.status = JobStatus.CANCELLED
+                job.completed_at = datetime.now(timezone.utc)
+                self.db.commit()
 
-            # Cancel associated pending tasks
-            self._cancel_job_tasks(job_id)
+                # Cancel associated pending tasks
+                self._cancel_job_tasks(job_id)
 
-            logger.info(f"[VintedJobService] Job #{job_id} cancelled immediately (was pending)")
-            return job
+                logger.info(f"[VintedJobService] Job #{job_id} cancelled immediately (was pending)")
+                return job
+            except Exception as e:
+                self.db.rollback()
+                logger.error(f"[VintedJobService] Failed to cancel pending job #{job_id}: {e}")
+                return None
 
-        # If job is RUNNING, set flag for cooperative cancellation
+        # If job is RUNNING, use non-blocking UPDATE to set cancel flag
         if job.status == JobStatus.RUNNING:
-            job.cancel_requested = True
-            self.db.commit()
-            logger.info(f"[VintedJobService] Job #{job_id} cancellation requested (will stop gracefully)")
-            return job
+            try:
+                # Use raw SQL with short statement_timeout to avoid blocking
+                # This prevents the cancel request from hanging when the job processor
+                # has a lock on the row
+                self.db.execute(text("SET LOCAL statement_timeout = '2s'"))
+
+                result = self.db.execute(
+                    text("""
+                        UPDATE marketplace_jobs
+                        SET cancel_requested = true, updated_at = NOW()
+                        WHERE id = :job_id AND status = 'running'
+                    """),
+                    {"job_id": job_id}
+                )
+                self.db.commit()
+
+                if result.rowcount > 0:
+                    logger.info(f"[VintedJobService] Job #{job_id} cancellation requested (will stop gracefully)")
+                    # Refresh to get updated state
+                    self.db.refresh(job)
+                    return job
+                else:
+                    # Job status changed while we were trying to update
+                    self.db.refresh(job)
+                    logger.info(f"[VintedJobService] Job #{job_id} status changed during cancel: {job.status}")
+                    return job
+
+            except Exception as e:
+                self.db.rollback()
+                error_msg = str(e).lower()
+
+                # If lock timeout, the job is being processed - flag will be checked eventually
+                if "timeout" in error_msg or "lock" in error_msg:
+                    logger.warning(
+                        f"[VintedJobService] Job #{job_id} is locked by processor - "
+                        "cancellation will be processed when handler checks flag"
+                    )
+                    # Return the job anyway - the force_cancel_stale_jobs will handle it
+                    return job
+                else:
+                    logger.error(f"[VintedJobService] Failed to request cancellation for job #{job_id}: {e}")
+                    return None
 
         # Other statuses (shouldn't happen but handle gracefully)
         return job

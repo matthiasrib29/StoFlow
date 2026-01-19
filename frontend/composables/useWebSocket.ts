@@ -28,43 +28,31 @@ const wsLog = {
 }
 
 /**
- * Emit with Socket.IO ACK and automatic retry on failure.
- * Guarantees message delivery even with unstable connections.
+ * Emit with Socket.IO native ACK.
+ * Uses Socket.IO's built-in retry mechanism (configured at connection level).
+ * Returns a promise that resolves when the server acknowledges.
  */
-async function emitWithRetry(
-  event: string,
-  data: any,
-  maxRetries = 3,
-  timeout = 10000
-): Promise<any> {
-  let lastError: Error | null = null
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      wsLog.info(`Emitting ${event} (attempt ${attempt}/${maxRetries})...`)
-
-      const ack = await new Promise((resolve, reject) => {
-        socket.value?.timeout(timeout).emit(event, data, (err: any, response: any) => {
-          if (err) reject(new Error(err.message || 'Emit timeout'))
-          else resolve(response)
-        })
-      })
-
-      wsLog.success(`${event} acknowledged by server`)
-      return ack
-    } catch (err: any) {
-      lastError = err
-      wsLog.warn(`${event} attempt ${attempt} failed: ${err.message}`)
-
-      if (attempt < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
-        wsLog.info(`Retrying in ${delay}ms...`)
-        await new Promise(r => setTimeout(r, delay))
-      }
+function emitWithAck(event: string, data: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if (!socket.value) {
+      reject(new Error('Socket not initialized'))
+      return
     }
-  }
 
-  throw lastError || new Error(`Failed to emit ${event} after ${maxRetries} attempts`)
+    wsLog.info(`Emitting ${event}...`)
+
+    // Socket.IO handles retries automatically via retries/ackTimeout options
+    // Messages are also buffered during disconnection and sent on reconnect
+    socket.value.emit(event, data, (err: any, response: any) => {
+      if (err) {
+        wsLog.error(`${event} failed: ${err.message}`)
+        reject(new Error(err.message || 'Emit failed'))
+      } else {
+        wsLog.success(`${event} acknowledged by server`)
+        resolve(response)
+      }
+    })
+  })
 }
 
 export function useWebSocket() {
@@ -112,13 +100,18 @@ export function useWebSocket() {
     socket.value = io(backendUrl, {
       auth: {
         user_id: authStore.user.id,
-        token: authStore.token  // Fixed: was accessToken, should be token
+        token: authStore.token
       },
       transports: ['websocket'],
+      // Reconnection settings
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5
+      reconnectionAttempts: Infinity, // Keep trying to reconnect
+      // ACK retry settings (Socket.IO v4.6+)
+      // Messages are retried automatically until acknowledged
+      ackTimeout: 10000,  // Wait 10s for ACK before retry
+      retries: 3          // Retry up to 3 times (4 total attempts)
     })
 
     socket.value.on('connect', () => {
@@ -198,8 +191,8 @@ export function useWebSocket() {
 
       wsLog.success(`Command ${data.action} completed`, { success: result.success })
 
-      // Send response back to backend with ACK + retry
-      await emitWithRetry('plugin_response', {
+      // Send response back to backend with ACK (Socket.IO handles retry)
+      await emitWithAck('plugin_response', {
         request_id: data.request_id,
         success: result.success,
         data: result.data,
@@ -208,9 +201,9 @@ export function useWebSocket() {
     } catch (err: any) {
       wsLog.error(`Command ${data.action} failed: ${err.message}`)
 
-      // Try to send error response (best effort, don't throw on failure)
+      // Try to send error response (best effort)
       try {
-        await emitWithRetry('plugin_response', {
+        await emitWithAck('plugin_response', {
           request_id: data.request_id,
           success: false,
           data: null,

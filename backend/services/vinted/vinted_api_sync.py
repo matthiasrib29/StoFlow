@@ -42,6 +42,7 @@ import json
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import JobStatus, MarketplaceJob
@@ -78,6 +79,38 @@ class VintedApiSyncService:
         self.user_id = user_id
         self.extractor = VintedDataExtractor()
         self.enricher = VintedProductEnricher(user_id=user_id)
+
+    def _is_job_cancelled(self, db: Session, job_id: int) -> bool:
+        """
+        Check if job cancellation was requested using non-blocking query.
+
+        Uses direct SQL query to avoid ORM lock contention.
+        This allows the cancel API to update the flag without blocking.
+
+        Args:
+            db: SQLAlchemy session
+            job_id: Job ID to check
+
+        Returns:
+            True if job should stop (cancel_requested or status is cancelled)
+        """
+        try:
+            result = db.execute(
+                text("""
+                    SELECT cancel_requested, status
+                    FROM marketplace_jobs
+                    WHERE id = :job_id
+                """),
+                {"job_id": job_id}
+            ).fetchone()
+
+            if result:
+                cancel_requested, status = result
+                return cancel_requested or status == 'cancelled'
+            return False
+        except Exception as e:
+            logger.warning(f"Error checking job cancellation: {e}")
+            return False
 
     async def sync_products_from_api(
         self,
