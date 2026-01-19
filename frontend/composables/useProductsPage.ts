@@ -1,9 +1,13 @@
+import { storeToRefs } from 'pinia'
 import type { Product } from '~/stores/products'
 
 export function useProductsPage() {
   const router = useRouter()
   const { showSuccess, showError } = useAppToast()
   const productsStore = useProductsStore()
+
+  // Extract reactive refs from store to maintain reactivity when returned
+  const { isLoading, pagination } = storeToRefs(productsStore)
 
   // View mode
   const viewMode = ref<'table' | 'grid'>('table')
@@ -183,9 +187,9 @@ export function useProductsPage() {
     // Computed
     filteredProducts,
 
-    // Store proxies
-    isLoading: productsStore.isLoading,
-    pagination: productsStore.pagination,
+    // Store refs (reactive)
+    isLoading,
+    pagination,
 
     // Methods
     loadProducts,
