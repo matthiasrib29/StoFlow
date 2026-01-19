@@ -44,7 +44,8 @@ const steps = [
   {
     icon: 'pi-link',
     title: 'Connectez vos comptes',
-    description: 'Liez vos comptes Vinted, eBay et Etsy en toute sécurité via notre extension navigateur.'
+    // PMV2: Etsy removed
+    description: 'Liez vos comptes Vinted et eBay en toute sécurité via notre extension navigateur.'
   },
   {
     icon: 'pi-send',

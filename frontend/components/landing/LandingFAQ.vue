@@ -53,7 +53,8 @@ const faqs = [
   {
     icon: 'pi-link',
     question: 'Comment fonctionne la connexion aux marketplaces ?',
-    answer: 'Nous utilisons une extension navigateur sécurisée pour Vinted (qui n\'a pas d\'API publique) et des connexions OAuth officielles pour eBay et Etsy. Vos identifiants ne transitent jamais par nos serveurs.'
+    // PMV2: Etsy removed from answer
+    answer: 'Nous utilisons une extension navigateur sécurisée pour Vinted (qui n\'a pas d\'API publique) et des connexions OAuth officielles pour eBay. Vos identifiants ne transitent jamais par nos serveurs.'
   },
   {
     icon: 'pi-shield',

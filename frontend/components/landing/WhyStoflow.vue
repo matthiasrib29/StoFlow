@@ -123,6 +123,8 @@
 </template>
 
 <script setup lang="ts">
+const { showEtsyPlatform } = useFeatureFlags()
+
 interface ComparisonRow {
   feature: string
   stoflow: boolean | string
@@ -130,7 +132,7 @@ interface ComparisonRow {
   others: boolean | string
 }
 
-const comparisonData: ComparisonRow[] = [
+const allComparisonData: ComparisonRow[] = [
   {
     feature: 'Support Vinted',
     stoflow: true,
@@ -174,4 +176,10 @@ const comparisonData: ComparisonRow[] = [
     others: false
   }
 ]
+
+// PMV2: Filter out Etsy row if not enabled
+const comparisonData = computed(() => {
+  if (showEtsyPlatform) return allComparisonData
+  return allComparisonData.filter(row => row.feature !== 'Support Etsy')
+})
 </script>
