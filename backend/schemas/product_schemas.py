@@ -519,6 +519,11 @@ class ProductResponse(BaseModel):
     # Images (JSONB)
     images: list[ProductImageItem] = []
 
+    # Marketplace links (2026-01-19)
+    # Indicates which platforms this product is linked to
+    vinted_id: int | None = Field(None, description="Vinted product ID if linked")
+    ebay_id: int | None = Field(None, description="eBay product ID if linked")
+
     model_config = {"from_attributes": True}
 
 

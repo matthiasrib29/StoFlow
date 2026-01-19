@@ -82,6 +82,33 @@
       </template>
     </Column>
 
+    <Column header="Plateformes" style="width: 100px">
+      <template #body="slotProps">
+        <div class="flex items-center gap-2">
+          <img
+            v-if="slotProps.data.vinted_id"
+            src="/images/platforms/vinted-logo.png"
+            alt="Vinted"
+            class="w-10 h-10 object-contain"
+            title="Lié à Vinted"
+          >
+          <img
+            v-if="slotProps.data.ebay_id"
+            src="/images/platforms/ebay-logo.png"
+            alt="eBay"
+            class="w-10 h-10 object-contain"
+            title="Lié à eBay"
+          >
+          <span
+            v-if="!slotProps.data.vinted_id && !slotProps.data.ebay_id"
+            class="text-xs text-gray-400"
+          >
+            —
+          </span>
+        </div>
+      </template>
+    </Column>
+
     <Column header="" style="width: 90px">
       <template #body="slotProps">
         <div class="flex gap-1 justify-end">
@@ -92,10 +119,11 @@
             <i class="pi pi-pencil text-sm"/>
           </button>
           <button
-            class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            title="Archiver"
             @click="$emit('delete', slotProps.data)"
           >
-            <i class="pi pi-trash text-sm"/>
+            <i class="pi pi-inbox text-sm"/>
           </button>
         </div>
       </template>

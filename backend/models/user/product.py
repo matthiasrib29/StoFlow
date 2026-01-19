@@ -556,5 +556,20 @@ class Product(Base):
             for img in self.product_images
         ]
 
+    # ===== MARKETPLACE LINK PROPERTIES (2026-01-19) =====
+    @property
+    def vinted_id(self) -> int | None:
+        """Return Vinted product ID if linked, None otherwise."""
+        if self.vinted_product:
+            return self.vinted_product.vinted_id
+        return None
+
+    @property
+    def ebay_id(self) -> int | None:
+        """Return eBay product ID if linked, None otherwise."""
+        if self.ebay_product:
+            return self.ebay_product.id
+        return None
+
     def __repr__(self) -> str:
         return f"<Product(id={self.id}, title='{self.title[:30]}...', status={self.status})>"
