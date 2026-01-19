@@ -333,8 +333,15 @@ export const useAuthStore = defineStore('auth', {
               }
             }
 
-            // Set isAuthenticated LAST - this triggers WebSocket connection
+            // Set isAuthenticated LAST
             this.isAuthenticated = true
+
+            // Connect WebSocket after session restore (2026-01-19)
+            // Note: loadFromStorage is sync, so we use .then() for async WS connection
+            if (accessValid && accessToken) {
+              authLogger.debug('Connecting WebSocket after session restore...')
+              getWebSocket().then(ws => ws.connect(accessToken, (user as User).id))
+            }
 
             // Handle token refresh after isAuthenticated is set
             if (accessValid && accessToken && willExpireSoon(accessToken, 5)) {

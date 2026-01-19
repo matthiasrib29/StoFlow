@@ -153,31 +153,58 @@ class PluginWebSocketHelper:
             TimeoutError: If no response within timeout
             RuntimeError: If user not connected
         """
-        logger.debug(f"[PluginWS] {description or action} (user={user_id})")
+        import time
+        start_time = time.time()
 
-        result = await WebSocketService.send_plugin_command(
-            user_id=user_id, action=action, payload=payload, timeout=timeout
-        )
+        logger.info(f"[PluginWS] ═══ CALL START ═══")
+        logger.info(f"[PluginWS] Description: {description or action}")
+        logger.info(f"[PluginWS] User ID: {user_id}")
+        logger.info(f"[PluginWS] Action: {action}")
+        logger.info(f"[PluginWS] Timeout: {timeout}s")
+        logger.debug(f"[PluginWS] Payload: {str(payload)[:300]}...")
 
-        if not result.get("success"):
-            error_msg = result.get("error", "Unknown error")
-            http_status = result.get("status")
-            error_data = result.get("errorData")
+        try:
+            result = await WebSocketService.send_plugin_command(
+                user_id=user_id, action=action, payload=payload, timeout=timeout
+            )
 
-            logger.error(f"[PluginWS] {description or action} failed: HTTP {http_status or '?'} - {error_msg}")
+            elapsed = time.time() - start_time
+            logger.info(f"[PluginWS] ✓ WebSocket response received in {elapsed*1000:.1f}ms")
+            logger.info(f"[PluginWS] Result success: {result.get('success')}")
+            logger.debug(f"[PluginWS] Result keys: {list(result.keys())}")
 
-            # Raise specific HTTP error if status code is available
-            if http_status:
-                raise PluginHTTPError(
-                    status=http_status,
-                    message=error_msg,
-                    error_data=error_data
-                )
+            if not result.get("success"):
+                error_msg = result.get("error", "Unknown error")
+                http_status = result.get("status")
+                error_data = result.get("errorData")
 
-            # Fallback to generic RuntimeError for non-HTTP errors
-            raise RuntimeError(error_msg)
+                logger.error(f"[PluginWS] ✗ {description or action} failed: HTTP {http_status or '?'} - {error_msg}")
+                logger.info(f"[PluginWS] ═══ CALL FAILED ═══")
 
-        return result.get("data", {})
+                # Raise specific HTTP error if status code is available
+                if http_status:
+                    raise PluginHTTPError(
+                        status=http_status,
+                        message=error_msg,
+                        error_data=error_data
+                    )
+
+                # Fallback to generic RuntimeError for non-HTTP errors
+                raise RuntimeError(error_msg)
+
+            logger.info(f"[PluginWS] ═══ CALL SUCCESS ═══")
+            return result.get("data", {})
+
+        except TimeoutError as e:
+            elapsed = time.time() - start_time
+            logger.error(f"[PluginWS] ✗ TIMEOUT after {elapsed:.1f}s: {e}")
+            logger.info(f"[PluginWS] ═══ CALL TIMEOUT ═══")
+            raise
+        except RuntimeError as e:
+            elapsed = time.time() - start_time
+            logger.error(f"[PluginWS] ✗ RUNTIME ERROR after {elapsed:.1f}s: {e}")
+            logger.info(f"[PluginWS] ═══ CALL ERROR ═══")
+            raise
 
     @staticmethod
     async def call_plugin_http(

@@ -126,11 +126,14 @@ export function useVintedBridge() {
   // INTERNAL HELPERS
   // ============================================================
 
+  // Timestamp helper
+  const getTimestamp = () => new Date().toISOString().substr(11, 12)
+
   const log = {
-    debug: (...args: any[]) => DEBUG_ENABLED && console.log('[VintedBridge]', ...args),
-    info: (...args: any[]) => DEBUG_ENABLED && console.info('[VintedBridge]', ...args),
-    warn: (...args: any[]) => console.warn('[VintedBridge]', ...args),
-    error: (...args: any[]) => console.error('[VintedBridge]', ...args)
+    debug: (...args: any[]) => DEBUG_ENABLED && console.log(`[VintedBridge ${getTimestamp()}]`, ...args),
+    info: (...args: any[]) => DEBUG_ENABLED && console.info(`[VintedBridge ${getTimestamp()}]`, ...args),
+    warn: (...args: any[]) => console.warn(`[VintedBridge ${getTimestamp()}]`, ...args),
+    error: (...args: any[]) => console.error(`[VintedBridge ${getTimestamp()}]`, ...args)
   }
 
   /**
@@ -652,21 +655,43 @@ export function useVintedBridge() {
 
     // Response to a Vinted action (Firefox fallback)
     if (data?.type === 'VINTED_ACTION_RESPONSE' && data.requestId) {
-      log.debug('📥 Received VINTED_ACTION_RESPONSE:', data.requestId)
-      const pending = pendingRequests.get(data.requestId)
-      if (pending) {
-        clearTimeout(pending.timeout)
-        pendingRequests.delete(data.requestId)
+      try {
+        log.info('═══════════════════════════════════════════════')
+        log.info('📥 VINTED_ACTION_RESPONSE received')
+        log.info('Request ID:', data.requestId)
+        log.info('Success:', data.success)
+        log.info('Has data:', !!data.data)
+        log.info('Has error:', !!data.error)
+        log.info('Pending requests count:', pendingRequests.size)
+        log.info('Pending request IDs:', Array.from(pendingRequests.keys()))
 
-        // Check for error
-        if (data.errorCode === 'NO_VINTED_TAB') {
-          pending.reject(new NoVintedTabError(data.error))
+        const pending = pendingRequests.get(data.requestId)
+        if (pending) {
+          log.info('✓ Found pending request, resolving...')
+          clearTimeout(pending.timeout)
+          pendingRequests.delete(data.requestId)
+
+          // Check for error
+          if (data.errorCode === 'NO_VINTED_TAB') {
+            log.warn('Rejecting with NoVintedTabError')
+            pending.reject(new NoVintedTabError(data.error))
+          } else {
+            log.info('✅ Resolving promise for:', data.requestId)
+            log.info('Data to resolve:', { success: data.success, hasData: !!data.data, dataKeys: data.data ? Object.keys(data.data) : [] })
+            pending.resolve(data)
+            log.info('✅ Promise resolved successfully')
+          }
+          log.info('═══════════════════════════════════════════════')
         } else {
-          log.info('✅ Response received for:', data.requestId)
-          pending.resolve(data)
+          log.warn('⚠️ No pending request found for:', data.requestId)
+          log.warn('This response will be IGNORED!')
+          log.warn('Available pending requests:', Array.from(pendingRequests.keys()))
+          log.info('═══════════════════════════════════════════════')
         }
-      } else {
-        log.warn('⚠️ No pending request found for:', data.requestId)
+      } catch (err: any) {
+        log.error('❌ CRITICAL ERROR in handlePluginMessage:', err.message)
+        log.error('Error stack:', err.stack)
+        log.error('Data that caused error:', JSON.stringify(data).substring(0, 500))
       }
     }
   }

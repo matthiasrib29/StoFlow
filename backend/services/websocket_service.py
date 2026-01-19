@@ -21,27 +21,17 @@ from models.public.user import User
 
 logger = get_logger(__name__)
 
-# Create SocketIO server with optimized settings for stability
-# Reference: https://socket.io/docs/v4/server-options/
-#
-# Heartbeat mechanism (server-initiated in v4+):
-# - Server sends PING every pingInterval
-# - Client must respond with PONG within pingTimeout
-# - If no PONG received, connection is closed
-#
-# Recommended settings for sync operations that can take 30-60s:
-# - pingTimeout: 60000ms (60s) - Time to wait for PONG
-# - pingInterval: 25000ms (25s) - Time between PINGs
-# - Total cycle: 85s before disconnect detected
+# Create SocketIO server
+# Note: cors_allowed_origins="*" in dev, specific origins in prod (env-based)
+# DEBUG 2026-01-19: Added logger=True to debug 403 connection rejections
+# FIX 2026-01-19: Increased ping_timeout to prevent disconnections during long API calls
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",  # Allow all origins in dev (TODO: configure via env)
-    # Heartbeat settings - increased for long-running sync operations
-    ping_timeout=60,      # 60s to respond to PING (default: 20s)
-    ping_interval=25,     # 25s between PINGs (default: 25s)
-    # Debug logging (can be disabled in production)
-    logger=True,
-    engineio_logger=True,
+    logger=True,  # Enable Socket.IO debug logging
+    engineio_logger=True,  # Enable Engine.IO debug logging
+    ping_timeout=120,  # Wait 120s for pong before disconnect (default: 20s)
+    ping_interval=25,  # Send ping every 25s (default: 25s)
 )
 
 # Store pending requests awaiting responses
@@ -85,38 +75,64 @@ class WebSocketService:
         request_id = (
             f"req_{user_id}_{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
         )
+        start_time = time.time()
+
+        logger.info(f"[WebSocket] ═══ COMMAND START ═══")
+        logger.info(f"[WebSocket] Request ID: {request_id}")
+        logger.info(f"[WebSocket] Action: {action}")
+        logger.info(f"[WebSocket] User ID: {user_id}")
+        logger.info(f"[WebSocket] Timeout: {timeout}s")
+        logger.debug(f"[WebSocket] Payload: {str(payload)[:200]}...")
 
         # Check if user connected
         room = f"user_{user_id}"
         room_sids = sio.manager.rooms.get("/", {}).get(room, set())
 
+        logger.info(f"[WebSocket] Room '{room}' has {len(room_sids)} connected clients: {room_sids}")
+
         if not room_sids:
+            logger.error(f"[WebSocket] ✗ No clients in room '{room}'")
             raise RuntimeError(f"User {user_id} not connected via WebSocket")
 
         # Create future for response
         future = asyncio.get_event_loop().create_future()
         pending_requests[request_id] = future
+        logger.info(f"[WebSocket] Pending requests count: {len(pending_requests)}")
 
         try:
             # Emit command to user's room
+            logger.info(f"[WebSocket] → Emitting 'plugin_command' to room '{room}'...")
             await sio.emit(
                 "plugin_command",
                 {"request_id": request_id, "action": action, "payload": payload},
                 room=room,
             )
-
-            logger.debug(f"[WebSocket] Sent command {action} to user {user_id}")
+            emit_time = time.time()
+            logger.info(f"[WebSocket] ✓ Emit completed in {(emit_time - start_time)*1000:.1f}ms")
+            logger.info(f"[WebSocket] Waiting for response (timeout={timeout}s)...")
 
             # Wait for response
             result = await asyncio.wait_for(future, timeout=timeout)
+
+            response_time = time.time()
+            logger.info(f"[WebSocket] ✓ Response received in {(response_time - start_time)*1000:.1f}ms")
+            logger.info(f"[WebSocket] Response success: {result.get('success')}")
+            logger.debug(f"[WebSocket] Response data keys: {list(result.get('data', {}).keys()) if result.get('data') else 'N/A'}")
+            logger.info(f"[WebSocket] ═══ COMMAND SUCCESS ═══")
             return result
 
         except asyncio.TimeoutError:
-            logger.error(f"[WebSocket] Command {action} timeout for user {user_id}")
+            elapsed = time.time() - start_time
+            logger.error(f"[WebSocket] ✗ TIMEOUT after {elapsed:.1f}s")
+            logger.error(f"[WebSocket] Request ID that timed out: {request_id}")
+            logger.error(f"[WebSocket] Pending requests at timeout: {list(pending_requests.keys())}")
+            logger.info(f"[WebSocket] ═══ COMMAND FAILED (TIMEOUT) ═══")
             raise TimeoutError(f"Plugin command timeout after {timeout}s")
 
         finally:
+            was_pending = request_id in pending_requests
             pending_requests.pop(request_id, None)
+            logger.debug(f"[WebSocket] Cleaned up request {request_id} (was_pending={was_pending})")
 
 
 # ===== EVENT HANDLERS =====
@@ -228,20 +244,37 @@ async def plugin_response(sid, data):
         'error': null
     }
     """
+    receive_time = time.time()
     request_id = data.get("request_id")
 
+    logger.info(f"[WebSocket] ═══ RESPONSE RECEIVED ═══")
+    logger.info(f"[WebSocket] SID: {sid}")
+    logger.info(f"[WebSocket] Request ID: {request_id}")
+    logger.info(f"[WebSocket] Success: {data.get('success')}")
+    logger.info(f"[WebSocket] Has error: {bool(data.get('error'))}")
+    logger.info(f"[WebSocket] Has data: {bool(data.get('data'))}")
+    logger.debug(f"[WebSocket] Data keys: {list(data.get('data', {}).keys()) if data.get('data') else 'N/A'}")
+    logger.info(f"[WebSocket] Current pending requests: {list(pending_requests.keys())}")
+
     if not request_id:
-        logger.warning("[WebSocket] Received response without request_id")
+        logger.warning("[WebSocket] ✗ Response missing request_id!")
         return
 
     future = pending_requests.get(request_id)
-    if not future or future.done():
-        logger.warning(f"[WebSocket] No pending request for {request_id}")
+
+    if not future:
+        logger.warning(f"[WebSocket] ✗ No pending request found for {request_id}")
+        logger.warning(f"[WebSocket] Available pending requests: {list(pending_requests.keys())}")
+        return
+
+    if future.done():
+        logger.warning(f"[WebSocket] ✗ Future already done for {request_id}")
         return
 
     # Resolve the future
     future.set_result(data)
-    logger.debug(f"[WebSocket] Received response for {request_id}")
+    logger.info(f"[WebSocket] ✓ Future resolved for {request_id}")
+    logger.info(f"[WebSocket] ═══ RESPONSE PROCESSED ═══")
 
     # Return ACK to frontend (Socket.IO acknowledgement pattern)
     return {"status": "ok", "request_id": request_id}
