@@ -473,7 +473,11 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
         # Initialize progress
         job.result_data = {"current": 0, "label": "initialisation..."}
         db.commit()
-        # Note: schema_translate_map persists after commit - no need to re-SET
+
+        # IMPORTANT: Reconfigure schema_translate_map after commit
+        # SQLAlchemy may use a new connection from the pool after commit
+        configure_schema_translate_map(db, schema_name)
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
 
         # Create importer
         importer = EbayImporter(
@@ -525,8 +529,17 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
 
             db.commit()
 
+            # IMPORTANT: Reconfigure schema after commit
+            configure_schema_translate_map(db, schema_name)
+            db.execute(text(f"SET search_path TO {schema_name}, public"))
+
             # Enrich in parallel batches of 10
             for i in range(0, len(page_products), ENRICHMENT_BATCH_SIZE):
+                # IMPORTANT: Reconfigure schema at START of each batch iteration
+                # Previous iteration's commits may have reset the connection
+                configure_schema_translate_map(db, schema_name)
+                db.execute(text(f"SET search_path TO {schema_name}, public"))
+
                 batch = page_products[i:i + ENRICHMENT_BATCH_SIZE]
 
                 # Parallel enrichment (10 API calls at once)
