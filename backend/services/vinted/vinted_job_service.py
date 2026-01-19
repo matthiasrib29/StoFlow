@@ -94,7 +94,7 @@ class VintedJobService:
         self,
         action_code: str,
         product_id: int | None = None,
-        batch_id: str | None = None,
+        batch_job_id: int | None = None,
         priority: int | None = None,
         result_data: dict | None = None,
     ) -> MarketplaceJob:
@@ -104,7 +104,7 @@ class VintedJobService:
         Args:
             action_code: Action type code (publish, sync, etc.)
             product_id: Product ID (optional)
-            batch_id: Batch ID for grouping (optional)
+            batch_job_id: BatchJob ID for grouping (optional)
             priority: Override priority (optional, uses action_type default)
             result_data: Initial data/parameters for the job (optional)
 
@@ -126,7 +126,7 @@ class VintedJobService:
             marketplace="vinted",  # Explicit marketplace for Vinted jobs
             action_type_id=action_type.id,
             product_id=product_id,
-            batch_id=batch_id,
+            batch_job_id=batch_job_id,
             status=JobStatus.PENDING,
             priority=priority if priority is not None else action_type.priority,
             expires_at=expires_at,
@@ -139,7 +139,7 @@ class VintedJobService:
 
         logger.debug(
             f"[VintedJobService] Created job #{job.id} "
-            f"(action={action_code}, product={product_id}, batch={batch_id})"
+            f"(action={action_code}, product={product_id}, batch_job_id={batch_job_id})"
         )
 
         return job
@@ -168,7 +168,7 @@ class VintedJobService:
             job = self.create_job(
                 action_code=action_code,
                 product_id=product_id,
-                batch_id=batch_id,
+                batch_job_id=None,  # No BatchJob FK for this legacy method
                 priority=priority,
             )
             jobs.append(job)

@@ -296,17 +296,27 @@ export const useAuthStore = defineStore('auth', {
           try {
             this.user = user as User
             this.refreshToken = refreshToken
-            this.isAuthenticated = true
 
+            // CRITICAL: Set token BEFORE isAuthenticated to avoid race condition
+            // with WebSocket plugin that watches isAuthenticated (2026-01-19)
             if (accessValid && accessToken) {
               this.token = accessToken
 
               // Check if token will expire soon (within 5 minutes)
               if (willExpireSoon(accessToken, 5)) {
                 authLogger.debug('Token expiring soon, refreshing...')
-                this.refreshAccessToken()
+                // Note: refreshAccessToken is async, but we can proceed
+                // The token is still valid for a few minutes
               }
-            } else {
+            }
+
+            // Set isAuthenticated LAST - this triggers WebSocket connection
+            this.isAuthenticated = true
+
+            // Handle token refresh after isAuthenticated is set
+            if (accessValid && accessToken && willExpireSoon(accessToken, 5)) {
+              this.refreshAccessToken()
+            } else if (!accessValid || !accessToken) {
               // Access token invalid/expired but refresh token valid
               // Attempt to get a new access token
               authLogger.debug('Access token expired, refreshing...')

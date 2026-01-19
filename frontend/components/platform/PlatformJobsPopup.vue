@@ -240,53 +240,11 @@ const hasRunningJobs = computed(() =>
   activeJobs.value.some(j => j.status === 'running')
 )
 
-// Polling interval reference (NEW: 2026-01-15)
-const pollingInterval = ref<ReturnType<typeof setInterval> | null>(null)
-
-// Start/stop polling based on dialog visibility and cancelling jobs (2026-01-15)
+// Fetch jobs when dialog opens (no polling - use refresh button)
 watch(visible, (isVisible) => {
   if (isVisible) {
-    // Initial fetch
     fetchActiveJobs()
-
-    // Start adaptive polling (faster if jobs are cancelling)
-    startAdaptivePolling()
-  } else {
-    // Stop polling when dialog closes
-    stopAdaptivePolling()
   }
-})
-
-// Watch for cancelling jobs to adapt polling speed (2026-01-15)
-watch(hasCancellingJobs, (hasCancelling) => {
-  if (visible.value && pollingInterval.value) {
-    // Restart polling with new interval
-    stopAdaptivePolling()
-    startAdaptivePolling()
-  }
-})
-
-const startAdaptivePolling = () => {
-  if (!import.meta.client) return
-
-  // Use 2s interval if jobs are cancelling, 5s otherwise
-  const interval = hasCancellingJobs.value ? 2000 : 5000
-
-  pollingInterval.value = setInterval(() => {
-    fetchActiveJobs()
-  }, interval)
-}
-
-const stopAdaptivePolling = () => {
-  if (pollingInterval.value) {
-    clearInterval(pollingInterval.value)
-    pollingInterval.value = null
-  }
-}
-
-// Cleanup on unmount
-onUnmounted(() => {
-  stopAdaptivePolling()
 })
 
 const handleCancel = async (jobId: number) => {

@@ -23,9 +23,12 @@ logger = get_logger(__name__)
 
 # Create SocketIO server
 # Note: cors_allowed_origins="*" in dev, specific origins in prod (env-based)
+# DEBUG 2026-01-19: Added logger=True to debug 403 connection rejections
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",  # Allow all origins in dev (TODO: configure via env)
+    logger=True,  # Enable Socket.IO debug logging
+    engineio_logger=True,  # Enable Engine.IO debug logging
 )
 
 # Store pending requests awaiting responses

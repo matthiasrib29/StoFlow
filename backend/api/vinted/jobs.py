@@ -132,7 +132,7 @@ def build_job_response(
 
     return JobResponse(
         id=job.id,
-        batch_id=job.batch_id,
+        batch_id=job.batch_job.batch_id if job.batch_job else None,
         action_type_id=job.action_type_id,
         action_code=action_type.code if action_type else None,
         action_name=action_type.name if action_type else None,

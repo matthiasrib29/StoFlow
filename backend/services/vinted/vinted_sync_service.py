@@ -81,7 +81,7 @@ class VintedSyncService:
         if self._api_sync is None:
             if not self.shop_id:
                 raise ValueError("shop_id requis pour sync API")
-            self._api_sync = VintedApiSyncService(shop_id=self.shop_id)
+            self._api_sync = VintedApiSyncService(shop_id=self.shop_id, user_id=self.user_id)
         return self._api_sync
 
     @property
@@ -581,6 +581,7 @@ class VintedSyncService:
 
     async def sync_products(
         self,
+        db: Session,
         shop_id: int,
         user_id: int,
         job=None
@@ -591,6 +592,7 @@ class VintedSyncService:
         This method follows the standard service pattern used by refactored handlers.
 
         Args:
+            db: SQLAlchemy session
             shop_id: Shop ID
             user_id: User ID
             job: Optional MarketplaceJob instance

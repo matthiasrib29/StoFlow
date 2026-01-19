@@ -20,7 +20,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -108,6 +108,15 @@ class MarketplaceJob(Base):
         default=JobStatus.PENDING,
         nullable=False,
         index=True
+    )
+
+    # Cooperative cancellation flag
+    cancel_requested: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
+        comment="Flag for graceful job cancellation (cooperative pattern)"
     )
 
     # Priority (can override action_type default)

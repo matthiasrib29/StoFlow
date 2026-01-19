@@ -37,11 +37,17 @@ export function useWebSocket() {
     wsLog.debug('Auth state:', {
       isAuthenticated: authStore.isAuthenticated,
       userId: authStore.user?.id,
-      hasToken: !!authStore.accessToken
+      hasToken: !!authStore.token
     })
 
     if (!authStore.isAuthenticated || !authStore.user?.id) {
       wsLog.warn('Not authenticated, skipping connection')
+      return
+    }
+
+    // Extra safety: ensure token is present (race condition protection)
+    if (!authStore.token) {
+      wsLog.warn('Token not yet available, skipping connection')
       return
     }
 

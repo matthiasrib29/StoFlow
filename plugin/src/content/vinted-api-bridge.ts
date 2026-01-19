@@ -48,6 +48,36 @@ class VintedAPIBridge {
       if (message.type === 'STOFLOW_API_RESPONSE') {
         const { requestId, success, data, error, status, statusText } = message;
 
+        // DEBUG: Log data received from MAIN world via postMessage
+        VintedLogger.debug(`[DEBUG-BRIDGE] Received STOFLOW_API_RESPONSE requestId=${requestId} success=${success}`);
+        VintedLogger.debug(`[DEBUG-BRIDGE] Data type: ${typeof data}`);
+        if (data && typeof data === 'object') {
+          const keys = Object.keys(data);
+          VintedLogger.debug(`[DEBUG-BRIDGE] Data keys (${keys.length}): ${keys.slice(0, 10).join(', ')}`);
+
+          // Check for problematic fields that might have survived postMessage
+          for (const key of keys.slice(0, 15)) {
+            const val = data[key];
+            const valType = typeof val;
+            if (valType === 'function') {
+              VintedLogger.warn(`[DEBUG-BRIDGE] ⚠️ FUNCTION found at '${key}' (should NOT happen after postMessage!)`);
+            } else if (valType === 'object' && val !== null) {
+              const proto = Object.prototype.toString.call(val);
+              if (proto !== '[object Object]' && proto !== '[object Array]') {
+                VintedLogger.warn(`[DEBUG-BRIDGE] ⚠️ Special object at '${key}': ${proto}`);
+              }
+            }
+          }
+
+          // Test serialization in ISOLATED world
+          try {
+            JSON.stringify(data);
+            VintedLogger.debug(`[DEBUG-BRIDGE] ✅ JSON.stringify OK in ISOLATED world`);
+          } catch (jsonErr: any) {
+            VintedLogger.error(`[DEBUG-BRIDGE] ❌ JSON.stringify FAILED in ISOLATED:`, jsonErr.message);
+          }
+        }
+
         const pending = this.pendingRequests.get(requestId);
         if (!pending) return;
 
@@ -59,6 +89,8 @@ class VintedAPIBridge {
           const apiError = new Error(error || 'Unknown error');
           (apiError as any).status = status;
           (apiError as any).statusText = statusText;
+          (apiError as any).errorData = message.errorData;  // Include error response data
+          VintedLogger.debug(`[DEBUG-BRIDGE] Rejecting with error: HTTP ${status} - ${error}`);
           pending.reject(apiError);
         }
       }

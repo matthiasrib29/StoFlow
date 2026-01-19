@@ -22,7 +22,19 @@ from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.vinted_product import VintedProduct
-from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
+from services.plugin_websocket_helper import (
+    PluginWebSocketHelper,
+    PluginHTTPError,
+    # Generic result codes for plugin communication
+    PLUGIN_SUCCESS,
+    PLUGIN_NOT_FOUND,
+    PLUGIN_FORBIDDEN,
+    PLUGIN_UNAUTHORIZED,
+    PLUGIN_DISCONNECTED,
+    PLUGIN_TIMEOUT,
+    PLUGIN_SERVER_ERROR,
+    PLUGIN_ERROR,
+)
 from services.vinted.vinted_item_upload_parser import VintedItemUploadParser
 from shared.logging_setup import get_logger
 from shared.config import settings
@@ -87,9 +99,14 @@ class VintedProductEnricher:
         Returns:
             dict: {"enriched": int, "errors": int, "skipped": int}
         """
+        # Filter: products without description, excluding inactive products
+        # (sold/deleted/hidden/closed products return 404 on item_upload API)
         products_to_enrich = db.query(VintedProduct).filter(
             VintedProduct.url.isnot(None),
-            (VintedProduct.description.is_(None)) | (VintedProduct.description == "")
+            (VintedProduct.description.is_(None)) | (VintedProduct.description == ""),
+            VintedProduct.status.notin_(['sold', 'deleted']),  # Skip sold/deleted
+            VintedProduct.is_closed == False,   # Skip closed products
+            VintedProduct.is_hidden == False    # Skip hidden products
         ).all()
 
         if not products_to_enrich:
@@ -101,6 +118,11 @@ class VintedProductEnricher:
 
         enriched = 0
         errors = 0
+        not_found = 0      # Products sold/deleted on Vinted (404)
+        forbidden = 0      # DataDome blocks (403)
+        unauthorized = 0   # Session expired (401)
+        disconnected = 0   # Plugin/WebSocket disconnected
+        server_errors = 0  # Server errors (5xx like 524 Cloudflare timeout)
 
         # Helper pour mettre a jour le progress dans job.result_data (2026-01-14)
         def update_enrichment_progress():
@@ -147,16 +169,72 @@ class VintedProductEnricher:
                 await asyncio.sleep(pause)
 
             try:
-                success = await self._enrich_single_product(db, product)
-                if success:
+                result = await self._enrich_single_product(db, product)
+
+                # Handle result codes
+                if result == PLUGIN_SUCCESS:
                     enriched += 1
                     logger.debug(
                         f"  [{i+1}/{total}] Enrichi: {product.vinted_id} - "
                         f"{product.title[:30] if product.title else 'N/A'}..."
                     )
-
                     # Mettre a jour le progress apres chaque enrichissement (2026-01-14)
                     update_enrichment_progress()
+
+                elif result == PLUGIN_NOT_FOUND:
+                    not_found += 1
+                    logger.debug(
+                        f"  [{i+1}/{total}] Not found (sold/deleted): {product.vinted_id}"
+                    )
+
+                elif result == PLUGIN_FORBIDDEN:
+                    forbidden += 1
+                    logger.warning(
+                        f"  [{i+1}/{total}] Forbidden (DataDome?): {product.vinted_id}"
+                    )
+                    # Consider pausing if we get too many 403s (DataDome protection)
+                    if forbidden >= 3:
+                        logger.warning(
+                            "Multiple 403 errors - possible DataDome block. Consider stopping."
+                        )
+
+                elif result == PLUGIN_UNAUTHORIZED:
+                    unauthorized += 1
+                    logger.warning(
+                        f"  [{i+1}/{total}] Unauthorized (session expired): {product.vinted_id}"
+                    )
+                    # If session expired, stop the enrichment - user needs to re-auth
+                    if unauthorized >= 2:
+                        logger.error(
+                            "Multiple 401 errors - Vinted session expired. Stopping enrichment."
+                        )
+                        break
+
+                elif result == PLUGIN_DISCONNECTED:
+                    disconnected += 1
+                    logger.warning(
+                        f"  [{i+1}/{total}] Disconnected: {product.vinted_id}"
+                    )
+                    # If disconnected, stop immediately - no point continuing
+                    logger.error(
+                        "Plugin/WebSocket disconnected. Stopping enrichment. "
+                        "Please reconnect and try again."
+                    )
+                    break
+
+                elif result == PLUGIN_SERVER_ERROR:
+                    server_errors += 1
+                    logger.warning(
+                        f"  [{i+1}/{total}] Server error (5xx): {product.vinted_id} - retried but still failed"
+                    )
+
+                else:
+                    # PLUGIN_ERROR, PLUGIN_TIMEOUT, etc.
+                    errors += 1
+                    logger.warning(
+                        f"  [{i+1}/{total}] Error ({result}): {product.vinted_id}"
+                    )
+
             except Exception as e:
                 errors += 1
                 logger.error(
@@ -166,15 +244,28 @@ class VintedProductEnricher:
                 db.rollback()
                 # schema_translate_map survives rollback - no need to restore
 
-        logger.info(f"Enrichissement termine: {enriched} enrichis, {errors} erreurs")
+        logger.info(
+            f"Enrichissement termine: {enriched} enrichis, {errors} erreurs, "
+            f"{not_found} not_found, {forbidden} forbidden, {unauthorized} unauthorized, "
+            f"{disconnected} disconnected, {server_errors} server_errors"
+        )
 
-        return {"enriched": enriched, "errors": errors, "skipped": 0}
+        return {
+            "enriched": enriched,
+            "errors": errors,
+            "skipped": 0,
+            "not_found": not_found,         # Products sold/deleted on Vinted (404)
+            "forbidden": forbidden,          # DataDome blocks (403)
+            "unauthorized": unauthorized,    # Session expired (401)
+            "disconnected": disconnected,    # Plugin/WebSocket disconnected
+            "server_errors": server_errors   # Server errors (5xx like 524)
+        }
 
     async def _enrich_single_product(
         self,
         db: Session,
         product: VintedProduct
-    ) -> bool:
+    ) -> str:
         """
         Enrichit un seul produit via l'API item_upload.
 
@@ -182,62 +273,153 @@ class VintedProductEnricher:
         Utilise /api/v2/item_upload/items/{id} au lieu du parsing HTML.
         Retourne du JSON structure, beaucoup plus fiable.
 
+        UPDATED 2026-01-19:
+        Returns specific status codes for different HTTP errors using
+        centralized PLUGIN_* constants from plugin_websocket_helper.
+        Server error retry (5xx) is now handled centrally in PluginWebSocketHelper.
+
         Args:
             db: Session SQLAlchemy
             product: VintedProduct a enrichir
 
         Returns:
-            bool: True si enrichi avec succes
+            str: Result code (PLUGIN_SUCCESS, PLUGIN_NOT_FOUND, PLUGIN_FORBIDDEN, etc.)
         """
         if not product.vinted_id:
-            return False
+            return PLUGIN_ERROR
 
         try:
-            # Build API path
-            api_path = self.ITEM_UPLOAD_API.format(vinted_id=product.vinted_id)
+            # Fetch item data (retry for 5xx errors is handled in PluginWebSocketHelper)
+            result = await self._fetch_item_upload(db, product)
+            # Process and return
+            return self._process_enrich_result(db, product, result)
 
-            # WebSocket architecture (2026-01-12)
-            result = await PluginWebSocketHelper.call_plugin_http(
-                db=db,
-                user_id=self.user_id,
-                http_method="GET",
-                path=api_path,
-                timeout=settings.plugin_timeout_sync,
-                description=f"Get item_upload for {product.vinted_id}"
-            )
-
-            logger.debug(
-                f"API response for {product.vinted_id}: "
-                f"keys={list(result.keys()) if isinstance(result, dict) else 'not dict'}"
-            )
-
-            if not result or not isinstance(result, dict):
-                logger.warning(
-                    f"Invalid API response for {product.vinted_id}: {type(result)}"
+        except PluginHTTPError as e:
+            # Handle specific HTTP errors (4xx) - server errors (5xx) already handled above
+            if e.is_not_found():
+                logger.info(
+                    f"Product {product.vinted_id} not found (404) - likely sold or deleted on Vinted"
                 )
-                return False
+                # Mark product as sold/closed if we get 404
+                product.is_closed = True
+                db.commit()
+                return PLUGIN_NOT_FOUND
 
-            # Parse the API response
-            extracted = VintedItemUploadParser.parse_item_response(result)
+            if e.is_forbidden():
+                logger.warning(
+                    f"Product {product.vinted_id} forbidden (403) - DataDome block or access denied"
+                )
+                return PLUGIN_FORBIDDEN
 
-            if not extracted:
-                logger.warning(f"Parsing failed for {product.vinted_id}")
-                return False
+            if e.is_unauthorized():
+                logger.warning(
+                    f"Product {product.vinted_id} unauthorized (401) - Vinted session expired"
+                )
+                return PLUGIN_UNAUTHORIZED
 
-            self._update_product_from_extracted(product, extracted)
-            db.commit()
-
-            return True
+            # Other HTTP errors - use the generic result code from exception
+            logger.error(f"HTTP error for {product.vinted_id}: {e}")
+            return e.get_result_code()
 
         except TimeoutError:
             logger.warning(f"Timeout pour {product.vinted_id}")
-            return False
+            return PLUGIN_TIMEOUT
+
+        except RuntimeError as e:
+            # Handle WebSocket disconnection
+            error_msg = str(e).lower()
+            if "not connected" in error_msg or "disconnected" in error_msg:
+                logger.warning(
+                    f"Product {product.vinted_id}: Plugin/WebSocket disconnected"
+                )
+                return PLUGIN_DISCONNECTED
+            # Other RuntimeErrors - re-raise
+            logger.error(
+                f"Erreur enrichissement {product.vinted_id}: {e}",
+                exc_info=True
+            )
+            raise
+
         except Exception as e:
             logger.error(
                 f"Erreur enrichissement {product.vinted_id}: {e}",
                 exc_info=True
             )
             raise
+
+    async def _fetch_item_upload(
+        self,
+        db: Session,
+        product: VintedProduct
+    ) -> dict:
+        """
+        Fetch item_upload data from Vinted API via plugin.
+
+        Args:
+            db: SQLAlchemy session
+            product: VintedProduct to fetch
+
+        Returns:
+            dict: API response data
+
+        Raises:
+            PluginHTTPError: On HTTP errors (4xx, 5xx)
+            TimeoutError: On timeout
+            RuntimeError: On WebSocket disconnection
+        """
+        api_path = self.ITEM_UPLOAD_API.format(vinted_id=product.vinted_id)
+
+        # WebSocket architecture (2026-01-12)
+        result = await PluginWebSocketHelper.call_plugin_http(
+            db=db,
+            user_id=self.user_id,
+            http_method="GET",
+            path=api_path,
+            timeout=settings.plugin_timeout_sync,
+            description=f"Get item_upload for {product.vinted_id}"
+        )
+
+        return result
+
+    def _process_enrich_result(
+        self,
+        db: Session,
+        product: VintedProduct,
+        result: dict
+    ) -> str:
+        """
+        Process the API result and update the product.
+
+        Args:
+            db: SQLAlchemy session
+            product: VintedProduct to update
+            result: API response data
+
+        Returns:
+            str: Result code (PLUGIN_SUCCESS or PLUGIN_ERROR)
+        """
+        logger.debug(
+            f"API response for {product.vinted_id}: "
+            f"keys={list(result.keys()) if isinstance(result, dict) else 'not dict'}"
+        )
+
+        if not result or not isinstance(result, dict):
+            logger.warning(
+                f"Invalid API response for {product.vinted_id}: {type(result)}"
+            )
+            return PLUGIN_ERROR
+
+        # Parse the API response
+        extracted = VintedItemUploadParser.parse_item_response(result)
+
+        if not extracted:
+            logger.warning(f"Parsing failed for {product.vinted_id}")
+            return PLUGIN_ERROR
+
+        self._update_product_from_extracted(product, extracted)
+        db.commit()
+
+        return PLUGIN_SUCCESS
 
     def _update_product_from_extracted(
         self,

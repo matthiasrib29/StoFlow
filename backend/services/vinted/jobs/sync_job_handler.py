@@ -50,7 +50,7 @@ class SyncJobHandler(BaseJobHandler):
         Returns:
             VintedSyncService instance
         """
-        return VintedSyncService(self.db)
+        return VintedSyncService(shop_id=self.shop_id, user_id=self.user_id)
 
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """
@@ -78,6 +78,7 @@ class SyncJobHandler(BaseJobHandler):
             # Delegate to service
             service = self.get_service()
             result = await service.sync_products(
+                db=self.db,
                 shop_id=self.shop_id,
                 user_id=self.user_id,
                 job=job

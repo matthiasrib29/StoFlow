@@ -246,20 +246,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             throw new Error(`Unsupported method: ${method}`);
         }
 
-        VintedLogger.debug(`[Stoflow] ✅ VINTED_API_CALL success:`, response);
+        // DEBUG: Log response BEFORE cleanup
+        VintedLogger.debug(`[DEBUG-CONTENT] Response received from vintedAPI, type: ${typeof response}`);
+        if (response && typeof response === 'object') {
+          const keys = Object.keys(response);
+          VintedLogger.debug(`[DEBUG-CONTENT] Response keys (${keys.length}): ${keys.slice(0, 10).join(', ')}`);
+
+          // Check for functions or special objects
+          for (const key of keys.slice(0, 15)) {
+            const val = response[key];
+            const valType = typeof val;
+            if (valType === 'function') {
+              VintedLogger.warn(`[DEBUG-CONTENT] ⚠️ FUNCTION found at '${key}' BEFORE cleanup`);
+            } else if (valType === 'object' && val !== null) {
+              const proto = Object.prototype.toString.call(val);
+              if (proto !== '[object Object]' && proto !== '[object Array]') {
+                VintedLogger.warn(`[DEBUG-CONTENT] ⚠️ Special object at '${key}': ${proto}`);
+              }
+            }
+          }
+        }
+
+        VintedLogger.debug(`[Stoflow] ✅ VINTED_API_CALL success, proceeding to cleanup...`);
 
         // CRITICAL: Clean response to ensure it's JSON-safe (no functions, no circular refs)
         // This prevents "Function object could not be cloned" error in sendResponse
         let cleanResponse;
         try {
           cleanResponse = JSON.parse(JSON.stringify(response));
-        } catch (jsonError) {
-          VintedLogger.error(`[Stoflow] ❌ Response contains non-serializable data (functions/circular refs):`, jsonError);
+          VintedLogger.debug(`[DEBUG-CONTENT] ✅ JSON.parse/stringify cleanup SUCCESS`);
+        } catch (jsonError: any) {
+          VintedLogger.error(`[DEBUG-CONTENT] ❌ JSON cleanup FAILED:`, jsonError.message);
 
           // CRITICAL FIX (2026-01-14): Extract only primitive fields manually
           // vintedAPI.get() returns data directly (not wrapped in {data: ...})
           if (response && typeof response === 'object') {
             cleanResponse = {};
+            const skippedFields: string[] = [];
+
             for (const key in response) {
               if (!response.hasOwnProperty(key)) continue;
 
@@ -273,19 +297,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 try {
                   cleanResponse[key] = JSON.parse(JSON.stringify(value));
                 } catch {
-                  VintedLogger.warn(`[Stoflow] ⚠️ Skipping array field '${key}' (not serializable)`);
+                  skippedFields.push(`${key}(array)`);
                 }
               } else if (valueType === 'object') {
                 try {
                   cleanResponse[key] = JSON.parse(JSON.stringify(value));
                 } catch {
-                  VintedLogger.warn(`[Stoflow] ⚠️ Skipping object field '${key}' (not serializable)`);
+                  skippedFields.push(`${key}(object)`);
                 }
+              } else if (valueType === 'function') {
+                skippedFields.push(`${key}(function)`);
+              } else {
+                skippedFields.push(`${key}(${valueType})`);
               }
-              // Skip functions and other non-serializable types
             }
 
-            VintedLogger.warn(`[Stoflow] ⚠️ Extracted ${Object.keys(cleanResponse).length} serializable fields from response`);
+            VintedLogger.warn(`[DEBUG-CONTENT] Manual cleanup: kept ${Object.keys(cleanResponse).length} fields, skipped: ${skippedFields.join(', ') || 'none'}`);
           } else {
             // Response is not an object - this should never happen
             cleanResponse = {
@@ -296,18 +323,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         }
 
+        // DEBUG: Final verification before sendResponse
+        VintedLogger.debug(`[DEBUG-CONTENT] cleanResponse type: ${typeof cleanResponse}`);
+        if (cleanResponse && typeof cleanResponse === 'object') {
+          const cleanKeys = Object.keys(cleanResponse);
+          VintedLogger.debug(`[DEBUG-CONTENT] cleanResponse keys (${cleanKeys.length}): ${cleanKeys.slice(0, 10).join(', ')}`);
+
+          // Final serialization test
+          try {
+            const finalPayload = { success: true, status: 200, data: cleanResponse };
+            JSON.stringify(finalPayload);
+            VintedLogger.debug(`[DEBUG-CONTENT] ✅ Final payload JSON.stringify OK - calling sendResponse`);
+          } catch (finalErr: any) {
+            VintedLogger.error(`[DEBUG-CONTENT] ❌ FINAL PAYLOAD NOT SERIALIZABLE:`, finalErr.message);
+            // Try to identify which key in cleanResponse is problematic
+            for (const k of Object.keys(cleanResponse)) {
+              try {
+                JSON.stringify(cleanResponse[k]);
+              } catch {
+                VintedLogger.error(`[DEBUG-CONTENT] ❌ cleanResponse['${k}'] is NOT serializable`);
+              }
+            }
+          }
+        }
+
         sendResponse({
           success: true,
           status: 200,
           data: cleanResponse
         });
       } catch (error: any) {
-        VintedLogger.error(`[Stoflow] ❌ VINTED_API_CALL error:`, error);
+        const httpStatus = error.status || 500;
+        VintedLogger.error(`[Stoflow] ❌ VINTED_API_CALL error: HTTP ${httpStatus} - ${error.message}`);
 
         sendResponse({
           success: false,
-          status: error.status || 500,
-          error: error.message || 'Unknown error'
+          status: httpStatus,
+          statusText: error.statusText || null,
+          error: error.message || 'Unknown error',
+          errorData: error.errorData || null  // Include error response data from Vinted API
         });
       }
     })();
