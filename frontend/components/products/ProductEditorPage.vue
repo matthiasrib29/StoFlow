@@ -1,7 +1,7 @@
 <template>
   <div class="pb-24">
     <!-- Page Header outside sticky container -->
-    <div class="px-6 pt-6">
+    <div class="px-6 pt-4">
       <PageHeader :title="title" :subtitle="subtitle">
         <template v-if="showBackButton" #actions>
           <Button
@@ -54,7 +54,6 @@
           :is-submitting="isSubmitting"
           :product-id="productId"
           @update:model-value="$emit('update:form', $event)"
-          @submit="$emit('submit')"
         />
       </div>
 
@@ -69,14 +68,16 @@
       :missing-fields="missingFields"
       :has-photos="hasPhotos"
       :progress="progress"
-      :can-submit="canSubmit"
+      :can-publish="canPublish"
+      :can-save-draft="canSaveDraft"
       :is-submitting="isSubmitting"
-      :submit-label="submitLabel"
+      :is-publishing="isPublishing"
       :show-draft="showDraft"
       :has-draft="hasDraft"
       :last-saved="lastSaved"
       :format-last-saved="formatLastSaved"
-      @submit="$emit('submit')"
+      @save-draft="$emit('save-draft')"
+      @publish="$emit('publish')"
       @cancel="$emit('cancel')"
       @clear-draft="$emit('clear-draft')"
     />
@@ -109,7 +110,6 @@ interface Props {
   // Page
   title: string
   subtitle?: string
-  submitLabel: string
   showBackButton?: boolean
   showProgressBar?: boolean
   productId?: number
@@ -130,13 +130,15 @@ interface Props {
   totalCount: number
   missingFields: string[]
   progress: number
-  canSubmit: boolean
+  canPublish: boolean
+  canSaveDraft: boolean
   formSections: FormSection[]
   activeSection?: string
 
   // State
   isScrolled: boolean
   isSubmitting: boolean
+  isPublishing?: boolean
 
   // Draft (optional, for create mode)
   showDraft?: boolean
@@ -151,6 +153,7 @@ const props = withDefaults(defineProps<Props>(), {
   showBackButton: false,
   showProgressBar: true,
   activeSection: 'info',
+  isPublishing: false,
   showDraft: false,
   hasDraft: false,
   lastSaved: null,
@@ -164,7 +167,8 @@ const emit = defineEmits<{
   'remove-existing': [imageId: number]
   'reorder': [order: { existingImages: ExistingImage[]; photos: Photo[] }]
   'analyze': []
-  'submit': []
+  'save-draft': []
+  'publish': []
   'cancel': []
   'navigate': [sectionId: string]
   'clear-draft': []

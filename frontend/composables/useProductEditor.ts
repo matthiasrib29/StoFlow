@@ -90,6 +90,7 @@ export function useProductEditor(options: UseProductEditorOptions) {
   const product = ref<Product | null>(null)
   const isLoading = ref(false)
   const isSubmitting = ref(false)
+  const isPublishing = ref(false)
 
   // Scroll state for sticky photos
   const isScrolled = ref(false)
@@ -118,9 +119,19 @@ export function useProductEditor(options: UseProductEditorOptions) {
     return Math.round(fieldsProgress + photosProgress)
   })
 
-  const canSubmit = computed(() => {
+  // Can publish: all required fields filled + at least one image
+  const canPublish = computed(() => {
     return filledRequiredCount.value === totalRequiredCount && images.hasImages.value
   })
+
+  // Can save as draft: at least one image OR some content in the form
+  const canSaveDraft = computed(() => {
+    const hasAnyContent = form.value.title || form.value.description || form.value.brand || form.value.category
+    return images.hasImages.value || hasAnyContent
+  })
+
+  // Alias for backwards compatibility
+  const canSubmit = canPublish
 
   // Form sections for progress bar
   const formSections = computed(() => {
@@ -317,15 +328,26 @@ export function useProductEditor(options: UseProductEditorOptions) {
 
   /**
    * Submit the form (create or update product)
+   * @param status - 'draft' or 'published' (default: 'published')
    */
-  const handleSubmit = async (): Promise<Product | null> => {
-    // Validation
-    if (!images.hasImages.value) {
+  const handleSubmit = async (status: 'draft' | 'published' = 'published'): Promise<Product | null> => {
+    // Validation for publish
+    if (status === 'published' && !images.hasImages.value) {
       showWarn(
         'Photo manquante',
         mode === 'create'
-          ? 'Veuillez ajouter au moins 1 photo pour le produit'
-          : 'Veuillez conserver ou ajouter au moins 1 photo pour le produit',
+          ? 'Veuillez ajouter au moins 1 photo pour publier le produit'
+          : 'Veuillez conserver ou ajouter au moins 1 photo pour publier le produit',
+        3000
+      )
+      return null
+    }
+
+    // Validation for draft - at least need some content
+    if (status === 'draft' && !canSaveDraft.value) {
+      showWarn(
+        'Contenu manquant',
+        'Veuillez ajouter au moins une photo ou remplir quelques champs pour sauvegarder un brouillon',
         3000
       )
       return null
@@ -337,15 +359,16 @@ export function useProductEditor(options: UseProductEditorOptions) {
     }
 
     isSubmitting.value = true
+    isPublishing.value = status === 'published'
 
     try {
-      // Prepare product data
-      const productData = prepareProductData()
+      // Prepare product data with status
+      const productData = prepareProductData(status)
 
       if (mode === 'create') {
-        return await createProduct(productData)
+        return await createProduct(productData, status)
       } else {
-        return await updateProduct(productData)
+        return await updateProduct(productData, status)
       }
     } catch (error: any) {
       productLogger.error(`Error ${mode === 'create' ? 'creating' : 'updating'} product`, { error: error.message })
@@ -353,17 +376,33 @@ export function useProductEditor(options: UseProductEditorOptions) {
       return null
     } finally {
       isSubmitting.value = false
+      isPublishing.value = false
     }
+  }
+
+  /**
+   * Save as draft
+   */
+  const handleSaveDraft = async (): Promise<Product | null> => {
+    return handleSubmit('draft')
+  }
+
+  /**
+   * Publish product
+   */
+  const handlePublish = async (): Promise<Product | null> => {
+    return handleSubmit('published')
   }
 
   /**
    * Prepare product data for API
    */
-  const prepareProductData = () => {
+  const prepareProductData = (status: 'draft' | 'published' = 'published') => {
     return {
       title: form.value.title,
       description: form.value.description,
       price: form.value.price,
+      status,
       category: form.value.category,
       condition: form.value.condition,
       brand: form.value.brand || null,
@@ -409,12 +448,15 @@ export function useProductEditor(options: UseProductEditorOptions) {
   /**
    * Create new product
    */
-  const createProduct = async (productData: ReturnType<typeof prepareProductData>): Promise<Product | null> => {
+  const createProduct = async (productData: ReturnType<typeof prepareProductData>, status: 'draft' | 'published'): Promise<Product | null> => {
     const newProduct = await productsStore.createProduct(productData)
 
     if (newProduct && newProduct.id) {
       // Upload images
       const imageChanges = images.getChanges()
+
+      const statusLabel = status === 'draft' ? 'en brouillon' : ''
+      const titlePrefix = status === 'draft' ? 'Brouillon sauvegardé' : 'Produit créé'
 
       if (imageChanges.toUpload.length > 0) {
         try {
@@ -423,19 +465,19 @@ export function useProductEditor(options: UseProductEditorOptions) {
           }
 
           showSuccess(
-            'Produit créé',
-            `${form.value.title} a été créé avec ${imageChanges.toUpload.length} image(s)`,
+            titlePrefix,
+            `${form.value.title || 'Produit'} a été ${status === 'draft' ? 'sauvegardé' : 'créé'} avec ${imageChanges.toUpload.length} image(s)`,
             3000
           )
         } catch (imageError: any) {
           showWarn(
-            'Produit créé',
-            `${form.value.title} créé, mais erreur upload images: ${imageError.message}`,
+            titlePrefix,
+            `${form.value.title || 'Produit'} ${status === 'draft' ? 'sauvegardé' : 'créé'}, mais erreur upload images: ${imageError.message}`,
             5000
           )
         }
       } else {
-        showSuccess('Produit créé', `${form.value.title} a été créé avec succès`, 3000)
+        showSuccess(titlePrefix, `${form.value.title || 'Produit'} a été ${status === 'draft' ? 'sauvegardé en brouillon' : 'créé avec succès'}`, 3000)
       }
 
       // Clear draft on success
@@ -452,7 +494,7 @@ export function useProductEditor(options: UseProductEditorOptions) {
   /**
    * Update existing product
    */
-  const updateProduct = async (productData: ReturnType<typeof prepareProductData>): Promise<Product | null> => {
+  const updateProduct = async (productData: ReturnType<typeof prepareProductData>, status: 'draft' | 'published'): Promise<Product | null> => {
     if (!product.value) return null
 
     const prodId = product.value.id
@@ -490,7 +532,8 @@ export function useProductEditor(options: UseProductEditorOptions) {
       }
     }
 
-    showSuccess('Produit modifié', `${form.value.title} a été mis à jour avec succès`, 3000)
+    const titlePrefix = status === 'draft' ? 'Brouillon sauvegardé' : 'Produit modifié'
+    showSuccess(titlePrefix, `${form.value.title} a été ${status === 'draft' ? 'sauvegardé en brouillon' : 'mis à jour avec succès'}`, 3000)
     return product.value
   }
 
@@ -581,6 +624,7 @@ export function useProductEditor(options: UseProductEditorOptions) {
     product,
     isLoading,
     isSubmitting,
+    isPublishing,
     isScrolled,
 
     // Sub-composables
@@ -598,6 +642,8 @@ export function useProductEditor(options: UseProductEditorOptions) {
     missingFields,
     formProgress,
     canSubmit,
+    canPublish,
+    canSaveDraft,
     formSections,
 
     // Methods
@@ -606,6 +652,8 @@ export function useProductEditor(options: UseProductEditorOptions) {
     analyzeWithAI,
     calculatePrice,
     handleSubmit,
+    handleSaveDraft,
+    handlePublish,
     scrollToSection,
     clearDraftAndReset,
     initialize,

@@ -7,7 +7,7 @@
         <div class="flex items-center gap-2 text-sm">
           <i
             class="pi pi-check-circle"
-            :class="progress >= 100 ? 'text-green-500' : 'text-gray-400'"
+            :class="canPublish ? 'text-green-500' : 'text-gray-400'"
           />
           <span class="text-gray-500">{{ filledCount }}/{{ totalCount }}</span>
 
@@ -34,10 +34,10 @@
             </span>
           </span>
 
-          <!-- All complete -->
+          <!-- All complete - ready to publish -->
           <span v-else class="text-green-500 flex items-center gap-1 text-xs">
             <i class="pi pi-check text-xs" />
-            Complet
+            Prêt à publier
           </span>
         </div>
 
@@ -64,14 +64,25 @@
           class="bg-gray-200 hover:bg-gray-300 text-secondary-900 border-0"
           @click="$emit('cancel')"
         />
+        <!-- Save as Draft button -->
         <Button
           type="button"
-          :label="submitLabel"
-          icon="pi pi-check"
+          label="Brouillon"
+          icon="pi pi-save"
+          class="bg-gray-100 hover:bg-gray-200 text-secondary-900 border border-gray-300"
+          :loading="isSubmitting && !isPublishing"
+          :disabled="!canSaveDraft"
+          @click="$emit('save-draft')"
+        />
+        <!-- Publish button -->
+        <Button
+          type="button"
+          label="Publier"
+          icon="pi pi-send"
           class="bg-primary-400 hover:bg-primary-500 text-secondary-900 border-0 font-bold"
-          :loading="isSubmitting"
-          :disabled="!canSubmit"
-          @click="$emit('submit')"
+          :loading="isSubmitting && isPublishing"
+          :disabled="!canPublish"
+          @click="$emit('publish')"
         />
       </div>
     </div>
@@ -85,9 +96,10 @@ interface Props {
   missingFields: string[]
   hasPhotos: boolean
   progress: number
-  canSubmit: boolean
+  canPublish: boolean
+  canSaveDraft: boolean
   isSubmitting: boolean
-  submitLabel: string
+  isPublishing?: boolean
   // Draft props (optional, for create mode)
   showDraft?: boolean
   hasDraft?: boolean
@@ -95,7 +107,8 @@ interface Props {
   formatLastSaved?: () => string
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
+  isPublishing: false,
   showDraft: false,
   hasDraft: false,
   lastSaved: null,
@@ -103,7 +116,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 defineEmits<{
-  'submit': []
+  'save-draft': []
+  'publish': []
   'cancel': []
   'clear-draft': []
 }>()

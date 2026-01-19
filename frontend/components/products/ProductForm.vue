@@ -25,38 +25,7 @@
       </span>
     </div>
 
-    <!-- ===== SECTION 1: INFORMATIONS PRODUIT ===== -->
-    <div id="section-info">
-      <ProductsFormsProductFormInfo
-        :title="modelValue.title"
-        :description="modelValue.description"
-        :price="modelValue.price"
-        :validation="validation"
-        :product-id="productId"
-        :brand="modelValue.brand"
-        :category="modelValue.category"
-        :gender="modelValue.gender"
-        :size-normalized="modelValue.size_normalized"
-        :colors="modelValue.color ? [modelValue.color] : undefined"
-        :material="modelValue.material"
-        :fit="modelValue.fit"
-        :condition="modelValue.condition"
-        :decade="modelValue.decade"
-        :rise="modelValue.rise"
-        :closure="modelValue.closure"
-        :unique-feature="modelValue.unique_feature"
-        :pattern="modelValue.pattern"
-        :trend="modelValue.trend"
-        :season="modelValue.season"
-        :origin="modelValue.origin"
-        :condition-sup="modelValue.condition_sup"
-        @update:title="updateField('title', $event)"
-        @update:description="updateField('description', $event)"
-        @update:price="updateField('price', $event)"
-      />
-    </div>
-
-    <!-- ===== SECTION 2: CARACTÉRISTIQUES ===== -->
+    <!-- ===== SECTION 1: CARACTÉRISTIQUES ===== -->
     <div id="section-characteristics">
       <ProductsFormsProductFormCharacteristics
         :category="modelValue.category"
@@ -115,7 +84,7 @@
       />
     </div>
 
-    <!-- ===== SECTION 3: MESURES ===== -->
+    <!-- ===== SECTION 2: MESURES ===== -->
     <div id="section-measures">
       <ProductsFormsProductFormMeasures
         :category="modelValue.category"
@@ -131,6 +100,35 @@
         @update:dim4="updateField('dim4', $event)"
         @update:dim5="updateField('dim5', $event)"
         @update:dim6="updateField('dim6', $event)"
+      />
+    </div>
+
+    <!-- ===== SECTION 3: INFORMATIONS PRODUIT (Titre, Description) ===== -->
+    <div id="section-info">
+      <ProductsFormsProductFormInfo
+        :title="modelValue.title"
+        :description="modelValue.description"
+        :validation="validation"
+        :product-id="productId"
+        :brand="modelValue.brand"
+        :category="modelValue.category"
+        :gender="modelValue.gender"
+        :size-normalized="modelValue.size_normalized"
+        :colors="modelValue.color ? [modelValue.color] : undefined"
+        :material="modelValue.material"
+        :fit="modelValue.fit"
+        :condition="modelValue.condition"
+        :decade="modelValue.decade"
+        :rise="modelValue.rise"
+        :closure="modelValue.closure"
+        :unique-feature="modelValue.unique_feature"
+        :pattern="modelValue.pattern"
+        :trend="modelValue.trend"
+        :season="modelValue.season"
+        :origin="modelValue.origin"
+        :condition-sup="modelValue.condition_sup"
+        @update:title="updateField('title', $event)"
+        @update:description="updateField('description', $event)"
       />
     </div>
 
