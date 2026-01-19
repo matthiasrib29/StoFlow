@@ -41,20 +41,28 @@
 
     <!-- Table Mode Container -->
     <div v-else-if="viewMode === 'table'">
-      <!-- Desktop: DataTable -->
+      <!-- Desktop: DataTable - ClientOnly to prevent PrimeVue checkbox hydration mismatch -->
       <div class="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <ProductsDataTable
-          v-model:selection="selectedProducts"
-          :products="filteredProducts"
-          :total-records="pagination.total"
-          :current-page="currentPage"
-          :rows-per-page="rowsPerPage"
-          :loading="isLoading"
-          @page="onPageChange"
-          @edit="editProduct"
-          @delete="confirmDelete"
-          @create="$router.push('/dashboard/products/create')"
-        />
+        <ClientOnly>
+          <ProductsDataTable
+            v-model:selection="selectedProducts"
+            :products="filteredProducts"
+            :total-records="pagination.total"
+            :current-page="currentPage"
+            :rows-per-page="rowsPerPage"
+            :loading="isLoading"
+            @page="onPageChange"
+            @edit="editProduct"
+            @delete="confirmDelete"
+            @create="$router.push('/dashboard/products/create')"
+          />
+          <template #fallback>
+            <div class="p-8 text-center text-gray-500">
+              <i class="pi pi-spin pi-spinner text-2xl mb-2"></i>
+              <p>Chargement...</p>
+            </div>
+          </template>
+        </ClientOnly>
       </div>
 
       <!-- Mobile: Cards View -->

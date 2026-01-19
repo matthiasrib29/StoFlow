@@ -149,48 +149,50 @@
         </NuxtLink>
       </SidebarMenuItemWithLink>
 
-      <!-- Administration (Admin only) -->
-      <SidebarMenuItem
-        v-if="isAdmin"
-        icon="pi-shield"
-        label="Administration"
-        :is-active="nav.isAdminRoute.value"
-        :is-open="nav.adminMenuOpen.value"
-        @toggle="nav.toggleAdminMenu"
-      >
-        <NuxtLink
-          to="/dashboard/admin"
-          class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-          :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/admin' }"
+      <!-- Administration (Admin only) - ClientOnly to prevent hydration mismatch -->
+      <ClientOnly>
+        <SidebarMenuItem
+          v-if="isAdmin"
+          icon="pi-shield"
+          label="Administration"
+          :is-active="nav.isAdminRoute.value"
+          :is-open="nav.adminMenuOpen.value"
+          @toggle="nav.toggleAdminMenu"
         >
-          <i class="pi pi-chart-bar text-sm"/>
-          <span>Tableau de bord</span>
-        </NuxtLink>
-        <NuxtLink
-          to="/dashboard/admin/users"
-          class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-          active-class="bg-primary-50 text-secondary-900 font-semibold"
-        >
-          <i class="pi pi-users text-sm"/>
-          <span>Gestion des utilisateurs</span>
-        </NuxtLink>
-        <NuxtLink
-          to="/dashboard/admin/attributes"
-          class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-          active-class="bg-primary-50 text-secondary-900 font-semibold"
-        >
-          <i class="pi pi-database text-sm"/>
-          <span>Donnees de reference</span>
-        </NuxtLink>
-        <NuxtLink
-          to="/dashboard/admin/audit-logs"
-          class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
-          active-class="bg-primary-50 text-secondary-900 font-semibold"
-        >
-          <i class="pi pi-history text-sm"/>
-          <span>Logs d'audit</span>
-        </NuxtLink>
-      </SidebarMenuItem>
+          <NuxtLink
+            to="/dashboard/admin"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            :class="{ 'bg-primary-50 text-secondary-900 font-semibold': route.path === '/dashboard/admin' }"
+          >
+            <i class="pi pi-chart-bar text-sm"/>
+            <span>Tableau de bord</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/dashboard/admin/users"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-users text-sm"/>
+            <span>Gestion des utilisateurs</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/dashboard/admin/attributes"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-database text-sm"/>
+            <span>Donnees de reference</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/dashboard/admin/audit-logs"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+            active-class="bg-primary-50 text-secondary-900 font-semibold"
+          >
+            <i class="pi pi-history text-sm"/>
+            <span>Logs d'audit</span>
+          </NuxtLink>
+        </SidebarMenuItem>
+      </ClientOnly>
 
       <!-- Paramètres -->
       <SidebarMenuItemWithLink
