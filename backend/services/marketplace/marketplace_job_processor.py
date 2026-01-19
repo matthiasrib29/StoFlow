@@ -18,6 +18,7 @@ from services.marketplace.marketplace_job_service import MarketplaceJobService
 from services.vinted.jobs import HANDLERS as VINTED_HANDLERS
 from services.ebay.jobs import EBAY_HANDLERS
 from services.etsy.jobs import ETSY_HANDLERS
+from shared.advisory_locks import AdvisoryLockHelper
 from shared.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -132,6 +133,10 @@ class MarketplaceJobProcessor:
         """
         Execute a single job by dispatching to the appropriate handler.
 
+        Uses advisory locks for work coordination (2026-01-19):
+        - Acquires work lock before processing (non-blocking)
+        - Releases work lock after completion (success or failure)
+
         Args:
             job: The MarketplaceJob to execute
 
@@ -154,24 +159,35 @@ class MarketplaceJobProcessor:
             f"(marketplace={marketplace}, action={action_code}, product={job.product_id})"
         )
 
-        # Mark job as running
-        self.job_service.start_job(job_id)
-
-        # Check if cancellation was requested before we started
-        self.db.refresh(job)
-        if job.cancel_requested:
-            logger.info(f"[JobProcessor] Job #{job_id} cancelled before execution started")
-            self.job_service.mark_job_cancelled(job_id)
+        # Acquire work lock (advisory) - should always succeed since we used SKIP LOCKED
+        if not AdvisoryLockHelper.try_acquire_work_lock(self.db, job_id):
+            logger.warning(f"[JobProcessor] Could not acquire work lock for job #{job_id}")
             return {
                 "job_id": job_id,
                 "marketplace": marketplace,
                 "action": action_code,
                 "success": False,
-                "status": "cancelled",
-                "reason": "cancelled_before_start"
+                "status": "skipped",
+                "reason": "could_not_acquire_work_lock"
             }
 
         try:
+            # Mark job as running
+            self.job_service.start_job(job_id)
+
+            # Check if cancellation was signaled before we started (via advisory lock)
+            if AdvisoryLockHelper.is_cancel_signaled(self.db, job_id):
+                logger.info(f"[JobProcessor] Job #{job_id} cancelled before execution started")
+                self.job_service.mark_job_cancelled(job_id)
+                return {
+                    "job_id": job_id,
+                    "marketplace": marketplace,
+                    "action": action_code,
+                    "success": False,
+                    "status": "cancelled",
+                    "reason": "cancelled_before_start"
+                }
+
             # Get handler for this action
             handler_class = ALL_HANDLERS.get(full_action_code)
 
@@ -219,6 +235,9 @@ class MarketplaceJobProcessor:
             return await self._handle_job_failure(
                 job_id, marketplace, full_action_code, str(e), start_time
             )
+        finally:
+            # Always release work lock
+            AdvisoryLockHelper.release_work_lock(self.db, job_id)
 
     async def _handle_job_failure(
         self,

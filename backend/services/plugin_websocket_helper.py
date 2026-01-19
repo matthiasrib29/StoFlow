@@ -258,6 +258,25 @@ class PluginWebSocketHelper:
                 # Non-server errors (4xx, etc.) - don't retry, raise immediately
                 raise
 
+            except RuntimeError as e:
+                # Check if this is a socket disconnection error that we should retry
+                error_msg = str(e).lower()
+                is_socket_error = (
+                    "socket has been disconnected" in error_msg
+                    or "not connected" in error_msg
+                    or "disconnected" in error_msg
+                )
+                if is_socket_error and attempt < SERVER_ERROR_MAX_RETRIES:
+                    logger.warning(
+                        f"[PluginWS] Socket disconnected for {http_method} {path[:50]}, "
+                        f"waiting {SERVER_ERROR_RETRY_DELAY}s before retry "
+                        f"(attempt {attempt + 1}/{SERVER_ERROR_MAX_RETRIES + 1})"
+                    )
+                    await asyncio.sleep(SERVER_ERROR_RETRY_DELAY)
+                    continue
+                # Non-socket errors or max retries reached - raise
+                raise
+
         # Should not reach here, but just in case
         if last_error:
             raise last_error

@@ -21,6 +21,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import JobStatus, MarketplaceJob
+from shared.advisory_locks import AdvisoryLockHelper
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import (
     PluginWebSocketHelper,
@@ -66,6 +67,44 @@ class VintedProductEnricher:
         """
         self.user_id = user_id
         self.parser = VintedItemUploadParser()
+
+    def _is_job_cancelled(self, db: Session, job_id: int) -> bool:
+        """
+        Check if job cancellation was signaled using advisory locks (2026-01-19).
+
+        Primary check: Advisory lock (instant, non-blocking)
+        Fallback: ORM query for cancel_requested flag
+
+        Args:
+            db: SQLAlchemy session
+            job_id: Job ID to check
+
+        Returns:
+            True if job should stop
+        """
+        try:
+            # Primary: Check advisory lock signal (instant, non-blocking)
+            if AdvisoryLockHelper.is_cancel_signaled(db, job_id):
+                return True
+
+            # Fallback: Check cancel_requested flag via ORM (uses schema_translate_map)
+            job = db.query(MarketplaceJob).filter(
+                MarketplaceJob.id == job_id
+            ).first()
+
+            if job:
+                return job.cancel_requested or job.status == JobStatus.CANCELLED
+            return False
+        except Exception as e:
+            # If transaction is aborted, try to rollback and check again
+            try:
+                db.rollback()
+                # After rollback, just check advisory lock (simplest)
+                return AdvisoryLockHelper.is_cancel_signaled(db, job_id)
+            except Exception:
+                pass
+            logger.warning(f"Error checking job cancellation: {e}")
+            return False
 
     async def enrich_products_without_description(
         self,
@@ -151,14 +190,12 @@ class VintedProductEnricher:
                     db.rollback()  # CRITICAL: Rollback to prevent idle transaction
 
         for i, product in enumerate(products_to_enrich):
-            # CRITICAL: Check if job was cancelled (cooperative pattern - 2026-01-15)
-            if job:
-                db.refresh(job)  # Get latest status from DB
-                if job.cancel_requested or job.status == JobStatus.CANCELLED:
-                    logger.info(f"Job #{job.id} cancellation detected, stopping enrichment")
-                    # Cleanup: commit enriched products before stopping
-                    db.commit()
-                    break
+            # CRITICAL: Check if job was cancelled via advisory lock (2026-01-19)
+            if job and self._is_job_cancelled(db, job.id):
+                logger.info(f"Job #{job.id} cancel signal received, stopping enrichment")
+                # Cleanup: commit enriched products before stopping
+                db.commit()
+                break
 
             if i > 0 and i % batch_size == 0:
                 pause = random.uniform(batch_pause_min, batch_pause_max)

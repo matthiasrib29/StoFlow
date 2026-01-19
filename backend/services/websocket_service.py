@@ -21,14 +21,27 @@ from models.public.user import User
 
 logger = get_logger(__name__)
 
-# Create SocketIO server
-# Note: cors_allowed_origins="*" in dev, specific origins in prod (env-based)
-# DEBUG 2026-01-19: Added logger=True to debug 403 connection rejections
+# Create SocketIO server with optimized settings for stability
+# Reference: https://socket.io/docs/v4/server-options/
+#
+# Heartbeat mechanism (server-initiated in v4+):
+# - Server sends PING every pingInterval
+# - Client must respond with PONG within pingTimeout
+# - If no PONG received, connection is closed
+#
+# Recommended settings for sync operations that can take 30-60s:
+# - pingTimeout: 60000ms (60s) - Time to wait for PONG
+# - pingInterval: 25000ms (25s) - Time between PINGs
+# - Total cycle: 85s before disconnect detected
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",  # Allow all origins in dev (TODO: configure via env)
-    logger=True,  # Enable Socket.IO debug logging
-    engineio_logger=True,  # Enable Engine.IO debug logging
+    # Heartbeat settings - increased for long-running sync operations
+    ping_timeout=60,      # 60s to respond to PING (default: 20s)
+    ping_interval=25,     # 25s between PINGs (default: 25s)
+    # Debug logging (can be disabled in production)
+    logger=True,
+    engineio_logger=True,
 )
 
 # Store pending requests awaiting responses

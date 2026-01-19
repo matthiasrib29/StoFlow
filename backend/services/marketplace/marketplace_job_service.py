@@ -27,6 +27,7 @@ from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session
 
 from models.public.marketplace_action_type import MarketplaceActionType
+from shared.advisory_locks import AdvisoryLockHelper
 from models.user.marketplace_task import MarketplaceTask, TaskStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.batch_job import BatchJob
@@ -363,11 +364,14 @@ class MarketplaceJobService:
 
     def cancel_job(self, job_id: int) -> MarketplaceJob | None:
         """
-        Request job cancellation (cooperative pattern - 2026-01-15).
+        Request job cancellation using advisory lock signaling (2026-01-19).
 
-        For PENDING jobs: cancels immediately
-        For RUNNING jobs: sets cancel_requested flag for graceful shutdown
+        For PENDING jobs: cancels immediately (no lock needed)
+        For RUNNING jobs: signals via advisory lock (non-blocking, instant)
         For TERMINAL jobs: returns None (already finished)
+
+        The advisory lock pattern ensures the cancel API returns immediately
+        without waiting for row locks held by the running job.
 
         Args:
             job_id: Job ID
@@ -399,11 +403,25 @@ class MarketplaceJobService:
             logger.info(f"[MarketplaceJobService] Job #{job_id} cancelled immediately (was pending)")
             return job
 
-        # If job is RUNNING, set flag for cooperative cancellation
+        # If job is RUNNING, signal via advisory lock AND mark as cancelled
         if job.status == JobStatus.RUNNING:
-            job.cancel_requested = True
+            # Signal cancellation via advisory lock (for active workers)
+            AdvisoryLockHelper.signal_cancel(self.db, job_id)
+
+            # Mark job as CANCELLED immediately
+            # This ensures the UI reflects the change even if no worker is active
+            job.status = JobStatus.CANCELLED
+            job.completed_at = datetime.now(timezone.utc)
+            job.cancel_requested = False  # Reset flag since we're cancelling now
             self.db.flush()  # Use flush, not commit (preserve search_path)
-            logger.info(f"[MarketplaceJobService] Job #{job_id} cancellation requested (will stop gracefully)")
+
+            # Cancel associated pending tasks
+            self._cancel_job_tasks(job_id)
+
+            # Release advisory lock (cleanup)
+            AdvisoryLockHelper.release_cancel_signal(self.db, job_id)
+
+            logger.info(f"[MarketplaceJobService] Job #{job_id} cancelled (was running)")
             return job
 
         # Other statuses (shouldn't happen but handle gracefully)
@@ -411,10 +429,10 @@ class MarketplaceJobService:
 
     def mark_job_cancelled(self, job_id: int) -> None:
         """
-        Mark a job as cancelled (called by handler after cleanup).
+        Mark a job as cancelled and cleanup advisory locks (2026-01-19).
 
-        This is the final step of cooperative cancellation (2026-01-15).
-        Called by handlers after they detect cancel_requested and clean up.
+        This is the final step of cooperative cancellation.
+        Called by handlers after they detect cancel signal and clean up.
 
         Args:
             job_id: Job ID to mark as cancelled
@@ -428,6 +446,9 @@ class MarketplaceJobService:
         job.completed_at = datetime.now(timezone.utc)
         job.cancel_requested = False  # Reset flag
         self.db.flush()  # Use flush, not commit (preserve search_path)
+
+        # Release cancel signal lock if held (cleanup)
+        AdvisoryLockHelper.release_cancel_signal(self.db, job_id)
 
         logger.info(f"[MarketplaceJobService] Job #{job_id} marked as CANCELLED")
 
@@ -518,7 +539,10 @@ class MarketplaceJobService:
         self, marketplace: str | None = None
     ) -> MarketplaceJob | None:
         """
-        Get the next job to process (highest priority, oldest first).
+        Get the next job to process using FOR UPDATE SKIP LOCKED.
+
+        This prevents race conditions when multiple workers claim jobs.
+        SKIP LOCKED ensures no deadlock - locked rows are simply skipped.
 
         Args:
             marketplace: Filter by marketplace (optional)
@@ -533,9 +557,11 @@ class MarketplaceJobService:
         if marketplace:
             query = query.filter(MarketplaceJob.marketplace == marketplace)
 
+        # ORDER BY priority (1=CRITICAL first), then oldest first
+        # FOR UPDATE SKIP LOCKED: atomic claim, no deadlock
         return query.order_by(
             MarketplaceJob.priority, MarketplaceJob.created_at
-        ).first()
+        ).with_for_update(skip_locked=True).first()
 
     def get_pending_jobs(
         self, limit: int = 10, marketplace: str | None = None

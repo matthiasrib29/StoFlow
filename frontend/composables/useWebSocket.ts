@@ -16,6 +16,7 @@ import { useVintedBridge } from './useVintedBridge'
 // Singleton state (shared across all composable instances)
 const socket = ref<Socket | null>(null)
 const isConnected = ref(false)
+const isConnecting = ref(false)  // Prevents multiple connection attempts
 const error = ref<string | null>(null)
 
 // Debug logger for WebSocket
@@ -85,11 +86,16 @@ export function useWebSocket() {
       return
     }
 
-    // Clean up existing socket if disconnected
+    // Avoid multiple connection attempts (race condition protection)
+    if (isConnecting.value) {
+      wsLog.debug('Connection already in progress, skipping')
+      return
+    }
+
+    // If socket exists but not connected, it may be reconnecting - don't interfere
     if (socket.value) {
-      wsLog.debug('Cleaning up existing disconnected socket')
-      socket.value.disconnect()
-      socket.value = null
+      wsLog.debug('Socket exists, letting Socket.IO handle reconnection')
+      return
     }
 
     const config = useRuntimeConfig()
@@ -97,12 +103,17 @@ export function useWebSocket() {
     wsLog.info(`Connecting to ${backendUrl} as user ${authStore.user.id}`)
     wsLog.debug('Token available:', !!authStore.token)
 
+    // Mark as connecting to prevent duplicate attempts
+    isConnecting.value = true
+
     socket.value = io(backendUrl, {
       auth: {
         user_id: authStore.user.id,
         token: authStore.token
       },
       transports: ['websocket'],
+      // Connection timeout - how long to wait for initial connection
+      timeout: 60000,  // 60s (default: 20s) - increased for stability
       // Reconnection settings
       reconnection: true,
       reconnectionDelay: 1000,
@@ -110,23 +121,28 @@ export function useWebSocket() {
       reconnectionAttempts: Infinity, // Keep trying to reconnect
       // ACK retry settings (Socket.IO v4.6+)
       // Messages are retried automatically until acknowledged
-      ackTimeout: 10000,  // Wait 10s for ACK before retry
-      retries: 3          // Retry up to 3 times (4 total attempts)
+      ackTimeout: 30000,  // 30s for ACK (increased from 10s for sync operations)
+      retries: 5          // Retry up to 5 times (6 total attempts)
     })
 
     socket.value.on('connect', () => {
       isConnected.value = true
+      isConnecting.value = false
       error.value = null
       wsLog.success(`Connected! Socket ID: ${socket.value?.id}`)
     })
 
     socket.value.on('disconnect', (reason) => {
       isConnected.value = false
+      // Don't reset isConnecting here - Socket.IO will auto-reconnect
+      // and we don't want new connect() calls to interfere
       wsLog.warn(`Disconnected: ${reason}`)
     })
 
     socket.value.on('connect_error', (err) => {
       error.value = err.message
+      // Only reset isConnecting if Socket.IO won't retry
+      // (reconnection is enabled, so it will keep trying)
       wsLog.error(`Connection error: ${err.message}`, err)
     })
 
@@ -221,6 +237,7 @@ export function useWebSocket() {
     socket.value?.disconnect()
     socket.value = null
     isConnected.value = false
+    isConnecting.value = false
   }
 
   // Note: Connection is now managed by the websocket.client.ts plugin

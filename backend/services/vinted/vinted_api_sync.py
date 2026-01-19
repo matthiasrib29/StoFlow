@@ -46,6 +46,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import JobStatus, MarketplaceJob
+from shared.advisory_locks import AdvisoryLockHelper
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_data_extractor import VintedDataExtractor
@@ -82,33 +83,42 @@ class VintedApiSyncService:
 
     def _is_job_cancelled(self, db: Session, job_id: int) -> bool:
         """
-        Check if job cancellation was requested using non-blocking query.
+        Check if job cancellation was signaled using advisory locks (2026-01-19).
 
-        Uses direct SQL query to avoid ORM lock contention.
-        This allows the cancel API to update the flag without blocking.
+        Primary check: Advisory lock (instant, non-blocking)
+        Fallback: ORM query for cancel_requested flag
+
+        This pattern ensures instant cancellation detection without row locks.
 
         Args:
             db: SQLAlchemy session
             job_id: Job ID to check
 
         Returns:
-            True if job should stop (cancel_requested or status is cancelled)
+            True if job should stop (advisory lock signal or cancel_requested flag)
         """
         try:
-            result = db.execute(
-                text("""
-                    SELECT cancel_requested, status
-                    FROM marketplace_jobs
-                    WHERE id = :job_id
-                """),
-                {"job_id": job_id}
-            ).fetchone()
+            # Primary: Check advisory lock signal (instant, non-blocking)
+            if AdvisoryLockHelper.is_cancel_signaled(db, job_id):
+                return True
 
-            if result:
-                cancel_requested, status = result
-                return cancel_requested or status == 'cancelled'
+            # Fallback: Check cancel_requested flag via ORM (uses schema_translate_map)
+            # Note: Using ORM instead of raw SQL to benefit from schema isolation
+            job = db.query(MarketplaceJob).filter(
+                MarketplaceJob.id == job_id
+            ).first()
+
+            if job:
+                return job.cancel_requested or job.status == JobStatus.CANCELLED
             return False
         except Exception as e:
+            # If transaction is aborted, try to rollback and check again
+            try:
+                db.rollback()
+                # After rollback, just check advisory lock (simplest)
+                return AdvisoryLockHelper.is_cancel_signaled(db, job_id)
+            except Exception:
+                pass
             logger.warning(f"Error checking job cancellation: {e}")
             return False
 
@@ -120,10 +130,15 @@ class VintedApiSyncService:
         """
         Synchronise les produits depuis l'API Vinted vers la BDD.
 
+        Architecture en 3 phases (2026-01-19):
+        - Phase 1: Recuperer TOUTE la liste wardrobe (toutes les pages)
+        - Phase 2: Creer/mettre a jour les produits en BDD
+        - Phase 3: Enrichissement des produits sans description
+
         Business Rules:
         - Commit apres chaque produit pour eviter perte de donnees
         - Si erreur sur un produit, les precedents sont preserves
-        - Met a jour job.result_data.progress si job fourni (2026-01-14)
+        - Met a jour job.result_data.progress si job fourni
 
         Args:
             db: Session SQLAlchemy
@@ -132,51 +147,53 @@ class VintedApiSyncService:
         Returns:
             dict: {"created": int, "updated": int, "errors": int, ...}
         """
-        logger.info("Synchronisation API Vinted -> BDD")
+        logger.info("Synchronisation API Vinted -> BDD (3 phases)")
 
-        created = 0
-        updated = 0
-        errors = 0
-        page = 1
         last_error = None
 
-        # Helper pour mettre a jour le progress dans job.result_data (2026-01-14)
-        def update_progress():
+        # Helper pour mettre a jour le progress
+        def update_progress(current: int, total: int | None, phase: str):
             if job:
-                total_processed = created + updated + errors
                 job.result_data = {
                     **(job.result_data or {}),
                     "progress": {
-                        "current": total_processed,
-                        "label": "produits traités"
+                        "current": current,
+                        "total": total,
+                        "phase": phase,
+                        "label": f"{phase}"
                     }
                 }
                 try:
                     db.commit()
-                    db.expire(job)  # Force refresh from DB
+                    db.expire(job)
                 except Exception as e:
                     logger.warning(f"Failed to update progress: {e}")
-                    db.rollback()  # CRITICAL: Rollback to prevent idle transaction
+                    db.rollback()
+
+        # ============================================================
+        # PHASE 1: Recuperer TOUTE la liste wardrobe
+        # ============================================================
+        logger.info("Phase 1: Recuperation de la liste complete...")
+        update_progress(0, None, "Récupération de la liste...")
+
+        all_items = []
+        page = 1
+        total_pages = None
 
         while True:
-            # CRITICAL: Check if job was cancelled (cooperative pattern - 2026-01-15)
-            if job:
-                db.refresh(job)  # Get latest status from DB
-                if job.cancel_requested or job.status == JobStatus.CANCELLED:
-                    logger.info(f"Job #{job.id} cancellation detected, stopping sync")
-                    # Cleanup: commit current progress before stopping
-                    db.commit()
-                    break
+            # Check cancellation
+            if job and self._is_job_cancelled(db, job.id):
+                logger.info(f"Job #{job.id} cancel signal received during fetch")
+                return {"cancelled": True, "phase": "fetch"}
 
             try:
-                # WebSocket architecture (2026-01-12)
                 result = await PluginWebSocketHelper.call_plugin_http(
                     db=db,
                     user_id=self.user_id,
                     http_method="GET",
                     path=VintedProductAPI.get_shop_items(self.shop_id, page=page),
                     timeout=settings.plugin_timeout_sync,
-                    description=f"Sync products page {page}"
+                    description=f"Fetch wardrobe page {page}"
                 )
             except Exception as e:
                 logger.error(f"Erreur recuperation page {page}: {e}")
@@ -187,52 +204,86 @@ class VintedApiSyncService:
             if not items:
                 break
 
-            logger.info(f"Page {page}: {len(items)} produits recuperes")
-
-            for item in items:
-                # CRITICAL: Check if job was cancelled (cooperative pattern - 2026-01-15)
-                if job:
-                    db.refresh(job)  # Get latest status from DB
-                    if job.cancel_requested or job.status == JobStatus.CANCELLED:
-                        logger.info(f"Job #{job.id} cancellation detected, stopping sync")
-                        # Cleanup: commit current progress before stopping
-                        db.commit()
-                        break
-
-                try:
-                    processed = await self._process_api_product(db, item)
-                    db.commit()
-
-                    if processed == 'created':
-                        created += 1
-                    elif processed == 'synced':
-                        updated += 1
-
-                    # Mettre a jour le progress apres chaque produit (2026-01-14)
-                    update_progress()
-
-                except Exception as e:
-                    logger.error(f"Erreur sync produit {item.get('id')}: {e}")
-                    errors += 1
-                    db.rollback()
-
-                    # Mettre a jour le progress meme en cas d'erreur (2026-01-14)
-                    update_progress()
-
+            all_items.extend(items)
             pagination = result.get('pagination', {})
-            if page >= pagination.get('total_pages', 1):
+            total_pages = pagination.get('total_pages', 1)
+
+            logger.info(f"Page {page}/{total_pages}: {len(items)} produits (total: {len(all_items)})")
+            update_progress(page, total_pages, f"Récupération page {page}/{total_pages}")
+
+            if page >= total_pages:
                 break
             page += 1
 
+        total_products = len(all_items)
+        logger.info(f"Phase 1 terminee: {total_products} produits recuperes")
+
+        if total_products == 0:
+            return {
+                "created": 0,
+                "updated": 0,
+                "errors": 0,
+                "enriched": 0,
+                "enrichment_errors": 0,
+                "last_error": last_error
+            }
+
+        # ============================================================
+        # PHASE 2: Creer/mettre a jour les produits en BDD
+        # ============================================================
+        logger.info(f"Phase 2: Traitement de {total_products} produits...")
+        update_progress(0, total_products, f"Traitement 0/{total_products}")
+
+        created = 0
+        updated = 0
+        errors = 0
+
+        for i, item in enumerate(all_items):
+            # Check cancellation
+            if job and self._is_job_cancelled(db, job.id):
+                logger.info(f"Job #{job.id} cancel signal received during processing")
+                db.commit()
+                return {
+                    "cancelled": True,
+                    "phase": "process",
+                    "created": created,
+                    "updated": updated,
+                    "errors": errors
+                }
+
+            try:
+                processed = await self._process_api_product(db, item)
+                db.commit()
+
+                if processed == 'created':
+                    created += 1
+                elif processed == 'synced':
+                    updated += 1
+
+            except Exception as e:
+                logger.error(f"Erreur sync produit {item.get('id')}: {e}")
+                errors += 1
+                db.rollback()
+
+            # Update progress every 5 products or at the end
+            if (i + 1) % 5 == 0 or i == total_products - 1:
+                update_progress(
+                    i + 1,
+                    total_products,
+                    f"Traitement {i + 1}/{total_products}"
+                )
+
         logger.info(
-            f"Sync API terminee: {created} crees, {updated} mis a jour, "
-            f"{errors} erreurs"
+            f"Phase 2 terminee: {created} crees, {updated} mis a jour, {errors} erreurs"
         )
 
-        # Phase 2: Enrichir les produits sans description via HTML
+        # ============================================================
+        # PHASE 3: Enrichissement des produits
+        # ============================================================
+        logger.info("Phase 3: Enrichissement des produits...")
         enrichment_result = await self.enricher.enrich_products_without_description(
             db,
-            job=job  # Pass job for progress tracking (2026-01-14)
+            job=job
         )
 
         result = {
@@ -241,6 +292,7 @@ class VintedApiSyncService:
             "errors": errors,
             "enriched": enrichment_result.get("enriched", 0),
             "enrichment_errors": enrichment_result.get("errors", 0),
+            "total_fetched": total_products,
         }
         if last_error:
             result["last_error"] = last_error
