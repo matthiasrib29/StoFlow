@@ -1,2 +1,2 @@
-web: alembic stamp 20260112_1900_pricing && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
-# Force rebuild lun. 19 janv. 2026 19:06:06 CET
+web: alembic stamp 20260112_1750 && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
+# Force rebuild dim. 19 janv. 2026 19:42:00 CET
