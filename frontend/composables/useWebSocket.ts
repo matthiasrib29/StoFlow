@@ -4,50 +4,60 @@
  * Provides real-time bidirectional communication between frontend and backend.
  * Used to relay plugin commands from backend to browser extension.
  *
+ * Connection is managed EXPLICITLY by auth.ts:
+ * - login() calls ws.connect()
+ * - logout() calls ws.disconnect()
+ * - loadFromStorage() calls ws.connect() after session restore
+ *
  * Author: Claude
  * Date: 2026-01-08
  * Updated: 2026-01-12 - Singleton pattern + debug logging
+ * Updated: 2026-01-19 - HMR-safe with import.meta.hot.data, autoConnect: false
  */
 import { ref } from 'vue'
 import { io, Socket } from 'socket.io-client'
-import { useAuthStore } from '~/stores/auth'
 import { useVintedBridge } from './useVintedBridge'
 
-// Extend Window interface for TypeScript
-declare global {
-  interface Window {
-    __stoflow_ws_socket?: Socket | null
-    __stoflow_ws_initialized?: boolean
-  }
-}
-
-// Use window storage to survive hot-reload (Vite HMR resets module-level variables)
-// This ensures we don't create multiple sockets when the module is reloaded
-const getSocket = (): Socket | null => {
-  if (typeof window === 'undefined') return null
-  return window.__stoflow_ws_socket ?? null
-}
-
-const setSocket = (s: Socket | null) => {
-  if (typeof window !== 'undefined') {
-    window.__stoflow_ws_socket = s
-  }
-}
-
-// Singleton state (shared across all composable instances)
-// These refs are fine to recreate - they'll sync with window state
-const socket = ref<Socket | null>(getSocket())
-const isConnected = ref(getSocket()?.connected ?? false)
-const isConnecting = ref(false)
-const error = ref<string | null>(null)
-
-// Debug logger for WebSocket
+// Debug logger for WebSocket (defined first for use in HMR handlers)
 const wsLog = {
   debug: (msg: string, ...args: any[]) => console.log(`%c[WS] ${msg}`, 'color: #888', ...args),
   info: (msg: string, ...args: any[]) => console.log(`%c[WS] ${msg}`, 'color: #0ea5e9', ...args),
   success: (msg: string, ...args: any[]) => console.log(`%c[WS] ✓ ${msg}`, 'color: #22c55e', ...args),
   warn: (msg: string, ...args: any[]) => console.warn(`[WS] ⚠ ${msg}`, ...args),
   error: (msg: string, ...args: any[]) => console.error(`[WS] ✗ ${msg}`, ...args),
+}
+
+// HMR-safe storage interface
+interface HMRData {
+  socket: Socket | null
+  isConnected: boolean
+}
+
+// Get socket from HMR-preserved state (Vite's official way)
+const getHMRSocket = (): Socket | null => {
+  if (import.meta.hot?.data?.socket) {
+    return import.meta.hot.data.socket as Socket
+  }
+  return null
+}
+
+// Initialize state from HMR-preserved data or fresh
+const socket = ref<Socket | null>(getHMRSocket())
+const isConnected = ref(getHMRSocket()?.connected ?? false)
+const isConnecting = ref(false)
+const error = ref<string | null>(null)
+
+// HMR handlers - preserve socket across hot reloads
+if (import.meta.hot) {
+  // Save socket before module is replaced
+  import.meta.hot.dispose((data: HMRData) => {
+    data.socket = socket.value
+    data.isConnected = isConnected.value
+    wsLog.debug('HMR dispose: preserving socket', { socketId: socket.value?.id })
+  })
+
+  // Accept updates without full reload
+  import.meta.hot.accept()
 }
 
 /**
@@ -110,26 +120,43 @@ function emitWithAck(event: string, data: any, timeout: number = 30000): Promise
 }
 
 export function useWebSocket() {
-  const authStore = useAuthStore()
   const vintedBridge = useVintedBridge()
 
-  // Connect to backend WebSocket
-  const connect = () => {
+  /**
+   * Connect to backend WebSocket
+   * Called explicitly by auth.ts after login/session restore
+   *
+   * @param token - JWT access token
+   * @param userId - User ID
+   */
+  const connect = (token?: string, userId?: number) => {
     wsLog.info('connect() called')
-    wsLog.debug('Auth state:', {
-      isAuthenticated: authStore.isAuthenticated,
-      userId: authStore.user?.id,
-      hasToken: !!authStore.token
-    })
 
-    if (!authStore.isAuthenticated || !authStore.user?.id) {
-      wsLog.warn('Not authenticated, skipping connection')
-      return
+    // Get auth from store if not provided (for backward compatibility)
+    let actualToken = token
+    let actualUserId = userId
+
+    if (!actualToken || !actualUserId) {
+      // Lazy import to avoid circular dependency
+      const authStore = useAuthStore()
+      actualToken = actualToken || authStore.token || undefined
+      actualUserId = actualUserId || authStore.user?.id
+
+      wsLog.debug('Auth from store:', {
+        isAuthenticated: authStore.isAuthenticated,
+        userId: actualUserId,
+        hasToken: !!actualToken
+      })
+
+      if (!authStore.isAuthenticated || !actualUserId) {
+        wsLog.warn('Not authenticated, skipping connection')
+        return
+      }
     }
 
-    // Extra safety: ensure token is present (race condition protection)
-    if (!authStore.token) {
-      wsLog.warn('Token not yet available, skipping connection')
+    // Extra safety: ensure token is present
+    if (!actualToken) {
+      wsLog.warn('Token not available, skipping connection')
       return
     }
 
@@ -153,18 +180,18 @@ export function useWebSocket() {
 
     const config = useRuntimeConfig()
     const backendUrl = config.public.apiUrl || 'http://localhost:8000'
-    wsLog.info(`Connecting to ${backendUrl} as user ${authStore.user.id}`)
-    wsLog.debug('Token available:', !!authStore.token)
+    wsLog.info(`Connecting to ${backendUrl} as user ${actualUserId}`)
 
     // Mark as connecting to prevent duplicate attempts
     isConnecting.value = true
 
     socket.value = io(backendUrl, {
       auth: {
-        user_id: authStore.user.id,
-        token: authStore.token
+        user_id: actualUserId,
+        token: actualToken
       },
       transports: ['websocket'],
+      autoConnect: false, // IMPORTANT: explicit connection only
       // Connection timeout - how long to wait for initial connection
       timeout: 60000,  // 60s (default: 20s) - increased for stability
       // Reconnection settings
@@ -204,6 +231,9 @@ export function useWebSocket() {
       wsLog.info(`Received command: ${data.action} (req: ${data.request_id})`)
       await handlePluginCommand(data)
     })
+
+    // Explicitly connect (since autoConnect: false)
+    socket.value.connect()
   }
 
   // Handle plugin command from backend
@@ -284,24 +314,38 @@ export function useWebSocket() {
     }
   }
 
-  // Disconnect
+  /**
+   * Disconnect from WebSocket
+   * Called explicitly by auth.ts on logout
+   */
   const disconnect = () => {
     wsLog.info('disconnect() called')
-    socket.value?.disconnect()
-    socket.value = null
+    if (socket.value) {
+      socket.value.removeAllListeners()
+      socket.value.disconnect()
+      socket.value = null
+    }
     isConnected.value = false
     isConnecting.value = false
   }
 
-  // Note: Connection is now managed by the websocket.client.ts plugin
-  // which watches authStore.isAuthenticated and connects/disconnects accordingly.
-  // The singleton pattern ensures all components share the same connection.
+  /**
+   * Update socket auth without reconnecting
+   * Called by auth.ts after token refresh
+   */
+  const updateAuth = (token: string, userId: number) => {
+    if (socket.value) {
+      socket.value.auth = { user_id: userId, token }
+      wsLog.debug('Socket auth updated')
+    }
+  }
 
   return {
     socket,
     isConnected,
     error,
     connect,
-    disconnect
+    disconnect,
+    updateAuth
   }
 }
