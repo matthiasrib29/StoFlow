@@ -340,7 +340,7 @@ Total: 1 BatchJob, 50 Jobs, ~400 Tasks
 
 ---
 
-### Phase 11: Data Cleanup & Migration
+### Phase 11: Data Cleanup & Migration 📋 PLANNED (1 plan)
 
 **Goal:** Clean up old jobs/batches in test/dev databases before launch.
 

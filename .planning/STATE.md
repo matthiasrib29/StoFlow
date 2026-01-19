@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-14)
 
 **Core value:** Amélioration UI pour cohérence et professionnalisme (score 6.5/10 → >8/10)
-**Current focus:** Project Complete
+**Current focus:** Data Cleanup & Migration
 
 ## Current Position
 
-Phase: 10 of 10 (Testing & Documentation) ✓
-Plan: 3 of 3 in current phase ✓
-Status: Complete
-Last activity: 2026-01-16 — Phase 10-03 completed
+Phase: 11 of 12 (Data Cleanup & Migration)
+Plan: 1 of 1 in current phase
+Status: Planned
+Last activity: 2026-01-19 — Phase 11-01 planned
 
-Progress: ██████████ 100%
+Progress: ██████████░░ 83%
 
 ## Performance Metrics
 
@@ -159,17 +159,14 @@ Screenshots: `.playwright-mcp/audit-*.png`
 - Created complete API docs for Jobs, Tasks, and BatchJobs endpoints
 - Enhanced complex code with detailed inline comments explaining WHY
 
-## Project Complete
+## Phase 11 In Progress
 
-All 10 phases completed. Testing & Documentation project finalized.
+| Plan | Description | Status |
+|------|-------------|--------|
+| 11-01 | Data Cleanup & Fresh Test Data | Planned |
 
-**Total accomplishments:**
-- 10 plans executed across UI improvement and backend testing/documentation
-- Comprehensive system architecture documentation
-- Complete API documentation with examples
-- Enhanced code clarity with inline explanations
-- Strong test coverage for critical flows
+**Goal:** Clean up old jobs/batches in test/dev databases before launch.
 
 ---
 
-*Last updated: 2026-01-16*
+*Last updated: 2026-01-19*
