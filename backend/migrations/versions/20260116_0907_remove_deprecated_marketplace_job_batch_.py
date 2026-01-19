@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -16,6 +17,19 @@ revision: str = 'c2b2384bb910'
 down_revision: Union[str, None] = '307a8e381a2b'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+
+def column_exists(conn, table, column):
+    """Check if column exists in template_tenant schema."""
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'template_tenant'
+            AND table_name = :table
+            AND column_name = :column
+        )
+    """), {"table": table, "column": column})
+    return result.scalar()
 
 
 def upgrade() -> None:
@@ -26,6 +40,13 @@ def upgrade() -> None:
 
     Note: schema='tenant' handled by schema_translate_map in env.py
     """
+    conn = op.get_bind()
+
+    # Check if column exists (idempotent)
+    if not column_exists(conn, 'marketplace_jobs', 'batch_id'):
+        print("  - batch_id column already dropped, skipping")
+        return
+
     # Drop index first (if exists) - using raw SQL for IF EXISTS
     op.execute(
         'DROP INDEX IF EXISTS ix_marketplace_jobs_batch_id'
@@ -36,6 +57,7 @@ def upgrade() -> None:
         'marketplace_jobs',
         'batch_id'
     )
+    print("  ✓ Dropped batch_id column from marketplace_jobs")
 
 
 def downgrade() -> None:
