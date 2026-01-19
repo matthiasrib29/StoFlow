@@ -113,18 +113,18 @@
         </div>
       </template>
       <template v-if="showColorPreview" #chip="{ value }">
-        <div class="flex items-center gap-1 px-1">
+        <div class="inline-flex items-center gap-1.5 bg-gray-100 rounded-full px-2.5 py-1 mr-1">
           <span
             v-if="getColorHex(value)"
-            class="w-3 h-3 rounded border border-gray-300 flex-shrink-0"
+            class="w-3.5 h-3.5 rounded-full border border-gray-300 flex-shrink-0 shadow-sm"
             :style="{ backgroundColor: getColorHex(value) }"
           />
           <span
             v-else-if="value === 'Multicolor'"
-            class="w-3 h-3 rounded border border-gray-300 flex-shrink-0"
-            style="background: linear-gradient(135deg, red, orange, yellow, green, blue, purple)"
+            class="w-3.5 h-3.5 rounded-full border border-gray-300 flex-shrink-0 shadow-sm"
+            style="background: conic-gradient(red, orange, yellow, green, blue, purple, red)"
           />
-          <span class="text-xs">{{ getColorLabel(value) }}</span>
+          <span class="text-xs font-medium text-gray-700">{{ getColorLabel(value) }}</span>
         </div>
       </template>
     </MultiSelect>
