@@ -46,7 +46,9 @@
 </template>
 
 <script setup lang="ts">
-const testimonials = [
+const { showEtsyPlatform } = useFeatureFlags()
+
+const allTestimonials = [
   {
     name: 'Marie L.',
     initials: 'ML',
@@ -75,4 +77,10 @@ const testimonials = [
     platformColor: 'bg-platform-etsy'
   }
 ]
+
+// PMV2: Filter out Etsy testimonial if not enabled
+const testimonials = computed(() => {
+  if (showEtsyPlatform) return allTestimonials
+  return allTestimonials.filter(t => !t.role.includes('Etsy'))
+})
 </script>

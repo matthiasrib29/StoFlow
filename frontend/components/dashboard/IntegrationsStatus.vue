@@ -58,8 +58,14 @@
 
 <script setup lang="ts">
 const publicationsStore = usePublicationsStore()
+const { showEtsyPlatform } = useFeatureFlags()
 
-const integrations = computed(() => publicationsStore.integrations)
+// PMV2: Filter out Etsy if not enabled
+const integrations = computed(() => {
+  const allIntegrations = publicationsStore.integrations
+  if (showEtsyPlatform) return allIntegrations
+  return allIntegrations.filter(i => i.platform !== 'etsy')
+})
 const connectedCount = computed(() => publicationsStore.connectedIntegrations.length)
 
 // Platform logos

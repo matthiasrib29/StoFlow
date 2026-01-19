@@ -110,8 +110,9 @@
               @toggle="nav.toggleEbayMenu"
             />
 
-            <!-- Etsy -->
+            <!-- PMV2: Etsy caché pour la phase 1 -->
             <SidebarPlatformMenu
+              v-if="showEtsyPlatform"
               platform="etsy"
               label="Etsy"
               logo="/images/platforms/etsy-logo.png"
@@ -284,6 +285,7 @@ defineEmits<{
 
 const route = useRoute()
 const authStore = useAuthStore()
+const { showEtsyPlatform } = useFeatureFlags()
 
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 </script>

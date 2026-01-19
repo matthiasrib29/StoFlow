@@ -22,9 +22,17 @@
 </template>
 
 <script setup lang="ts">
-const platforms = [
+const { showEtsyPlatform } = useFeatureFlags()
+
+const allPlatforms = [
   { name: 'Vinted', logo: '/images/platforms/vinted-logo.png' },
   { name: 'eBay', logo: '/images/platforms/ebay-logo.png' },
   { name: 'Etsy', logo: '/images/platforms/etsy-logo.png' }
 ]
+
+// PMV2: Filter out Etsy if not enabled
+const platforms = computed(() => {
+  if (showEtsyPlatform) return allPlatforms
+  return allPlatforms.filter(p => p.name !== 'Etsy')
+})
 </script>
