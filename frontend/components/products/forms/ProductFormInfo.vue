@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import type { TextPreviewInput } from '~/types/textGenerator'
+import type { TextPreviewInput, TitleFormat, DescriptionStyle } from '~/types/textGenerator'
 
 interface Props {
   title: string
@@ -110,6 +110,21 @@ interface Props {
   season?: string
   origin?: string
   conditionSup?: string[]
+  model?: string
+  neckline?: string
+  sleevelength?: string
+  lining?: string
+  stretch?: string
+  sport?: string
+  length?: string
+  marking?: string
+  location?: string
+  dim1?: number
+  dim2?: number
+  dim3?: number
+  dim4?: number
+  dim5?: number
+  dim6?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -131,7 +146,22 @@ const props = withDefaults(defineProps<Props>(), {
   trend: undefined,
   season: undefined,
   origin: undefined,
-  conditionSup: undefined
+  conditionSup: undefined,
+  model: undefined,
+  neckline: undefined,
+  sleevelength: undefined,
+  lining: undefined,
+  stretch: undefined,
+  sport: undefined,
+  length: undefined,
+  marking: undefined,
+  location: undefined,
+  dim1: undefined,
+  dim2: undefined,
+  dim3: undefined,
+  dim4: undefined,
+  dim5: undefined,
+  dim6: undefined,
 })
 
 const emit = defineEmits<{
@@ -139,15 +169,46 @@ const emit = defineEmits<{
   'update:description': [value: string]
 }>()
 
+// Text generator composable for settings and preview
+const {
+  settings,
+  loadSettings,
+  preview: previewText,
+  titles: previewTitles,
+  descriptions: previewDescriptions,
+} = useProductTextGenerator()
+
 // Text generator state
 const showTextModal = ref(false)
 const generatedTitles = ref<Record<string, string>>({})
 const generatedDescriptions = ref<Record<string, string>>({})
 const textGeneratorError = ref<string | null>(null)
 
+// Track if user has manually edited title/description
+const userEditedTitle = ref(false)
+const userEditedDescription = ref(false)
+
+// Mapping format/style number to API key
+const titleFormatKeys: Record<TitleFormat, string> = {
+  1: 'minimaliste',
+  2: 'standard_vinted',
+  3: 'seo_mots_cles',
+  4: 'vintage_collectionneur',
+  5: 'technique_professionnel',
+}
+
+const descriptionStyleKeys: Record<DescriptionStyle, string> = {
+  1: 'catalogue_structure',
+  2: 'descriptif_redige',
+  3: 'fiche_technique',
+  4: 'vendeur_pro',
+  5: 'visuel_emoji',
+}
+
 // Build attributes for text generator preview
 const textGeneratorAttributes = computed<TextPreviewInput>(() => ({
   brand: props.brand,
+  model: props.model,
   category: props.category,
   gender: props.gender,
   size_normalized: props.sizeNormalized,
@@ -163,7 +224,21 @@ const textGeneratorAttributes = computed<TextPreviewInput>(() => ({
   trend: props.trend,
   season: props.season,
   origin: props.origin,
-  condition_sup: props.conditionSup
+  condition_sup: props.conditionSup,
+  neckline: props.neckline,
+  sleeve_length: props.sleevelength,
+  lining: props.lining,
+  stretch: props.stretch,
+  sport: props.sport,
+  length: props.length,
+  marking: props.marking,
+  location: props.location,
+  dim1: props.dim1,
+  dim2: props.dim2,
+  dim3: props.dim3,
+  dim4: props.dim4,
+  dim5: props.dim5,
+  dim6: props.dim6,
 }))
 
 // Check if we have minimum attributes to generate
@@ -172,7 +247,42 @@ const hasMinimumAttributes = computed(() => {
   return !!(props.brand || props.category)
 })
 
-// Handle text generation results
+// Load settings on mount
+onMounted(async () => {
+  await loadSettings()
+})
+
+// Debounced auto-generation when attributes change
+const debouncedAutoGenerate = useDebounceFn(async () => {
+  if (!hasMinimumAttributes.value) return
+
+  // Call preview API
+  await previewText(textGeneratorAttributes.value)
+
+  // Get default format/style from settings (or fallback to 1)
+  const defaultTitleFormat = settings.value?.default_title_format || 1
+  const defaultDescriptionStyle = settings.value?.default_description_style || 1
+
+  const titleKey = titleFormatKeys[defaultTitleFormat as TitleFormat]
+  const descriptionKey = descriptionStyleKeys[defaultDescriptionStyle as DescriptionStyle]
+
+  // Auto-fill title if user hasn't manually edited it
+  if (!userEditedTitle.value && previewTitles.value[titleKey]) {
+    emit('update:title', previewTitles.value[titleKey])
+  }
+
+  // Auto-fill description if user hasn't manually edited it
+  if (!userEditedDescription.value && previewDescriptions.value[descriptionKey]) {
+    emit('update:description', previewDescriptions.value[descriptionKey])
+  }
+}, 500)
+
+// Watch attributes for auto-generation
+watch(textGeneratorAttributes, () => {
+  debouncedAutoGenerate()
+}, { deep: true })
+
+// Handle text generation results (from button click - opens modal)
 const handleTextGenerated = (results: { titles: Record<string, string>; descriptions: Record<string, string> }) => {
   generatedTitles.value = results.titles
   generatedDescriptions.value = results.descriptions
@@ -190,6 +300,7 @@ const handleTextError = (message: string) => {
 
 // Handle title selection from modal
 const handleSelectTitle = (_format: string, title: string) => {
+  userEditedTitle.value = true // Mark as user choice
   emit('update:title', title)
   // Validate if validation is available
   if (props.validation?.validateDebounced) {
@@ -199,6 +310,7 @@ const handleSelectTitle = (_format: string, title: string) => {
 
 // Handle description selection from modal
 const handleSelectDescription = (_style: string, description: string) => {
+  userEditedDescription.value = true // Mark as user choice
   emit('update:description', description)
   // Validate if validation is available
   if (props.validation?.validateDebounced) {
@@ -208,6 +320,8 @@ const handleSelectDescription = (_style: string, description: string) => {
 
 // Handle apply all from modal
 const handleApplyAll = (data: { title: string; description: string }) => {
+  userEditedTitle.value = true
+  userEditedDescription.value = true
   emit('update:title', data.title)
   emit('update:description', data.description)
   // Validate both fields
@@ -217,8 +331,9 @@ const handleApplyAll = (data: { title: string; description: string }) => {
   }
 }
 
-// Handle title change with validation
+// Handle title change with validation (manual edit)
 const handleTitleChange = (value: string) => {
+  userEditedTitle.value = true // User is manually editing
   emit('update:title', value)
   // Validate with debounce if validation is available
   if (props.validation?.validateDebounced) {
@@ -226,8 +341,9 @@ const handleTitleChange = (value: string) => {
   }
 }
 
-// Handle description change with validation
+// Handle description change with validation (manual edit)
 const handleDescriptionChange = (value: string) => {
+  userEditedDescription.value = true // User is manually editing
   emit('update:description', value)
   // Validate with debounce if validation is available
   if (props.validation?.validateDebounced) {

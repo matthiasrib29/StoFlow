@@ -106,14 +106,26 @@ async def generate_text(
 
         # Filter by specific format if requested
         if input.title_format is not None:
-            format_keys = {1: "ultra_complete", 2: "technical", 3: "style_trend"}
+            format_keys = {
+                1: "minimaliste",
+                2: "standard_vinted",
+                3: "seo_mots_cles",
+                4: "vintage_collectionneur",
+                5: "technique_professionnel"
+            }
             key = format_keys.get(input.title_format)
             if key and key in result["titles"]:
                 result["titles"] = {key: result["titles"][key]}
 
         # Filter by specific style if requested
         if input.description_style is not None:
-            style_keys = {1: "professional", 2: "storytelling", 3: "minimalist"}
+            style_keys = {
+                1: "catalogue_structure",
+                2: "descriptif_redige",
+                3: "fiche_technique",
+                4: "vendeur_pro",
+                5: "visuel_emoji"
+            }
             key = style_keys.get(input.description_style)
             if key and key in result["descriptions"]:
                 result["descriptions"] = {key: result["descriptions"][key]}

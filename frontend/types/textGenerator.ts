@@ -7,22 +7,26 @@
  * Created: 2026-01-13
  */
 
-// Title format options (1-3)
-export type TitleFormat = 1 | 2 | 3
+// Title format options (1-5)
+export type TitleFormat = 1 | 2 | 3 | 4 | 5
 
 export const TITLE_FORMAT_LABELS: Record<TitleFormat, string> = {
-  1: 'Ultra Complete',
-  2: 'Technical',
-  3: 'Style & Trend',
+  1: 'Minimaliste',
+  2: 'Standard Vinted',
+  3: 'SEO & Mots-clés',
+  4: 'Vintage & Collectionneur',
+  5: 'Technique & Professionnel',
 }
 
-// Description style options (1-3)
-export type DescriptionStyle = 1 | 2 | 3
+// Description style options (1-5)
+export type DescriptionStyle = 1 | 2 | 3 | 4 | 5
 
 export const DESCRIPTION_STYLE_LABELS: Record<DescriptionStyle, string> = {
-  1: 'Professional',
-  2: 'Storytelling',
-  3: 'Minimalist',
+  1: 'Catalogue Structuré',
+  2: 'Descriptif Rédigé',
+  3: 'Fiche Technique',
+  4: 'Vendeur Pro',
+  5: 'Visuel Emoji',
 }
 
 // API input for generate (existing product)
@@ -35,6 +39,7 @@ export interface TextGenerateInput {
 // API input for preview (raw attributes)
 export interface TextPreviewInput {
   brand?: string
+  model?: string
   category?: string
   gender?: string
   size_normalized?: string
@@ -51,6 +56,20 @@ export interface TextPreviewInput {
   season?: string
   origin?: string
   condition_sup?: string[]
+  neckline?: string
+  sleeve_length?: string
+  lining?: string
+  stretch?: string
+  sport?: string
+  length?: string
+  marking?: string
+  location?: string
+  dim1?: number
+  dim2?: number
+  dim3?: number
+  dim4?: number
+  dim5?: number
+  dim6?: number
 }
 
 // API output
