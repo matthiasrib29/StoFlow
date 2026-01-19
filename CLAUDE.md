@@ -36,6 +36,39 @@ Avant toute opération sur `~/StoFlow`, les skills vérifient :
 2. ✅ Pas de commits locaux non poussés
 3. ✅ Confirmation utilisateur si problème détecté
 
+### 🚨 Création de PLAN.md (CRITIQUE - ajouté 2026-01-19)
+
+> **Contexte** : Après un `/clear`, Claude perd le contexte et revient sur `~/StoFlow` (develop).
+> Si le plan ne spécifie pas le worktree, l'exécution se fera sur le mauvais répertoire !
+
+**RÈGLE OBLIGATOIRE :**
+
+Lors de la création d'un `PLAN.md`, **TOUJOURS** commencer par indiquer le worktree :
+
+```markdown
+# Plan: [Nom de la feature]
+
+## 🎯 Worktree de travail
+**Chemin**: `~/StoFlow-[nom-feature]`
+**Branche**: `feature/[nom]`
+
+⚠️ IMPORTANT: Exécuter `cd ~/StoFlow-[nom-feature]` AVANT toute action !
+
+## Étapes
+...
+```
+
+**Pourquoi c'est critique :**
+1. `/clear` efface le contexte de conversation
+2. Claude revient par défaut sur `~/StoFlow` (develop)
+3. Sans indication explicite du worktree, le plan s'exécute sur develop
+4. Risque de commits directs sur develop = **INTERDIT**
+
+**Checklist avant de finaliser un plan :**
+- [ ] Le worktree est indiqué EN PREMIER dans le plan
+- [ ] Le chemin complet est spécifié (`~/StoFlow-xxx`)
+- [ ] Une instruction `cd` explicite est présente
+
 ---
 
 ## Project Overview
@@ -561,4 +594,4 @@ from services.etsy import EtsyBaseClient
 
 ---
 
-*Last updated: 2026-01-13*
+*Last updated: 2026-01-19*
