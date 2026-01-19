@@ -18,30 +18,77 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def column_exists(conn, schema, table, column):
+    """Check if column exists."""
+    from sqlalchemy import text
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = :schema AND table_name = :table AND column_name = :column
+        )
+    """), {"schema": schema, "table": table, "column": column})
+    return result.scalar()
+
+
+def index_exists(conn, schema, index_name):
+    """Check if index exists."""
+    from sqlalchemy import text
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT 1 FROM pg_indexes
+            WHERE schemaname = :schema AND indexname = :index_name
+        )
+    """), {"schema": schema, "index_name": index_name})
+    return result.scalar()
+
+
 def upgrade() -> None:
     """Update beta_signups table to match BetaSignup model."""
-    # 1. Rename first_name to name
-    op.alter_column('beta_signups', 'first_name',
-                    new_column_name='name',
-                    schema='public')
-
-    # 2. Add updated_at column
-    op.add_column('beta_signups',
-                  sa.Column('updated_at', sa.DateTime(timezone=True),
-                           server_default=sa.text('now()'),
-                           onupdate=sa.text('now()'),
-                           nullable=False),
-                  schema='public')
-
-    # 3. Create index on status
-    op.create_index(op.f('ix_public_beta_signups_status'),
-                    'beta_signups', ['status'],
-                    unique=False,
-                    schema='public')
-
-    # 4. Create unique constraint on email (might already exist)
     from sqlalchemy import text
     conn = op.get_bind()
+
+    # 1. Rename first_name to name (only if first_name exists and name doesn't)
+    if column_exists(conn, 'public', 'beta_signups', 'first_name'):
+        if not column_exists(conn, 'public', 'beta_signups', 'name'):
+            op.alter_column('beta_signups', 'first_name',
+                            new_column_name='name',
+                            schema='public')
+            print("  ✓ Renamed first_name to name")
+        else:
+            print("  - Both first_name and name exist, skipping rename")
+    else:
+        if column_exists(conn, 'public', 'beta_signups', 'name'):
+            print("  - name column already exists, skipping rename")
+        else:
+            # Neither exists, add name column
+            op.add_column('beta_signups',
+                          sa.Column('name', sa.String(100), nullable=True),
+                          schema='public')
+            print("  ✓ Added name column")
+
+    # 2. Add updated_at column (idempotent)
+    if not column_exists(conn, 'public', 'beta_signups', 'updated_at'):
+        op.add_column('beta_signups',
+                      sa.Column('updated_at', sa.DateTime(timezone=True),
+                               server_default=sa.text('now()'),
+                               onupdate=sa.text('now()'),
+                               nullable=False),
+                      schema='public')
+        print("  ✓ Added updated_at column")
+    else:
+        print("  - updated_at column already exists, skipping")
+
+    # 3. Create index on status (idempotent)
+    if not index_exists(conn, 'public', 'ix_public_beta_signups_status'):
+        op.create_index(op.f('ix_public_beta_signups_status'),
+                        'beta_signups', ['status'],
+                        unique=False,
+                        schema='public')
+        print("  ✓ Created index on status")
+    else:
+        print("  - Index on status already exists, skipping")
+
+    # 4. Create unique constraint on email (might already exist)
     result = conn.execute(text("""
         SELECT constraint_name
         FROM information_schema.table_constraints
@@ -53,6 +100,9 @@ def upgrade() -> None:
     if not result.scalar():
         op.create_unique_constraint('uq_beta_signups_email', 'beta_signups',
                                    ['email'], schema='public')
+        print("  ✓ Created unique constraint on email")
+    else:
+        print("  - Unique constraint on email already exists, skipping")
 
 
 def downgrade() -> None:
