@@ -6,10 +6,7 @@ This replaces the old PluginTask polling system.
 
 Author: Claude
 Date: 2026-01-08
-Updated: 2026-01-19 - Added generic HTTP result codes
-Updated: 2026-01-19 - Added automatic retry for server errors (5xx)
 """
-import asyncio
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -21,18 +18,7 @@ from shared.logging_setup import get_logger
 logger = get_logger(__name__)
 
 
-# ============================================================================
-# GENERIC RESULT CODES FOR PLUGIN COMMUNICATION
-# ============================================================================
-# These codes should be used by ALL services that communicate with the plugin
-# (WebSocket, HTTP calls via plugin, etc.) to provide consistent error handling.
-#
-# Usage:
-#   from services.plugin_websocket_helper import (
-#       PluginWebSocketHelper, PluginHTTPError,
-#       PLUGIN_SUCCESS, PLUGIN_NOT_FOUND, PLUGIN_FORBIDDEN, etc.
-#   )
-# ============================================================================
+# Generic result codes for plugin communication
 
 PLUGIN_SUCCESS = "success"
 PLUGIN_NOT_FOUND = "not_found"           # 404 - Resource not found (sold/deleted on marketplace)
@@ -108,17 +94,6 @@ class PluginHTTPError(Exception):
         return PLUGIN_ERROR
 
 
-# ============================================================================
-# RETRY CONFIGURATION FOR SERVER ERRORS (5xx)
-# ============================================================================
-# Vinted servers can be overloaded and return 5xx errors (especially 524 from
-# Cloudflare). These are often transient, so we retry after a delay.
-# ============================================================================
-
-SERVER_ERROR_RETRY_DELAY = 30  # seconds to wait before retry
-SERVER_ERROR_MAX_RETRIES = 1   # number of retries (1 = 2 total attempts)
-
-
 class PluginWebSocketHelper:
     """
     Helper for plugin communication via WebSocket.
@@ -152,59 +127,29 @@ class PluginWebSocketHelper:
         Raises:
             TimeoutError: If no response within timeout
             RuntimeError: If user not connected
+            PluginHTTPError: On HTTP errors from the plugin
         """
-        import time
-        start_time = time.time()
+        result = await WebSocketService.send_plugin_command(
+            user_id=user_id, action=action, payload=payload, timeout=timeout
+        )
 
-        logger.info(f"[PluginWS] ═══ CALL START ═══")
-        logger.info(f"[PluginWS] Description: {description or action}")
-        logger.info(f"[PluginWS] User ID: {user_id}")
-        logger.info(f"[PluginWS] Action: {action}")
-        logger.info(f"[PluginWS] Timeout: {timeout}s")
-        logger.debug(f"[PluginWS] Payload: {str(payload)[:300]}...")
+        if not result.get("success"):
+            error_msg = result.get("error", "Unknown error")
+            http_status = result.get("status")
+            error_data = result.get("errorData")
 
-        try:
-            result = await WebSocketService.send_plugin_command(
-                user_id=user_id, action=action, payload=payload, timeout=timeout
-            )
+            logger.error(f"[PluginWS] {description or action} failed: HTTP {http_status or '?'} - {error_msg}")
 
-            elapsed = time.time() - start_time
-            logger.info(f"[PluginWS] ✓ WebSocket response received in {elapsed*1000:.1f}ms")
-            logger.info(f"[PluginWS] Result success: {result.get('success')}")
-            logger.debug(f"[PluginWS] Result keys: {list(result.keys())}")
+            if http_status:
+                raise PluginHTTPError(
+                    status=http_status,
+                    message=error_msg,
+                    error_data=error_data
+                )
 
-            if not result.get("success"):
-                error_msg = result.get("error", "Unknown error")
-                http_status = result.get("status")
-                error_data = result.get("errorData")
+            raise RuntimeError(error_msg)
 
-                logger.error(f"[PluginWS] ✗ {description or action} failed: HTTP {http_status or '?'} - {error_msg}")
-                logger.info(f"[PluginWS] ═══ CALL FAILED ═══")
-
-                # Raise specific HTTP error if status code is available
-                if http_status:
-                    raise PluginHTTPError(
-                        status=http_status,
-                        message=error_msg,
-                        error_data=error_data
-                    )
-
-                # Fallback to generic RuntimeError for non-HTTP errors
-                raise RuntimeError(error_msg)
-
-            logger.info(f"[PluginWS] ═══ CALL SUCCESS ═══")
-            return result.get("data", {})
-
-        except TimeoutError as e:
-            elapsed = time.time() - start_time
-            logger.error(f"[PluginWS] ✗ TIMEOUT after {elapsed:.1f}s: {e}")
-            logger.info(f"[PluginWS] ═══ CALL TIMEOUT ═══")
-            raise
-        except RuntimeError as e:
-            elapsed = time.time() - start_time
-            logger.error(f"[PluginWS] ✗ RUNTIME ERROR after {elapsed:.1f}s: {e}")
-            logger.info(f"[PluginWS] ═══ CALL ERROR ═══")
-            raise
+        return result.get("data", {})
 
     @staticmethod
     async def call_plugin_http(
@@ -216,13 +161,11 @@ class PluginWebSocketHelper:
         params: Optional[dict] = None,
         timeout: int = 60,
         description: Optional[str] = None,
-        retry_on_server_error: bool = True,
     ) -> Dict[str, Any]:
         """
         Execute raw HTTP call via plugin.
 
         Includes rate limiting to prevent Vinted ban.
-        Automatically retries on server errors (5xx) with configurable delay.
 
         Args:
             db: SQLAlchemy session
@@ -233,78 +176,29 @@ class PluginWebSocketHelper:
             params: Query parameters
             timeout: Timeout in seconds
             description: Description for logs
-            retry_on_server_error: If True, retry on 5xx errors (default: True)
 
         Returns:
             dict: HTTP response data
 
         Raises:
-            PluginHTTPError: On HTTP errors (after retries for 5xx)
+            PluginHTTPError: On HTTP errors
             RuntimeError: On non-HTTP errors
         """
-        last_error: Optional[PluginHTTPError] = None
+        # Apply rate limiting before calling plugin (anti-ban protection)
+        delay = await VintedRateLimiter.wait_before_request(path, http_method)
+        if delay > 0:
+            logger.debug(f"[PluginWS] Rate limit: {delay:.2f}s for {http_method} {path[:50]}")
 
-        for attempt in range(SERVER_ERROR_MAX_RETRIES + 1):
-            try:
-                # Apply rate limiting before calling plugin (anti-ban protection)
-                delay = await VintedRateLimiter.wait_before_request(path, http_method)
-                logger.info(f"[PluginWS] Rate limit applied: {delay:.2f}s delay for {http_method} {path[:50]}")
-
-                return await PluginWebSocketHelper.call_plugin(
-                    db=db,
-                    user_id=user_id,
-                    action="VINTED_API_CALL",
-                    payload={
-                        "method": http_method,
-                        "endpoint": path,
-                        "data": payload,
-                        "params": params,
-                    },
-                    timeout=timeout,
-                    description=description,
-                )
-
-            except PluginHTTPError as e:
-                # Check if this is a server error (5xx) that we should retry
-                if retry_on_server_error and e.is_server_error():
-                    last_error = e
-                    if attempt < SERVER_ERROR_MAX_RETRIES:
-                        logger.warning(
-                            f"[PluginWS] Server error {e.status} for {http_method} {path[:50]}, "
-                            f"waiting {SERVER_ERROR_RETRY_DELAY}s before retry "
-                            f"(attempt {attempt + 1}/{SERVER_ERROR_MAX_RETRIES + 1})"
-                        )
-                        await asyncio.sleep(SERVER_ERROR_RETRY_DELAY)
-                        continue
-                    else:
-                        logger.error(
-                            f"[PluginWS] Server error {e.status} for {http_method} {path[:50]} "
-                            f"after {SERVER_ERROR_MAX_RETRIES + 1} attempts, giving up"
-                        )
-                        raise
-                # Non-server errors (4xx, etc.) - don't retry, raise immediately
-                raise
-
-            except RuntimeError as e:
-                # Check if this is a socket disconnection error that we should retry
-                error_msg = str(e).lower()
-                is_socket_error = (
-                    "socket has been disconnected" in error_msg
-                    or "not connected" in error_msg
-                    or "disconnected" in error_msg
-                )
-                if is_socket_error and attempt < SERVER_ERROR_MAX_RETRIES:
-                    logger.warning(
-                        f"[PluginWS] Socket disconnected for {http_method} {path[:50]}, "
-                        f"waiting {SERVER_ERROR_RETRY_DELAY}s before retry "
-                        f"(attempt {attempt + 1}/{SERVER_ERROR_MAX_RETRIES + 1})"
-                    )
-                    await asyncio.sleep(SERVER_ERROR_RETRY_DELAY)
-                    continue
-                # Non-socket errors or max retries reached - raise
-                raise
-
-        # Should not reach here, but just in case
-        if last_error:
-            raise last_error
-        raise RuntimeError("Unexpected error in call_plugin_http retry loop")
+        return await PluginWebSocketHelper.call_plugin(
+            db=db,
+            user_id=user_id,
+            action="VINTED_API_CALL",
+            payload={
+                "method": http_method,
+                "endpoint": path,
+                "data": payload,
+                "params": params,
+            },
+            timeout=timeout,
+            description=description,
+        )
