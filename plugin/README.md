@@ -1,367 +1,377 @@
-# 🔌 StoFlow Plugin - Proxy HTTP Générique pour Vinted
+# StoFlow Plugin - Browser Extension for Vinted Integration
 
-Plugin Firefox (Manifest V3) qui sert de **proxy HTTP générique** entre votre backend et Vinted.
+Browser extension (Firefox/Chrome, Manifest V3) that acts as a **proxy bridge** between the StoFlow frontend and Vinted.
 
-## 🎯 Concept
-
-Le plugin agit comme un **intermédiaire transparent** :
-
-```
-Backend (FastAPI)
-    ↓ Crée une tâche HTTP dans la DB
-Plugin Firefox (polling toutes les 5s)
-    ↓ Récupère la tâche
-Plugin exécute sur Vinted via content script
-    ↓ Injecte automatiquement : Cookies + X-CSRF-Token + X-Anon-Id
-    ↓ Renvoie la réponse brute
-Backend traite la réponse
-```
-
-## ✨ Fonctionnalités
-
-### 🔐 Auto-injection des credentials Vinted
-
-Le plugin injecte **automatiquement** dans toutes les requêtes :
-- ✅ **Cookies** de session Vinted (via `credentials: 'include'`)
-- ✅ **X-CSRF-Token** (extrait dynamiquement du HTML)
-- ✅ **X-Anon-Id** (extrait dynamiquement du HTML)
-- ✅ **Content-Type** approprié (JSON ou multipart)
-
-### 🌐 Proxy HTTP totalement générique
-
-Le backend envoie **n'importe quelle requête HTTP** :
-- Tous les verbes HTTP : `GET`, `POST`, `PUT`, `DELETE`, `PATCH`
-- Body JSON ou FormData (multipart)
-- Headers personnalisés (avec possibilité de surcharge)
-- Upload de fichiers (base64 → Blob)
-
-### 🔄 Polling automatique
-
-- Interroge le backend toutes les **5 secondes**
-- Authentification JWT automatique
-- Gestion des erreurs 401 (token expiré)
-- Une seule tâche exécutée à la fois
-
-### 📊 Réponse brute complète
-
-Renvoie toutes les informations au backend :
-- `status` : Code HTTP (200, 404, 500...)
-- `headers` : Headers de réponse
-- `data` : Body de la réponse
-- `execution_time_ms` : Temps d'exécution
-- `executed_at` : Timestamp ISO
+**Version**: 2.0.0
+**Last updated**: 2026-01-19
 
 ---
 
-## 🚀 Installation
+## Overview
 
-### Prérequis
+The plugin enables secure communication between StoFlow and Vinted by:
+- Executing API calls in the browser context (with Vinted session cookies)
+- Extracting CSRF tokens and authentication data dynamically
+- Providing a message-passing bridge for cross-origin communication
+
+```
+StoFlow Frontend (stoflow.io)
+    |
+    | chrome.runtime.sendMessage (Chrome)
+    | postMessage fallback (Firefox)
+    v
+Plugin Background Service Worker
+    |
+    | chrome.tabs.sendMessage
+    v
+Content Script (vinted.fr)
+    |
+    | Injects scripts into MAIN world
+    | Hooks Vinted's Webpack Axios instance
+    v
+Vinted API (www.vinted.fr/api/v2/*)
+```
+
+---
+
+## Features
+
+### Auto-injection of Vinted Credentials
+- **Cookies**: Session cookies via `credentials: 'include'`
+- **X-CSRF-Token**: Extracted dynamically from DOM
+- **X-Anon-Id**: Extracted dynamically from DOM
+- **Content-Type**: Automatic (JSON or multipart)
+
+### Generic HTTP Proxy
+- All HTTP methods: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`
+- JSON body or FormData (multipart)
+- Custom headers support
+- File uploads (base64 to Blob conversion)
+
+### Supported Actions
+| Action | Description |
+|--------|-------------|
+| `PING` | Health check, returns version |
+| `CHECK_VINTED_TAB` | Check if Vinted tab exists |
+| `OPEN_VINTED_TAB` | Open new Vinted tab |
+| `VINTED_GET_USER_INFO` | Get userId + login from DOM |
+| `VINTED_GET_USER_PROFILE` | Fetch full user profile |
+| `VINTED_API_CALL` | Generic HTTP call |
+| `VINTED_PUBLISH` | Publish new product |
+| `VINTED_UPDATE` | Update existing product |
+| `VINTED_DELETE` | Delete product |
+| `VINTED_BATCH` | Execute multiple operations |
+
+---
+
+## Installation
+
+### Prerequisites
 - Node.js 18+
-- Firefox Developer Edition
+- Firefox Developer Edition or Chrome 109+
 
-### 1. Installer les dépendances
+### Build
 ```bash
 npm install
+npm run build        # Production build
+npm run dev          # Dev mode with HMR
 ```
 
-### 2. Build le plugin
-```bash
-npm run build
-```
+### Load in Browser
 
-### 3. Charger dans Firefox
-1. Ouvrir `about:debugging`
-2. Cliquer "This Firefox"
-3. Cliquer "Load Temporary Add-on"
-4. Sélectionner `dist/manifest.json`
+**Firefox**:
+1. Open `about:debugging`
+2. Click "This Firefox"
+3. Click "Load Temporary Add-on"
+4. Select `dist/manifest.json`
+
+**Chrome**:
+1. Open `chrome://extensions`
+2. Enable "Developer mode"
+3. Click "Load unpacked"
+4. Select the `dist/` folder
 
 ---
 
-## 📝 Utilisation
+## Architecture
 
-### 1. Connexion au backend
-
-Le plugin se connecte à votre backend via JWT :
-
-```typescript
-POST http://localhost:8000/api/auth/login?source=plugin
-Body: {
-  "email": "user@example.com",
-  "password": "password"
-}
-
-Response: {
-  "access_token": "eyJhbGc...",
-  "refresh_token": "eyJhbGc...",
-  "user_id": 1,
-  "role": "user",
-  "subscription_tier": "starter"
-}
+### Directory Structure
 ```
-
-Le plugin stocke les tokens et démarre automatiquement le polling.
-
-### 2. Créer une tâche HTTP
-
-Le backend crée une tâche dans la table `plugin_tasks` :
-
-```python
-# Exemple 1 : GET simple
-{
-    "task_type": "HTTP_REQUEST",
-    "status": "PENDING",
-    "payload": {
-        "url": "https://www.vinted.fr/api/v2/items/123456",
-        "method": "GET"
-    }
-}
-
-# Exemple 2 : POST avec body JSON
-{
-    "task_type": "HTTP_REQUEST",
-    "status": "PENDING",
-    "payload": {
-        "url": "https://www.vinted.fr/api/v2/items/123",
-        "method": "PUT",
-        "body": {"price": 15.99}
-    }
-}
-
-# Exemple 3 : Headers custom
-{
-    "task_type": "HTTP_REQUEST",
-    "status": "PENDING",
-    "payload": {
-        "url": "https://www.vinted.fr/api/v2/items",
-        "method": "GET",
-        "headers": {
-            "X-Custom-Header": "value"
-        }
-    }
-}
-
-# Exemple 4 : Upload de photo
-{
-    "task_type": "HTTP_REQUEST",
-    "status": "PENDING",
-    "payload": {
-        "url": "https://www.vinted.fr/api/v2/photos",
-        "method": "POST",
-        "content_type": "multipart",
-        "files": [{
-            "field": "photo",
-            "filename": "product.jpg",
-            "content": "base64_encoded_image_data",
-            "mime_type": "image/jpeg"
-        }],
-        "body": {
-            "product_id": 123
-        }
-    }
-}
-```
-
-### 3. Récupérer le résultat
-
-Le plugin renvoie la réponse complète au backend :
-
-```json
-{
-    "success": true,
-    "status": 200,
-    "headers": {
-        "content-type": "application/json",
-        "x-request-id": "abc123"
-    },
-    "data": {
-        "id": 123456,
-        "title": "T-shirt Nike",
-        "price": "15.00",
-        "description": "..."
-    },
-    "execution_time_ms": 450,
-    "executed_at": "2025-12-08T09:41:00Z"
-}
-```
-
-En cas d'erreur :
-
-```json
-{
-    "success": false,
-    "status": 0,
-    "error": "EXECUTION_ERROR",
-    "error_message": "Aucun onglet Vinted ouvert",
-    "execution_time_ms": 50,
-    "executed_at": "2025-12-08T09:41:00Z"
-}
-```
-
----
-
-## 🔧 Configuration
-
-### Backend URL
-
-Modifier dans `src/background/task-poller.ts` :
-```typescript
-const BACKEND_URL = 'http://localhost:8000';
-```
-
-### Intervalle de polling
-
-Modifier dans `src/background/task-poller.ts` :
-```typescript
-const POLL_INTERVAL = 5000; // 5 secondes
-```
-
----
-
-## 🏗️ Architecture
-
-### Structure des fichiers
-
-```
+plugin/
 src/
-├── background/
-│   ├── index.ts          # Background service worker
-│   └── task-poller.ts    # Polling + exécution des tâches
-├── content/
-│   ├── vinted.ts         # Content script Vinted
-│   └── proxy.ts          # Proxy HTTP générique
-├── composables/
-│   └── useAuth.ts        # Authentification JWT
-├── popup/
-│   └── Popup.vue         # Interface utilisateur
-└── manifest.json         # Configuration du plugin
+|-- background/
+|   |-- index.ts                    # Main service worker entry point
+|   |-- VintedActionHandler.ts      # All Vinted operations handler (705 lines)
+|-- content/
+|   |-- vinted.ts                   # Content script for vinted.fr
+|   |-- stoflow-web.ts              # Content script for stoflow.io (Firefox fallback)
+|   |-- vinted-api-bridge.ts        # Bridge between ISOLATED and MAIN worlds
+|   |-- vinted-detector.ts          # Extract user info from Vinted DOM
+|   |-- inject-api.ts               # Script injection orchestrator
+|   |-- message-utils.ts            # postMessage helpers
+|   |-- stoflow-vinted-logger.js    # Injected: logging utilities
+|   |-- stoflow-vinted-datadome.js  # Injected: DataDome handling
+|   |-- stoflow-vinted-api-core.js  # Injected: API implementation
+|   |-- stoflow-vinted-bootstrap.js # Injected: Webpack module hooking
+|-- popup/
+|   |-- Popup.vue                   # Extension popup UI
+|-- components/
+|   |-- VintedSessionInfo.vue       # Vinted connection status
+|   |-- DevModeBanner.vue           # Dev mode indicator
+|   |-- PermissionRequest.vue       # Permission requests
+|-- options/
+|   |-- Options.vue                 # Extension settings
+|-- config/
+|   |-- environment.ts              # Centralized configuration
+|-- utils/
+|   |-- logger.ts                   # Centralized logger with sanitization
+|   |-- errors.ts                   # Custom error classes
+|-- types/
+    |-- webextension.d.ts           # Type definitions
 ```
 
-### Flow d'exécution
+### Communication Patterns
 
-1. **Polling** (`task-poller.ts`)
-   - Interroge `GET /api/plugin/tasks` toutes les 5s
-   - Authentification JWT (Bearer token)
+**Chrome (externally_connectable)**:
+```
+stoflow.io --> chrome.runtime.sendMessage --> Background --> Content Script --> Vinted
+```
 
-2. **Extraction tokens** (`vinted.ts`)
-   - Extrait `X-CSRF-Token` du HTML
-   - Extrait `X-Anon-Id` du HTML
+**Firefox (postMessage fallback)**:
+```
+stoflow.io --> postMessage --> stoflow-web.ts --> chrome.runtime.sendMessage --> Background --> Content Script --> Vinted
+```
 
-3. **Exécution** (`proxy.ts`)
-   - Merge tokens auto + headers custom
-   - Exécute la requête avec `fetch()`
-   - Inclut automatiquement les cookies
+### World Isolation
+- **ISOLATED world**: Content scripts with Chrome APIs access
+- **MAIN world**: Injected scripts with access to page's JavaScript (Webpack)
 
-4. **Réponse** (`task-poller.ts`)
-   - Parse la réponse (JSON/text/blob)
-   - Envoie à `POST /api/plugin/tasks/{id}/result`
+Communication via `window.postMessage` with request/response pattern.
 
 ---
 
-## 🔐 Sécurité
+## Configuration
 
-### Tokens JWT
+### Environment Variables
+```bash
+# .env.development
+VITE_BACKEND_URL=http://localhost:8000
+VITE_ENABLE_DEBUG_LOGS=true
 
-- `access_token` : Expire après 1h
-- `refresh_token` : Expire après 7 jours
-- Stockés dans `chrome.storage.local` (chiffré par Firefox)
-- Refresh automatique en cas de 401
+# .env.production
+VITE_BACKEND_URL=https://api.stoflow.io
+VITE_ENABLE_DEBUG_LOGS=false
+```
 
-### Headers Vinted
-
-- CSRF Token et Anon-Id extraits **dynamiquement** à chaque requête
-- Jamais stockés (toujours frais)
-- Impossible de faire une requête sans onglet Vinted ouvert
-
-### Isolation
-
-- Exécution dans le contexte de vinted.fr uniquement
-- Cookies Vinted jamais exposés au backend
-- Le backend ne voit que les réponses API
+### Key Configuration (environment.ts)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BACKEND_URL` | `https://api.stoflow.io` | Backend API URL |
+| `VINTED_REQUEST_TIMEOUT` | `30000` | Request timeout (ms) |
+| `VINTED_MIN_REQUEST_DELAY` | `1000` | Min delay between requests (ms) |
+| `ENABLE_DEBUG_LOGS` | `false` | Debug logging toggle |
 
 ---
 
-## 📊 Endpoints Backend Requis
+## Security
 
-Le backend doit implémenter :
-
-### 1. Authentification
-```
-POST /api/auth/login?source=plugin
-POST /api/auth/refresh
-```
-
-### 2. Tâches
-```
-GET  /api/plugin/tasks                 # Liste des tâches PENDING
-POST /api/plugin/tasks/{id}/result     # Soumettre un résultat
+### Permissions
+```json
+{
+  "permissions": ["storage", "notifications", "scripting", "activeTab", "tabs"],
+  "host_permissions": ["<all_urls>"]
+}
 ```
 
-### 3. Base de données
+### Security Features
+- **Origin validation**: All external messages validated against whitelist
+- **Content Security Policy**: `script-src 'self'; object-src 'self'`
+- **Log sanitization**: Automatic masking of tokens, passwords, secrets
+- **Timeout protection**: All async operations have 30s timeout
 
-Table `plugin_tasks` dans chaque schéma utilisateur :
-
-```sql
-CREATE TABLE plugin_tasks (
-    id SERIAL PRIMARY KEY,
-    task_type VARCHAR NOT NULL,
-    status VARCHAR NOT NULL DEFAULT 'PENDING',
-    payload JSONB,
-    result JSONB,
-    error_message TEXT,
-    product_id INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    retry_count INTEGER DEFAULT 0,
-    max_retries INTEGER DEFAULT 3
-);
-```
-
----
-
-## 🐛 Debug
-
-### Console du Popup
-
-```javascript
-[Auth] ✅ Connexion réussie: {userId: 1, role: "user"}
-[Popup] Polling démarré pour user_id: 1
-```
-
-### Console du Background (`about:debugging` → Inspect)
-
-```javascript
-[Task Poller] ✅ Démarrage polling (intervalle: 5000ms)
-[Task Poller] ✅ Nouvelle tâche: HTTP_REQUEST 1
-[Task Poller] 🚀 Exécution tâche 1: HTTP_REQUEST
-[Stoflow Proxy] 🌐 Exécution requête: GET https://www.vinted.fr/api/v2/users/me
-[Stoflow Proxy] ✅ Réponse: 200 OK
-[Task Poller] ✅ Résultat envoyé pour tâche 1
+### Allowed Origins
+```typescript
+const ALLOWED_ORIGINS = [
+  'https://stoflow.io',
+  'https://www.stoflow.io',
+  'https://app.stoflow.io',
+  'http://localhost:3000',  // Dev only
+  'http://localhost:5173'   // Dev only
+];
 ```
 
 ---
 
-## 📚 Documentation
+## Code Quality Status
 
-See the [CLAUDE.md](./CLAUDE.md) file for development guidelines and architecture overview.
+**Analysis Date**: 2026-01-19
+
+### Technical Debt Score: MEDIUM (140 points)
+
+| Severity | Count | Examples |
+|----------|-------|----------|
+| Critical | 3 | `any` type overuse (127 occurrences), untyped error handling |
+| High | 12 | Files > 500 lines, no tests, JS/TS duplication |
+| Medium | 18 | Magic numbers, inconsistent timeouts, exposed globals |
+| Low | 14 | Naming inconsistencies, missing JSDoc |
+
+### Critical Issues
+1. **Excessive `any` type usage** (127 occurrences) - Loss of TypeScript benefits
+2. **Files too long**: `VintedActionHandler.ts` (705 lines), `vinted.ts` (532 lines)
+3. **No unit tests** - Vitest configured but no test files
+
+### Recommended Refactoring
+```
+VintedActionHandler.ts (705 lines)
+  --> handlers/UserHandlers.ts      (150 lines)
+  --> handlers/ProductHandlers.ts   (200 lines)
+  --> handlers/TabManager.ts        (100 lines)
+  --> handlers/MessageSender.ts     (80 lines)
+```
 
 ---
 
-## 🤝 Contribution
+## Security Audit Status
 
-Key files for modifications:
+**Security Score**: 6.5/10
 
-1. **Background service** : `src/background/index.ts` and `src/background/VintedActionHandler.ts`
-2. **API client** : `src/api/StoflowAPI.ts`
-3. **Vinted API hook** : `src/content/stoflow-vinted-api.js`
+### Critical Vulnerabilities
+
+| Issue | Risk | Recommendation |
+|-------|------|----------------|
+| `<all_urls>` permission | HIGH | Restrict to specific domains |
+| Batch operations unlimited | MEDIUM | Add `MAX_BATCH_SIZE = 100` |
+| Double content script injection | MEDIUM | Add injection guard flag |
+| localhost in production | MEDIUM | Remove dev origins in prod |
+
+### Recommended Permission Fix
+```json
+{
+  "host_permissions": [
+    "https://www.vinted.fr/*",
+    "https://www.vinted.com/*",
+    "https://stoflow.io/*",
+    "https://*.stoflow.io/*"
+  ]
+}
+```
+
+### Security Best Practices Implemented
+- Origin validation with whitelist
+- Log sanitization (tokens, passwords masked)
+- CSP restrictive policy
+- Request timeouts
 
 ---
 
-## 📄 Licence
+## API Response Format
+
+### Success Response
+```typescript
+interface ExternalResponse {
+  success: true;
+  requestId?: string;
+  data?: any;
+}
+```
+
+### Error Response
+```typescript
+interface ExternalResponse {
+  success: false;
+  requestId?: string;
+  error: string;
+  errorCode: string;
+  status?: number;
+}
+```
+
+### Error Codes
+| Code | Description |
+|------|-------------|
+| `NO_VINTED_TAB` | No Vinted tab found |
+| `CONTENT_SCRIPT_TIMEOUT` | Content script did not respond |
+| `INVALID_PAYLOAD` | Missing required fields |
+| `API_ERROR` | Vinted API returned error |
+| `UNAUTHORIZED` | Not authenticated on Vinted |
+
+---
+
+## Debugging
+
+### Browser DevTools
+
+| Context | How to access |
+|---------|---------------|
+| Popup | Right-click popup > Inspect |
+| Background | `about:debugging` (Firefox) / `chrome://extensions` > Inspect service worker |
+| Content Script | Page DevTools console (look for `[Vinted]` prefix) |
+| Injected Scripts | Page DevTools console (look for `[StoflowAPI]` prefix) |
+
+### Log Prefixes
+```
+[Background]     - Service worker logs
+[VintedHandler]  - Action handler logs
+[Vinted]         - Content script logs
+[StoflowAPI]     - Injected API logs
+```
+
+### Common Issues
+
+| Symptom | Cause | Solution |
+|---------|-------|----------|
+| "No Vinted tab" | Tab not open | Open vinted.fr in a tab |
+| "Content script timeout" | Injection failed | Reload Vinted tab |
+| "Unauthorized origin" | Frontend not whitelisted | Check ALLOWED_ORIGINS |
+| API returns HTML | Session expired | Re-login to Vinted |
+
+---
+
+## Development
+
+### Scripts
+```bash
+npm run dev          # Dev server with HMR
+npm run build        # Production build
+npm run build:check  # Type check + build
+npm test             # Run Vitest tests
+```
+
+### Tech Stack
+| Layer | Technology |
+|-------|------------|
+| Framework | Vue 3 + Composition API |
+| Language | TypeScript |
+| Build | Vite + @crxjs/vite-plugin |
+| Testing | Vitest |
+| Styling | Scoped CSS |
+
+### Key Files for Contributions
+| File | Purpose |
+|------|---------|
+| `background/VintedActionHandler.ts` | Add new Vinted actions |
+| `content/vinted.ts` | Modify content script behavior |
+| `content/stoflow-vinted-api-core.js` | Modify Webpack hooking |
+| `config/environment.ts` | Add configuration options |
+
+---
+
+## Documentation
+
+- [CLAUDE.md](./CLAUDE.md) - Development guidelines and architecture details
+- [Backend Plugin API](../backend/CLAUDE.md) - Backend integration docs
+
+---
+
+## Known Limitations
+
+1. **Firefox**: No `externally_connectable` support - uses postMessage fallback
+2. **Webpack hooking**: May break if Vinted updates their bundler
+3. **DataDome**: Bot detection may require manual solving
+4. **Rate limiting**: Handled by backend, no local fallback
+
+---
+
+## License
 
 MIT
-
----
-
-**Version** : 2.0.0
-**Dernière mise à jour** : 2025-12-08
