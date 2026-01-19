@@ -317,8 +317,9 @@ class BaseMarketplaceHandler(ABC):
                 task.completed_at = datetime.now(timezone.utc)
                 self.db.commit()
 
-                # Log task metrics (Phase 12-01)
+                # Log task metrics and update stats (Phase 12-01)
                 TaskMetricsService.log_task_complete(task)
+                TaskMetricsService.update_task_stats(self.db, task, success=True)
 
                 self.log_debug(f"Direct HTTP task #{task.id} completed successfully")
 
@@ -332,8 +333,9 @@ class BaseMarketplaceHandler(ABC):
             task.completed_at = datetime.now(timezone.utc)
             self.db.commit()
 
-            # Log task metrics even on failure (Phase 12-01)
+            # Log task metrics and update stats even on failure (Phase 12-01)
             TaskMetricsService.log_task_complete(task)
+            TaskMetricsService.update_task_stats(self.db, task, success=False)
 
             self.log_error(f"Direct HTTP task #{task.id} failed: {e}")
             raise

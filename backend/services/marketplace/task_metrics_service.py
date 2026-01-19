@@ -199,6 +199,11 @@ class TaskMetricsService:
             f"total={stats.total_tasks} success_rate={stats.success_rate:.1f}%"
         )
 
+        # Check failure rate and alert if threshold exceeded (Phase 12-01 Task 3)
+        # Only check after a failure to avoid unnecessary queries
+        if not success:
+            TaskMetricsService.check_and_alert_failure_rate(db, marketplace)
+
     @staticmethod
     def get_task_stats(
         db: Session,
@@ -247,6 +252,120 @@ class TaskMetricsService:
             }
             for stat in stats_records
         ]
+
+    # =========================================================================
+    # FAILURE RATE ALERTING (Phase 12-01 Task 3)
+    # =========================================================================
+
+    @staticmethod
+    def check_failure_rate(
+        db: Session,
+        marketplace: Optional[str] = None,
+        threshold: float = DEFAULT_FAILURE_THRESHOLD,
+    ) -> dict:
+        """
+        Check failure rate for the last hour of task executions.
+
+        Queries today's stats and checks if failure rate exceeds threshold.
+
+        Args:
+            db: SQLAlchemy Session
+            marketplace: Optional filter by marketplace (vinted, ebay, etsy)
+            threshold: Failure rate threshold (default: 0.2 = 20%)
+
+        Returns:
+            dict with keys:
+            - is_alerting: True if failure rate exceeds threshold
+            - failure_rate: Current failure rate (0.0 - 1.0)
+            - total_tasks: Total tasks in period
+            - threshold: The threshold used
+            - marketplace: Filter applied (or "all" if None)
+        """
+        today = datetime.now(timezone.utc).date()
+
+        query = db.query(MarketplaceTaskStats).filter(
+            MarketplaceTaskStats.date == today
+        )
+
+        if marketplace:
+            query = query.filter(MarketplaceTaskStats.marketplace == marketplace)
+
+        stats_records = query.all()
+
+        # Aggregate totals
+        total_tasks = sum(s.total_tasks for s in stats_records)
+        failure_count = sum(s.failure_count for s in stats_records)
+
+        if total_tasks == 0:
+            return {
+                "is_alerting": False,
+                "failure_rate": 0.0,
+                "total_tasks": 0,
+                "threshold": threshold,
+                "marketplace": marketplace or "all",
+            }
+
+        failure_rate = failure_count / total_tasks
+
+        return {
+            "is_alerting": failure_rate > threshold,
+            "failure_rate": failure_rate,
+            "total_tasks": total_tasks,
+            "threshold": threshold,
+            "marketplace": marketplace or "all",
+        }
+
+    @staticmethod
+    def log_failure_alert(
+        marketplace: str,
+        failure_rate: float,
+        threshold: float = DEFAULT_FAILURE_THRESHOLD,
+    ) -> None:
+        """
+        Log a failure rate alert at ERROR level.
+
+        Only logs if failure_rate exceeds threshold.
+
+        Args:
+            marketplace: The marketplace (or "all") with high failure rate
+            failure_rate: Current failure rate (0.0 - 1.0)
+            threshold: The threshold that was exceeded
+        """
+        if failure_rate > threshold:
+            logger.error(
+                f"[ALERT] High task failure rate: {marketplace} "
+                f"{failure_rate:.1%} (threshold: {threshold:.1%})"
+            )
+
+    @staticmethod
+    def check_and_alert_failure_rate(
+        db: Session,
+        marketplace: Optional[str] = None,
+        threshold: float = DEFAULT_FAILURE_THRESHOLD,
+    ) -> dict:
+        """
+        Check failure rate and log alert if threshold exceeded.
+
+        Convenience method that combines check_failure_rate and log_failure_alert.
+
+        Args:
+            db: SQLAlchemy Session
+            marketplace: Optional filter by marketplace
+            threshold: Failure rate threshold (default: 20%)
+
+        Returns:
+            Same dict as check_failure_rate()
+        """
+        result = TaskMetricsService.check_failure_rate(db, marketplace, threshold)
+
+        if result["is_alerting"]:
+            TaskMetricsService.log_failure_alert(
+                result["marketplace"],
+                result["failure_rate"],
+                threshold,
+            )
+
+        return result
 
 
 __all__ = ["TaskMetricsService", "SLOW_TASK_THRESHOLD_MS", "DEFAULT_FAILURE_THRESHOLD"]
