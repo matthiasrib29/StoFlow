@@ -97,17 +97,18 @@
         />
       </UiFormField>
 
-      <!-- Color -->
+      <!-- Color (multiselect with max 2) -->
       <ProductsFormsCharacteristicsAttributeField
-        type="select"
+        type="multiselect"
         label="Couleur"
-        :model-value="color"
+        :model-value="colorArray"
         :options="filteredOptions.colors"
         filter-mode="local"
         filter-placeholder="Rechercher une couleur..."
         placeholder="Ex: Bleu, Noir..."
         :required="true"
-        :show-clear="false"
+        :max-selection="2"
+        :show-color-preview="true"
         :has-error="validation?.hasError('color')"
         :error-message="validation?.getError('color')"
         :is-valid="validation?.isFieldValid?.('color')"
@@ -204,6 +205,18 @@ const emit = defineEmits<{
   'filterMaterials': [query: string]
 }>()
 
+// Convert color string to array for multiselect
+// Backend stores as comma-separated string, frontend uses array
+const colorArray = computed(() => {
+  if (!props.color) return []
+  // If already contains comma, split it
+  if (props.color.includes(',')) {
+    return props.color.split(',').map(c => c.trim()).filter(Boolean)
+  }
+  // Single color
+  return [props.color]
+})
+
 // Handlers with validation
 const handleCategoryChange = (value: string | string[] | null) => {
   const val = (typeof value === 'string' ? value : '') || ''
@@ -226,7 +239,13 @@ const handleSizeOriginalChange = (value: string | string[] | null) => {
 }
 
 const handleColorChange = (value: string | string[] | null) => {
-  const val = (typeof value === 'string' ? value : '') || ''
+  // Convert array to comma-separated string for backend storage
+  let val = ''
+  if (Array.isArray(value)) {
+    val = value.join(', ')
+  } else if (typeof value === 'string') {
+    val = value
+  }
   emit('update:color', val)
   props.validation?.validateDebounced?.('color', val)
 }

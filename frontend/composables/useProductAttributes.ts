@@ -227,16 +227,27 @@ export const useProductAttributes = () => {
   }
 
   /**
-   * Ensure a specific color is in the filteredOptions.colors list
+   * Ensure a specific color (or colors) is in the filteredOptions.colors list
+   * Handles comma-separated color strings for multiselect
    */
   const ensureColorInOptions = (color: string) => {
     if (!color) return
-    const exists = filteredOptions.colors.some(c => c.value === color)
-    if (!exists) {
-      filteredOptions.colors = [
-        { label: color, value: color },
-        ...filteredOptions.colors
-      ]
+
+    // Handle comma-separated colors
+    const colors = color.includes(',')
+      ? color.split(',').map(c => c.trim()).filter(Boolean)
+      : [color]
+
+    for (const c of colors) {
+      const exists = filteredOptions.colors.some(opt => opt.value === c)
+      if (!exists) {
+        // Try to find hex_code from full options list
+        const fullOption = options.colors.find(opt => opt.value === c)
+        filteredOptions.colors = [
+          { label: c, value: c, hex_code: fullOption?.hex_code },
+          ...filteredOptions.colors
+        ]
+      }
     }
   }
 
