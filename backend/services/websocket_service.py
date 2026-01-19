@@ -230,6 +230,9 @@ async def plugin_response(sid, data):
     future.set_result(data)
     logger.debug(f"[WebSocket] Received response for {request_id}")
 
+    # Return ACK to frontend (Socket.IO acknowledgement pattern)
+    return {"status": "ok", "request_id": request_id}
+
 
 # Export
 __all__ = ["sio", "WebSocketService"]

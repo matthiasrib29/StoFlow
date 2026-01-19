@@ -27,6 +27,46 @@ const wsLog = {
   error: (msg: string, ...args: any[]) => console.error(`[WS] ✗ ${msg}`, ...args),
 }
 
+/**
+ * Emit with Socket.IO ACK and automatic retry on failure.
+ * Guarantees message delivery even with unstable connections.
+ */
+async function emitWithRetry(
+  event: string,
+  data: any,
+  maxRetries = 3,
+  timeout = 10000
+): Promise<any> {
+  let lastError: Error | null = null
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      wsLog.info(`Emitting ${event} (attempt ${attempt}/${maxRetries})...`)
+
+      const ack = await new Promise((resolve, reject) => {
+        socket.value?.timeout(timeout).emit(event, data, (err: any, response: any) => {
+          if (err) reject(new Error(err.message || 'Emit timeout'))
+          else resolve(response)
+        })
+      })
+
+      wsLog.success(`${event} acknowledged by server`)
+      return ack
+    } catch (err: any) {
+      lastError = err
+      wsLog.warn(`${event} attempt ${attempt} failed: ${err.message}`)
+
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
+        wsLog.info(`Retrying in ${delay}ms...`)
+        await new Promise(r => setTimeout(r, delay))
+      }
+    }
+  }
+
+  throw lastError || new Error(`Failed to emit ${event} after ${maxRetries} attempts`)
+}
+
 export function useWebSocket() {
   const authStore = useAuthStore()
   const vintedBridge = useVintedBridge()
@@ -158,8 +198,8 @@ export function useWebSocket() {
 
       wsLog.success(`Command ${data.action} completed`, { success: result.success })
 
-      // Send response back to backend
-      socket.value?.emit('plugin_response', {
+      // Send response back to backend with ACK + retry
+      await emitWithRetry('plugin_response', {
         request_id: data.request_id,
         success: result.success,
         data: result.data,
@@ -168,12 +208,17 @@ export function useWebSocket() {
     } catch (err: any) {
       wsLog.error(`Command ${data.action} failed: ${err.message}`)
 
-      socket.value?.emit('plugin_response', {
-        request_id: data.request_id,
-        success: false,
-        data: null,
-        error: err.message
-      })
+      // Try to send error response (best effort, don't throw on failure)
+      try {
+        await emitWithRetry('plugin_response', {
+          request_id: data.request_id,
+          success: false,
+          data: null,
+          error: err.message
+        })
+      } catch (emitErr: any) {
+        wsLog.error(`Failed to send error response: ${emitErr.message}`)
+      }
     }
   }
 
