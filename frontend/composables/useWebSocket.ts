@@ -13,10 +13,32 @@ import { io, Socket } from 'socket.io-client'
 import { useAuthStore } from '~/stores/auth'
 import { useVintedBridge } from './useVintedBridge'
 
+// Extend Window interface for TypeScript
+declare global {
+  interface Window {
+    __stoflow_ws_socket?: Socket | null
+    __stoflow_ws_initialized?: boolean
+  }
+}
+
+// Use window storage to survive hot-reload (Vite HMR resets module-level variables)
+// This ensures we don't create multiple sockets when the module is reloaded
+const getSocket = (): Socket | null => {
+  if (typeof window === 'undefined') return null
+  return window.__stoflow_ws_socket ?? null
+}
+
+const setSocket = (s: Socket | null) => {
+  if (typeof window !== 'undefined') {
+    window.__stoflow_ws_socket = s
+  }
+}
+
 // Singleton state (shared across all composable instances)
-const socket = ref<Socket | null>(null)
-const isConnected = ref(false)
-const isConnecting = ref(false)  // Prevents multiple connection attempts
+// These refs are fine to recreate - they'll sync with window state
+const socket = ref<Socket | null>(getSocket())
+const isConnected = ref(getSocket()?.connected ?? false)
+const isConnecting = ref(false)
 const error = ref<string | null>(null)
 
 // Debug logger for WebSocket
@@ -30,29 +52,60 @@ const wsLog = {
 
 /**
  * Emit with Socket.IO native ACK.
- * Uses Socket.IO's built-in retry mechanism (configured at connection level).
+ * Waits for connection if socket is disconnected, then emits.
  * Returns a promise that resolves when the server acknowledges.
  */
-function emitWithAck(event: string, data: any): Promise<any> {
+function emitWithAck(event: string, data: any, timeout: number = 30000): Promise<any> {
   return new Promise((resolve, reject) => {
     if (!socket.value) {
       reject(new Error('Socket not initialized'))
       return
     }
 
-    wsLog.info(`Emitting ${event}...`)
+    const doEmit = () => {
+      wsLog.info(`Emitting ${event}...`)
 
-    // Socket.IO handles retries automatically via retries/ackTimeout options
-    // Messages are also buffered during disconnection and sent on reconnect
-    socket.value.emit(event, data, (err: any, response: any) => {
-      if (err) {
-        wsLog.error(`${event} failed: ${err.message}`)
-        reject(new Error(err.message || 'Emit failed'))
-      } else {
-        wsLog.success(`${event} acknowledged by server`)
-        resolve(response)
-      }
-    })
+      socket.value!.emit(event, data, (err: any, response: any) => {
+        if (err) {
+          wsLog.error(`${event} failed: ${err.message}`)
+          reject(new Error(err.message || 'Emit failed'))
+        } else {
+          wsLog.success(`${event} acknowledged by server`)
+          resolve(response)
+        }
+      })
+    }
+
+    // If connected, emit immediately
+    if (socket.value.connected) {
+      doEmit()
+      return
+    }
+
+    // If disconnected, wait for reconnection
+    wsLog.warn(`Socket disconnected, waiting for reconnection before emitting ${event}...`)
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let resolved = false
+
+    const onConnect = () => {
+      if (resolved) return
+      resolved = true
+      if (timeoutId) clearTimeout(timeoutId)
+      wsLog.info(`Reconnected, now emitting ${event}`)
+      doEmit()
+    }
+
+    const onTimeout = () => {
+      if (resolved) return
+      resolved = true
+      socket.value?.off('connect', onConnect)
+      wsLog.error(`Timeout waiting for reconnection to emit ${event}`)
+      reject(new Error(`Connection timeout waiting to emit ${event}`))
+    }
+
+    socket.value.once('connect', onConnect)
+    timeoutId = setTimeout(onTimeout, timeout)
   })
 }
 
