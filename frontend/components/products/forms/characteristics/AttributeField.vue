@@ -46,18 +46,21 @@
       @blur="$emit('blur')"
     >
       <template v-if="showColorPreview" #option="{ option }">
-        <div class="flex items-center gap-2">
+        <div
+          class="flex items-center gap-2.5 -mx-3 -my-1.5 px-3 py-2 rounded-md transition-all"
+          :style="getOptionBackgroundStyle(option)"
+        >
           <span
             v-if="option.hex_code"
-            class="w-4 h-4 rounded border border-gray-300 flex-shrink-0"
+            class="w-4 h-4 rounded-full border-2 border-white/60 flex-shrink-0 shadow"
             :style="{ backgroundColor: option.hex_code }"
           />
           <span
             v-else-if="option.value === 'Multicolor'"
-            class="w-4 h-4 rounded border border-gray-300 flex-shrink-0"
-            style="background: linear-gradient(135deg, red, orange, yellow, green, blue, purple)"
+            class="w-4 h-4 rounded-full border-2 border-white/60 flex-shrink-0 shadow"
+            style="background: conic-gradient(red, orange, yellow, green, blue, purple, red)"
           />
-          <span>{{ option.label }}</span>
+          <span class="font-medium text-gray-800">{{ option.label }}</span>
         </div>
       </template>
       <template v-if="showColorPreview" #value="{ value }">
@@ -98,18 +101,21 @@
       @blur="$emit('blur')"
     >
       <template v-if="showColorPreview" #option="{ option }">
-        <div class="flex items-center gap-2">
+        <div
+          class="flex items-center gap-2.5 -mx-3 -my-1.5 px-3 py-2 rounded-md transition-all"
+          :style="getOptionBackgroundStyle(option)"
+        >
           <span
             v-if="option.hex_code"
-            class="w-4 h-4 rounded border border-gray-300 flex-shrink-0"
+            class="w-4 h-4 rounded-full border-2 border-white/60 flex-shrink-0 shadow"
             :style="{ backgroundColor: option.hex_code }"
           />
           <span
             v-else-if="option.value === 'Multicolor'"
-            class="w-4 h-4 rounded border border-gray-300 flex-shrink-0"
-            style="background: linear-gradient(135deg, red, orange, yellow, green, blue, purple)"
+            class="w-4 h-4 rounded-full border-2 border-white/60 flex-shrink-0 shadow"
+            style="background: conic-gradient(red, orange, yellow, green, blue, purple, red)"
           />
-          <span>{{ option.label }}</span>
+          <span class="font-medium text-gray-800">{{ option.label }}</span>
         </div>
       </template>
       <template v-if="showColorPreview" #chip="{ value }">
@@ -278,5 +284,18 @@ const getColorHex = (value: string): string | null => {
 const getColorLabel = (value: string): string => {
   const option = props.options?.find(o => o.value === value)
   return option?.label || value
+}
+
+// Get background style with color at 25% opacity
+const getOptionBackgroundStyle = (option: any): Record<string, string> => {
+  if (option.hex_code) {
+    return { backgroundColor: `${option.hex_code}30` } // 30 = ~19% opacity in hex
+  }
+  if (option.value === 'Multicolor') {
+    return {
+      background: 'linear-gradient(90deg, rgba(255,0,0,0.2), rgba(255,165,0,0.2), rgba(255,255,0,0.2), rgba(0,128,0,0.2), rgba(0,0,255,0.2), rgba(128,0,128,0.2))'
+    }
+  }
+  return {}
 }
 </script>
