@@ -12,6 +12,18 @@ import {
 } from '~/utils/secureStorage'
 import { authLogger } from '~/utils/logger'
 
+// Lazy-loaded WebSocket composable to avoid circular dependencies
+// The composable is cached after first import
+let wsComposable: ReturnType<typeof import('~/composables/useWebSocket').useWebSocket> | null = null
+
+async function getWebSocket() {
+  if (!wsComposable) {
+    const { useWebSocket } = await import('~/composables/useWebSocket')
+    wsComposable = useWebSocket()
+  }
+  return wsComposable
+}
+
 /**
  * Interface User basée sur le backend FastAPI
  * Correspond au modèle User dans /Stoflow_BackEnd/models/public/user.py
@@ -242,6 +254,11 @@ export const useAuthStore = defineStore('auth', {
             user,
             expiresInSeconds: 3600 // 1 hour default
           })
+
+          // Connect WebSocket after successful login (2026-01-19)
+          authLogger.debug('Connecting WebSocket after login...')
+          const ws = await getWebSocket()
+          ws.connect(data.access_token, data.user_id)
         }
 
         return { success: true }
@@ -257,6 +274,12 @@ export const useAuthStore = defineStore('auth', {
      * Déconnexion
      */
     logout() {
+      // Disconnect WebSocket BEFORE clearing auth (2026-01-19)
+      if (import.meta.client && wsComposable) {
+        authLogger.debug('Disconnecting WebSocket on logout...')
+        wsComposable.disconnect()
+      }
+
       this.user = null
       this.token = null
       this.refreshToken = null
