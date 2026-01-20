@@ -17,7 +17,7 @@ Business Rules (Updated: 2025-12-07):
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, Integer, String, ForeignKey, func
+from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, Index, Integer, String, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.database import Base
@@ -115,7 +115,11 @@ class User(Base):
     """
 
     __tablename__ = "users"
-    __table_args__ = {"schema": "public"}
+    __table_args__ = (
+        # Composite index for login query optimization (email + is_active)
+        Index("idx_users_email_active", "email", "is_active"),
+        {"schema": "public"}
+    )
 
     # Primary Key
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

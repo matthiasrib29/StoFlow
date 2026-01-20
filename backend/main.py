@@ -43,6 +43,7 @@ from api.user_settings import router as user_settings_router
 from api.stripe_routes import router as stripe_router
 from api.subscription import router as subscription_router
 from api.vinted import router as vinted_router  # Now from api/vinted/__init__.py
+from middleware.csrf import CSRFMiddleware
 from middleware.error_handler import (
     stoflow_error_handler,
     validation_error_handler,
@@ -231,6 +232,12 @@ else:
         allow_headers=["*"],
         expose_headers=["*"],
     )
+
+# CSRF Protection (2026-01-20)
+# Must be added AFTER CORS middleware so CORS headers are set first
+# Uses double-submit cookie pattern: validates X-CSRF-Token header against csrf_token cookie
+app.add_middleware(CSRFMiddleware)
+logger.info("🛡️ CSRF protection enabled (double-submit cookie pattern)")
 
 # Rate Limiting (protection bruteforce)
 app.middleware("http")(rate_limit_middleware)

@@ -16,7 +16,7 @@ Created: 2026-01-14
 Author: Claude
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, computed_field
@@ -227,7 +227,7 @@ class EbayPaymentDisputeResponse(BaseModel):
         """Check if respond_by_date has passed."""
         if not self.respond_by_date:
             return False
-        return datetime.utcnow() > self.respond_by_date
+        return datetime.now(timezone.utc) > self.respond_by_date
 
     @computed_field
     @property
@@ -235,7 +235,7 @@ class EbayPaymentDisputeResponse(BaseModel):
         """Days until deadline (negative if past)."""
         if not self.respond_by_date:
             return None
-        delta = self.respond_by_date - datetime.utcnow()
+        delta = self.respond_by_date - datetime.now(timezone.utc)
         return delta.days
 
     @computed_field

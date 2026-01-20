@@ -5,7 +5,7 @@ Service for aggregating statistics for admin dashboard.
 Provides KPIs, subscription distribution, and registration trends.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import func, and_, case
@@ -129,7 +129,7 @@ class AdminStatsService:
         Returns:
             dict with period, data (list of {date, count})
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Determine date range
         if start_date and end_date:
@@ -212,7 +212,7 @@ class AdminStatsService:
         Returns:
             dict with recent_logins, new_registrations
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         last_24h = now - timedelta(hours=24)
         last_7d = now - timedelta(days=7)
 

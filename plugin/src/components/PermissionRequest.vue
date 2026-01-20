@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { PopupLogger } from '../utils/logger';
 
 const hasPermission = ref<boolean | null>(null);
 const isRequesting = ref(false);
@@ -19,7 +20,7 @@ async function checkPermissions() {
     const result = await chrome.permissions.contains(LOCALHOST_PERMISSIONS);
     hasPermission.value = result;
   } catch (err: any) {
-    console.error('Error checking permissions:', err);
+    PopupLogger.error('Error checking permissions:', err);
     hasPermission.value = false;
   }
 }
@@ -33,7 +34,7 @@ async function requestPermissions() {
 
     if (granted) {
       hasPermission.value = true;
-      console.log('✅ Localhost permissions granted!');
+      PopupLogger.success('Localhost permissions granted!');
 
       // Register content script for future page loads (persists across reloads)
       await registerLocalhostContentScript();
@@ -45,7 +46,7 @@ async function requestPermissions() {
       error.value = 'Permissions refusées par l\'utilisateur';
     }
   } catch (err: any) {
-    console.error('Error requesting permissions:', err);
+    PopupLogger.error('Error requesting permissions:', err);
     error.value = err.message || 'Erreur lors de la demande de permissions';
     hasPermission.value = false;
   } finally {
@@ -62,7 +63,7 @@ async function registerLocalhostContentScript() {
     // First, try to unregister any existing registration to avoid conflicts
     try {
       await chrome.scripting.unregisterContentScripts({ ids: ['stoflow-localhost'] });
-      console.log('🗑️ Unregistered existing localhost content script');
+      PopupLogger.info('Unregistered existing localhost content script');
     } catch (e) {
       // Ignore - script may not be registered
     }
@@ -81,9 +82,9 @@ async function registerLocalhostContentScript() {
       persistAcrossSessions: true
     }]);
 
-    console.log('✅ Registered localhost content script (persists across reloads)');
+    PopupLogger.success('Registered localhost content script (persists across reloads)');
   } catch (err: any) {
-    console.warn('⚠️ Could not register content script:', err.message);
+    PopupLogger.warn('Could not register content script:', err.message);
     // Fall back to manual injection
   }
 }
@@ -100,21 +101,21 @@ async function injectContentScriptOnLocalhostTabs() {
                           tab.url.startsWith('http://127.0.0.1:');
 
       if (isLocalhost) {
-        console.log('📥 Injecting content script on:', tab.url);
+        PopupLogger.info('Injecting content script on:', tab.url);
 
         try {
           await chrome.scripting.executeScript({
             target: { tabId: tab.id },
             files: ['/assets/stoflow-web.ts-h6NQ0vQk.js']
           });
-          console.log('✅ Content script injected on:', tab.url);
+          PopupLogger.success('Content script injected on:', tab.url);
         } catch (err: any) {
-          console.warn('⚠️ Could not inject on tab:', tab.url, err.message);
+          PopupLogger.warn('Could not inject on tab:', tab.url, err.message);
         }
       }
     }
   } catch (err: any) {
-    console.error('Error injecting content scripts:', err);
+    PopupLogger.error('Error injecting content scripts:', err);
   }
 }
 
@@ -124,7 +125,7 @@ onMounted(async () => {
   // If permissions are already granted, register and inject content scripts
   // This helps Firefox "activate" the permissions after user interaction (opening popup)
   if (hasPermission.value === true) {
-    console.log('🔄 Permissions already granted, registering and injecting content scripts...');
+    PopupLogger.info('Permissions already granted, registering and injecting content scripts...');
 
     // Register content script for future page loads (persists across reloads)
     await registerLocalhostContentScript();

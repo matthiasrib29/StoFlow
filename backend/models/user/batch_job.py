@@ -144,11 +144,11 @@ class BatchJob(Base):
         comment="When batch finished (all jobs terminal)"
     )
 
-    # Relationships
+    # Relationships - lazy="raise" to prevent N+1 queries
     jobs = relationship(
         "MarketplaceJob",
         back_populates="batch_job",
-        lazy="select",
+        lazy="raise",
         cascade="all, delete-orphan"
     )
 

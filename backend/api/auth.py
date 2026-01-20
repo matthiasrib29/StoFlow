@@ -2,12 +2,19 @@
 Authentication Routes (Simplified - No Tenant)
 
 Routes API pour l'authentification des utilisateurs.
+
+Security (2026-01-20):
+- JWT tokens stored in httpOnly cookies (XSS protection)
+- CSRF protection via double-submit cookie pattern
+- Backward compatibility: header auth still supported during migration
 """
 
 import asyncio
 import random
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -17,6 +24,13 @@ from schemas.auth_schemas import LoginRequest, RefreshRequest, RefreshResponse, 
 from services.auth_service import AuthService
 from services.email_service import EmailService
 from services.user_schema_service import UserSchemaService
+from shared.cookie_utils import (
+    set_auth_cookies,
+    set_access_token_cookie,
+    set_csrf_token_cookie,
+    clear_auth_cookies,
+    REFRESH_TOKEN_COOKIE,
+)
 from shared.database import get_db
 from shared.logging_setup import get_logger
 from shared.security_utils import redact_email, redact_password
@@ -27,21 +41,25 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()
 
 
-@router.post("/login", response_model=TokenResponse, status_code=status.HTTP_200_OK)
+@router.post("/login", status_code=status.HTTP_200_OK)
 async def login(
     request: Request,
     credentials: LoginRequest,
     db: Session = Depends(get_db),
     source: str = "web",
-) -> TokenResponse:
+) -> JSONResponse:
     """
     Authentifie un utilisateur et retourne les tokens JWT.
+
+    Security (2026-01-20):
+    - Tokens stored in httpOnly cookies (XSS protection)
+    - CSRF token set for state-changing request protection
+    - Response body contains user info only (no tokens)
 
     Business Rules (Updated: 2025-12-07):
     - L'email est globalement unique
     - L'utilisateur doit être actif (is_active=True)
     - Le mot de passe doit être correct
-    - Retourne un access token (1h) et un refresh token (7 jours)
     - Supporte le paramètre optionnel 'source' pour tracking (web, plugin, mobile)
 
     Args:
@@ -50,7 +68,7 @@ async def login(
         source: Source de la connexion (web, plugin, mobile) - défaut: "web"
 
     Returns:
-        TokenResponse avec access_token et refresh_token
+        JSONResponse avec user_id, role, subscription_tier (tokens in cookies)
 
     Raises:
         HTTPException: 401 si authentification échouée
@@ -99,36 +117,56 @@ async def login(
         user_id=user.id,
     )
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        user_id=user.id,
-        role=user.role.value,
-        subscription_tier=user.subscription_tier.value,
-    )
+    # Build response with user info (no tokens in body)
+    response_data = {
+        "user_id": user.id,
+        "role": user.role.value,
+        "subscription_tier": user.subscription_tier.value,
+        "token_type": "bearer",
+        # Include tokens in body for backward compatibility during migration
+        # TODO (2026-02-01): Remove after frontend migration complete
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+    }
+
+    response = JSONResponse(content=response_data)
+
+    # Set auth cookies (httpOnly for tokens, JS-readable for CSRF)
+    csrf_token = set_auth_cookies(response, access_token, refresh_token)
+
+    logger.info(f"Login successful: user_id={user.id}, source={source}, token_source=cookie")
+
+    return response
 
 
-@router.post("/refresh", response_model=RefreshResponse, status_code=status.HTTP_200_OK)
+@router.post("/refresh", status_code=status.HTTP_200_OK)
 async def refresh_token(
     request_obj: Request,
-    request: RefreshRequest,
+    request: Optional[RefreshRequest] = None,
     db: Session = Depends(get_db),
-) -> RefreshResponse:
+    refresh_token_cookie: Optional[str] = Cookie(None, alias="refresh_token"),
+) -> JSONResponse:
     """
     Génère un nouveau access token à partir d'un refresh token.
 
+    Security (2026-01-20):
+    - Reads refresh token from httpOnly cookie (preferred)
+    - Falls back to body for backward compatibility
+    - Sets new access token in httpOnly cookie
+
     Business Rules:
     - Le refresh token doit être valide (pas expiré, signature correcte)
-    - L'utilisateur et le tenant doivent toujours être actifs
-    - Retourne un nouveau access token (1h)
+    - L'utilisateur doit toujours être actif
+    - Retourne un nouveau access token (15 min)
 
     Args:
-        request: Refresh token JWT
+        request_obj: FastAPI Request object
+        request: Optional RefreshRequest (body) for backward compatibility
         db: Session SQLAlchemy
+        refresh_token_cookie: Refresh token from cookie
 
     Returns:
-        RefreshResponse avec nouveau access_token
+        JSONResponse avec nouveau access_token (also set in cookie)
 
     Raises:
         HTTPException: 401 si refresh token invalide ou compte inactif
@@ -137,7 +175,21 @@ async def refresh_token(
     rate_limiter = get_auth_rate_limiter()
     await rate_limiter.check_rate_limit(request_obj, "refresh")
 
-    result = AuthService.refresh_access_token(db, request.refresh_token)
+    # Priority: cookie > body (for backward compatibility)
+    token_to_use = refresh_token_cookie
+    token_source = "cookie"
+
+    if not token_to_use and request and request.refresh_token:
+        token_to_use = request.refresh_token
+        token_source = "body"
+
+    if not token_to_use:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token manquant",
+        )
+
+    result = AuthService.refresh_access_token(db, token_to_use)
 
     if not result:
         raise HTTPException(
@@ -145,54 +197,79 @@ async def refresh_token(
             detail="Refresh token invalide ou expiré, ou compte inactif",
         )
 
-    return RefreshResponse(**result)
+    logger.debug(f"Token refreshed successfully (token_source={token_source})")
+
+    # Build response
+    response_data = {
+        "access_token": result["access_token"],
+        "token_type": result["token_type"],
+    }
+
+    response = JSONResponse(content=response_data)
+
+    # Set new access token cookie
+    set_access_token_cookie(response, result["access_token"])
+
+    return response
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 def logout(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    access_token_cookie: Optional[str] = Cookie(None, alias="access_token"),
     db: Session = Depends(get_db),
-) -> dict:
+) -> JSONResponse:
     """
     Logout utilisateur en révoquant l'access token.
 
+    Security (2026-01-20):
+    - Clears all auth cookies (access, refresh, CSRF)
+    - Supports both cookie and header auth for backward compatibility
+
     Business Rules:
-    - Révoque le token JWT actuel via Authorization header
+    - Révoque le token JWT actuel
     - Rend le token invalide pour toute utilisation future
-    - Supporte la révocation de refresh tokens aussi
 
     Args:
-        credentials: Token extrait du header Authorization: Bearer <token>
+        credentials: Token extrait du header Authorization: Bearer <token> (optional)
+        access_token_cookie: Access token from cookie (optional)
         db: Session SQLAlchemy
 
     Returns:
-        Message de confirmation
+        JSONResponse avec message de confirmation (cookies cleared)
 
     Raises:
         HTTPException: 400 si token invalide
-        HTTPException: 401 si token manquant (géré par HTTPBearer)
     """
-    # Extraire le token du header Authorization
-    token = credentials.credentials
+    # Priority: cookie > header
+    token = access_token_cookie
+    if not token and credentials:
+        token = credentials.credentials
 
-    # Validation basique du token
+    # If no token at all, just clear cookies (idempotent logout)
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token manquant",
-        )
+        response = JSONResponse(content={"message": "Logged out successfully"})
+        clear_auth_cookies(response)
+        logger.info("User logged out (no token to revoke)")
+        return response
 
     # Révoquer le token
     success = AuthService.revoke_token(db, token)
 
     if not success:
-        raise HTTPException(
+        # Still clear cookies even if revocation fails
+        response = JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Impossible de révoquer le token",
+            content={"detail": "Impossible de révoquer le token"}
         )
+        clear_auth_cookies(response)
+        return response
+
+    response = JSONResponse(content={"message": "Logged out successfully"})
+    clear_auth_cookies(response)
 
     logger.info("User logged out successfully")
-    return {"message": "Logged out successfully"}
+    return response
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)

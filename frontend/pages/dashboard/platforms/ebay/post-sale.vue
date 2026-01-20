@@ -6,6 +6,7 @@
   ╚═══════════════════════════════════════════════════════════════╝
 -->
 <script setup lang="ts">
+import { ebayLogger } from '~/utils/logger'
 /**
  * eBay Post-Sale Dashboard Page
  *
@@ -70,7 +71,7 @@ const loadDashboard = async () => {
     urgentItems.value = urgent
     recentActivity.value = activity
   } catch (error) {
-    console.error('Failed to load dashboard:', error)
+    ebayLogger.error('Failed to load dashboard:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',

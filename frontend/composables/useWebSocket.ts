@@ -17,6 +17,9 @@
 import { ref, shallowRef, markRaw, type Ref, type ShallowRef } from 'vue'
 import { io, Socket } from 'socket.io-client'
 import { useVintedBridge } from './useVintedBridge'
+import { createLogger } from '~/utils/logger'
+
+const wsLogger = createLogger({ prefix: 'WS' })
 
 // Module-level state (singleton)
 const socket: ShallowRef<Socket | null> = shallowRef(null)
@@ -38,12 +41,12 @@ function createWebSocketComposable() {
       isConnected.value = true
       isConnecting.value = false
       error.value = null
-      console.log(`[WS] Connected (id=${sock.id})`)
+      wsLogger.info(`Connected (id=${sock.id})`)
     })
 
     sock.on('disconnect', (reason) => {
       isConnected.value = false
-      console.warn(`[WS] Disconnected: ${reason}`)
+      wsLogger.warn(`Disconnected: ${reason}`)
 
       if (reason === 'io server disconnect') {
         // Server forcefully disconnected - don't auto-reconnect
@@ -54,12 +57,12 @@ function createWebSocketComposable() {
     sock.on('connect_error', (err) => {
       error.value = err.message
       isConnecting.value = false
-      console.error(`[WS] Connection error: ${err.message}`)
+      wsLogger.error(`Connection error: ${err.message}`)
     })
 
     // Plugin commands from backend
     sock.on('plugin_command', async (data) => {
-      console.log(`[WS] Received plugin_command: ${data.action}`)
+      wsLogger.debug(`Received plugin_command: ${data.action}`)
       await handlePluginCommand(sock, data)
     })
   }
@@ -105,7 +108,7 @@ function createWebSocketComposable() {
       })
 
     } catch (err: any) {
-      console.error(`[WS] Command ${data.action} failed: ${err.message}`)
+      wsLogger.error(`Command ${data.action} failed: ${err.message}`)
       sock.emit('plugin_response', {
         request_id: data.request_id,
         success: false,
@@ -129,13 +132,13 @@ function createWebSocketComposable() {
       actualUserId = actualUserId || authStore.user?.id
 
       if (!authStore.isAuthenticated || !actualUserId) {
-        console.warn('[WS] Not authenticated, skipping connection')
+        wsLogger.warn('Not authenticated, skipping connection')
         return
       }
     }
 
     if (!actualToken) {
-      console.warn('[WS] No token available, skipping connection')
+      wsLogger.warn('No token available, skipping connection')
       return
     }
 
@@ -159,7 +162,7 @@ function createWebSocketComposable() {
     const config = useRuntimeConfig()
     const backendUrl = config.public.apiUrl || 'http://localhost:8000'
 
-    console.log(`[WS] Connecting to ${backendUrl}`)
+    wsLogger.info(`Connecting to ${backendUrl}`)
 
     isConnecting.value = true
 
@@ -198,7 +201,7 @@ function createWebSocketComposable() {
 
     isConnected.value = false
     isConnecting.value = false
-    console.log('[WS] Disconnected')
+    wsLogger.info('Disconnected')
   }
 
   /**

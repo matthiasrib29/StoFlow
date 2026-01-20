@@ -9,7 +9,7 @@ Author: Claude
 Date: 2026-01-06
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from dateutil.parser import parse as parse_datetime
@@ -203,7 +203,7 @@ class VintedInboxSyncService:
             "item_title": data.get("description"),
             "item_photo_url": item_photo_url,
             "updated_at_vinted": updated_at_vinted,
-            "last_synced_at": datetime.utcnow(),
+            "last_synced_at": datetime.now(timezone.utc),
         }
 
 

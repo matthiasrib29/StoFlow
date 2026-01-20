@@ -6,11 +6,15 @@
  * - Protecting dashboard routes from unauthenticated access
  * - Redirecting authenticated users away from login/register pages
  * - Token validation before allowing access
+ *
+ * Security (2026-01-20):
+ * - Supports cookie-based auth via checkAuth() fallback
+ * - Falls back to localStorage for backward compatibility
  */
 import { authLogger } from '~/utils/logger'
 
-export default defineNuxtRouteMiddleware((to, from) => {
-  // Skip middleware on server-side (no localStorage)
+export default defineNuxtRouteMiddleware(async (to, from) => {
+  // Skip middleware on server-side (no localStorage/cookies)
   if (import.meta.server) {
     return
   }
@@ -34,14 +38,22 @@ export default defineNuxtRouteMiddleware((to, from) => {
 
   // Case 1: User is NOT authenticated and trying to access protected route
   if (isProtectedRoute && !authStore.isAuthenticated) {
-    authLogger.debug('Unauthenticated access to protected route, redirecting to login')
+    // Try cookie-based auth via checkAuth() before redirecting
+    // This handles the case where localStorage is empty but cookie exists
+    const user = await authStore.checkAuth()
 
-    // Store the intended destination for redirect after login
-    if (import.meta.client) {
-      sessionStorage.setItem('redirectAfterLogin', to.fullPath)
+    if (!user) {
+      authLogger.debug('Unauthenticated access to protected route, redirecting to login')
+
+      // Store the intended destination for redirect after login
+      if (import.meta.client) {
+        sessionStorage.setItem('redirectAfterLogin', to.fullPath)
+      }
+
+      return navigateTo('/login')
     }
 
-    return navigateTo('/login')
+    authLogger.debug('User authenticated via cookie')
   }
 
   // Case 2: User IS authenticated and trying to access login/register

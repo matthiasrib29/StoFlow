@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ebayLogger } from '~/utils/logger'
 /**
  * eBay Payment Dispute Detail Page
  *
@@ -113,7 +114,7 @@ const loadDispute = async () => {
   try {
     dispute.value = await fetchDispute(disputeId.value)
   } catch (error) {
-    console.error('Failed to load dispute:', error)
+    ebayLogger.error('Failed to load dispute:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -139,7 +140,7 @@ const handleSync = async () => {
       life: 3000
     })
   } catch (error) {
-    console.error('Sync failed:', error)
+    ebayLogger.error('Sync failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -174,7 +175,7 @@ const handleAccept = async () => {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Accept failed:', error)
+    ebayLogger.error('Accept failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -209,7 +210,7 @@ const handleContest = async () => {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Contest failed:', error)
+    ebayLogger.error('Contest failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -244,7 +245,7 @@ const handleAddEvidence = async () => {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Add evidence failed:', error)
+    ebayLogger.error('Add evidence failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',

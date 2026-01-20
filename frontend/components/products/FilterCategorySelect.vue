@@ -76,6 +76,7 @@
 
 <script setup lang="ts">
 import { useLocaleStore } from '~/stores/locale'
+import { attributeLogger } from '~/utils/logger'
 
 interface CategoryOption {
   value: string
@@ -117,7 +118,7 @@ onMounted(async () => {
       updateDisplayValue()
     }
   } catch (error) {
-    console.error('Failed to load categories:', error)
+    attributeLogger.error('Failed to load categories:', error)
   }
 })
 

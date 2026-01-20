@@ -14,7 +14,7 @@ Created: 2025-12-19
 Author: Claude
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import and_, delete, desc, func, select
@@ -162,7 +162,7 @@ class VintedConversationRepository:
             for key, value in conversation_data.items():
                 if hasattr(existing, key):
                     setattr(existing, key, value)
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(existing)
             logger.debug(f"[VintedConversationRepo] Updated conversation {conversation_id}")

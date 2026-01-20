@@ -8,7 +8,7 @@ Author: Claude
 Date: 2026-01-14
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import desc, func
@@ -234,7 +234,7 @@ class EbayPaymentDisputeRepository:
         return (
             self.db.query(EbayPaymentDispute)
             .filter(EbayPaymentDispute.dispute_state == "ACTION_NEEDED")
-            .filter(EbayPaymentDispute.respond_by_date < datetime.utcnow())
+            .filter(EbayPaymentDispute.respond_by_date < datetime.now(timezone.utc))
             .order_by(EbayPaymentDispute.respond_by_date.asc())
             .all()
         )
@@ -295,7 +295,7 @@ class EbayPaymentDisputeRepository:
         past_deadline_count = (
             self.db.query(EbayPaymentDispute)
             .filter(EbayPaymentDispute.dispute_state == "ACTION_NEEDED")
-            .filter(EbayPaymentDispute.respond_by_date < datetime.utcnow())
+            .filter(EbayPaymentDispute.respond_by_date < datetime.now(timezone.utc))
             .count()
         )
 

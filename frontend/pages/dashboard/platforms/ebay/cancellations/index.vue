@@ -6,6 +6,7 @@
   ╚═══════════════════════════════════════════════════════════════╝
 -->
 <script setup lang="ts">
+import { ebayLogger } from '~/utils/logger'
 /**
  * eBay Cancellations List Page
  *
@@ -89,7 +90,7 @@ const loadCancellations = async () => {
     cancellations.value = response.items
     totalRecords.value = response.total
   } catch (error) {
-    console.error('Failed to load cancellations:', error)
+    ebayLogger.error('Failed to load cancellations:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -105,7 +106,7 @@ const loadStatistics = async () => {
   try {
     statistics.value = await fetchStatistics()
   } catch (error) {
-    console.error('Failed to load statistics:', error)
+    ebayLogger.error('Failed to load statistics:', error)
   }
 }
 
@@ -122,7 +123,7 @@ const handleSync = async () => {
     // Reload data
     await Promise.all([loadCancellations(), loadStatistics()])
   } catch (error) {
-    console.error('Sync failed:', error)
+    ebayLogger.error('Sync failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',

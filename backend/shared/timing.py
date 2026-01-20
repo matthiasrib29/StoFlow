@@ -10,7 +10,7 @@ import time
 from functools import wraps
 from contextlib import contextmanager
 from typing import Any, Callable, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def timed_operation(
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             start_time = time.time()
-            start_datetime = datetime.utcnow()
+            start_datetime = datetime.now(timezone.utc)
             func_name = f"{func.__module__}.{func.__name__}"
 
             try:
@@ -116,7 +116,7 @@ def measure_operation(operation_name: str, level: str = 'info', threshold_ms: Op
             results = db.query(...)
     """
     start_time = time.time()
-    start_datetime = datetime.utcnow()
+    start_datetime = datetime.now(timezone.utc)
 
     try:
         yield

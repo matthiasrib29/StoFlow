@@ -11,7 +11,7 @@ Author: Claude
 Date: 2026-01-14
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import (
@@ -166,7 +166,7 @@ class EbayPaymentDispute(Base):
         """Check if respond_by_date has passed."""
         if not self.respond_by_date:
             return False
-        return datetime.utcnow() > self.respond_by_date
+        return datetime.now(timezone.utc) > self.respond_by_date
 
     @property
     def can_contest(self) -> bool:
@@ -211,7 +211,7 @@ class EbayPaymentDispute(Base):
         """Get number of days until deadline (negative if past)."""
         if not self.respond_by_date:
             return None
-        delta = self.respond_by_date - datetime.utcnow()
+        delta = self.respond_by_date - datetime.now(timezone.utc)
         return delta.days
 
     @property
