@@ -20,13 +20,21 @@
     }
 
     const log = modules.log;
-    const DataDomeHandler = modules.DataDomeHandler;
+    const SessionHandler = modules.SessionHandler || modules.DataDomeHandler;
 
-    // Prevent double initialization
+    // Guard: Prevent double initialization (check both window flag and object)
+    if (window.__STOFLOW_API_INJECTED__) {
+        log.api.debug('Already injected (window flag), skipping');
+        return;
+    }
+
     if (window.StoflowAPI && window.StoflowAPI._initialized) {
         log.api.debug('Already initialized, skipping');
         return;
     }
+
+    // Set injection flag immediately
+    window.__STOFLOW_API_INJECTED__ = true;
 
     /**
      * Configuration for different Vinted APIs
@@ -341,7 +349,7 @@
             if (this._requestCount % this._dataDomePingInterval === 0) {
                 log.dd.debug(`Auto-ping triggered (request #${this._requestCount})`);
                 try {
-                    const result = await DataDomeHandler.safePing();
+                    const result = await SessionHandler.safePing();
                     if (result.success) {
                         log.dd.info(`Auto-ping OK (total: ${result.pingCount})`);
                     } else {

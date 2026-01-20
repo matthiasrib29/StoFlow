@@ -1,12 +1,12 @@
 /**
- * Stoflow Vinted DataDome Handler
- * Module 2/4 - DataDome session management
+ * Stoflow Vinted Session Handler
+ * Module 2/4 - Session management
  *
- * Maintains the DataDome session by triggering periodic pings.
- * DataDome uses 'datadome-det-a' custom event to collect and send data.
+ * Maintains the session by triggering periodic pings.
+ * Uses 'datadome-det-a' custom event to collect and send data.
  *
- * Author: Claude
- * Date: 2026-01-06
+ * @author Claude
+ * @date 2026-01-06
  */
 
 (function() {
@@ -15,28 +15,28 @@
     // Get shared namespace
     const modules = window.StoflowModules;
     if (!modules || !modules.log) {
-        console.error('[DataDome] Logger module not loaded');
+        console.error('[Session] Logger module not loaded');
         return;
     }
 
     const log = modules.log;
 
     /**
-     * DataDome KeepAlive Handler
+     * Session KeepAlive Handler
      */
-    const DataDomeHandler = {
+    const SessionHandler = {
         _pingCount: 0,
         _isReloading: false,
 
         /**
-         * Check if DataDome is present on the page
+         * Check if session handler is present on the page
          */
         isPresent() {
             return !!(window.dataDomeOptions || window.ddjskey);
         },
 
         /**
-         * Get DataDome version info
+         * Get session info
          */
         getInfo() {
             return {
@@ -48,17 +48,17 @@
         },
 
         /**
-         * Trigger a DataDome ping
+         * Trigger a session ping
          * @returns {Promise<{success: boolean, pingCount: number, error?: string}>}
          */
         async ping() {
             return new Promise((resolve) => {
                 if (!this.isPresent()) {
-                    log.dd.debug('Not present on page');
+                    log.session.debug('Not present on page');
                     resolve({
                         success: false,
                         pingCount: this._pingCount,
-                        error: 'DataDome not present on page'
+                        error: 'Session handler not present on page'
                     });
                     return;
                 }
@@ -66,7 +66,7 @@
                 // Timeout if no response
                 const timeout = setTimeout(() => {
                     window.removeEventListener('dd_post_done', handler);
-                    log.dd.warn('Ping timeout (3s)');
+                    log.session.warn('Ping timeout (3s)');
                     resolve({
                         success: false,
                         pingCount: this._pingCount,
@@ -79,7 +79,7 @@
                     clearTimeout(timeout);
                     window.removeEventListener('dd_post_done', handler);
                     this._pingCount++;
-                    log.dd.info(`Ping OK (#${this._pingCount})`);
+                    log.session.info(`Ping OK (#${this._pingCount})`);
                     resolve({
                         success: true,
                         pingCount: this._pingCount
@@ -89,18 +89,18 @@
                 window.addEventListener('dd_post_done', handler);
 
                 // Trigger the ping
-                log.dd.debug('Triggering ping...');
+                log.session.debug('Triggering ping...');
                 window.dispatchEvent(new CustomEvent('datadome-det-a'));
             });
         },
 
         /**
-         * Reload the DataDome script to reactivate listeners
+         * Reload the session script to reactivate listeners
          * @returns {Promise<boolean>}
          */
         async reload() {
             if (this._isReloading) {
-                log.dd.debug('Already reloading, skip');
+                log.session.debug('Already reloading, skip');
                 return false;
             }
 
@@ -110,25 +110,25 @@
                 // Reset the processing flag
                 window.dataDomeProcessed = false;
 
-                // Find the DataDome script version
+                // Find the script version
                 const version = window.dataDomeOptions?.version || '5.1.9';
                 const scriptUrl = `https://static-assets.vinted.com/datadome/${version}/tags.js`;
 
-                log.dd.debug('Reloading script:', scriptUrl);
+                log.session.debug('Reloading script:', scriptUrl);
 
                 // Create and inject new script
                 const script = document.createElement('script');
                 script.src = scriptUrl;
 
                 script.onload = () => {
-                    log.dd.info('Script reloaded successfully');
+                    log.session.info('Script reloaded successfully');
                     this._isReloading = false;
-                    // Wait for DataDome to initialize
+                    // Wait for initialization
                     setTimeout(() => resolve(true), 500);
                 };
 
                 script.onerror = () => {
-                    log.dd.error('Script reload failed');
+                    log.session.error('Script reload failed');
                     this._isReloading = false;
                     resolve(false);
                 };
@@ -145,7 +145,7 @@
             let result = await this.ping();
 
             if (!result.success && !this._isReloading) {
-                log.dd.debug('Ping failed, attempting reload...');
+                log.session.debug('Ping failed, attempting reload...');
 
                 const reloadSuccess = await this.reload();
 
@@ -167,15 +167,19 @@
             return {
                 pingCount: this._pingCount,
                 isReloading: this._isReloading,
-                datadomeInfo: this.getInfo()
+                sessionInfo: this.getInfo()
             };
         }
     };
 
     // Export to shared namespace and globally
-    modules.DataDomeHandler = DataDomeHandler;
-    window.DataDomeHandler = DataDomeHandler;
+    modules.SessionHandler = SessionHandler;
+    window.SessionHandler = SessionHandler;
 
-    log.dd.debug('DataDome module loaded');
+    // Keep backward compatibility
+    modules.DataDomeHandler = SessionHandler;
+    window.DataDomeHandler = SessionHandler;
+
+    log.session.debug('Session module loaded');
 
 })();

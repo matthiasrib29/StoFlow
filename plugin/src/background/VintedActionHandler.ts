@@ -9,6 +9,8 @@
  */
 
 import { BackgroundLogger } from '../utils/logger';
+import { validateRequest } from '../utils/domain-validator';
+import { isAllowedOrigin } from '../config/origins';
 
 // Note: Rate limiting is handled at the backend level (VintedRateLimiter)
 // The plugin only executes requests as instructed by the backend
@@ -36,33 +38,8 @@ interface VintedTab {
   url: string;
 }
 
-// ============================================================
-// ALLOWED ORIGINS
-// ============================================================
-
-const ALLOWED_ORIGINS = [
-  'https://stoflow.io',
-  'https://www.stoflow.io',
-  'https://app.stoflow.io',
-  'http://localhost:3000',
-  'http://localhost:5173'
-];
-
-/**
- * Verify if the sender origin is allowed
- */
-export function isAllowedOrigin(senderUrl: string | undefined): boolean {
-  if (!senderUrl) return false;
-
-  try {
-    const origin = new URL(senderUrl).origin;
-    return ALLOWED_ORIGINS.some(allowed =>
-      origin === allowed || origin.startsWith(allowed.replace('/*', ''))
-    );
-  } catch {
-    return false;
-  }
-}
+// Re-export isAllowedOrigin for backward compatibility
+export { isAllowedOrigin } from '../config/origins';
 
 // ============================================================
 // VINTED TAB MANAGEMENT
@@ -324,6 +301,18 @@ async function handleVintedApiCall(
     };
   }
 
+  // Security: Validate endpoint and method against whitelist
+  const validation = validateRequest(payload.endpoint, payload.method);
+  if (!validation.valid) {
+    BackgroundLogger.warn(`[VintedHandler] Blocked request: ${payload.method} ${payload.endpoint} - ${validation.error}`);
+    return {
+      success: false,
+      requestId,
+      errorCode: validation.errorCode || 'FORBIDDEN_ENDPOINT',
+      error: validation.error || 'Request blocked by security policy'
+    };
+  }
+
   try {
     const response = await sendToContentScript(tab!.id, 'VINTED_API_CALL', {
       method: payload.method,
@@ -524,67 +513,6 @@ async function handleDeleteProduct(
 }
 
 /**
- * Execute a batch of Vinted operations
- */
-async function handleBatchExecute(
-  requestId?: string,
-  payload?: { operations: Array<{ action: string; payload?: any }> }
-): Promise<ExternalResponse> {
-  if (!payload?.operations || !Array.isArray(payload.operations)) {
-    return {
-      success: false,
-      requestId,
-      errorCode: 'INVALID_PAYLOAD',
-      error: 'operations array is required'
-    };
-  }
-
-  const results: Array<{ index: number; success: boolean; data?: any; error?: string }> = [];
-
-  for (let i = 0; i < payload.operations.length; i++) {
-    const op = payload.operations[i];
-
-    try {
-      const result = await handleExternalMessage({
-        action: op.action,
-        payload: op.payload
-      });
-
-      results.push({
-        index: i,
-        success: result.success,
-        data: result.data,
-        error: result.error
-      });
-
-      // Small delay between operations to avoid rate limiting
-      if (i < payload.operations.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    } catch (error: any) {
-      results.push({
-        index: i,
-        success: false,
-        error: error.message
-      });
-    }
-  }
-
-  const successCount = results.filter(r => r.success).length;
-
-  return {
-    success: successCount === results.length,
-    requestId,
-    data: {
-      results,
-      total: results.length,
-      succeeded: successCount,
-      failed: results.length - successCount
-    }
-  };
-}
-
-/**
  * Ping - Check if extension is alive and get version
  */
 async function handlePing(requestId?: string): Promise<ExternalResponse> {
@@ -664,11 +592,6 @@ export async function handleExternalMessage(message: ExternalMessage): Promise<E
 
       case 'VINTED_DELETE':
         result = await handleDeleteProduct(requestId, payload);
-        break;
-
-      // ============ BATCH ============
-      case 'VINTED_BATCH':
-        result = await handleBatchExecute(requestId, payload);
         break;
 
       // ============ UNKNOWN ============
