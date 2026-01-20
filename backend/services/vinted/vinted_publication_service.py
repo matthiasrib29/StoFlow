@@ -35,8 +35,8 @@ from services.vinted.vinted_product_helpers import (
     save_new_vinted_product,
 )
 from services.plugin_websocket_helper import PluginWebSocketHelper
-from shared.vinted_constants import VintedProductAPI
-from shared.logging_setup import get_logger
+from shared.vinted import VintedProductAPI
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

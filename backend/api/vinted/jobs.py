@@ -22,12 +22,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
+from api.dependencies.vinted_dependencies import build_job_response_dict
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.batch_job import BatchJob
-from models.user.product import Product
 from services.vinted.vinted_job_service import VintedJobService
 from services.marketplace.batch_job_service import BatchJobService
-from services.marketplace.marketplace_job_service import MarketplaceJobService
 
 router = APIRouter(prefix="/jobs", tags=["Vinted Jobs"])
 
@@ -102,10 +101,6 @@ class BatchSummaryResponse(BaseModel):
     progress_percent: float
 
 
-
-
-
-
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
@@ -117,38 +112,13 @@ def build_job_response(
     db: Session,
     include_progress: bool = True
 ) -> JobResponse:
-    """
-    Build a JobResponse with all fields including action_name and product_title.
-    """
-    action_type = service.get_action_type_by_id(job.action_type_id)
-    progress = service.get_job_progress(job.id) if include_progress else None
-
-    # Get product title if job has a product_id
-    product_title = None
-    if job.product_id:
-        product = db.query(Product).filter(Product.id == job.product_id).first()
-        if product:
-            product_title = product.title
-
-    return JobResponse(
-        id=job.id,
-        batch_id=job.batch_job.batch_id if job.batch_job else None,
-        action_type_id=job.action_type_id,
-        action_code=action_type.code if action_type else None,
-        action_name=action_type.name if action_type else None,
-        product_id=job.product_id,
-        product_title=product_title,
-        status=job.status.value,
-        priority=job.priority,
-        error_message=job.error_message,
-        retry_count=job.retry_count,
-        started_at=job.started_at,
-        completed_at=job.completed_at,
-        expires_at=job.expires_at,
-        created_at=job.created_at,
-        # New simple format: {current, label}
-        progress=progress if progress and progress.get("current") is not None else None,
-    )
+    """Build a JobResponse with all fields including action_name and product_title."""
+    return JobResponse(**build_job_response_dict(
+        job=job,
+        db=db,
+        service=service,
+        include_progress=include_progress,
+    ))
 
 
 # =============================================================================
@@ -316,42 +286,19 @@ async def create_batch_jobs(
             .all()
         )
 
-        # Build response compatible with old format
-        marketplace_service = MarketplaceJobService(db)
-        job_responses = []
-        for job in jobs:
-            action_type = marketplace_service.get_action_type_by_id(job.action_type_id)
-
-            # Get product title if job has a product_id
-            product_title = None
-            if job.product_id:
-                product = db.query(Product).filter(Product.id == job.product_id).first()
-                if product:
-                    product_title = product.title
-
-            job_responses.append(
-                JobResponse(
-                    id=job.id,
-                    batch_id=batch.batch_id,  # Use BatchJob.batch_id for compatibility
-                    action_type_id=job.action_type_id,
-                    action_code=action_type.code if action_type else None,
-                    action_name=action_type.name if action_type else None,
-                    product_id=job.product_id,
-                    product_title=product_title,
-                    status=job.status.value,
-                    priority=job.priority,
-                    error_message=job.error_message,
-                    retry_count=job.retry_count,
-                    started_at=job.started_at,
-                    completed_at=job.completed_at,
-                    expires_at=job.expires_at,
-                    created_at=job.created_at,
-                    progress=None,  # No progress yet for new jobs
-                )
-            )
+        # Build response using helper (no progress for new jobs)
+        job_responses = [
+            JobResponse(**build_job_response_dict(
+                job=job,
+                db=db,
+                include_progress=False,
+                batch_id_override=batch.batch_id,
+            ))
+            for job in jobs
+        ]
 
         return BatchCreateResponse(
-            batch_id=batch.batch_id,  # Return BatchJob.batch_id (UUID-like string)
+            batch_id=batch.batch_id,
             jobs_created=len(jobs),
             jobs=job_responses,
         )
@@ -437,182 +384,4 @@ async def cancel_jobs(
         "cancelled_count": cancelled_count,
         "total_jobs": len(jobs),
         "message": f"Cancelled {cancelled_count}/{len(jobs)} jobs in batch",
-    }
-
-
-@router.post("/process")
-async def process_pending_jobs(
-    user_db: tuple = Depends(get_user_db),
-    limit: int = Query(10, ge=1, le=50, description="Max jobs à traiter"),
-) -> dict:
-    """
-    **DEPRECATED** - Vinted jobs are now executed by the frontend.
-
-    This endpoint is deprecated as of 2026-01-20.
-    Vinted jobs require WebSocket communication via the browser plugin,
-    which cannot be done from a backend worker.
-
-    **New architecture:**
-    1. Celery creates MarketplaceJob via VintedJobBridgeService
-    2. Frontend receives 'vinted_job_pending' WebSocket event
-    3. Frontend executes job via browser plugin
-    4. Frontend calls PATCH /api/vinted/jobs/{job_id}/start, /complete, or /fail
-
-    **Migration:**
-    - Use GET /api/vinted/jobs?status=pending to get pending jobs
-    - Execute each job via the browser plugin
-    - Call PATCH /{job_id}/start before execution
-    - Call PATCH /{job_id}/complete or /{job_id}/fail after execution
-
-    Returns:
-        HTTPException 410 GONE - endpoint deprecated
-    """
-    raise HTTPException(
-        status_code=status.HTTP_410_GONE,
-        detail={
-            "message": "Endpoint deprecated. Vinted jobs are now executed by the frontend.",
-            "migration": {
-                "step1": "GET /api/vinted/jobs?status=pending to list pending jobs",
-                "step2": "PATCH /api/vinted/jobs/{job_id}/start before execution",
-                "step3": "Execute via browser plugin",
-                "step4": "PATCH /api/vinted/jobs/{job_id}/complete or /fail after execution",
-            },
-        },
-    )
-
-
-# =============================================================================
-# JOB EXECUTION ENDPOINTS (for frontend)
-# =============================================================================
-
-
-class JobCompleteRequest(BaseModel):
-    """Request body for completing a job."""
-
-    result: dict = Field(default_factory=dict, description="Result data from execution")
-
-
-class JobFailRequest(BaseModel):
-    """Request body for failing a job."""
-
-    error: str = Field(..., description="Error message")
-
-
-@router.patch("/{job_id}/start")
-async def start_job(
-    job_id: int,
-    user_db: tuple = Depends(get_user_db),
-) -> dict:
-    """
-    Mark a job as RUNNING (called by frontend before execution).
-
-    The frontend should call this endpoint before executing the job
-    via the browser plugin. This allows proper tracking of job execution time.
-
-    Args:
-        job_id: Job ID to start
-
-    Returns:
-        {"success": True, "job_id": int, "status": "running"}
-
-    Raises:
-        404: Job not found
-    """
-    db, current_user = user_db
-    service = MarketplaceJobService(db)
-
-    job = service.start_job(job_id)
-    if not job:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job not found: {job_id}",
-        )
-
-    db.commit()
-
-    return {
-        "success": True,
-        "job_id": job_id,
-        "status": "running",
-    }
-
-
-@router.patch("/{job_id}/complete")
-async def complete_job(
-    job_id: int,
-    request: JobCompleteRequest,
-    user_db: tuple = Depends(get_user_db),
-) -> dict:
-    """
-    Mark a job as COMPLETED (called by frontend after successful execution).
-
-    The frontend should call this endpoint after successfully executing
-    the job via the browser plugin.
-
-    Args:
-        job_id: Job ID to complete
-        request: Contains result data from execution
-
-    Returns:
-        {"success": True, "job_id": int, "status": "completed"}
-
-    Raises:
-        404: Job not found
-    """
-    db, current_user = user_db
-    service = MarketplaceJobService(db)
-
-    job = service.complete_job(job_id, result_data=request.result)
-    if not job:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job not found: {job_id}",
-        )
-
-    db.commit()
-
-    return {
-        "success": True,
-        "job_id": job_id,
-        "status": "completed",
-    }
-
-
-@router.patch("/{job_id}/fail")
-async def fail_job(
-    job_id: int,
-    request: JobFailRequest,
-    user_db: tuple = Depends(get_user_db),
-) -> dict:
-    """
-    Mark a job as FAILED (called by frontend after failed execution).
-
-    The frontend should call this endpoint after a job execution fails.
-
-    Args:
-        job_id: Job ID to mark as failed
-        request: Contains error message
-
-    Returns:
-        {"success": True, "job_id": int, "status": "failed"}
-
-    Raises:
-        404: Job not found
-    """
-    db, current_user = user_db
-    service = MarketplaceJobService(db)
-
-    job = service.fail_job(job_id, error_message=request.error)
-    if not job:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job not found: {job_id}",
-        )
-
-    db.commit()
-
-    return {
-        "success": True,
-        "job_id": job_id,
-        "status": "failed",
     }

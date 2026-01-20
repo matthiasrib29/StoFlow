@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from api.dependencies import get_user_db
+from api.dependencies.vinted_dependencies import create_and_execute_vinted_job
 from models.user.vinted_product import VintedProduct
 from schemas.vinted_schemas import (
     VintedStatsResponse,
@@ -42,15 +43,11 @@ from schemas.vinted_schemas import (
     VintedLinkResponse,
     VintedUnlinkResponse,
 )
-from shared.error_handling import not_found, bad_request
-from services.file_service import FileService
-from services.product_service import ProductService
-from services.vinted import VintedSyncService, VintedJobService
-from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
+from shared.exceptions import not_found, bad_request
 from services.vinted.vinted_link_service import VintedLinkService
 from services.vinted.vinted_stats_service import VintedStatsService
 from services.vinted.vinted_image_sync_service import VintedImageSyncService
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 from .shared import get_active_vinted_connection
 
 logger = get_logger(__name__)
@@ -228,38 +225,16 @@ async def sync_products(
         VintedJobResponse: Job info avec statut et résultat optionnel
     """
     db, current_user = user_db
-
     connection = get_active_vinted_connection(db, current_user.id)
 
-    job_service = VintedJobService(db)
-
-    # Create sync job (product_id=None for sync operations)
-    job = job_service.create_job(
+    return await create_and_execute_vinted_job(
+        db=db,
+        user_id=current_user.id,
+        shop_id=connection.vinted_user_id,
         action_code="sync",
-        product_id=None
+        product_id=None,
+        process_now=process_now,
     )
-
-    # Store values BEFORE commit (SET LOCAL search_path resets on commit)
-    job_id = job.id
-    job_status = job.status.value
-    shop_id = connection.vinted_user_id
-
-    db.commit()
-    db.refresh(job)
-
-    response = {
-        "job_id": job_id,
-        "status": job_status,
-    }
-
-    # Execute immediately if requested
-    if process_now:
-        processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
-        result = await processor._execute_job(job)
-        response["result"] = result
-        response["status"] = "completed" if result.get("success") else "failed"
-
-    return response
 
 
 # Note: POST /products/{product_id}/publish is in publishing.py (uses job system)
@@ -282,52 +257,20 @@ async def update_product(
 
     Returns:
         VintedJobResponse: Job info avec statut et résultat optionnel
-
-    Old returns:
-        {
-            "job_id": int,
-            "status": str,
-            "result": dict | None (si process_now=True)
-        }
     """
     db, current_user = user_db
-
     connection = get_active_vinted_connection(db, current_user.id)
 
     try:
-        job_service = VintedJobService(db)
-
-        # Create update job
-        job = job_service.create_job(
+        return await create_and_execute_vinted_job(
+            db=db,
+            user_id=current_user.id,
+            shop_id=connection.vinted_user_id,
             action_code="update",
-            product_id=product_id
+            product_id=product_id,
+            process_now=process_now,
         )
-
-        # Store values BEFORE commit (SET LOCAL search_path resets on commit)
-        job_id = job.id
-        job_status = job.status.value
-        shop_id = connection.vinted_user_id
-
-        db.commit()
-        db.refresh(job)
-
-        response = {
-            "job_id": job_id,
-            "status": job_status,
-            "product_id": product_id,
-        }
-
-        # Execute immediately if requested
-        if process_now:
-            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
-            result = await processor._execute_job(job)
-            response["result"] = result
-            response["status"] = "completed" if result.get("success") else "failed"
-
-        return response
-
     except ValueError as e:
-        # Business logic error from service
         raise bad_request(str(e))
 
 

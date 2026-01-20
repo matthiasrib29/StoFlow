@@ -1,21 +1,6 @@
 """
 Job Cleanup Scheduler - Periodic cleanup of expired/stuck marketplace jobs.
 
-DEPRECATION NOTICE (2026-01-20):
-================================
-This module is DEPRECATED in favor of Celery tasks.
-The cleanup functionality has been migrated to:
-- tasks/cleanup_tasks.py::cleanup_expired_jobs
-- tasks/cleanup_tasks.py::cleanup_stale_running_jobs
-
-This file will be removed after the Celery migration is complete.
-During the transition period, both systems may run in parallel.
-
-To use the new Celery-based cleanup:
-    from tasks.cleanup_tasks import cleanup_expired_jobs, cleanup_stale_running_jobs
-    cleanup_expired_jobs.delay()
-    cleanup_stale_running_jobs.delay()
-
 Runs periodically to:
 - Mark PENDING jobs as FAILED if too old (never started)
 - Mark PROCESSING jobs as FAILED if worker died/stuck
@@ -51,7 +36,7 @@ from sqlalchemy.orm import sessionmaker, Session
 
 from services.marketplace.job_cleanup_service import JobCleanupService
 from shared.config import settings
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -114,7 +99,7 @@ def cleanup_jobs_for_all_users():
         for schema in schemas:
             try:
                 # Use schema_translate_map for ORM queries (survives commit/rollback)
-                from shared.schema_utils import configure_schema_translate_map
+                from shared.schema import configure_schema_translate_map
                 configure_schema_translate_map(db, schema)
                 schema_db = db  # Use same session (connection is now configured)
 

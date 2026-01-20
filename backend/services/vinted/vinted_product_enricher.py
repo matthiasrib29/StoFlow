@@ -37,7 +37,7 @@ from services.plugin_websocket_helper import (
     PLUGIN_ERROR,
 )
 from services.vinted.vinted_item_upload_parser import VintedItemUploadParser
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 from shared.config import settings
 
 logger = get_logger(__name__)

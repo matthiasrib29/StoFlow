@@ -33,6 +33,7 @@ from shared.stripe_config import (
 )
 from repositories.ai_credit_pack_repository import AiCreditPackRepository
 from services.ai_credit_pack_service import AiCreditPackService
+from services.stripe.webhook_handlers import handle_webhook_event
 
 router = APIRouter(prefix="/stripe", tags=["Stripe"])
 
@@ -313,16 +314,9 @@ async def stripe_webhook(
 
     Business Rules (2025-12-10):
     - checkout.session.completed: Marquer le paiement comme réussi
-      - Pour subscription: Mettre à jour le tier de l'utilisateur
-      - Pour credits: Ajouter les crédits au compte
     - customer.subscription.updated: Mettre à jour le tier si changement
     - customer.subscription.deleted: Rétrograder au tier FREE
     - invoice.payment_failed: Gérer les échecs (grace period de 3 jours)
-
-    IMPORTANT:
-    - Vérifier la signature du webhook pour la sécurité
-    - Idempotence: gérer les webhooks en double
-    - Logging des événements
 
     Args:
         request: Requête HTTP brute (pour signature)
@@ -335,7 +329,6 @@ async def stripe_webhook(
         HTTPException: 400 si signature invalide
     """
     import logging
-    from datetime import datetime, timedelta
 
     logger = logging.getLogger(__name__)
 
@@ -349,155 +342,17 @@ async def stripe_webhook(
             payload, sig_header, STRIPE_WEBHOOK_SECRET
         )
     except ValueError as e:
-        # Payload invalide
         logger.error(f"Invalid payload: {e}")
         raise HTTPException(status_code=400, detail="Invalid payload")
     except stripe.error.SignatureVerificationError as e:
-        # Signature invalide
         logger.error(f"Invalid signature: {e}")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    # Logger l'événement
     logger.info(f"Received Stripe event: {event['type']} - {event['id']}")
 
-    # Traiter les différents types d'événements
-    event_type = event["type"]
-    data = event["data"]["object"]
-
     try:
-        # === CHECKOUT SESSION COMPLETED ===
-        if event_type == "checkout.session.completed":
-            session = data
-            user_id = int(session["metadata"]["user_id"])
-            payment_type = session["metadata"]["payment_type"]
-
-            user = db.query(User).filter(User.id == user_id).first()
-            if not user:
-                logger.error(f"User {user_id} not found for checkout session {session['id']}")
-                return {"status": "error", "message": "User not found"}
-
-            # SUBSCRIPTION
-            if payment_type == "subscription":
-                tier_value = session["metadata"]["tier"]
-                new_tier = SubscriptionTier(tier_value)
-
-                # Récupérer le quota
-                quota = db.query(SubscriptionQuota).filter(
-                    SubscriptionQuota.tier == new_tier
-                ).first()
-
-                if quota:
-                    user.subscription_tier = new_tier
-                    user.subscription_tier_id = quota.id
-
-                    # Stocker le subscription ID Stripe
-                    if "subscription" in session:
-                        user.stripe_subscription_id = session["subscription"]
-
-                    db.commit()
-                    logger.info(f"User {user_id} upgraded to {new_tier.value}")
-
-            # CREDITS
-            elif payment_type == "credits":
-                credits = int(session["metadata"]["credits"])
-
-                # Récupérer ou créer l'enregistrement AI credits
-                ai_credit = db.query(AICredit).filter(AICredit.user_id == user_id).first()
-
-                if not ai_credit:
-                    ai_credit = AICredit(
-                        user_id=user_id,
-                        ai_credits_purchased=credits,
-                        ai_credits_used_this_month=0,
-                        last_reset_date=datetime.now()
-                    )
-                    db.add(ai_credit)
-                else:
-                    ai_credit.ai_credits_purchased += credits
-
-                db.commit()
-                logger.info(f"User {user_id} purchased {credits} AI credits")
-
-        # === SUBSCRIPTION UPDATED ===
-        elif event_type == "customer.subscription.updated":
-            subscription = data
-            customer_id = subscription["customer"]
-
-            # Trouver l'utilisateur par customer_id
-            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
-            if not user:
-                logger.error(f"User not found for customer {customer_id}")
-                return {"status": "error", "message": "User not found"}
-
-            # Vérifier le statut de la subscription
-            if subscription["status"] in ["active", "trialing"]:
-                # La subscription est active, s'assurer que le tier est correct
-                logger.info(f"Subscription active for user {user.id}")
-            elif subscription["status"] in ["past_due", "unpaid"]:
-                # Grace period: ne pas rétrograder immédiatement
-                logger.warning(f"Subscription past_due for user {user.id} - grace period active")
-            elif subscription["status"] in ["canceled", "incomplete_expired"]:
-                # Rétrograder au tier FREE
-                free_quota = db.query(SubscriptionQuota).filter(
-                    SubscriptionQuota.tier == SubscriptionTier.FREE
-                ).first()
-                if free_quota:
-                    user.subscription_tier = SubscriptionTier.FREE
-                    user.subscription_tier_id = free_quota.id
-                    db.commit()
-                    logger.info(f"User {user.id} downgraded to FREE (subscription canceled)")
-
-        # === SUBSCRIPTION DELETED ===
-        elif event_type == "customer.subscription.deleted":
-            subscription = data
-            customer_id = subscription["customer"]
-
-            # Trouver l'utilisateur par customer_id
-            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
-            if not user:
-                logger.error(f"User not found for customer {customer_id}")
-                return {"status": "error", "message": "User not found"}
-
-            # Rétrograder au tier FREE
-            free_quota = db.query(SubscriptionQuota).filter(
-                SubscriptionQuota.tier == SubscriptionTier.FREE
-            ).first()
-            if free_quota:
-                user.subscription_tier = SubscriptionTier.FREE
-                user.subscription_tier_id = free_quota.id
-                user.stripe_subscription_id = None
-                db.commit()
-                logger.info(f"User {user.id} downgraded to FREE (subscription deleted)")
-
-        # === INVOICE PAYMENT FAILED ===
-        elif event_type == "invoice.payment_failed":
-            invoice = data
-            customer_id = invoice["customer"]
-
-            # Trouver l'utilisateur par customer_id
-            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
-            if not user:
-                logger.error(f"User not found for customer {customer_id}")
-                return {"status": "error", "message": "User not found"}
-
-            # Grace period de 3 jours
-            # Stripe va automatiquement retry, on log juste l'événement
-            logger.warning(f"Payment failed for user {user.id} - grace period of 3 days")
-
-            # TODO: Envoyer un email de notification à l'utilisateur
-
-        # === INVOICE PAYMENT SUCCEEDED ===
-        elif event_type == "invoice.payment_succeeded":
-            invoice = data
-            customer_id = invoice["customer"]
-
-            # Trouver l'utilisateur par customer_id
-            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
-            if user:
-                logger.info(f"Payment succeeded for user {user.id}")
-
-        return {"status": "success"}
-
+        result = handle_webhook_event(event["type"], event["data"]["object"], db)
+        return result
     except Exception as e:
         logger.error(f"Error processing webhook {event['type']}: {e}")
         # Retourner 200 pour éviter que Stripe ne retry indéfiniment

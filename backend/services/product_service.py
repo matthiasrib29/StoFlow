@@ -39,7 +39,7 @@ from services.product_utils import ProductUtils
 from services.validators import AttributeValidator
 from shared.datetime_utils import utc_now
 from shared.exceptions import ConcurrentModificationError
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 from shared.timing import timed_operation
 
 logger = get_logger(__name__)

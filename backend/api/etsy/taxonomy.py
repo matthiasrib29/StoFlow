@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_current_user, get_db
 from models.public.user import User
 from services.etsy import EtsyPollingService, EtsyTaxonomyClient
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 from .schemas import PollingResultsResponse, TaxonomyNodeResponse
 

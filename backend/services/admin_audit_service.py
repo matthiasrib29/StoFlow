@@ -14,7 +14,7 @@ from sqlalchemy import and_, desc
 
 from models.public.admin_audit_log import AdminAuditLog
 from models.public.user import User
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

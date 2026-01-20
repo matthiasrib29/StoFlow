@@ -28,7 +28,7 @@ from models.user.marketplace_job import JobStatus, MarketplaceJob
 from services.ebay.ebay_inventory_client import EbayInventoryClient
 from services.ebay.ebay_offer_client import EbayOfferClient
 from shared.datetime_utils import utc_now
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

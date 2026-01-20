@@ -24,7 +24,7 @@ from models.user.ai_generation_log import AIGenerationLog
 from schemas.ai_schemas import GeminiVisionSchema, VisionExtractedAttributes
 from shared.config import settings
 from shared.exceptions import AIGenerationError, AIQuotaExceededError
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 if TYPE_CHECKING:
     from models.user.product import Product

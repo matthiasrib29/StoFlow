@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from services.plugin_task_rate_limiter import VintedRateLimiter
 from services.websocket_service import WebSocketService
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

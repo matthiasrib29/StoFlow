@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from models.user.ebay_cancellation import EbayCancellation
 from repositories.ebay_cancellation_repository import EbayCancellationRepository
 from services.ebay.ebay_cancellation_client import EbayCancellationClient
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

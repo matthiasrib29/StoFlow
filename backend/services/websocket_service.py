@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 
 import socketio
 
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 from services.auth_service import AuthService
 from shared.database import SessionLocal
 from models.public.user import User

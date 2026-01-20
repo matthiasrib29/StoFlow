@@ -145,25 +145,6 @@ class Settings(BaseSettings):
     sentry_environment: str = "development"
     sentry_traces_sample_rate: float = 0.1
 
-    # Redis & Celery
-    redis_url: str = "redis://localhost:6379/0"
-    celery_broker_url: Optional[str] = None  # Defaults to redis_url if not set
-    celery_result_backend: Optional[str] = None  # Defaults to redis_url if not set
-    celery_task_time_limit: int = 600  # 10 minutes max per task
-    celery_task_soft_time_limit: int = 540  # 9 minutes warning
-    celery_worker_concurrency: int = 4
-    celery_worker_prefetch_multiplier: int = 1  # Fair scheduling
-
-    @property
-    def celery_broker(self) -> str:
-        """Get Celery broker URL."""
-        return self.celery_broker_url or self.redis_url
-
-    @property
-    def celery_backend(self) -> str:
-        """Get Celery result backend URL."""
-        return self.celery_result_backend or self.redis_url
-
     # Brevo (Email Service)
     brevo_api_key: Optional[str] = None
     brevo_sender_email: str = "noreply@stoflow.io"

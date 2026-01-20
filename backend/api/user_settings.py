@@ -11,7 +11,7 @@ from api.dependencies import get_current_user
 from models.public.user import User
 from schemas.user_settings import TextGeneratorSettings, TextGeneratorSettingsUpdate
 from shared.database import get_db
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

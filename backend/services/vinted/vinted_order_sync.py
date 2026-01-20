@@ -4,15 +4,19 @@ Vinted Order Sync Service - Synchronisation des commandes Vinted
 Service dedie a la synchronisation des commandes depuis l'API Vinted.
 
 Methodes disponibles:
-- sync_orders(): DEFAULT - Sync via /my_orders (captures ALL orders)
+- sync_orders(): DEFAULT - Sync VENTES via /my_orders?type=sold
+- sync_purchases(): Sync ACHATS via /my_orders?type=purchased
 - sync_orders_by_month(): OPTIONAL - Sync via /wallet/invoices (wallet only)
 
 sync_orders() is the default because /wallet/invoices only shows wallet
 transactions, not direct card payments.
 
+API endpoint: GET /api/v2/my_orders?type={sold|purchased}&status=all&per_page=100&page=X
+
 Author: Claude
 Date: 2025-12-17
 Updated: 2026-01-13 - Restauration sync_orders() comme methode par defaut
+Updated: 2026-01-20 - Ajout sync_purchases() pour les achats, per_page=100
 """
 
 from typing import Any
@@ -22,8 +26,8 @@ from sqlalchemy.orm import Session
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_data_extractor import VintedDataExtractor
-from shared.vinted_constants import VintedOrderAPI, VintedConversationAPI
-from shared.logging_setup import get_logger
+from shared.vinted import VintedOrderAPI, VintedConversationAPI
+from shared.logging import get_logger
 from shared.config import settings
 
 logger = get_logger(__name__)
@@ -302,23 +306,26 @@ class VintedOrderSyncService:
 
     async def sync_orders(self, db: Session) -> dict[str, Any]:
         """
-        Synchronise les commandes vendues depuis /my_orders (default method).
+        Synchronise les VENTES depuis /my_orders?type=sold.
 
         Flow (2-step approach):
-        1. GET /my_orders?type=sold&status=all (paginated)
+        1. GET /api/v2/my_orders?type=sold&status=all&per_page=100 (paginated)
         2. For each order:
-           - Save/update basic data from /my_orders (status, price, title, photo)
-           - If NEW order: enrich with /transactions/{id} (buyer, seller, shipment, items)
-           - If EXISTING: just update status (no API call)
+           - If NEW: create from /my_orders + enrich with /transactions/{id}
+           - If EXISTING + NOT completed: update status + re-enrich with /transactions/{id}
+           - If EXISTING + completed: just update status (no API call needed)
 
-        This captures ALL orders and keeps status updated without extra API calls.
+        Re-enrichment for non-completed orders captures evolving data:
+        - Shipment info (tracking_number, carrier, shipment_id)
+        - Dates (shipped_at, delivered_at, completed_at)
+        - Status codes and text
 
         Returns:
-            {"synced": int, "updated": int, "errors": int, "pages": int}
+            {"synced": int, "updated": int, "enriched": int, "errors": int, "pages": int}
         """
-        logger.info("Sync commandes (via /my_orders)")
+        logger.info("Sync ventes (via /my_orders?type=sold)")
 
-        stats = {"synced": 0, "updated": 0, "errors": 0, "pages": 0}
+        stats = {"synced": 0, "updated": 0, "enriched": 0, "errors": 0, "pages": 0}
         page = 1
 
         while True:
@@ -348,7 +355,17 @@ class VintedOrderSyncService:
 
                 if existing_order:
                     # UPDATE existing order with fresh status from /my_orders
-                    if self._update_order_from_my_orders(db, existing_order, order_data):
+                    status_changed = self._update_order_from_my_orders(db, existing_order, order_data)
+
+                    # Re-enrich non-completed orders to track evolution
+                    if existing_order.transaction_user_status != 'completed':
+                        transaction = await self._fetch_transaction_details(db, transaction_id)
+                        if transaction:
+                            self._enrich_order_from_transaction(db, existing_order, transaction)
+                            db.commit()
+                            stats["enriched"] += 1
+                            logger.debug(f"  [ENRICH] TX {transaction_id} re-enriched (status: {existing_order.transaction_user_status})")
+                    elif status_changed:
                         stats["updated"] += 1
                         logger.debug(f"  [UPDATE] TX {transaction_id} status updated")
                     continue
@@ -378,8 +395,103 @@ class VintedOrderSyncService:
 
         stats["pages"] = page
         logger.info(
-            f"Sync orders: {stats['synced']} new, "
-            f"{stats['updated']} updated, {stats['errors']} err"
+            f"Sync ventes: {stats['synced']} new, "
+            f"{stats['updated']} updated, {stats['enriched']} enriched, {stats['errors']} err"
+        )
+        return stats
+
+    async def sync_purchases(self, db: Session) -> dict[str, Any]:
+        """
+        Synchronise les ACHATS depuis /my_orders?type=purchased.
+
+        Flow (2-step approach):
+        1. GET /api/v2/my_orders?type=purchased&status=all&per_page=100 (paginated)
+        2. For each order:
+           - If NEW: create from /my_orders + enrich with /transactions/{id}
+           - If EXISTING + NOT completed: update status + re-enrich with /transactions/{id}
+           - If EXISTING + completed: just update status (no API call needed)
+
+        Re-enrichment for non-completed orders captures evolving data:
+        - Shipment info (tracking_number, carrier, shipment_id)
+        - Dates (shipped_at, delivered_at, completed_at)
+        - Status codes and text
+
+        Returns:
+            {"synced": int, "updated": int, "enriched": int, "errors": int, "pages": int}
+        """
+        logger.info("Sync achats (via /my_orders?type=purchased)")
+
+        stats = {"synced": 0, "updated": 0, "enriched": 0, "errors": 0, "pages": 0}
+        page = 1
+
+        while True:
+            # Fetch purchases page
+            result = await self._fetch_orders_page(db, page, order_type="purchased")
+            if not result:
+                break
+
+            orders = result.get('my_orders', [])
+            if not orders:
+                logger.info(f"  Page {page}: no purchases")
+                break
+
+            logger.info(f"  Page {page}: {len(orders)} purchases")
+
+            # Process each purchase
+            for order_data in orders:
+                transaction_id = order_data.get('transaction_id')
+
+                if not transaction_id:
+                    logger.warning("  [SKIP] Purchase without transaction_id")
+                    stats["errors"] += 1
+                    continue
+
+                # Check if order already exists
+                existing_order = self._get_order(db, transaction_id)
+
+                if existing_order:
+                    # UPDATE existing order with fresh status
+                    status_changed = self._update_order_from_my_orders(db, existing_order, order_data)
+
+                    # Re-enrich non-completed orders to track evolution
+                    if existing_order.transaction_user_status != 'completed':
+                        transaction = await self._fetch_transaction_details(db, transaction_id)
+                        if transaction:
+                            self._enrich_order_from_transaction(db, existing_order, transaction)
+                            db.commit()
+                            stats["enriched"] += 1
+                            logger.debug(f"  [ENRICH] TX {transaction_id} re-enriched (status: {existing_order.transaction_user_status})")
+                    elif status_changed:
+                        stats["updated"] += 1
+                        logger.debug(f"  [UPDATE] TX {transaction_id} status updated")
+                    continue
+
+                # NEW purchase: First save basic data, then enrich with /transactions
+                basic_order = self._create_order_from_my_orders(db, order_data)
+                if not basic_order:
+                    stats["errors"] += 1
+                    continue
+
+                # Enrich with /transactions/{id} for full details
+                transaction = await self._fetch_transaction_details(db, transaction_id)
+                if transaction:
+                    self._enrich_order_from_transaction(db, basic_order, transaction)
+
+                db.commit()
+                stats["synced"] += 1
+                logger.info(f"  [NEW] TX {transaction_id} saved (purchase)")
+
+            # Pagination check
+            pagination = result.get('pagination', {})
+            total_pages = pagination.get('total_pages', 1)
+            if page >= total_pages:
+                break
+            page += 1
+
+        stats["pages"] = page
+        logger.info(
+            f"Sync achats: {stats['synced']} new, "
+            f"{stats['updated']} updated, {stats['enriched']} enriched, {stats['errors']} err"
         )
         return stats
 
@@ -393,15 +505,26 @@ class VintedOrderSyncService:
         self, db: Session, order_data: dict
     ) -> VintedOrder | None:
         """
-        Create order with basic data from /my_orders response.
+        Create order with data from /my_orders response.
 
-        Data available:
-        - transaction_id, title, price, status, date, photo, transaction_user_status
+        API fields captured:
+        - transaction_id (PK)
+        - conversation_id
+        - title -> VintedOrderProduct.title
+        - price.amount -> total_price
+        - price.currency_code -> currency
+        - status -> vinted_status_text
+        - date -> created_at_vinted
+        - photo.url -> VintedOrderProduct.photo_url
+        - transaction_user_status
         """
         try:
             transaction_id = order_data.get('transaction_id')
             if not transaction_id:
                 return None
+
+            # Extract conversation_id
+            conversation_id = order_data.get('conversation_id')
 
             # Extract price
             price_obj = order_data.get('price', {})
@@ -411,9 +534,9 @@ class VintedOrderSyncService:
             # Extract status (transaction_user_status is more reliable)
             # needs_action, waiting, completed, failed
             user_status = order_data.get('transaction_user_status', '')
-            status_text = order_data.get('status', '')
+            status_text = order_data.get('status', '')  # Full text like "Commande finalisée..."
 
-            # Map to our status
+            # Map to our internal status
             if user_status == 'completed':
                 status = 'completed'
             elif user_status == 'failed':
@@ -429,11 +552,13 @@ class VintedOrderSyncService:
             photo = order_data.get('photo', {}) or {}
             photo_url = photo.get('url')
 
-            # Create order with basic data from /my_orders
+            # Create order with all data from /my_orders
             vinted_order = VintedOrder(
                 transaction_id=int(transaction_id),
+                conversation_id=conversation_id,
                 status=status,
-                transaction_user_status=user_status,  # Store original status
+                vinted_status_text=status_text,  # Store full status text from API
+                transaction_user_status=user_status,
                 total_price=total_price,
                 currency=currency,
                 created_at_vinted=created_at_vinted,
@@ -456,7 +581,6 @@ class VintedOrderSyncService:
         except Exception as e:
             logger.error(f"Error creating order from my_orders: {e}")
             db.rollback()
-            # schema_translate_map survives rollback - no need to restore
             return None
 
     def _update_order_from_my_orders(
@@ -465,11 +589,12 @@ class VintedOrderSyncService:
         """
         Update existing order with fresh data from /my_orders.
 
-        Updates: status, price (if changed)
+        Updates: status, vinted_status_text, transaction_user_status
         """
         try:
             # Extract status
             user_status = order_data.get('transaction_user_status', '')
+            status_text = order_data.get('status', '')
 
             if user_status == 'completed':
                 new_status = 'completed'
@@ -478,18 +603,29 @@ class VintedOrderSyncService:
             else:
                 new_status = 'pending'
 
-            # Only update if status changed
+            # Track if anything changed
+            changed = False
+
             if order.status != new_status:
                 order.status = new_status
-                db.commit()
-                return True
+                changed = True
 
-            return False
+            if order.transaction_user_status != user_status:
+                order.transaction_user_status = user_status
+                changed = True
+
+            if order.vinted_status_text != status_text:
+                order.vinted_status_text = status_text
+                changed = True
+
+            if changed:
+                db.commit()
+
+            return changed
 
         except Exception as e:
             logger.error(f"Error updating order: {e}")
             db.rollback()
-            # schema_translate_map survives rollback - no need to restore
             return False
 
     def _enrich_order_from_transaction(
@@ -503,7 +639,7 @@ class VintedOrderSyncService:
         """
         try:
             # Vinted IDs
-            order.conversation_id = transaction.get('msg_thread_id')
+            order.conversation_id = transaction.get('user_msg_thread_id') or transaction.get('msg_thread_id')
             offer = transaction.get('offer', {}) or {}
             order.offer_id = offer.get('id')
 
@@ -530,6 +666,7 @@ class VintedOrderSyncService:
 
             # Shipment info
             shipment = transaction.get('shipment', {}) or {}
+            order.shipment_id = shipment.get('id')
             order.tracking_number = shipment.get('tracking_code')
             order.carrier = shipment.get('carrier_name') or shipment.get('carrier')
 
@@ -629,22 +766,22 @@ class VintedOrderSyncService:
             logger.error(f"Error updating products: {e}")
 
     async def _fetch_orders_page(
-        self, db: Session, page: int
+        self, db: Session, page: int, order_type: str = "sold"
     ) -> dict | None:
-        """Fetch single page of sold orders (status=all). Returns None on error."""
+        """Fetch single page of orders. Returns None on error."""
         try:
             result = await PluginWebSocketHelper.call_plugin_http(
                 db=db,
                 user_id=self.user_id,
                 http_method="GET",
                 path=VintedOrderAPI.get_orders(
-                    order_type="sold",
+                    order_type=order_type,
                     status="all",
                     page=page,
-                    per_page=20
+                    per_page=100
                 ),
                 timeout=settings.plugin_timeout_order,
-                description=f"Sync orders page {page}"
+                description=f"Sync {order_type} orders page {page}"
             )
             return result
         except Exception as e:
@@ -728,7 +865,7 @@ class VintedOrderSyncService:
             return {
                 'transaction_id': int(transaction_id),
                 # Vinted IDs
-                'conversation_id': transaction.get('msg_thread_id'),
+                'conversation_id': transaction.get('user_msg_thread_id') or transaction.get('msg_thread_id'),
                 'offer_id': offer.get('id'),
                 # Buyer info (extended)
                 'buyer_id': buyer.get('id'),
@@ -755,6 +892,7 @@ class VintedOrderSyncService:
                 'buyer_protection_fee': buyer_protection_fee,
                 'seller_revenue': invoice_price,
                 # Shipping
+                'shipment_id': shipment.get('id'),
                 'tracking_number': tracking_number,
                 'carrier': carrier,
                 # Dates
@@ -894,6 +1032,7 @@ class VintedOrderSyncService:
             buyer_protection_fee=order_data.get('buyer_protection_fee'),
             seller_revenue=order_data.get('seller_revenue'),
             # Shipping
+            shipment_id=order_data.get('shipment_id'),
             tracking_number=order_data.get('tracking_number'),
             carrier=order_data.get('carrier'),
             # Dates

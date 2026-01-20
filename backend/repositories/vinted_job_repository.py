@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from models.user.marketplace_job import MarketplaceJob, JobStatus
 from models.user.batch_job import BatchJob
 from models.vinted.vinted_action_type import VintedActionType
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
