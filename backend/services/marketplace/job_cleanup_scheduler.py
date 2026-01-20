@@ -1,21 +1,6 @@
 """
 Job Cleanup Scheduler - Periodic cleanup of expired/stuck marketplace jobs.
 
-DEPRECATION NOTICE (2026-01-20):
-================================
-This module is DEPRECATED in favor of Celery tasks.
-The cleanup functionality has been migrated to:
-- tasks/cleanup_tasks.py::cleanup_expired_jobs
-- tasks/cleanup_tasks.py::cleanup_stale_running_jobs
-
-This file will be removed after the Celery migration is complete.
-During the transition period, both systems may run in parallel.
-
-To use the new Celery-based cleanup:
-    from tasks.cleanup_tasks import cleanup_expired_jobs, cleanup_stale_running_jobs
-    cleanup_expired_jobs.delay()
-    cleanup_stale_running_jobs.delay()
-
 Runs periodically to:
 - Mark PENDING jobs as FAILED if too old (never started)
 - Mark PROCESSING jobs as FAILED if worker died/stuck

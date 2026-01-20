@@ -7,7 +7,7 @@ Etsy n'ayant PAS de webhooks natifs, ce service permet de:
 - Détecter mises à jour listings
 - Détecter changements stock
 
-À utiliser avec un scheduler (ex: Celery, APScheduler).
+À utiliser avec un scheduler (ex: APScheduler).
 
 Documentation:
 https://developer.etsy.com/documentation/reference/
