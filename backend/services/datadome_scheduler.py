@@ -37,7 +37,7 @@ from models.user.vinted_connection import VintedConnection, DataDomeStatus
 # Temporary constant until DataDome ping is re-implemented with WebSocket
 DATADOME_PING_INTERVAL_SECONDS = 60
 from shared.config import settings
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -87,7 +87,7 @@ def get_connected_vinted_users(db: Session, schema: str) -> List[VintedConnectio
     """
     try:
         # Use schema_translate_map for ORM queries (survives commit/rollback)
-        from shared.schema_utils import configure_schema_translate_map
+        from shared.schema import configure_schema_translate_map
         configure_schema_translate_map(db, schema)
         schema_db = db  # Use same session (connection is now configured)
 

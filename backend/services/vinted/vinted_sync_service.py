@@ -36,8 +36,8 @@ from services.vinted.vinted_product_helpers import (
     save_new_vinted_product,
     should_delete_product,
 )
-from shared.vinted_constants import VintedProductAPI
-from shared.logging_setup import get_logger
+from shared.vinted import VintedProductAPI
+from shared.logging import get_logger
 from shared.config import settings
 
 logger = get_logger(__name__)

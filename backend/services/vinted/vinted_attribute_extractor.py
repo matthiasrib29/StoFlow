@@ -11,7 +11,7 @@ Date: 2025-12-22
 import re
 from typing import Any
 
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

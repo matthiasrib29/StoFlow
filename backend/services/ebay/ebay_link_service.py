@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from models.user.ebay_product import EbayProduct
 from models.user.product import Product
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

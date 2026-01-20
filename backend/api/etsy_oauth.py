@@ -29,7 +29,7 @@ from api.dependencies import get_current_user, get_db
 from models.user.etsy_credentials import EtsyCredentials
 from models.public.user import User
 from shared.config import settings
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 router = APIRouter(prefix="/etsy/oauth", tags=["Etsy OAuth"])
 logger = get_logger(__name__)

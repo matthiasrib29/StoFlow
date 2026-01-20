@@ -20,7 +20,7 @@ from models.user.product import Product, ProductStatus
 from models.user.product_image import ProductImage
 from repositories.product_repository import ProductRepository
 from repositories.product_image_repository import ProductImageRepository
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

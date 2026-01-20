@@ -23,7 +23,7 @@ from models.public.brand_group import BrandGroup
 from models.public.model import Model
 from shared.config import settings
 from shared.exceptions import AIGenerationError
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

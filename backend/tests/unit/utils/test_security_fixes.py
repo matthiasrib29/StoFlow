@@ -14,7 +14,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from main import app
-from shared.security_utils import redact_password, sanitize_for_log
+from shared.logging import redact_password, sanitize_for_log
 from services.file_service import FileService
 from services.user_schema_service import UserSchemaService
 from schemas.auth_schemas import RegisterRequest

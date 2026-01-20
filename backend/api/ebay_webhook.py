@@ -34,7 +34,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_db
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 router = APIRouter(prefix="/ebay", tags=["eBay Webhooks"])
 logger = get_logger(__name__)

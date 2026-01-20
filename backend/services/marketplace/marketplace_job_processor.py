@@ -19,7 +19,7 @@ from services.vinted.jobs import HANDLERS as VINTED_HANDLERS
 from services.ebay.jobs import EBAY_HANDLERS
 from services.etsy.jobs import ETSY_HANDLERS
 from shared.advisory_locks import AdvisoryLockHelper
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -19,7 +19,7 @@ from services.etsy import (
     EtsyShippingClient,
     EtsyShopClient,
 )
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 from .schemas import (
     ReceiptResponse,

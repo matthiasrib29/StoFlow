@@ -23,7 +23,7 @@ from typing import Any, List
 
 from models.user.product import Product
 from models.user.vinted_product import VintedProduct
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

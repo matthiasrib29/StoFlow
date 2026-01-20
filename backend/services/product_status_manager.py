@@ -25,7 +25,7 @@ from models.user.product import Product, ProductStatus
 from repositories.product_repository import ProductRepository
 from shared.datetime_utils import utc_now
 from shared.exceptions import ConcurrentModificationError, OutOfStockError
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

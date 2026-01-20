@@ -14,7 +14,7 @@ from models.public.brand import Brand
 from models.public.category import Category
 from models.public.color import Color
 from models.public.material import Material
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

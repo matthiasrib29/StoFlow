@@ -19,7 +19,7 @@ from api.dependencies import get_user_db
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.ebay_product import EbayProduct
 from services.marketplace.marketplace_job_service import MarketplaceJobService
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/jobs", tags=["eBay Jobs"])

@@ -18,7 +18,7 @@ from sqlalchemy import text, or_
 from models.public.user import User, UserRole, SubscriptionTier
 from models.public.subscription_quota import SubscriptionQuota
 from services.auth_service import AuthService
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

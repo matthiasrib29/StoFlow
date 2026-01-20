@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from services.marketplace.marketplace_job_service import MarketplaceJobService
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

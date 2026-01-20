@@ -18,7 +18,7 @@ from services.etsy import (
     EtsyPublicationService,
     ProductValidationError,
 )
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 from .schemas import (
     ListingResponse,

@@ -27,7 +27,7 @@ from models.public.subscription_quota import SubscriptionQuota
 from models.public.ai_credit import AICredit
 from models.public.ai_credit_pack import AiCreditPack
 from shared.database import get_db
-from shared.ownership import ensure_can_modify
+from shared.access_control import ensure_can_modify
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
 

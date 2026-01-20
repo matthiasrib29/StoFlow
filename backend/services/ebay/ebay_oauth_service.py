@@ -24,7 +24,7 @@ from services.ebay.ebay_oauth_config import (
     get_oauth_urls,
 )
 from services.ebay.ebay_account_parser import update_ebay_credentials_from_seller_info
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -267,7 +267,7 @@ def fetch_and_save_account_info(
     try:
         from services.ebay.ebay_identity_client import EbayIdentityClient
         from services.ebay.ebay_trading_client import EbayTradingClient
-        from shared.schema_utils import configure_schema_translate_map
+        from shared.schema import configure_schema_translate_map
 
         # Set schema for multi-tenant isolation (survives commit/rollback)
         configure_schema_translate_map(db, f"user_{user_id}")
@@ -336,7 +336,7 @@ def process_oauth_callback(
         HTTPException: Si validation ou échange échoue
     """
     # Set schema for multi-tenant isolation (survives commit/rollback)
-    from shared.schema_utils import configure_schema_translate_map
+    from shared.schema import configure_schema_translate_map
     configure_schema_translate_map(db, f"user_{user_id}")
 
     # Validate state (CSRF protection)

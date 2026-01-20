@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from models.public.ai_credit_pack import AiCreditPack
 from repositories.ai_credit_pack_repository import AiCreditPackRepository
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

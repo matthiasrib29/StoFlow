@@ -26,6 +26,10 @@ from models.public.permission import Permission, RolePermission
 from services.auth_service import AuthService
 from shared.config import settings
 from shared.database import get_db
+from api.dependencies.admin_dependencies import (
+    create_attribute_with_audit,
+    update_attribute_with_audit,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -514,4 +518,7 @@ __all__ = [
     "require_any_permission",
     "has_permission",
     "clear_permissions_cache",
+    # Admin attribute helpers
+    "create_attribute_with_audit",
+    "update_attribute_with_audit",
 ]

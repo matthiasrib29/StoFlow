@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from models.user.batch_job import BatchJob, BatchJobStatus
 from models.user.marketplace_job import MarketplaceJob, JobStatus
 from shared.database import engine
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 # Load environment variables
 load_dotenv()

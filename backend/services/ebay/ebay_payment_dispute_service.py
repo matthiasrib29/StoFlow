@@ -29,7 +29,7 @@ from models.user.ebay_payment_dispute import EbayPaymentDispute
 from repositories.ebay_payment_dispute_repository import EbayPaymentDisputeRepository
 from services.ebay.ebay_fulfillment_client import EbayFulfillmentClient
 from shared.exceptions import EbayError
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -10,7 +10,7 @@ Date: 2025-12-12
 from typing import Any, Dict, Optional
 
 from models.user.ebay_credentials import EbayCredentials
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

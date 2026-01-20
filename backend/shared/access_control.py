@@ -1,25 +1,23 @@
 """
-Ownership Checker
+Access Control
 
-Helper pour vérifier que l'utilisateur a le droit d'accéder à une ressource.
+Utilities for security checks, access control, and resource ownership.
 
-Business Rules (Updated: 2026-01-08):
-- USER: Isolation stricte, ne peut accéder qu'à ses propres données
-- ADMIN: Accès à toutes les ressources
-- SUPPORT: Lecture seule sur toutes les ressources
-- Defense-in-depth: Vérifie l'isolation par schema PostgreSQL
+Defense-in-depth helpers for multi-tenant schema isolation.
+Role-based access control for USER, ADMIN, and SUPPORT roles.
 
-Author: Claude
-Date: 2025-12-08
-Updated: 2026-01-08 - Added schema isolation verification
+Created: 2026-01-08
+Updated: 2026-01-20 - Merged ownership.py functions
 """
+
+from typing import Any, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.public.user import User, UserRole
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -29,8 +27,7 @@ def verify_schema_isolation(db: Session, expected_user_id: int) -> bool:
     Verify that the database session is using the correct user schema.
 
     Defense-in-depth check: Ensures that the session's search_path
-    matches the expected user schema. This is an optional paranoid check
-    on top of the get_user_db() dependency.
+    matches the expected user schema.
 
     Args:
         db: SQLAlchemy session
@@ -41,11 +38,6 @@ def verify_schema_isolation(db: Session, expected_user_id: int) -> bool:
 
     Raises:
         HTTPException: 500 if schema mismatch detected (security violation)
-
-    Usage:
-        # Optional paranoid check on sensitive endpoints
-        db, current_user = user_db
-        verify_schema_isolation(db, current_user.id)
     """
     try:
         # Get current search_path
@@ -78,6 +70,107 @@ def verify_schema_isolation(db: Session, expected_user_id: int) -> bool:
         )
 
 
+def ensure_resource_ownership(
+    resource: Optional[object],
+    resource_name: str,
+    identifier: int | str,
+    user_id: int
+) -> object:
+    """
+    Ensure a resource exists and belongs to the current user.
+
+    For models WITH user_id field: Checks user_id matches.
+    For models WITHOUT user_id field: Relies on schema isolation (already verified by get_user_db).
+
+    Args:
+        resource: Database object (or None if not found)
+        resource_name: Type of resource for error message (e.g., "Product", "Order")
+        identifier: Resource identifier for error message
+        user_id: Current user ID (for logging)
+
+    Returns:
+        The resource object if valid
+
+    Raises:
+        HTTPException: 404 if resource not found
+        HTTPException: 403 if resource belongs to different user
+    """
+    if resource is None:
+        logger.warning(
+            f"[AccessDenied] {resource_name} {identifier} not found "
+            f"(user_id: {user_id})"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{resource_name} not found"
+        )
+
+    # If resource has user_id field, verify ownership
+    if hasattr(resource, "user_id"):
+        if resource.user_id != user_id:
+            logger.error(
+                f"[SecurityViolation] User {user_id} attempted to access "
+                f"{resource_name} {identifier} owned by user {resource.user_id}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+
+    # Note: For resources without user_id, ownership is enforced by schema isolation
+    # (the query wouldn't find the resource if it's in a different user's schema)
+
+    return resource
+
+
+def require_permission(user_role: str, required_roles: list[str]) -> bool:
+    """
+    Check if user has required role/permission.
+
+    Args:
+        user_role: Current user's role (e.g., "user", "admin")
+        required_roles: List of allowed roles (e.g., ["admin", "moderator"])
+
+    Returns:
+        True if user has permission
+
+    Raises:
+        HTTPException: 403 if user lacks required permission
+    """
+    if user_role not in required_roles:
+        logger.warning(
+            f"[AccessDenied] User with role '{user_role}' attempted to access "
+            f"resource requiring roles: {required_roles}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions"
+        )
+
+    return True
+
+
+def is_admin(user_role: str) -> bool:
+    """
+    Check if user is admin.
+
+    Args:
+        user_role: User's role
+
+    Returns:
+        True if admin
+
+    Raises:
+        HTTPException: 403 if not admin
+    """
+    return require_permission(user_role, ["admin"])
+
+
+# =============================================================================
+# ROLE-BASED ACCESS CONTROL (merged from ownership.py)
+# =============================================================================
+
+
 def check_resource_ownership(
     user: User,
     resource_user_id: int,
@@ -88,7 +181,7 @@ def check_resource_ownership(
     """
     Vérifie que l'utilisateur a le droit d'accéder à une ressource.
 
-    Business Rules (2025-12-08):
+    Business Rules:
     - USER: Peut uniquement accéder à ses propres ressources
     - ADMIN: Peut accéder à toutes les ressources (si allow_admin=True)
     - SUPPORT: Peut accéder à toutes les ressources en lecture (si allow_support=True)
@@ -121,7 +214,7 @@ def check_resource_ownership(
 
 def ensure_user_owns_resource(
     user: User,
-    resource: any,
+    resource: Any,
     resource_type: str = "ressource",
     allow_support: bool = True  # Par défaut, SUPPORT peut lire
 ) -> None:
@@ -131,7 +224,7 @@ def ensure_user_owns_resource(
     Raccourci pour check_resource_ownership qui extrait automatiquement
     le user_id de la ressource.
 
-    Business Rules (2025-12-09):
+    Business Rules:
     - Si la ressource a un attribut user_id: vérifie l'ownership classique
     - Si pas de user_id: assume que l'isolation est faite par schema (multi-tenant)
       → Dans ce cas, ADMIN et SUPPORT (si allow_support=True) peuvent accéder
@@ -170,7 +263,7 @@ def ensure_can_modify(user: User, resource_type: str = "ressource") -> None:
     """
     Vérifie que l'utilisateur peut modifier une ressource.
 
-    Business Rules (2025-12-09):
+    Business Rules:
     - SUPPORT ne peut JAMAIS modifier (lecture seule)
     - ADMIN et USER peuvent modifier (sous réserve d'ownership)
 
@@ -192,7 +285,7 @@ def can_modify_resource(user: User, resource_user_id: int) -> bool:
     """
     Vérifie si l'utilisateur peut modifier une ressource.
 
-    Business Rules (2025-12-08):
+    Business Rules:
     - USER: Peut uniquement modifier ses propres ressources
     - ADMIN: Peut modifier toutes les ressources
     - SUPPORT: Ne peut rien modifier (lecture seule)
@@ -220,7 +313,7 @@ def can_view_resource(user: User, resource_user_id: int) -> bool:
     """
     Vérifie si l'utilisateur peut consulter une ressource.
 
-    Business Rules (2025-12-08):
+    Business Rules:
     - USER: Peut uniquement consulter ses propres ressources
     - ADMIN: Peut consulter toutes les ressources
     - SUPPORT: Peut consulter toutes les ressources
@@ -241,7 +334,14 @@ def can_view_resource(user: User, resource_user_id: int) -> bool:
 
 
 __all__ = [
+    # Schema isolation
     "verify_schema_isolation",
+    # Resource ownership (simple)
+    "ensure_resource_ownership",
+    # Permission checks
+    "require_permission",
+    "is_admin",
+    # Role-based access control
     "check_resource_ownership",
     "ensure_user_owns_resource",
     "ensure_can_modify",
