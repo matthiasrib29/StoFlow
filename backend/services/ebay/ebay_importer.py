@@ -463,14 +463,15 @@ class EbayImporter:
             # Quantity details
             ebay_product.available_quantity = selected_offer.get("availableQuantity")
 
-            # Fallback: If availableQuantity not returned by getOffers (common for OUT_OF_STOCK),
-            # calculate from existing quantity and soldQuantity (2026-01-19)
-            if ebay_product.available_quantity is None and ebay_product.sold_quantity is not None:
+            # Fallback: If availableQuantity not returned by getOffers (common for most products),
+            # use quantity from inventory item minus sold quantity (2026-01-20)
+            if ebay_product.available_quantity is None:
                 initial_qty = ebay_product.quantity or 1
-                ebay_product.available_quantity = max(0, initial_qty - ebay_product.sold_quantity)
+                sold_qty = ebay_product.sold_quantity or 0
+                ebay_product.available_quantity = max(0, initial_qty - sold_qty)
                 logger.debug(
                     f"[Enrich] Calculated available_quantity={ebay_product.available_quantity} "
-                    f"for SKU {ebay_product.ebay_sku} (qty={initial_qty}, sold={ebay_product.sold_quantity})"
+                    f"for SKU {ebay_product.ebay_sku} (qty={initial_qty}, sold={sold_qty})"
                 )
 
             ebay_product.lot_size = selected_offer.get("lotSize")
