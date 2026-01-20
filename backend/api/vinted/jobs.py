@@ -446,47 +446,173 @@ async def process_pending_jobs(
     limit: int = Query(10, ge=1, le=50, description="Max jobs à traiter"),
 ) -> dict:
     """
-    Traite les jobs pending (worker endpoint).
+    **DEPRECATED** - Vinted jobs are now executed by the frontend.
 
-    Peut être appelé par :
-    - Frontend (polling automatique)
-    - Cron job
-    - Trigger manuel
+    This endpoint is deprecated as of 2026-01-20.
+    Vinted jobs require WebSocket communication via the browser plugin,
+    which cannot be done from a backend worker.
 
-    Args:
-        limit: Nombre maximum de jobs à traiter dans cette exécution
+    **New architecture:**
+    1. Celery creates MarketplaceJob via VintedJobBridgeService
+    2. Frontend receives 'vinted_job_pending' WebSocket event
+    3. Frontend executes job via browser plugin
+    4. Frontend calls PATCH /api/vinted/jobs/{job_id}/start, /complete, or /fail
+
+    **Migration:**
+    - Use GET /api/vinted/jobs?status=pending to get pending jobs
+    - Execute each job via the browser plugin
+    - Call PATCH /{job_id}/start before execution
+    - Call PATCH /{job_id}/complete or /{job_id}/fail after execution
 
     Returns:
-        {
-            "processed": int,
-            "success_count": int,
-            "failed_count": int,
-            "results": list[dict]
-        }
+        HTTPException 410 GONE - endpoint deprecated
+    """
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={
+            "message": "Endpoint deprecated. Vinted jobs are now executed by the frontend.",
+            "migration": {
+                "step1": "GET /api/vinted/jobs?status=pending to list pending jobs",
+                "step2": "PATCH /api/vinted/jobs/{job_id}/start before execution",
+                "step3": "Execute via browser plugin",
+                "step4": "PATCH /api/vinted/jobs/{job_id}/complete or /fail after execution",
+            },
+        },
+    )
+
+
+# =============================================================================
+# JOB EXECUTION ENDPOINTS (for frontend)
+# =============================================================================
+
+
+class JobCompleteRequest(BaseModel):
+    """Request body for completing a job."""
+
+    result: dict = Field(default_factory=dict, description="Result data from execution")
+
+
+class JobFailRequest(BaseModel):
+    """Request body for failing a job."""
+
+    error: str = Field(..., description="Error message")
+
+
+@router.patch("/{job_id}/start")
+async def start_job(
+    job_id: int,
+    user_db: tuple = Depends(get_user_db),
+) -> dict:
+    """
+    Mark a job as RUNNING (called by frontend before execution).
+
+    The frontend should call this endpoint before executing the job
+    via the browser plugin. This allows proper tracking of job execution time.
+
+    Args:
+        job_id: Job ID to start
+
+    Returns:
+        {"success": True, "job_id": int, "status": "running"}
+
+    Raises:
+        404: Job not found
     """
     db, current_user = user_db
+    service = MarketplaceJobService(db)
 
-    try:
-        from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
-
-        processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=None, marketplace="vinted")
-        results = await processor.process_all_pending_jobs(
-            max_jobs=limit,
-            stop_on_error=False
-        )
-
-        success_count = sum(1 for r in results if r.get("success", False))
-        failed_count = len(results) - success_count
-
-        return {
-            "processed": len(results),
-            "success_count": success_count,
-            "failed_count": failed_count,
-            "results": results
-        }
-
-    except Exception as e:
+    job = service.start_job(job_id)
+    if not job:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur traitement jobs: {str(e)}"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job not found: {job_id}",
         )
+
+    db.commit()
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "status": "running",
+    }
+
+
+@router.patch("/{job_id}/complete")
+async def complete_job(
+    job_id: int,
+    request: JobCompleteRequest,
+    user_db: tuple = Depends(get_user_db),
+) -> dict:
+    """
+    Mark a job as COMPLETED (called by frontend after successful execution).
+
+    The frontend should call this endpoint after successfully executing
+    the job via the browser plugin.
+
+    Args:
+        job_id: Job ID to complete
+        request: Contains result data from execution
+
+    Returns:
+        {"success": True, "job_id": int, "status": "completed"}
+
+    Raises:
+        404: Job not found
+    """
+    db, current_user = user_db
+    service = MarketplaceJobService(db)
+
+    job = service.complete_job(job_id, result_data=request.result)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job not found: {job_id}",
+        )
+
+    db.commit()
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "status": "completed",
+    }
+
+
+@router.patch("/{job_id}/fail")
+async def fail_job(
+    job_id: int,
+    request: JobFailRequest,
+    user_db: tuple = Depends(get_user_db),
+) -> dict:
+    """
+    Mark a job as FAILED (called by frontend after failed execution).
+
+    The frontend should call this endpoint after a job execution fails.
+
+    Args:
+        job_id: Job ID to mark as failed
+        request: Contains error message
+
+    Returns:
+        {"success": True, "job_id": int, "status": "failed"}
+
+    Raises:
+        404: Job not found
+    """
+    db, current_user = user_db
+    service = MarketplaceJobService(db)
+
+    job = service.fail_job(job_id, error_message=request.error)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job not found: {job_id}",
+        )
+
+    db.commit()
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "status": "failed",
+    }
