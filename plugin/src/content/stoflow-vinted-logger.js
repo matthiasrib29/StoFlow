@@ -26,12 +26,19 @@
             warn: (...args) => console.warn('[Stoflow API]', '⚠', ...args),
             error: (...args) => console.error('[Stoflow API]', '✗', ...args)
         },
-        // DataDome logs
+        // Session logs
+        session: {
+            debug: (...args) => DEBUG_ENABLED && console.log('[Session]', ...args),
+            info: (...args) => console.log('[Session]', '✓', ...args),
+            warn: (...args) => console.warn('[Session]', '⚠', ...args),
+            error: (...args) => console.error('[Session]', '✗', ...args)
+        },
+        // Backward compatibility alias
         dd: {
-            debug: (...args) => DEBUG_ENABLED && console.log('[DataDome]', ...args),
-            info: (...args) => console.log('[DataDome]', '✓', ...args),
-            warn: (...args) => console.warn('[DataDome]', '⚠', ...args),
-            error: (...args) => console.error('[DataDome]', '✗', ...args)
+            debug: (...args) => DEBUG_ENABLED && console.log('[Session]', ...args),
+            info: (...args) => console.log('[Session]', '✓', ...args),
+            warn: (...args) => console.warn('[Session]', '⚠', ...args),
+            error: (...args) => console.error('[Session]', '✗', ...args)
         }
     };
 

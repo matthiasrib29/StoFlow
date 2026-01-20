@@ -80,7 +80,7 @@
     {
       "resources": [
         "src/content/stoflow-vinted-logger.js",
-        "src/content/stoflow-vinted-datadome.js",
+        "src/content/stoflow-vinted-session.js",
         "src/content/stoflow-vinted-api-core.js",
         "src/content/stoflow-vinted-bootstrap.js"
       ],
