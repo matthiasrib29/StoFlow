@@ -637,7 +637,7 @@ class EbayPaymentDisputeService:
         # Get action needed disputes
         action_needed = self.repository.get_action_needed_disputes(limit=100)
 
-        threshold_date = datetime.utcnow() + timedelta(days=days_threshold)
+        threshold_date = datetime.now(timezone.utc) + timedelta(days=days_threshold)
 
         for dispute in action_needed:
             if dispute.respond_by_date:

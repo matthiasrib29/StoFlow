@@ -174,6 +174,7 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/formatters'
 import type { PriceInput } from '~/composables/usePricingCalculation'
+import { productLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard'
@@ -230,7 +231,7 @@ const handleCalculatePrice = async () => {
     showSuccess('Success', 'Price calculated successfully', 3000)
   } catch (err) {
     // Error already handled in composable
-    console.error('Price calculation failed:', err)
+    productLogger.error('Price calculation failed:', err)
   }
 }
 

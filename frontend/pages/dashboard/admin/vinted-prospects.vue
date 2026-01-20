@@ -294,6 +294,7 @@ import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
 import StatCard from '~/components/admin/StatCard.vue'
 import { useAuthStore } from '~/stores/auth'
+import { adminLogger } from '~/utils/logger'
 
 definePageMeta({
   layout: 'dashboard',
@@ -434,7 +435,7 @@ async function fetchStats() {
   try {
     stats.value = await apiGet('/api/admin/vinted-prospects/stats')
   } catch (e: any) {
-    console.error('Failed to fetch stats:', e)
+    adminLogger.error('Failed to fetch stats:', e)
   } finally {
     isLoadingStats.value = false
   }

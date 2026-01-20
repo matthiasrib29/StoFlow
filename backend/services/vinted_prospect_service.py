@@ -7,7 +7,7 @@ Author: Claude
 Date: 2026-01-19
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from sqlalchemy import func, or_
@@ -136,7 +136,7 @@ class VintedProspectService:
             prospect.status = status
             # Set contacted_at when status changes to 'contacted'
             if status == "contacted" and not prospect.contacted_at:
-                prospect.contacted_at = datetime.utcnow()
+                prospect.contacted_at = datetime.now(timezone.utc)
 
         if notes is not None:
             prospect.notes = notes
@@ -164,7 +164,7 @@ class VintedProspectService:
         """
         update_data = {"status": status}
         if status == "contacted":
-            update_data["contacted_at"] = datetime.utcnow()
+            update_data["contacted_at"] = datetime.now(timezone.utc)
 
         result = db.query(VintedProspect).filter(
             VintedProspect.id.in_(prospect_ids)

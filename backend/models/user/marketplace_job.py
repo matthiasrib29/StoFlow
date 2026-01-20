@@ -20,7 +20,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -51,7 +51,11 @@ class MarketplaceJob(Base):
     """
 
     __tablename__ = "marketplace_jobs"
-    __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
+    __table_args__ = (
+        # Composite index for job processing query optimization
+        Index("idx_marketplace_jobs_processing", "marketplace", "status", "priority", "created_at"),
+        {"schema": "tenant"}  # Placeholder for schema_translate_map
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
@@ -185,9 +189,9 @@ class MarketplaceJob(Base):
         index=True
     )
 
-    # Relationships
-    batch_job = relationship("BatchJob", back_populates="jobs", lazy="select")
-    product = relationship("Product", foreign_keys=[product_id], lazy="select")
+    # Relationships - lazy="raise" to prevent N+1 queries
+    batch_job = relationship("BatchJob", back_populates="jobs", lazy="raise")
+    product = relationship("Product", foreign_keys=[product_id], lazy="raise")
     # NOTE (2026-01-09): tasks relationship removed - MarketplaceTask not used (Option A: simple)
     # Handlers call WebSocket/HTTP directly without creating granular tasks in DB
 

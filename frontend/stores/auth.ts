@@ -1,3 +1,11 @@
+/**
+ * Auth Store
+ *
+ * Security (2026-01-20):
+ * - JWT tokens stored in httpOnly cookies (XSS protection)
+ * - CSRF token set by backend on login
+ * - Backward compatible with localStorage during migration
+ */
 import { defineStore } from 'pinia'
 import { useTokenValidator } from '~/composables/useTokenValidator'
 import {
@@ -190,6 +198,11 @@ export const useAuthStore = defineStore('auth', {
      * Connexion utilisateur via l'API FastAPI
      * Endpoint: POST /api/auth/login?source=web
      *
+     * Security (2026-01-20):
+     * - Uses credentials: 'include' to receive httpOnly cookies
+     * - Tokens stored in cookies by backend (not localStorage)
+     * - Backward compatible: still stores in localStorage during migration
+     *
      * Business rules (backend):
      * - Rate limiting: 10 tentatives par 5 minutes par IP
      * - Timing attack protection: délai aléatoire 100-300ms
@@ -210,6 +223,7 @@ export const useAuthStore = defineStore('auth', {
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include',  // CRITICAL: Receive cookies from server
           body: JSON.stringify({
             email,
             password
@@ -242,17 +256,19 @@ export const useAuthStore = defineStore('auth', {
         }
 
         this.user = user
+        // Tokens are now primarily in cookies, but keep in state for backward compat
         this.token = data.access_token
         this.refreshToken = data.refresh_token
         this.isAuthenticated = true
 
-        // Store in secure storage
+        // Store in secure storage for backward compatibility during migration
+        // TODO (2026-02-01): Remove localStorage storage after full cookie adoption
         if (import.meta.client) {
           setAuthData({
             accessToken: data.access_token,
             refreshToken: data.refresh_token,
             user,
-            expiresInSeconds: 3600 // 1 hour default
+            expiresInSeconds: 900 // 15 minutes (matches backend access token)
           })
 
           // Connect WebSocket after successful login (2026-01-19)
@@ -272,12 +288,35 @@ export const useAuthStore = defineStore('auth', {
 
     /**
      * Déconnexion
+     *
+     * Security (2026-01-20):
+     * - Calls backend /auth/logout to clear httpOnly cookies
+     * - Also clears localStorage for backward compatibility
      */
-    logout() {
+    async logout() {
       // Disconnect WebSocket BEFORE clearing auth (2026-01-19)
       if (import.meta.client && wsComposable) {
         authLogger.debug('Disconnecting WebSocket on logout...')
         wsComposable.disconnect()
+      }
+
+      // Call backend to clear cookies
+      if (import.meta.client) {
+        try {
+          const config = useRuntimeConfig()
+          const baseURL = config.public.apiBaseUrl
+
+          await fetch(`${baseURL}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',  // Send cookies for revocation
+          })
+        } catch (error) {
+          // Log but don't throw - we still want to clear local state
+          authLogger.warn('Logout API call failed:', error)
+        }
+
+        // Clear all tokens from secure storage (backward compatibility)
+        clearTokens()
       }
 
       this.user = null
@@ -285,11 +324,6 @@ export const useAuthStore = defineStore('auth', {
       this.refreshToken = null
       this.isAuthenticated = false
       this.error = null
-
-      if (import.meta.client) {
-        // Clear all tokens from secure storage
-        clearTokens()
-      }
     },
 
     /**
@@ -364,17 +398,19 @@ export const useAuthStore = defineStore('auth', {
      * Rafraîchir le token d'accès avec le refresh token
      * Endpoint: POST /api/auth/refresh
      *
+     * Security (2026-01-20):
+     * - Uses httpOnly cookie for refresh token (via credentials: include)
+     * - Falls back to body for backward compatibility
+     *
      * Business rules (backend):
      * - Refresh token valide 7 jours
-     * - Access token valide 1 heure
+     * - Access token valide 15 minutes
      * - Vérifie que l'utilisateur est toujours actif
      * - Retourne seulement le nouvel access_token (pas de nouveau refresh_token)
      */
     async refreshAccessToken(): Promise<boolean> {
-      if (!this.refreshToken) {
-        this.logout()
-        return false
-      }
+      // Note: We may not have refreshToken in state if using cookie-only auth
+      // The cookie will be sent automatically via credentials: include
 
       try {
         const config = useRuntimeConfig()
@@ -385,14 +421,16 @@ export const useAuthStore = defineStore('auth', {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
+          credentials: 'include',  // CRITICAL: Send refresh_token cookie
+          // Body for backward compatibility (cookie takes priority on backend)
+          body: this.refreshToken ? JSON.stringify({
             refresh_token: this.refreshToken
-          }),
+          }) : undefined,
         })
 
         if (!response.ok) {
           // Si le refresh échoue (401), le refresh token est expiré ou invalide
-          this.logout()
+          await this.logout()
           return false
         }
 
@@ -402,8 +440,8 @@ export const useAuthStore = defineStore('auth', {
         this.token = data.access_token
 
         if (import.meta.client) {
-          // Update access token in secure storage
-          setAccessToken(data.access_token, 3600) // 1 hour default
+          // Update access token in secure storage for backward compatibility
+          setAccessToken(data.access_token, 900) // 15 minutes (matches backend)
 
           // Update WebSocket auth without reconnecting (2026-01-19)
           if (wsComposable && this.user) {
@@ -414,8 +452,54 @@ export const useAuthStore = defineStore('auth', {
         return true
       } catch (error) {
         authLogger.error('Token refresh error:', error)
-        this.logout()
+        await this.logout()
         return false
+      }
+    },
+
+    /**
+     * Check authentication status by calling /users/me endpoint
+     *
+     * Security (2026-01-20):
+     * - Uses httpOnly cookie for auth (via credentials: include)
+     * - Useful for checking if user has valid session without localStorage
+     * - Returns user data if authenticated, null otherwise
+     */
+    async checkAuth(): Promise<User | null> {
+      try {
+        const config = useRuntimeConfig()
+        const baseURL = config.public.apiBaseUrl
+
+        const response = await fetch(`${baseURL}/users/me`, {
+          method: 'GET',
+          credentials: 'include',  // Send access_token cookie
+        })
+
+        if (!response.ok) {
+          return null
+        }
+
+        const userData = await response.json()
+
+        // Update store state
+        const user: User = {
+          id: userData.id,
+          email: userData.email,
+          full_name: userData.full_name || '',
+          role: userData.role as 'user' | 'admin',
+          subscription_tier: userData.subscription_tier as User['subscription_tier'],
+          account_type: userData.account_type || 'individual',
+          country: userData.country || 'FR',
+          language: userData.language || 'fr'
+        }
+
+        this.user = user
+        this.isAuthenticated = true
+
+        return user
+      } catch (error) {
+        authLogger.debug('checkAuth failed:', error)
+        return null
       }
     }
   }

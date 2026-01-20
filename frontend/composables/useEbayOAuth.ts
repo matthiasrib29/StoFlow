@@ -142,7 +142,7 @@ export const useEbayOAuth = () => {
    */
   const initiateOAuth = async (onSuccess: () => void): Promise<boolean> => {
     if (!import.meta.client) {
-      console.warn('OAuth initiation called on server-side, ignoring')
+      oauthLogger.warn('OAuth initiation called on server-side, ignoring')
       return false
     }
 

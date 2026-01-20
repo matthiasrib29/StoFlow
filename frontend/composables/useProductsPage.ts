@@ -1,5 +1,6 @@
 import { storeToRefs } from 'pinia'
 import type { Product } from '~/stores/products'
+import { productLogger } from '~/utils/logger'
 
 export function useProductsPage() {
   const router = useRouter()
@@ -166,7 +167,7 @@ export function useProductsPage() {
           `${response.success_count} réussi(s), ${response.error_count} erreur(s)`,
           5000
         )
-        console.warn('Bulk status errors:', errors)
+        productLogger.warn('Bulk status errors:', errors)
       } else {
         // All failed
         const firstError = response.results.find(r => !r.success)?.error || 'Erreur inconnue'

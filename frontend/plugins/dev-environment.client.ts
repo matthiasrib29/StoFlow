@@ -2,6 +2,10 @@
  * Plugin to set dev environment indicator (favicon + title)
  * Only runs in client mode to avoid SSR issues
  */
+import { createLogger } from '~/utils/logger'
+
+const devLogger = createLogger({ prefix: 'DevEnv' })
+
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
   const devEnv = config.public.devEnv
@@ -25,7 +29,6 @@ export default defineNuxtPlugin(() => {
     const originalTitle = document.title
     document.title = `[DEV ${devEnv}] ${originalTitle}`
 
-    // Optional: Log to console for debugging
-    console.log(`🚀 Running in dev environment ${devEnv}`)
+    devLogger.info(`Running in dev environment ${devEnv}`)
   }
 })

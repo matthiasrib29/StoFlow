@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ebayLogger } from '~/utils/logger'
 /**
  * eBay INR Inquiry Detail Page
  *
@@ -120,7 +121,7 @@ const loadInquiry = async () => {
   try {
     inquiry.value = await fetchInquiry(inquiryId.value)
   } catch (error) {
-    console.error('Failed to load inquiry:', error)
+    ebayLogger.error('Failed to load inquiry:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -161,7 +162,7 @@ const handleProvideShipment = async () => {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Shipment info failed:', error)
+    ebayLogger.error('Shipment info failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -196,7 +197,7 @@ const handleProvideRefund = async () => {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Refund failed:', error)
+    ebayLogger.error('Refund failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -227,7 +228,7 @@ const handleSendMessage = async () => {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Send message failed:', error)
+    ebayLogger.error('Send message failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -261,7 +262,7 @@ const handleEscalate = async () => {
       throw new Error(result.message || 'Action failed')
     }
   } catch (error) {
-    console.error('Escalate failed:', error)
+    ebayLogger.error('Escalate failed:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',

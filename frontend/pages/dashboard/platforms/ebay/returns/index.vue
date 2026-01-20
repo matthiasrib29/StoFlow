@@ -159,6 +159,7 @@
 </template>
 
 <script setup lang="ts">
+import { ebayLogger } from '~/utils/logger'
 import type { EbayReturn, EbayReturnStatistics, EbayReturnStatus } from '~/types/ebay'
 
 definePageMeta({
@@ -279,7 +280,7 @@ const fetchReturns = async () => {
   } catch (e: unknown) {
     const err = e as Error
     error.value = err.message || 'Erreur lors du chargement des retours'
-    console.error('Failed to fetch eBay returns:', e)
+    ebayLogger.error('Failed to fetch eBay returns:', e)
   } finally {
     loading.value = false
     refreshing.value = false
@@ -290,7 +291,7 @@ const fetchStats = async () => {
   try {
     stats.value = await fetchStatistics()
   } catch (e) {
-    console.error('Failed to fetch return statistics:', e)
+    ebayLogger.error('Failed to fetch return statistics:', e)
   }
 }
 
