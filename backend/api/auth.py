@@ -18,8 +18,9 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from middleware.auth_rate_limit import get_auth_rate_limiter
+from api.dependencies.auth_dependencies import apply_rate_limit
 from models.public.user import User, UserRole, SubscriptionTier, AccountType, BusinessType, EstimatedProducts
+from models.public.subscription_quota import SubscriptionQuota
 from schemas.auth_schemas import LoginRequest, RefreshRequest, RefreshResponse, RegisterRequest, TokenResponse
 from services.auth_service import AuthService
 from services.email_service import EmailService
@@ -32,8 +33,8 @@ from shared.cookie_utils import (
     REFRESH_TOKEN_COOKIE,
 )
 from shared.database import get_db
-from shared.logging_setup import get_logger
-from shared.security_utils import redact_email, redact_password
+from shared.logging import get_logger
+from shared.logging import redact_email, redact_password
 
 logger = get_logger(__name__)
 
@@ -73,9 +74,7 @@ async def login(
     Raises:
         HTTPException: 401 si authentification échouée
     """
-    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
-    rate_limiter = get_auth_rate_limiter()
-    await rate_limiter.check_rate_limit(request, "login")
+    await apply_rate_limit(request, "login")
 
     # ===== SECURITY FIX (2025-12-05): Redact password dans logs =====
     # Log sans exposer le password
@@ -171,9 +170,7 @@ async def refresh_token(
     Raises:
         HTTPException: 401 si refresh token invalide ou compte inactif
     """
-    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
-    rate_limiter = get_auth_rate_limiter()
-    await rate_limiter.check_rate_limit(request_obj, "refresh")
+    await apply_rate_limit(request_obj, "refresh")
 
     # Priority: cookie > body (for backward compatibility)
     token_to_use = refresh_token_cookie
@@ -300,9 +297,7 @@ async def register(
     Raises:
         HTTPException: 400 si email déjà utilisé ou erreur de création
     """
-    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
-    rate_limiter = get_auth_rate_limiter()
-    await rate_limiter.check_rate_limit(request, "register")
+    await apply_rate_limit(request, "register")
 
     # Vérifier que l'email n'existe pas déjà
     # Security (2025-12-23): Message générique pour éviter énumération d'emails
@@ -316,8 +311,6 @@ async def register(
 
     try:
         # 1. Récupérer le quota FREE par défaut
-        from models.public.subscription_quota import SubscriptionQuota
-
         subscription_tier = SubscriptionTier.FREE
         quota = db.query(SubscriptionQuota).filter(
             SubscriptionQuota.tier == subscription_tier
@@ -433,9 +426,7 @@ async def verify_email(
     Raises:
         HTTPException: 400 si token invalide ou expiré
     """
-    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
-    rate_limiter = get_auth_rate_limiter()
-    await rate_limiter.check_rate_limit(request, "verify_email")
+    await apply_rate_limit(request, "verify_email")
 
     user = AuthService.verify_email_token(db, token)
 
@@ -473,9 +464,7 @@ async def resend_verification(
     Returns:
         Message de succès (toujours le même pour éviter enumeration)
     """
-    # ===== SECURITY FIX (2026-01-12): Rate limiting =====
-    rate_limiter = get_auth_rate_limiter()
-    await rate_limiter.check_rate_limit(request, "resend_verification")
+    await apply_rate_limit(request, "resend_verification")
 
     # Toujours retourner le même message pour éviter l'énumération d'emails
     success_message = {

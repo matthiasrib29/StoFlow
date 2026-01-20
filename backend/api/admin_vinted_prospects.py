@@ -27,7 +27,7 @@ from schemas.vinted_prospect_schemas import (
 )
 from services.vinted_prospect_service import VintedProspectService
 from shared.database import get_db, get_db_context
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

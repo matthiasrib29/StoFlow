@@ -31,7 +31,7 @@ from schemas.text_generator import (
     TextPreviewInput,
 )
 from services.product_text_generator import ProductTextGeneratorService
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -25,7 +25,7 @@ from models.user.batch_job import BatchJob, BatchJobStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 # MarketplaceTask removed (2026-01-09): WebSocket architecture, no granular tasks in DB
 from models.vinted.vinted_action_type import VintedActionType
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

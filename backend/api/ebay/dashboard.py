@@ -32,7 +32,7 @@ from schemas.ebay_dashboard_schemas import (
     UrgentItemsResponse,
 )
 from services.ebay.ebay_dashboard_service import EbayDashboardService
-from shared.logging_setup import setup_logging
+from shared.logging import setup_logging
 
 logger = setup_logging()
 

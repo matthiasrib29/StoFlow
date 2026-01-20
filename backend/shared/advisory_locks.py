@@ -30,7 +30,7 @@ Benefits:
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

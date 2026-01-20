@@ -21,7 +21,7 @@ import httpx
 from httpx import Response, TimeoutException, ConnectError, ReadError
 
 from shared.config import get_settings
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 settings = get_settings()

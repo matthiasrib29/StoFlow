@@ -26,6 +26,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
+from api.dependencies.ebay_order_dependencies import get_order_stats
 from models.public.user import User
 from repositories.ebay_order_repository import EbayOrderRepository
 from schemas.ebay_order_schemas import (
@@ -41,7 +42,7 @@ from services.ebay.ebay_order_fulfillment_service import (
     EbayOrderFulfillmentService,
 )
 from services.ebay.ebay_order_sync_service import EbayOrderSyncService
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -305,24 +306,8 @@ def list_orders(
         # Convert to response models
         items = [EbayOrderDetailResponse.model_validate(order) for order in orders]
 
-        # Calculate global stats (not affected by pagination filters)
-        from models.user.ebay_order import EbayOrder
-        from sqlalchemy import func
-
-        stats_query = db.query(EbayOrder)
-
-        # Total revenue
-        total_revenue = db.query(func.coalesce(func.sum(EbayOrder.total_price), 0)).scalar() or 0
-
-        # Pending count (NOT_STARTED + IN_PROGRESS)
-        pending_count = stats_query.filter(
-            EbayOrder.order_fulfillment_status.in_(["NOT_STARTED", "IN_PROGRESS"])
-        ).count()
-
-        # Shipped count (FULFILLED)
-        shipped_count = stats_query.filter(
-            EbayOrder.order_fulfillment_status == "FULFILLED"
-        ).count()
+        # Calculate global stats
+        stats = get_order_stats(db)
 
         logger.debug(
             f"[GET /orders] Returned {len(items)} orders for user {current_user.id} "
@@ -335,9 +320,9 @@ def list_orders(
             page=page,
             page_size=page_size,
             total_pages=total_pages,
-            total_revenue=float(total_revenue),
-            pending_count=pending_count,
-            shipped_count=shipped_count,
+            total_revenue=stats["total_revenue"],
+            pending_count=stats["pending_count"],
+            shipped_count=stats["shipped_count"],
         )
 
     except Exception as e:

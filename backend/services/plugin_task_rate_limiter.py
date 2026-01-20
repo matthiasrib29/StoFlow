@@ -17,7 +17,7 @@ import asyncio
 import random
 import time
 
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -19,7 +19,7 @@ from schemas.admin_schemas import (
     AdminStatsRecentActivity,
 )
 from services.admin_stats_service import AdminStatsService
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

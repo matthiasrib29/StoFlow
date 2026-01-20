@@ -18,7 +18,7 @@ from typing import Optional
 from io import BytesIO
 
 from services.vinted.vinted_mapper import VintedMapper
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -35,7 +35,7 @@ from sqlalchemy.orm import Session
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from services.vinted.vinted_job_service import VintedJobService
 from services.vinted.jobs import HANDLERS
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from services.ebay.ebay_post_order_client import EbayPostOrderClient
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

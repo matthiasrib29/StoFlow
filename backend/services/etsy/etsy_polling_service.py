@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from services.etsy.etsy_listing_client import EtsyListingClient
 from services.etsy.etsy_receipt_client import EtsyReceiptClient
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

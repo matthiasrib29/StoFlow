@@ -20,8 +20,8 @@ from models.user.product import Product
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_product_converter import VintedProductConverter
-from shared.vinted_constants import VintedImageAPI
-from shared.logging_setup import get_logger
+from shared.vinted import VintedImageAPI
+from shared.logging import get_logger
 from shared.config import settings
 
 logger = get_logger(__name__)

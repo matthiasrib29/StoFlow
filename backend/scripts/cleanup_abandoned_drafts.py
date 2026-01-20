@@ -27,7 +27,7 @@ sys.path.insert(0, str(backend_dir))
 
 from sqlalchemy import text
 from shared.database import SessionLocal
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -28,7 +28,7 @@ from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.batch_job import BatchJob
 from models.user.marketplace_job_stats import MarketplaceJobStats
 from shared.advisory_locks import AdvisoryLockHelper
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

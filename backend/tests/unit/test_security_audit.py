@@ -351,19 +351,19 @@ class TestSecurityUtilsAvailability:
 
     def test_redact_email_exists(self):
         """Test que redact_email existe."""
-        from shared.security_utils import redact_email
+        from shared.logging import redact_email
 
         assert callable(redact_email)
 
     def test_redact_password_exists(self):
         """Test que redact_password existe."""
-        from shared.security_utils import redact_password
+        from shared.logging import redact_password
 
         assert callable(redact_password)
 
     def test_sanitize_for_log_exists(self):
         """Test que sanitize_for_log existe."""
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         assert callable(sanitize_for_log)
 

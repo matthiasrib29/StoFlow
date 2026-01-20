@@ -22,7 +22,7 @@ from services.vinted.vinted_mapper import VintedMapper
 from services.product_service import ProductService
 from services.file_service import FileService
 from shared.datetime_utils import utc_now
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

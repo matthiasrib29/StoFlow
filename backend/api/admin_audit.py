@@ -18,7 +18,7 @@ from schemas.admin_schemas import (
     AdminAuditLogListResponse,
 )
 from services.admin_audit_service import AdminAuditService
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

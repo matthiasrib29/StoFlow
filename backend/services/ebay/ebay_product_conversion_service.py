@@ -35,7 +35,7 @@ from services.ebay.ebay_aspect_value_service import (
 )
 from services.ebay.ebay_mapper import EbayMapper
 from shared.exceptions import ProductValidationError
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

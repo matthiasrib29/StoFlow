@@ -18,7 +18,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 from services.vinted.vinted_attribute_extractor import VintedAttributeExtractor
 
 logger = get_logger(__name__)

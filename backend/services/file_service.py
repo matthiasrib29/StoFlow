@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from models.user.product import Product
 from services.r2_service import r2_service
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

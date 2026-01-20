@@ -21,7 +21,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from models.user.ebay_inquiry import EbayInquiry
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

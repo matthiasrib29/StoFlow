@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import require_admin
 from shared.database import get_db
-from shared.logging_setup import setup_logging
+from shared.logging import setup_logging
 from models.public.doc_category import DocCategory
 from models.public.doc_article import DocArticle
 from models.public.user import User

@@ -27,7 +27,7 @@ from models.user.ebay_credentials import EbayCredentials
 from models.user.etsy_credentials import EtsyCredentials
 from shared.database import SessionLocal, get_db_context
 from shared.encryption import get_encryption_service
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -16,7 +16,7 @@ import pytest
 from unittest.mock import Mock
 from fastapi import HTTPException
 
-from shared.ownership import (
+from shared.access_control import (
     check_resource_ownership,
     ensure_user_owns_resource,
     ensure_can_modify,

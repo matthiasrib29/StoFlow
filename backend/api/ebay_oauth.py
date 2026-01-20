@@ -15,20 +15,20 @@ Date: 2025-12-10
 Refactored: 2025-12-12
 """
 
-import json
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user, get_db, get_user_db
+from api.dependencies.ebay_oauth_dependencies import get_ebay_policies
 from models.public.user import User
 from models.user.ebay_credentials import EbayCredentials
 from shared.exceptions import EbayError
+from shared.html_templates import build_oauth_success_html, build_oauth_error_html
 from services.ebay.ebay_oauth_service import (
     extract_user_id_from_state,
     generate_auth_url,
@@ -63,59 +63,6 @@ class EbayManualCodeSubmission(BaseModel):
     code: str
     state: str
     sandbox: bool = False
-
-
-# ========== HTML TEMPLATES ==========
-
-
-def _build_success_html(result: dict) -> str:
-    """Build HTML page for successful OAuth."""
-    result_json = json.dumps(result)
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head><title>eBay Connected</title></head>
-    <body>
-        <h2>Connexion eBay reussie !</h2>
-        <p>Vous pouvez fermer cette fenetre.</p>
-        <script>
-            if (window.opener) {{
-                window.opener.postMessage({{
-                    type: 'ebay_oauth_success',
-                    data: {result_json}
-                }}, '*');
-                setTimeout(() => window.close(), 1000);
-            }} else {{
-                setTimeout(() => window.location.href = '/dashboard/platforms/ebay', 2000);
-            }}
-        </script>
-    </body>
-    </html>
-    """
-
-
-def _build_error_html(error_message: str) -> str:
-    """Build HTML page for OAuth error."""
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head><title>eBay Connection Error</title></head>
-    <body>
-        <h2>Erreur de connexion eBay</h2>
-        <p>{error_message}</p>
-        <p>Vous pouvez fermer cette fenetre et reessayer.</p>
-        <script>
-            if (window.opener) {{
-                window.opener.postMessage({{
-                    type: 'ebay_oauth_error',
-                    error: '{error_message}'
-                }}, '*');
-                setTimeout(() => window.close(), 3000);
-            }}
-        </script>
-    </body>
-    </html>
-    """
 
 
 # ========== ROUTES ==========
@@ -204,7 +151,7 @@ def ebay_callback(
             )
 
         # Set schema for multi-tenant isolation (survives commit/rollback)
-        from shared.schema_utils import configure_schema_translate_map
+        from shared.schema import configure_schema_translate_map
         configure_schema_translate_map(db, f"user_{user_id}")
 
         # Define schema_name for multi-tenant isolation
@@ -220,13 +167,13 @@ def ebay_callback(
             schema_name=schema_name,
         )
 
-        return HTMLResponse(content=_build_success_html(result))
+        return HTMLResponse(content=build_oauth_success_html(result, "eBay"))
 
     except HTTPException:
         raise
     except Exception as e:
         return HTMLResponse(
-            content=_build_error_html(str(e)),
+            content=build_oauth_error_html(str(e), "eBay"),
             status_code=500,
         )
 
@@ -348,7 +295,7 @@ def get_ebay_account_info(
     from services.ebay.ebay_account_client import EbayAccountClient
     from services.ebay.ebay_identity_client import EbayIdentityClient
     from services.ebay.ebay_trading_client import EbayTradingClient
-    from shared.logging_setup import get_logger
+    from shared.logging import get_logger
 
     logger = get_logger(__name__)
 
@@ -425,76 +372,24 @@ def get_ebay_account_info(
         )
 
 
-@router.get("/policies/shipping")
-def get_shipping_policies(
+@router.get("/policies/{policy_type}")
+def get_policies(
+    policy_type: Literal["shipping", "return", "payment"] = Path(..., description="Policy type"),
     marketplace_id: str = Query("EBAY_FR", description="Marketplace ID"),
     db_user: tuple[Session, User] = Depends(get_user_db),
 ):
     """
-    Recupere les policies d'expédition eBay.
-    """
-    from services.ebay.ebay_account_client import EbayAccountClient
+    Recupere les policies eBay par type.
 
+    Args:
+        policy_type: Type de policy (shipping, return, payment)
+        marketplace_id: Marketplace ID (EBAY_FR, EBAY_DE, etc.)
+
+    Returns:
+        List of policies
+    """
     db, current_user = db_user
-    ebay_creds = db.query(EbayCredentials).first()
-
-    if not ebay_creds or not ebay_creds.get_access_token():
-        return []
-
-    try:
-        client = EbayAccountClient(db, user_id=current_user.id, marketplace_id=marketplace_id)
-        policies = client.get_fulfillment_policies()
-        return policies.get("fulfillmentPolicies", [])
-    except (EbayError, ValueError):
-        return []
-
-
-@router.get("/policies/return")
-def get_return_policies(
-    marketplace_id: str = Query("EBAY_FR", description="Marketplace ID"),
-    db_user: tuple[Session, User] = Depends(get_user_db),
-):
-    """
-    Recupere les policies de retour eBay.
-    """
-    from services.ebay.ebay_account_client import EbayAccountClient
-
-    db, current_user = db_user
-    ebay_creds = db.query(EbayCredentials).first()
-
-    if not ebay_creds or not ebay_creds.get_access_token():
-        return []
-
-    try:
-        client = EbayAccountClient(db, user_id=current_user.id, marketplace_id=marketplace_id)
-        policies = client.get_return_policies()
-        return policies.get("returnPolicies", [])
-    except (EbayError, ValueError):
-        return []
-
-
-@router.get("/policies/payment")
-def get_payment_policies(
-    marketplace_id: str = Query("EBAY_FR", description="Marketplace ID"),
-    db_user: tuple[Session, User] = Depends(get_user_db),
-):
-    """
-    Recupere les policies de paiement eBay.
-    """
-    from services.ebay.ebay_account_client import EbayAccountClient
-
-    db, current_user = db_user
-    ebay_creds = db.query(EbayCredentials).first()
-
-    if not ebay_creds or not ebay_creds.get_access_token():
-        return []
-
-    try:
-        client = EbayAccountClient(db, user_id=current_user.id, marketplace_id=marketplace_id)
-        policies = client.get_payment_policies()
-        return policies.get("paymentPolicies", [])
-    except (EbayError, ValueError):
-        return []
+    return get_ebay_policies(db, current_user.id, policy_type, marketplace_id)
 
 
 @router.get("/stats")

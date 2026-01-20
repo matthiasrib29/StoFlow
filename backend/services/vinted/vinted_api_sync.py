@@ -51,8 +51,8 @@ from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket 
 from services.product_status_manager import ProductStatusManager
 from services.vinted.vinted_data_extractor import VintedDataExtractor
 from services.vinted.vinted_product_enricher import VintedProductEnricher
-from shared.vinted_constants import VintedProductAPI
-from shared.logging_setup import get_logger
+from shared.vinted import VintedProductAPI
+from shared.logging import get_logger
 from shared.config import settings
 
 logger = get_logger(__name__)

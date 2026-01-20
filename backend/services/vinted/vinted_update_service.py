@@ -33,8 +33,8 @@ from services.vinted.vinted_title_service import VintedTitleService
 from services.vinted.vinted_description_service import VintedDescriptionService
 from services.vinted.vinted_product_converter import VintedProductConverter
 from services.plugin_websocket_helper import PluginWebSocketHelper
-from shared.vinted_constants import VintedProductAPI
-from shared.logging_setup import get_logger
+from shared.vinted import VintedProductAPI
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
