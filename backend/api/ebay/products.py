@@ -15,7 +15,7 @@ Date: 2025-12-19
 
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -184,9 +184,13 @@ async def list_ebay_products(
     # Apply filters
     if status:
         if status == "out_of_stock":
+            # Use available_quantity (from Offer API) which reflects actual availability
             # Handle both NULL and 0 as out of stock
             query = query.filter(
-                or_(EbayProduct.quantity == 0, EbayProduct.quantity.is_(None))
+                or_(
+                    EbayProduct.available_quantity == 0,
+                    EbayProduct.available_quantity.is_(None)
+                )
             )
         else:
             query = query.filter(EbayProduct.status == status)
@@ -426,20 +430,46 @@ def _apply_offer_to_product(product, offers: list, marketplace_id: str):
     product.merchant_location_key = selected_offer.get("merchantLocationKey")
 
     # Quantity details
-    product.available_quantity = selected_offer.get("availableQuantity")
+    api_available_qty = selected_offer.get("availableQuantity")
+    sold_qty = listing.get("soldQuantity", 0) or 0
+
+    # Calculate available_quantity with fallback
+    if api_available_qty is not None:
+        product.available_quantity = api_available_qty
+    else:
+        # Fallback: quantity - sold_quantity
+        current_qty = product.quantity or 0
+        product.available_quantity = max(0, current_qty - sold_qty)
+
     product.lot_size = selected_offer.get("lotSize")
     product.quantity_limit_per_buyer = selected_offer.get("quantityLimitPerBuyer")
 
     # Listing description
     product.listing_description = selected_offer.get("listingDescription")
 
-    # Status from offer
+    # Status and availability_type from offer
     offer_status = selected_offer.get("status")
+    listing_status = listing.get("listingStatus")
+
     if offer_status == "PUBLISHED":
-        product.status = "active"
-        product.published_at = utc_now()
+        if listing_status == "OUT_OF_STOCK" or product.available_quantity == 0:
+            product.status = "inactive"
+            product.availability_type = "OUT_OF_STOCK"
+        else:
+            product.status = "active"
+            product.availability_type = "IN_STOCK"
+            product.published_at = utc_now()
     elif offer_status == "ENDED":
         product.status = "ended"
+        product.availability_type = "OUT_OF_STOCK"
+    elif offer_status == "UNPUBLISHED":
+        product.status = "inactive"
+        product.availability_type = "OUT_OF_STOCK"
+    else:
+        # Unknown status - check available_quantity
+        if product.available_quantity == 0:
+            product.status = "inactive"
+            product.availability_type = "OUT_OF_STOCK"
 
 
 def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
@@ -510,6 +540,10 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
             for idx, item in enumerate(items):
                 sku = item.get("sku", "unknown")
                 logger.debug(f"[Background Import] Item {idx+1}/{len(items)}: SKU={sku}")
+
+                # IMPORTANT: Reconfigure schema before EACH item to handle connection pool changes
+                configure_schema_translate_map(db, schema_name)
+                db.execute(text(f"SET search_path TO {schema_name}, public"))
 
                 try:
                     import_result = importer._import_single_item(item, enrich=False)
@@ -614,18 +648,19 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
 
 @router.post("/import", response_model=ImportResponse)
 async def import_ebay_products(
-    background_tasks: BackgroundTasks,
     request: ImportRequest = Body(default=ImportRequest()),
     user_db: tuple = Depends(get_user_db),
 ):
     """
-    Importe les produits depuis eBay Inventory API (en arrière-plan).
+    Importe les produits depuis eBay Inventory API.
 
-    Crée un job de suivi et lance l'import en arrière-plan.
+    Crée un job de suivi qui sera traité par le worker dédié.
     L'opération est suivie via un MarketplaceJob visible dans le popup tâches.
 
+    The import runs in a dedicated worker process to avoid blocking
+    the main uvicorn worker with parallel API calls.
+
     Args:
-        background_tasks: FastAPI background tasks
         request: Paramètres d'import (marketplace_id)
         user_db: (Session DB, User) avec schema isolé
 
@@ -650,22 +685,14 @@ async def import_ebay_products(
             },
         )
 
-        # Set job to running
-        job.status = JobStatus.RUNNING
+        # Job stays PENDING - worker will pick it up via NOTIFY
         job_id = job.id
 
         db.commit()
 
         logger.info(
-            f"[POST /products/import] Created job #{job_id} for user {current_user.id}, starting background import"
-        )
-
-        # Schedule background task
-        background_tasks.add_task(
-            _run_import_in_background,
-            job_id=job_id,
-            user_id=current_user.id,
-            marketplace_id=request.marketplace_id,
+            f"[POST /products/import] Created job #{job_id} for user {current_user.id}, "
+            f"worker will pick it up via NOTIFY"
         )
 
         # Return immediately with job info
@@ -674,7 +701,11 @@ async def import_ebay_products(
             updated=0,
             skipped=0,
             errors=0,
-            details=[{"status": "started", "job_id": job_id, "message": "Import started in background"}],
+            details=[{
+                "status": "queued",
+                "job_id": job_id,
+                "message": "Import job queued for worker"
+            }],
         )
 
     except Exception as e:

@@ -173,6 +173,9 @@ async def cancel_ebay_job(
 ):
     """
     Cancel a specific eBay job.
+
+    Uses advisory locks for non-blocking cancellation signaling.
+    The worker will detect the cancel signal and stop processing.
     """
     db, current_user = user_db
 
@@ -195,14 +198,28 @@ async def cancel_ebay_job(
             message=f"Job already {job.status.value}",
         )
 
-    job.status = JobStatus.CANCELLED
+    # Signal cancellation via advisory lock (non-blocking)
+    from shared.advisory_locks import AdvisoryLockHelper
+    cancel_signaled = AdvisoryLockHelper.signal_cancel(db, job_id)
+
+    # Also set cancel_requested flag for cooperative cancellation
+    job.cancel_requested = True
+
+    # If job is PENDING (not yet picked up), mark as cancelled directly
+    if job.status == JobStatus.PENDING:
+        job.status = JobStatus.CANCELLED
+    # If RUNNING, worker will detect cancel signal and mark as cancelled
+
     db.commit()
 
-    logger.info(f"eBay job {job_id} cancelled by user {current_user.id}")
+    logger.info(
+        f"eBay job {job_id} cancellation requested by user {current_user.id} "
+        f"(advisory_lock_signaled={cancel_signaled})"
+    )
 
     return JobActionResponse(
         success=True,
         job_id=job_id,
-        new_status=JobStatus.CANCELLED.value,
-        message="Job cancelled successfully",
+        new_status=job.status.value,
+        message="Job cancellation requested" if job.status == JobStatus.RUNNING else "Job cancelled",
     )
