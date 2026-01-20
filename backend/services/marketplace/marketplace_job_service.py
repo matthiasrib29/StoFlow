@@ -240,7 +240,9 @@ class MarketplaceJobService:
         logger.debug(f"[MarketplaceJobService] Started job #{job_id}")
         return job
 
-    def complete_job(self, job_id: int) -> MarketplaceJob | None:
+    def complete_job(
+        self, job_id: int, result_data: dict | None = None
+    ) -> MarketplaceJob | None:
         """
         Mark a job as completed successfully.
 
@@ -248,6 +250,7 @@ class MarketplaceJobService:
 
         Args:
             job_id: Job ID
+            result_data: Optional result data from execution (stored in output_data)
 
         Returns:
             Updated MarketplaceJob or None if not found
@@ -260,6 +263,11 @@ class MarketplaceJobService:
 
         job.status = JobStatus.COMPLETED
         job.completed_at = datetime.now(timezone.utc)
+
+        # Store result data if provided
+        if result_data:
+            job.result_data = result_data
+
         self.db.flush()  # Use flush, not commit (preserve search_path)
 
         # Update stats

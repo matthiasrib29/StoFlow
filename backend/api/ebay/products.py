@@ -550,6 +550,11 @@ def _run_import_in_background(job_id: int, user_id: int, marketplace_id: str):
                 # Parallel enrichment (10 API calls at once)
                 _enrich_products_parallel(importer, batch, db, schema_name, max_workers=ENRICHMENT_BATCH_SIZE)
 
+                # IMPORTANT: Reconfigure schema after enrichment commit
+                # _enrich_products_parallel does db.commit() which may reset search_path
+                configure_schema_translate_map(db, schema_name)
+                db.execute(text(f"SET search_path TO {schema_name}, public"))
+
                 # Update progress after each batch (use direct UPDATE to avoid expired object issues)
                 imported_count += len(batch)
                 db.execute(

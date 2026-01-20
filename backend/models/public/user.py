@@ -265,6 +265,13 @@ class User(Base):
         cascade="all, delete-orphan"
     )
 
+    # Relation vers CeleryTaskRecord (Added: 2026-01-20)
+    celery_tasks: Mapped[list["CeleryTaskRecord"]] = relationship(
+        "CeleryTaskRecord",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
     # Note: Vinted connection data is stored in VintedConnection table (user_{id}.vinted_connection)
     # See models/user/vinted_connection.py for the source of truth
 

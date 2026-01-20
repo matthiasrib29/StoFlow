@@ -1,4 +1,21 @@
 services:
+  # Redis (Celery broker & result backend)
+  redis:
+    image: redis:7-alpine
+    container_name: stoflow_redis
+    command: redis-server --requirepass stoflow_redis_dev_pass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "stoflow_redis_dev_pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stoflow_network
+
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
@@ -45,6 +62,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
     driver: local
 
 networks:

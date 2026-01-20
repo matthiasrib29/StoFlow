@@ -52,7 +52,7 @@ class PublishProductRequest(BaseModel):
 
 
 class PublishProductResponse(BaseModel):
-    """Response après publication d'un produit."""
+    """Response après publication d'un produit (synchrone)."""
 
     success: bool
     sku_derived: str
@@ -60,6 +60,16 @@ class PublishProductResponse(BaseModel):
     listing_id: str
     marketplace_id: str
     message: str
+
+
+class PublishProductAsyncResponse(BaseModel):
+    """Response après publication async via Celery."""
+
+    task_id: str
+    status: str
+    message: str
+    product_id: int
+    marketplace_id: str
 
 
 class UnpublishProductRequest(BaseModel):
@@ -113,14 +123,79 @@ class BusinessPoliciesResponse(BaseModel):
 # ========== ROUTES ==========
 
 
-@router.post("/publish", response_model=PublishProductResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/publish", response_model=PublishProductAsyncResponse, status_code=status.HTTP_202_ACCEPTED)
 def publish_product(
     request: PublishProductRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Publie un produit sur une marketplace eBay.
+    Publie un produit sur une marketplace eBay (async via Celery).
+
+    Cette version asynchrone retourne immédiatement avec un task_id.
+    Le résultat peut être récupéré via GET /api/tasks/{task_id}.
+
+    Pour une publication synchrone (attente du résultat), utilisez POST /publish/sync.
+
+    **Workflow Celery:**
+    1. Crée une tâche Celery publish_product
+    2. Retourne immédiatement avec task_id
+    3. Le worker exécute la publication en background
+
+    **Exemple:**
+    ```bash
+    curl -X POST "http://localhost:8000/api/ebay/publish" \\
+      -H "Authorization: Bearer YOUR_TOKEN" \\
+      -H "Content-Type: application/json" \\
+      -d '{
+        "product_id": 12345,
+        "marketplace_id": "EBAY_FR",
+        "category_id": "11450"
+      }'
+    ```
+
+    **Response:**
+    ```json
+    {
+      "task_id": "abc123...",
+      "status": "PENDING",
+      "message": "Publication eBay en cours...",
+      "product_id": 12345,
+      "marketplace_id": "EBAY_FR"
+    }
+    ```
+    """
+    from tasks.marketplace_tasks import publish_product as publish_task
+
+    # Queue Celery task
+    task = publish_task.delay(
+        product_id=request.product_id,
+        user_id=current_user.id,
+        marketplace="ebay",
+        marketplace_id=request.marketplace_id,
+        category_id=request.category_id,
+    )
+
+    return PublishProductAsyncResponse(
+        task_id=task.id,
+        status="PENDING",
+        message=f"Publication eBay en cours pour produit {request.product_id}",
+        product_id=request.product_id,
+        marketplace_id=request.marketplace_id,
+    )
+
+
+@router.post("/publish/sync", response_model=PublishProductResponse, status_code=status.HTTP_201_CREATED)
+def publish_product_sync(
+    request: PublishProductRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Publie un produit sur une marketplace eBay (synchrone).
+
+    Cette version attend la fin de la publication et retourne le résultat complet.
+    Pour une publication asynchrone (non-bloquante), utilisez POST /publish.
 
     Workflow:
     1. Convertit le produit en Inventory Item eBay
@@ -136,7 +211,7 @@ def publish_product(
 
     **Exemple:**
     ```bash
-    curl -X POST "http://localhost:8000/api/ebay/publish" \\
+    curl -X POST "http://localhost:8000/api/ebay/publish/sync" \\
       -H "Authorization: Bearer YOUR_TOKEN" \\
       -H "Content-Type: application/json" \\
       -d '{

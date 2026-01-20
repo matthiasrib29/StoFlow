@@ -1,0 +1,212 @@
+# docker-compose.dev.yml
+#
+# Development environment with ALL services
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d     # Start all
+#   docker compose -f docker-compose.dev.yml up -d --build  # Rebuild & start
+#   docker compose -f docker-compose.dev.yml logs -f worker  # View worker logs
+#   docker compose -f docker-compose.dev.yml down      # Stop all
+#
+# Services:
+#   - postgres    : PostgreSQL database (port 5433)
+#   - redis       : Redis for Celery (port 6379)
+#   - backend     : FastAPI server (port 8000)
+#   - worker      : Celery worker
+#   - beat        : Celery beat scheduler
+#   - flower      : Celery monitoring UI (port 5555)
+#
+# URLs:
+#   - Backend API: http://localhost:8000
+#   - Swagger UI:  http://localhost:8000/docs
+#   - Flower:      http://localhost:5555
+#   - pgAdmin:     http://localhost:5050 (with --profile tools)
+
+services:
+  # ==========================================================================
+  # DATABASE
+  # ==========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: stoflow_postgres
+    environment:
+      POSTGRES_DB: stoflow_db
+      POSTGRES_USER: stoflow_user
+      POSTGRES_PASSWORD: stoflow_dev_password_2024
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    command: >
+      postgres
+      -c statement_timeout=60000
+      -c idle_in_transaction_session_timeout=300000
+      -c max_locks_per_transaction=256
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stoflow_user -d stoflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stoflow_network
+
+  # ==========================================================================
+  # REDIS (Celery Broker)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: stoflow_redis
+    command: redis-server --requirepass stoflow_redis_dev_pass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "stoflow_redis_dev_pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stoflow_network
+
+  # ==========================================================================
+  # FASTAPI BACKEND
+  # ==========================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stoflow_backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    environment:
+      - DATABASE_URL=postgresql://stoflow_user:stoflow_dev_password_2024@postgres:5432/stoflow_db
+      - REDIS_URL=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - CELERY_BROKER_URL=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - APP_ENV=development
+      - DEBUG=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - stoflow_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================================================
+  # CELERY WORKER
+  # ==========================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stoflow_worker
+    command: celery -A celery_app worker --loglevel=info --concurrency=4 --queues=default,marketplace,cleanup,notifications
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    environment:
+      - DATABASE_URL=postgresql://stoflow_user:stoflow_dev_password_2024@postgres:5432/stoflow_db
+      - REDIS_URL=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - CELERY_BROKER_URL=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - APP_ENV=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - stoflow_network
+    restart: unless-stopped
+
+  # ==========================================================================
+  # CELERY BEAT (Scheduler)
+  # ==========================================================================
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stoflow_beat
+    command: celery -A celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    environment:
+      - DATABASE_URL=postgresql://stoflow_user:stoflow_dev_password_2024@postgres:5432/stoflow_db
+      - REDIS_URL=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - CELERY_BROKER_URL=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - APP_ENV=development
+    depends_on:
+      - redis
+      - worker
+    networks:
+      - stoflow_network
+    restart: unless-stopped
+
+  # ==========================================================================
+  # CELERY FLOWER (Monitoring UI)
+  # ==========================================================================
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stoflow_flower
+    command: celery -A celery_app flower --port=5555 --persistent=true --db=/tmp/flower.db
+    ports:
+      - "5555:5555"
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_URL=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - CELERY_BROKER_URL=redis://:stoflow_redis_dev_pass@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:stoflow_redis_dev_pass@redis:6379/0
+    depends_on:
+      - redis
+      - worker
+    networks:
+      - stoflow_network
+    restart: unless-stopped
+
+  # ==========================================================================
+  # OPTIONAL: pgAdmin
+  # ==========================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: stoflow_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@stoflow.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - stoflow_network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  stoflow_network:
+    driver: bridge
