@@ -1,17 +1,18 @@
 """
-VintedOrder Model - Schema vinted
+VintedOrder Model - Schema tenant (multi-tenant)
 
-Stores Vinted orders/sales (shared table).
+Stores Vinted orders/sales (isolated per user).
 
 Business Rules (2025-12-12):
 - One order = one Vinted transaction
 - transaction_id = primary key (Vinted ID)
 - Stores buyer/seller info and shipping details
-- Related table: vinted_order_products for items
+- Related table: order_products for items
 
 Author: Claude
 Date: 2025-12-12
 Updated: 2025-12-24 - Moved to vinted schema
+Updated: 2026-01-20 - Migrated to tenant schema (multi-tenant isolation)
 """
 
 from datetime import datetime
@@ -27,15 +28,15 @@ class VintedOrder(Base):
     """
     Vinted orders/sales.
 
-    Table: vinted.orders
+    Table: user_X.vinted_orders (multi-tenant)
     """
 
-    __tablename__ = "orders"
+    __tablename__ = "vinted_orders"
     __table_args__ = (
-        Index('idx_orders_buyer_id', 'buyer_id'),
-        Index('idx_orders_status', 'status'),
-        Index('idx_orders_created_at_vinted', 'created_at_vinted'),
-        {"schema": "vinted"}
+        Index('idx_vinted_orders_buyer_id', 'buyer_id'),
+        Index('idx_vinted_orders_status', 'status'),
+        Index('idx_vinted_orders_created_at_vinted', 'created_at_vinted'),
+        {"schema": "tenant"}
     )
 
     # Primary Key = Vinted transaction_id
@@ -165,6 +166,11 @@ class VintedOrder(Base):
     )
 
     # Shipping
+    shipment_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+        comment="Vinted shipment ID (for label_url)"
+    )
     tracking_number: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
@@ -232,15 +238,15 @@ class VintedOrderProduct(Base):
     """
     Products in a Vinted order.
 
-    Table: vinted.order_products
+    Table: user_X.vinted_order_products (multi-tenant)
     """
 
-    __tablename__ = "order_products"
+    __tablename__ = "vinted_order_products"
     __table_args__ = (
-        Index('idx_order_products_transaction_id', 'transaction_id'),
-        Index('idx_order_products_vinted_item_id', 'vinted_item_id'),
-        Index('idx_order_products_product_id', 'product_id'),
-        {"schema": "vinted"}
+        Index('idx_vinted_order_products_transaction_id', 'transaction_id'),
+        Index('idx_vinted_order_products_vinted_item_id', 'vinted_item_id'),
+        Index('idx_vinted_order_products_product_id', 'product_id'),
+        {"schema": "tenant"}
     )
 
     # Primary Key
@@ -253,9 +259,9 @@ class VintedOrderProduct(Base):
     # Foreign Key to VintedOrder
     transaction_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("vinted.orders.transaction_id", ondelete="CASCADE"),
+        ForeignKey("tenant.vinted_orders.transaction_id", ondelete="CASCADE"),
         nullable=False,
-        comment="FK to vinted.orders"
+        comment="FK to tenant.vinted_orders (multi-tenant)"
     )
 
     # IDs

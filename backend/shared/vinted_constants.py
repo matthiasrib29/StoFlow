@@ -97,10 +97,21 @@ class VintedOrderAPI:
         order_type: str = "sold",
         status: str = "all",
         page: int = 1,
-        per_page: int = 20
+        per_page: int = 100
     ) -> str:
-        """GET - Récupère les commandes (status=all pour tout récupérer)"""
-        return f"{VINTED_BASE_URL}/api/v2/my_orders?type={order_type}&status={status}&page={page}&per_page={per_page}"
+        """
+        GET - Récupère les commandes (ventes ou achats).
+
+        Args:
+            order_type: Type de commande ("sold" = ventes, "purchased" = achats)
+            status: Filtre de statut (all = tout)
+            page: Numéro de page
+            per_page: Nombre de résultats par page (max 100)
+
+        Returns:
+            URL de l'API /my_orders
+        """
+        return f"{VINTED_BASE_URL}/api/v2/my_orders?type={order_type}&status={status}&per_page={per_page}&page={page}"
 
     # Détails d'une transaction
     @staticmethod

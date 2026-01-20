@@ -49,6 +49,8 @@ class UserSchemaService:
         "ebay_orders",
         "ebay_orders_products",
         "ebay_promoted_listings",
+        "vinted_orders",           # VintedOrder (migrated from vinted schema 2026-01-20)
+        "vinted_order_products",   # VintedOrderProduct (migrated from vinted schema 2026-01-20)
     ]
 
     @classmethod
