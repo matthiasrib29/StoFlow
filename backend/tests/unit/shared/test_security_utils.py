@@ -28,7 +28,7 @@ class TestRedactEmail:
         """Test redact_email masque correctement en production."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_email
+        from shared.logging import redact_email
 
         result = redact_email("john.doe@example.com")
 
@@ -40,7 +40,7 @@ class TestRedactEmail:
         """Test redact_email garde l'email complet en dev."""
         mock_settings.is_production = False
 
-        from shared.security_utils import redact_email
+        from shared.logging import redact_email
 
         result = redact_email("john.doe@example.com")
 
@@ -52,7 +52,7 @@ class TestRedactEmail:
         """Test redact_email avec None."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_email
+        from shared.logging import redact_email
 
         result = redact_email(None)
 
@@ -63,7 +63,7 @@ class TestRedactEmail:
         """Test redact_email avec string vide."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_email
+        from shared.logging import redact_email
 
         result = redact_email("")
 
@@ -74,7 +74,7 @@ class TestRedactEmail:
         """Test redact_email avec email invalide (pas de @)."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_email
+        from shared.logging import redact_email
 
         result = redact_email("not-an-email")
 
@@ -85,7 +85,7 @@ class TestRedactEmail:
         """Test redact_email avec partie locale d'un seul caractère."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_email
+        from shared.logging import redact_email
 
         result = redact_email("a@example.com")
 
@@ -97,7 +97,7 @@ class TestRedactEmail:
         """Test redact_email avec sous-domaine."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_email
+        from shared.logging import redact_email
 
         result = redact_email("user@mail.example.co.uk")
 
@@ -109,7 +109,7 @@ class TestRedactEmail:
         """Test redact_email avec différents formats d'emails."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_email
+        from shared.logging import redact_email
 
         test_cases = [
             ("test@gmail.com", "t***@g***.com"),
@@ -134,7 +134,7 @@ class TestRedactPassword:
         """Test redact_password masque complètement en production."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_password
+        from shared.logging import redact_password
 
         result = redact_password("MySecretPassword123")
 
@@ -145,7 +145,7 @@ class TestRedactPassword:
         """Test redact_password montre 3 premiers chars en dev."""
         mock_settings.is_production = False
 
-        from shared.security_utils import redact_password
+        from shared.logging import redact_password
 
         result = redact_password("MySecretPassword123")
 
@@ -156,7 +156,7 @@ class TestRedactPassword:
         """Test redact_password avec None."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_password
+        from shared.logging import redact_password
 
         result = redact_password(None)
 
@@ -167,7 +167,7 @@ class TestRedactPassword:
         """Test redact_password avec string vide."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_password
+        from shared.logging import redact_password
 
         result = redact_password("")
 
@@ -178,7 +178,7 @@ class TestRedactPassword:
         """Test redact_password avec password court en dev."""
         mock_settings.is_production = False
 
-        from shared.security_utils import redact_password
+        from shared.logging import redact_password
 
         # Password de 3 chars ou moins
         result = redact_password("abc")
@@ -190,7 +190,7 @@ class TestRedactPassword:
         """Test redact_password avec password court en production."""
         mock_settings.is_production = True
 
-        from shared.security_utils import redact_password
+        from shared.logging import redact_password
 
         result = redact_password("ab")
 
@@ -209,7 +209,7 @@ class TestSanitizeForLog:
         """Test sanitize_for_log masque les champs password."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         data = {
             "username": "john",
@@ -228,7 +228,7 @@ class TestSanitizeForLog:
         """Test sanitize_for_log masque les champs token."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         data = {
             "user_id": 123,
@@ -249,7 +249,7 @@ class TestSanitizeForLog:
         """Test sanitize_for_log masque les champs api_key."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         data = {
             "api_key": "sk-1234567890",
@@ -268,7 +268,7 @@ class TestSanitizeForLog:
         """Test sanitize_for_log masque les champs email (RGPD)."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         data = {
             "name": "John Doe",
@@ -289,7 +289,7 @@ class TestSanitizeForLog:
         """Test sanitize_for_log est case-insensitive."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         data = {
             "PASSWORD": "secret",
@@ -308,7 +308,7 @@ class TestSanitizeForLog:
         """Test sanitize_for_log ne modifie pas le dictionnaire original."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         original = {"password": "secret", "email": "test@test.com"}
         original_copy = original.copy()
@@ -323,7 +323,7 @@ class TestSanitizeForLog:
         """Test sanitize_for_log avec valeurs None."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         data = {
             "password": None,
@@ -340,7 +340,7 @@ class TestSanitizeForLog:
         """Test sanitize_for_log avec dictionnaire vide."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         result = sanitize_for_log({})
 
@@ -351,7 +351,7 @@ class TestSanitizeForLog:
         """Test sanitize_for_log ne sanitize pas les dictionnaires imbriqués."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         data = {
             "user": {
@@ -383,7 +383,7 @@ class TestSecurityUtilsIntegration:
         """Test complet de sanitization d'un objet de log typique."""
         mock_settings.is_production = True
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         # Simule un log de création d'utilisateur
         log_data = {
@@ -414,7 +414,7 @@ class TestSecurityUtilsIntegration:
         """Test que le mode dev montre plus d'informations."""
         mock_settings.is_production = False
 
-        from shared.security_utils import sanitize_for_log
+        from shared.logging import sanitize_for_log
 
         log_data = {
             "email": "debug@test.com",

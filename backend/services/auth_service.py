@@ -28,7 +28,7 @@ from models.public.revoked_token import RevokedToken
 from repositories.user_repository import UserRepository
 from shared.config import settings
 from shared.datetime_utils import utc_now
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

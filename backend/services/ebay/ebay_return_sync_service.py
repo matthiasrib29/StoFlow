@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from models.user.ebay_return import EbayReturn
 from repositories.ebay_return_repository import EbayReturnRepository
 from services.ebay.ebay_return_client import EbayReturnClient
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

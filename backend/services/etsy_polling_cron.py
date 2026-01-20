@@ -40,7 +40,7 @@ from models.public.user import User
 from models.user.etsy_credentials import EtsyCredentials
 from services.etsy.etsy_polling_service import EtsyPollingService
 from shared.config import settings
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -82,7 +82,7 @@ def get_etsy_connected_users(db: Session) -> List[tuple]:
 
     for user in users:
         # Use schema_translate_map for ORM queries (survives commit/rollback)
-        from shared.schema_utils import configure_schema_translate_map
+        from shared.schema import configure_schema_translate_map
         configure_schema_translate_map(db, f"user_{user.id}")
         schema_db = db  # Use same session (connection is now configured)
 

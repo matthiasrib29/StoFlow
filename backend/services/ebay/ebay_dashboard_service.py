@@ -24,7 +24,7 @@ from repositories.ebay_return_repository import EbayReturnRepository
 from repositories.ebay_cancellation_repository import EbayCancellationRepository
 from repositories.ebay_refund_repository import EbayRefundRepository
 from repositories.ebay_payment_dispute_repository import EbayPaymentDisputeRepository
-from shared.logging_setup import setup_logging
+from shared.logging import setup_logging
 
 logger = setup_logging()
 

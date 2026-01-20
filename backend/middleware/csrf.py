@@ -21,7 +21,7 @@ from starlette.responses import JSONResponse
 
 from shared.config import settings
 from shared.cookie_utils import CSRF_TOKEN_COOKIE
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -17,7 +17,7 @@ from models.user.marketplace_job import MarketplaceJob
 from models.public.vinted_prospect import VintedProspect
 from services.plugin_websocket_helper import PluginWebSocketHelper, PluginHTTPError
 from shared.database import get_db_context
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 from .base_job_handler import BaseJobHandler
 
 logger = get_logger(__name__)

@@ -26,8 +26,8 @@ from sqlalchemy.orm import Session
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
 from services.vinted.vinted_data_extractor import VintedDataExtractor
-from shared.vinted_constants import VintedOrderAPI, VintedConversationAPI
-from shared.logging_setup import get_logger
+from shared.vinted import VintedOrderAPI, VintedConversationAPI
+from shared.logging import get_logger
 from shared.config import settings
 
 logger = get_logger(__name__)

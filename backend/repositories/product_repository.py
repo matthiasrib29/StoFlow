@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from models.user.product import Product, ProductStatus
 from shared.datetime_utils import utc_now
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

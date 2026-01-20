@@ -34,7 +34,7 @@ from models.public.material import Material
 from models.public.season import Season
 from models.public.size_normalized import SizeNormalized
 from models.public.stretch import Stretch
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

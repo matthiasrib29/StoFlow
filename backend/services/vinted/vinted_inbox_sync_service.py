@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 
 from repositories.vinted_conversation_repository import VintedConversationRepository
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
-from shared.vinted_constants import VintedConversationAPI, VintedReferers
-from shared.logging_setup import get_logger
+from shared.vinted import VintedConversationAPI, VintedReferers
+from shared.logging import get_logger
 from shared.config import settings
 
 logger = get_logger(__name__)

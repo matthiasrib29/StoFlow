@@ -63,7 +63,7 @@ from services.websocket_service import sio
 from shared.config import settings
 from shared.exceptions import StoflowError
 # Note: SessionLocal removed - no longer needed after plugin tasks cleanup removal
-from shared.logging_setup import setup_logging
+from shared.logging import setup_logging
 
 # Configuration du logging
 logger = setup_logging()

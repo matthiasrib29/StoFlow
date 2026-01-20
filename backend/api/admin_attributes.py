@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from sqlalchemy.orm import Session
 
-from api.dependencies import require_admin
+from api.dependencies import require_admin, create_attribute_with_audit, update_attribute_with_audit
 from models.public.user import User
 from schemas.admin_schemas import (
     AdminAttributeListResponse,
@@ -30,7 +30,7 @@ from schemas.admin_schemas import (
 from services.admin_attribute_service import AdminAttributeService
 from services.admin_audit_service import AdminAuditService
 from shared.database import get_db
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -212,25 +212,8 @@ def create_brand(
     current_user: User = Depends(require_admin),
 ) -> AdminBrandResponse:
     """Create a new brand. Requires ADMIN role."""
-    try:
-        item = AdminAttributeService.create_attribute(db, "brands", data.model_dump())
-
-        AdminAuditService.log_action(
-            db=db,
-            admin=current_user,
-            action=AdminAuditService.ACTION_CREATE,
-            resource_type="brand",
-            resource_id=data.name,
-            resource_name=data.name,
-            details={"name_fr": data.name_fr, "monitoring": data.monitoring},
-            request=request,
-        )
-
-        logger.info(f"Admin {current_user.email} created brand: {data.name}")
-        return AdminBrandResponse(**AdminAttributeService.attribute_to_dict(item, "brands"))
-
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    item = create_attribute_with_audit(db, current_user, request, "brands", data)
+    return AdminBrandResponse(**AdminAttributeService.attribute_to_dict(item, "brands"))
 
 
 @router.patch("/brands/{pk}", response_model=AdminBrandResponse)
@@ -242,43 +225,7 @@ def update_brand(
     current_user: User = Depends(require_admin),
 ) -> AdminBrandResponse:
     """Update a brand. Requires ADMIN role."""
-    # Get before state for audit
-    item_before = AdminAttributeService.get_attribute(db, "brands", pk)
-    if not item_before:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Brand '{pk}' not found"
-        )
-
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    item = AdminAttributeService.update_attribute(db, "brands", pk, update_data)
-
-    if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Brand '{pk}' not found"
-        )
-
-    # Build changed fields
-    changed = {}
-    for key, value in update_data.items():
-        old_value = getattr(item_before, key, None)
-        if old_value != value:
-            changed[key] = value
-
-    if changed:
-        AdminAuditService.log_action(
-            db=db,
-            admin=current_user,
-            action=AdminAuditService.ACTION_UPDATE,
-            resource_type="brand",
-            resource_id=pk,
-            resource_name=pk,
-            details={"changed": changed},
-            request=request,
-        )
-
-    logger.info(f"Admin {current_user.email} updated brand: {pk}")
+    item = update_attribute_with_audit(db, current_user, request, "brands", pk, data)
     return AdminBrandResponse(**AdminAttributeService.attribute_to_dict(item, "brands"))
 
 
@@ -295,25 +242,8 @@ def create_category(
     current_user: User = Depends(require_admin),
 ) -> AdminCategoryResponse:
     """Create a new category. Requires ADMIN role."""
-    try:
-        item = AdminAttributeService.create_attribute(db, "categories", data.model_dump())
-
-        AdminAuditService.log_action(
-            db=db,
-            admin=current_user,
-            action=AdminAuditService.ACTION_CREATE,
-            resource_type="category",
-            resource_id=data.name_en,
-            resource_name=data.name_en,
-            details={"parent_category": data.parent_category, "genders": data.genders},
-            request=request,
-        )
-
-        logger.info(f"Admin {current_user.email} created category: {data.name_en}")
-        return AdminCategoryResponse(**AdminAttributeService.attribute_to_dict(item, "categories"))
-
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    item = create_attribute_with_audit(db, current_user, request, "categories", data)
+    return AdminCategoryResponse(**AdminAttributeService.attribute_to_dict(item, "categories"))
 
 
 @router.patch("/categories/{pk}", response_model=AdminCategoryResponse)
@@ -325,41 +255,7 @@ def update_category(
     current_user: User = Depends(require_admin),
 ) -> AdminCategoryResponse:
     """Update a category. Requires ADMIN role."""
-    item_before = AdminAttributeService.get_attribute(db, "categories", pk)
-    if not item_before:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Category '{pk}' not found"
-        )
-
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    item = AdminAttributeService.update_attribute(db, "categories", pk, update_data)
-
-    if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Category '{pk}' not found"
-        )
-
-    changed = {}
-    for key, value in update_data.items():
-        old_value = getattr(item_before, key, None)
-        if old_value != value:
-            changed[key] = value
-
-    if changed:
-        AdminAuditService.log_action(
-            db=db,
-            admin=current_user,
-            action=AdminAuditService.ACTION_UPDATE,
-            resource_type="category",
-            resource_id=pk,
-            resource_name=pk,
-            details={"changed": changed},
-            request=request,
-        )
-
-    logger.info(f"Admin {current_user.email} updated category: {pk}")
+    item = update_attribute_with_audit(db, current_user, request, "categories", pk, data)
     return AdminCategoryResponse(**AdminAttributeService.attribute_to_dict(item, "categories"))
 
 
@@ -376,25 +272,8 @@ def create_color(
     current_user: User = Depends(require_admin),
 ) -> AdminColorResponse:
     """Create a new color. Requires ADMIN role."""
-    try:
-        item = AdminAttributeService.create_attribute(db, "colors", data.model_dump())
-
-        AdminAuditService.log_action(
-            db=db,
-            admin=current_user,
-            action=AdminAuditService.ACTION_CREATE,
-            resource_type="color",
-            resource_id=data.name_en,
-            resource_name=data.name_en,
-            details={"hex_code": data.hex_code},
-            request=request,
-        )
-
-        logger.info(f"Admin {current_user.email} created color: {data.name_en}")
-        return AdminColorResponse(**AdminAttributeService.attribute_to_dict(item, "colors"))
-
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    item = create_attribute_with_audit(db, current_user, request, "colors", data)
+    return AdminColorResponse(**AdminAttributeService.attribute_to_dict(item, "colors"))
 
 
 @router.patch("/colors/{pk}", response_model=AdminColorResponse)
@@ -406,41 +285,7 @@ def update_color(
     current_user: User = Depends(require_admin),
 ) -> AdminColorResponse:
     """Update a color. Requires ADMIN role."""
-    item_before = AdminAttributeService.get_attribute(db, "colors", pk)
-    if not item_before:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Color '{pk}' not found"
-        )
-
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    item = AdminAttributeService.update_attribute(db, "colors", pk, update_data)
-
-    if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Color '{pk}' not found"
-        )
-
-    changed = {}
-    for key, value in update_data.items():
-        old_value = getattr(item_before, key, None)
-        if old_value != value:
-            changed[key] = value
-
-    if changed:
-        AdminAuditService.log_action(
-            db=db,
-            admin=current_user,
-            action=AdminAuditService.ACTION_UPDATE,
-            resource_type="color",
-            resource_id=pk,
-            resource_name=pk,
-            details={"changed": changed},
-            request=request,
-        )
-
-    logger.info(f"Admin {current_user.email} updated color: {pk}")
+    item = update_attribute_with_audit(db, current_user, request, "colors", pk, data)
     return AdminColorResponse(**AdminAttributeService.attribute_to_dict(item, "colors"))
 
 
@@ -457,25 +302,8 @@ def create_material(
     current_user: User = Depends(require_admin),
 ) -> AdminMaterialResponse:
     """Create a new material. Requires ADMIN role."""
-    try:
-        item = AdminAttributeService.create_attribute(db, "materials", data.model_dump())
-
-        AdminAuditService.log_action(
-            db=db,
-            admin=current_user,
-            action=AdminAuditService.ACTION_CREATE,
-            resource_type="material",
-            resource_id=data.name_en,
-            resource_name=data.name_en,
-            details={"vinted_id": data.vinted_id},
-            request=request,
-        )
-
-        logger.info(f"Admin {current_user.email} created material: {data.name_en}")
-        return AdminMaterialResponse(**AdminAttributeService.attribute_to_dict(item, "materials"))
-
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    item = create_attribute_with_audit(db, current_user, request, "materials", data)
+    return AdminMaterialResponse(**AdminAttributeService.attribute_to_dict(item, "materials"))
 
 
 @router.patch("/materials/{pk}", response_model=AdminMaterialResponse)
@@ -487,39 +315,5 @@ def update_material(
     current_user: User = Depends(require_admin),
 ) -> AdminMaterialResponse:
     """Update a material. Requires ADMIN role."""
-    item_before = AdminAttributeService.get_attribute(db, "materials", pk)
-    if not item_before:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Material '{pk}' not found"
-        )
-
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    item = AdminAttributeService.update_attribute(db, "materials", pk, update_data)
-
-    if not item:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Material '{pk}' not found"
-        )
-
-    changed = {}
-    for key, value in update_data.items():
-        old_value = getattr(item_before, key, None)
-        if old_value != value:
-            changed[key] = value
-
-    if changed:
-        AdminAuditService.log_action(
-            db=db,
-            admin=current_user,
-            action=AdminAuditService.ACTION_UPDATE,
-            resource_type="material",
-            resource_id=pk,
-            resource_name=pk,
-            details={"changed": changed},
-            request=request,
-        )
-
-    logger.info(f"Admin {current_user.email} updated material: {pk}")
+    item = update_attribute_with_audit(db, current_user, request, "materials", pk, data)
     return AdminMaterialResponse(**AdminAttributeService.attribute_to_dict(item, "materials"))

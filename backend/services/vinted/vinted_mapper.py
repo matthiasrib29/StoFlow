@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from services.base_mapper import BaseMarketplaceMapper
 from repositories.vinted_mapping_repository import VintedMappingRepository
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

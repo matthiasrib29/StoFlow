@@ -27,8 +27,8 @@ from schemas.product_schemas import (
 )
 from services.product_service import ProductService
 from shared.subscription_limits import check_product_limit
-from shared.ownership import ensure_user_owns_resource, ensure_can_modify
-from shared.logging_setup import get_logger
+from shared.access_control import ensure_user_owns_resource, ensure_can_modify
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

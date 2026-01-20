@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from models.user.ebay_order import EbayOrder, EbayOrderProduct
 from repositories.ebay_order_repository import EbayOrderRepository
 from services.ebay.ebay_fulfillment_client import EbayFulfillmentClient
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 

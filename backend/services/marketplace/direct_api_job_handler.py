@@ -22,7 +22,7 @@ from typing import Any
 
 from models.user.marketplace_job import MarketplaceJob
 from services.vinted.jobs.base_job_handler import BaseJobHandler
-from shared.logging_setup import get_logger
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
