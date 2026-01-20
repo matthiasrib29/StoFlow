@@ -10,7 +10,7 @@ Steps:
 4. Rename old tables as backup (vinted.orders_backup_YYYYMMDD)
 
 Revision ID: d7e8f9a0b1c2
-Revises: c8534674a69e
+Revises: 7a8b9c0d1e2f
 Create Date: 2026-01-20 15:30:00
 
 """
@@ -24,7 +24,7 @@ from sqlalchemy import text
 
 # revision identifiers, used by Alembic.
 revision: str = 'd7e8f9a0b1c2'
-down_revision: Union[str, None] = 'c8534674a69e'
+down_revision: Union[str, None] = '7a8b9c0d1e2f'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -1,7 +1,7 @@
 """add_celery_task_id_to_marketplace_jobs
 
 Revision ID: 97fb25ac9944
-Revises: c8534674a69e
+Revises: 7a8b9c0d1e2f
 Create Date: 2026-01-20 16:30:40.624489+01:00
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '97fb25ac9944'
-down_revision: Union[str, None] = 'c8534674a69e'
+down_revision: Union[str, None] = '7a8b9c0d1e2f'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
