@@ -411,9 +411,21 @@ class EbayImporter:
 
     def enrich_with_offers(self, ebay_product: EbayProduct) -> None:
         """
-        Enrichit un EbayProduct avec les données des offers.
+        Enrichit un EbayProduct avec les données de l'Offer API uniquement.
 
-        Prend le premier offer disponible (priorité au marketplace configuré).
+        Cette méthode met à jour TOUS les champs qui viennent de l'Offer API :
+        - price, currency
+        - ebay_offer_id, ebay_listing_id
+        - sold_quantity, available_quantity
+        - status (basé sur offer status + listing status)
+        - listing_format, listing_duration
+        - category_id, secondary_category_id
+        - merchant_location_key
+        - lot_size, quantity_limit_per_buyer
+        - listing_description
+
+        Note: Cette méthode ne met PAS à jour les champs Inventory API (quantity, title, etc.)
+        Pour une sync complète, utiliser full_sync() qui appelle d'abord sync_from_inventory_bulk().
 
         Args:
             ebay_product: Produit eBay à enrichir
@@ -422,6 +434,11 @@ class EbayImporter:
             offers = self.fetch_offers_for_sku(ebay_product.ebay_sku)
 
             if not offers:
+                # No offers - update availability based on current quantity
+                current_qty = ebay_product.quantity or 0
+                ebay_product.availability_type = "IN_STOCK" if current_qty > 0 else "OUT_OF_STOCK"
+                ebay_product.available_quantity = current_qty
+                ebay_product.status = "active" if current_qty > 0 else "inactive"
                 return
 
             # Try to find offer for configured marketplace first, otherwise take first one
@@ -463,15 +480,15 @@ class EbayImporter:
             # Quantity details
             ebay_product.available_quantity = selected_offer.get("availableQuantity")
 
-            # Fallback: If availableQuantity not returned by getOffers (common for most products),
-            # use quantity from inventory item minus sold quantity (2026-01-20)
+            # Fallback: If availableQuantity not returned by getOffers (common),
+            # calculate from inventory quantity minus sold quantity
             if ebay_product.available_quantity is None:
-                initial_qty = ebay_product.quantity or 1
+                current_qty = ebay_product.quantity or 0
                 sold_qty = ebay_product.sold_quantity or 0
-                ebay_product.available_quantity = max(0, initial_qty - sold_qty)
+                ebay_product.available_quantity = max(0, current_qty - sold_qty)
                 logger.debug(
                     f"[Enrich] Calculated available_quantity={ebay_product.available_quantity} "
-                    f"for SKU {ebay_product.ebay_sku} (qty={initial_qty}, sold={sold_qty})"
+                    f"for SKU {ebay_product.ebay_sku} (qty={current_qty}, sold={sold_qty})"
                 )
 
             ebay_product.lot_size = selected_offer.get("lotSize")
@@ -480,13 +497,33 @@ class EbayImporter:
             # Listing description (may differ from product description)
             ebay_product.listing_description = selected_offer.get("listingDescription")
 
-            # Status from offer
+            # Update availability_type based on current quantity
+            current_qty = ebay_product.quantity or 0
+            ebay_product.availability_type = "IN_STOCK" if current_qty > 0 else "OUT_OF_STOCK"
+
+            # Status from offer - handle all statuses
             offer_status = selected_offer.get("status")
+            listing_status = listing.get("listingStatus")
+
             if offer_status == "PUBLISHED":
-                ebay_product.status = "active"
-                ebay_product.published_at = utc_now()
+                # Check listingStatus for more granular status
+                if listing_status == "OUT_OF_STOCK":
+                    ebay_product.status = "inactive"
+                else:
+                    ebay_product.status = "active"
+                    ebay_product.published_at = utc_now()
+            elif offer_status == "UNPUBLISHED":
+                # Listing was taken down (sold out, ended by seller, etc.)
+                ebay_product.status = "inactive"
             elif offer_status == "ENDED":
                 ebay_product.status = "ended"
+            else:
+                # Unknown status - log it
+                logger.warning(
+                    f"[Enrich] Unknown offer status '{offer_status}' for SKU {ebay_product.ebay_sku}"
+                )
+
+            ebay_product.last_synced_at = utc_now()
 
         except Exception as e:
             logger.warning(f"Could not enrich product {ebay_product.ebay_sku}: {e}")
@@ -637,3 +674,208 @@ class EbayImporter:
             raise
 
         return results
+
+    async def sync_from_inventory_bulk(self) -> dict:
+        """
+        Synchronise TOUS les produits depuis l'Inventory API (bulk).
+
+        Cette méthode :
+        1. Récupère tous les inventory items depuis eBay (paginé)
+        2. Met à jour TOUS les champs Inventory API pour chaque produit existant :
+           - quantity, availability_type
+           - title, description
+           - brand, color, size, material (via aspects)
+           - condition, condition_description
+           - image_urls, aspects
+           - package dimensions/weight
+
+        C'est la première étape d'un full_sync(). Après cette étape,
+        appeler enrich_all_with_offers() pour compléter avec les données Offer API.
+
+        Returns:
+            dict: {
+                "synced": int,
+                "not_found": int,
+                "errors": int,
+                "total_inventory_items": int
+            }
+        """
+        results = {
+            "synced": 0,
+            "not_found": 0,
+            "errors": 0,
+            "total_inventory_items": 0
+        }
+
+        # 1. Fetch all inventory items from eBay
+        logger.info("[SyncInventory] Fetching all inventory items from eBay...")
+        inventory_items = await self.fetch_all_inventory_items()
+        results["total_inventory_items"] = len(inventory_items)
+
+        if not inventory_items:
+            logger.info("[SyncInventory] No inventory items found on eBay")
+            return results
+
+        # 2. Build a map of SKU -> inventory_item for fast lookup
+        inventory_map = {item.get("sku"): item for item in inventory_items if item.get("sku")}
+
+        # 3. Get all existing products from DB
+        existing_products = self.db.query(EbayProduct).all()
+        logger.info(f"[SyncInventory] Found {len(existing_products)} products in DB to sync")
+
+        # 4. Update each product with fresh inventory data
+        for product in existing_products:
+            # Check cancellation
+            if self.job:
+                self.db.refresh(self.job)
+                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
+                    logger.info(f"[SyncInventory] Job cancelled, stopping sync")
+                    self.db.commit()
+                    return {**results, "status": "cancelled"}
+
+            inventory_item = inventory_map.get(product.ebay_sku)
+
+            if not inventory_item:
+                # Product exists in DB but not in eBay inventory
+                results["not_found"] += 1
+                logger.debug(f"[SyncInventory] SKU {product.ebay_sku} not found in eBay inventory")
+                continue
+
+            try:
+                # Extract and update ALL inventory fields
+                product_data = self._extract_product_data(inventory_item)
+
+                # Update all fields from inventory
+                for key, value in product_data.items():
+                    if hasattr(product, key) and value is not None:
+                        setattr(product, key, value)
+
+                product.last_synced_at = utc_now()
+                results["synced"] += 1
+
+                logger.debug(
+                    f"[SyncInventory] Updated SKU {product.ebay_sku}: "
+                    f"qty={product.quantity}, status={product.status}"
+                )
+
+            except Exception as e:
+                logger.warning(f"[SyncInventory] Error updating {product.ebay_sku}: {e}")
+                results["errors"] += 1
+
+        # 5. Commit changes
+        try:
+            self.db.commit()
+            logger.info(
+                f"[SyncInventory] Completed: {results['synced']} synced, "
+                f"{results['not_found']} not found, {results['errors']} errors"
+            )
+        except Exception as e:
+            logger.error(f"[SyncInventory] Error committing: {e}")
+            self.db.rollback()
+            raise
+
+        return results
+
+    def enrich_all_with_offers(self, batch_size: int = 100) -> dict:
+        """
+        Enrichit TOUS les produits avec les données de l'Offer API.
+
+        Cette méthode parcourt tous les produits et appelle enrich_with_offers()
+        pour chacun. C'est la deuxième étape d'un full_sync().
+
+        Args:
+            batch_size: Commit tous les N produits (pour éviter les transactions trop longues)
+
+        Returns:
+            dict: {
+                "enriched": int,
+                "errors": int,
+                "total": int
+            }
+        """
+        results = {
+            "enriched": 0,
+            "errors": 0,
+            "total": 0
+        }
+
+        # Get all products
+        products = self.db.query(EbayProduct).all()
+        results["total"] = len(products)
+
+        logger.info(f"[EnrichOffers] Starting enrichment for {len(products)} products")
+
+        for i, product in enumerate(products):
+            # Check cancellation
+            if self.job:
+                self.db.refresh(self.job)
+                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
+                    logger.info(f"[EnrichOffers] Job cancelled at {i}/{len(products)}")
+                    self.db.commit()
+                    return {**results, "status": "cancelled"}
+
+            try:
+                self.enrich_with_offers(product)
+                results["enriched"] += 1
+            except Exception as e:
+                logger.warning(f"[EnrichOffers] Error enriching {product.ebay_sku}: {e}")
+                results["errors"] += 1
+
+            # Batch commit
+            if (i + 1) % batch_size == 0:
+                try:
+                    self.db.commit()
+                    logger.info(f"[EnrichOffers] Progress: {i + 1}/{len(products)} products")
+                except Exception as e:
+                    logger.error(f"[EnrichOffers] Error committing batch: {e}")
+                    self.db.rollback()
+
+        # Final commit
+        try:
+            self.db.commit()
+            logger.info(
+                f"[EnrichOffers] Completed: {results['enriched']} enriched, "
+                f"{results['errors']} errors"
+            )
+        except Exception as e:
+            logger.error(f"[EnrichOffers] Error committing: {e}")
+            self.db.rollback()
+            raise
+
+        return results
+
+    async def full_sync(self) -> dict:
+        """
+        Synchronisation complète : Inventory API (bulk) puis Offer API (un par un).
+
+        Flow:
+        1. Fetch ALL inventory items from eBay → update quantity, title, etc.
+        2. For each product, fetch offers → update price, status, sold_quantity, etc.
+
+        C'est la méthode recommandée pour une sync complète des données eBay.
+
+        Returns:
+            dict: {
+                "inventory_sync": {...},
+                "offers_enrichment": {...}
+            }
+        """
+        logger.info("[FullSync] Starting full sync...")
+
+        # Step 1: Sync from Inventory API (bulk)
+        logger.info("[FullSync] Step 1/2: Syncing from Inventory API...")
+        inventory_results = await self.sync_from_inventory_bulk()
+
+        if inventory_results.get("status") == "cancelled":
+            return {"inventory_sync": inventory_results, "offers_enrichment": None, "status": "cancelled"}
+
+        # Step 2: Enrich with Offer API (one by one)
+        logger.info("[FullSync] Step 2/2: Enriching with Offer API...")
+        offers_results = self.enrich_all_with_offers()
+
+        logger.info("[FullSync] Full sync completed!")
+
+        return {
+            "inventory_sync": inventory_results,
+            "offers_enrichment": offers_results
+        }

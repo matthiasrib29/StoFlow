@@ -27,6 +27,9 @@ requests==2.32.3
 python-dateutil==2.9.0
 pillow==11.0.0
 
+# Async Database Pool (for LISTEN/NOTIFY in worker)
+asyncpg==0.30.0
+
 # Task Scheduling
 apscheduler==3.10.4
 

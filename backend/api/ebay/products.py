@@ -18,7 +18,7 @@ Refactored: 2026-01-20
 from decimal import Decimal
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -66,8 +66,13 @@ async def list_ebay_products(
     # Apply filters
     if status:
         if status == "out_of_stock":
+            # Use available_quantity (from Offer API) which reflects actual availability
+            # Handle both NULL and 0 as out of stock
             query = query.filter(
-                or_(EbayProduct.quantity == 0, EbayProduct.quantity.is_(None))
+                or_(
+                    EbayProduct.available_quantity == 0,
+                    EbayProduct.available_quantity.is_(None)
+                )
             )
         else:
             query = query.filter(EbayProduct.status == status)
@@ -133,14 +138,14 @@ async def get_ebay_product(
 
 @router.post("/import", response_model=ImportResponse)
 async def import_ebay_products(
-    background_tasks: BackgroundTasks,
     request: ImportRequest = Body(default=ImportRequest()),
     user_db: tuple = Depends(get_user_db),
 ):
     """
-    Import products from eBay Inventory API (background task).
+    Import products from eBay Inventory API.
 
-    Creates a tracking job and starts import in background.
+    Creates a tracking job that will be processed by the dedicated worker.
+    The job is visible in the tasks popup and picked up via NOTIFY.
     """
     from models.user.marketplace_job import JobStatus
     from services.marketplace.marketplace_job_service import MarketplaceJobService
@@ -155,19 +160,14 @@ async def import_ebay_products(
             product_id=None,
             input_data={"marketplace_id": request.marketplace_id},
         )
-        job.status = JobStatus.RUNNING
+
+        # Job stays PENDING - worker will pick it up via NOTIFY
         job_id = job.id
         db.commit()
 
         logger.info(
-            f"[POST /products/import] Created job #{job_id} for user {current_user.id}"
-        )
-
-        background_tasks.add_task(
-            run_import_in_background,
-            job_id=job_id,
-            user_id=current_user.id,
-            marketplace_id=request.marketplace_id,
+            f"[POST /products/import] Created job #{job_id} for user {current_user.id}, "
+            f"worker will pick it up via NOTIFY"
         )
 
         return ImportResponse(
@@ -175,7 +175,11 @@ async def import_ebay_products(
             updated=0,
             skipped=0,
             errors=0,
-            details=[{"status": "started", "job_id": job_id, "message": "Import started in background"}],
+            details=[{
+                "status": "queued",
+                "job_id": job_id,
+                "message": "Import job queued for worker"
+            }],
         )
 
     except Exception as e:
