@@ -9,6 +9,9 @@
  * to avoid duplicate loadFromStorage() calls on every navigation
  */
 import { initPluginListener } from '~/composables/useVintedBridge'
+import { createLogger } from '~/utils/logger'
+
+const initLogger = createLogger({ prefix: 'Init' })
 
 export default defineNuxtPlugin(() => {
   const localeStore = useLocaleStore()
@@ -21,11 +24,9 @@ export default defineNuxtPlugin(() => {
   localeStore.initLocale()
 
   // Dev logging
-  if (import.meta.dev) {
-    const authStore = useAuthStore()
-    console.log('[Init] Client initialized', {
-      authenticated: authStore.isAuthenticated,
-      locale: localeStore.currentLocale
-    })
-  }
+  const authStore = useAuthStore()
+  initLogger.info('Client initialized', {
+    authenticated: authStore.isAuthenticated,
+    locale: localeStore.currentLocale
+  })
 })

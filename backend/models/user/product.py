@@ -418,23 +418,23 @@ class Product(Base):
 
     # Marketplace relations
     # VintedProduct (1:1 relationship via product_id FK in vinted_products)
-    # lazy="select" to avoid unnecessary JOINs on product lists
-    # Use selectinload() when you need the relation
+    # lazy="raise" to prevent N+1 queries - forces explicit eager loading
+    # Use joinedload() or selectinload() when you need the relation
     vinted_product: Mapped["VintedProduct | None"] = relationship(
         "VintedProduct",
         back_populates="product",
         uselist=False,
-        lazy="select"
+        lazy="raise"
     )
 
     # EbayProduct (1:1 relationship via product_id FK in ebay_products)
-    # lazy="select" to avoid unnecessary JOINs on product lists
-    # Use selectinload() when you need the relation
+    # lazy="raise" to prevent N+1 queries - forces explicit eager loading
+    # Use joinedload() or selectinload() when you need the relation
     ebay_product: Mapped["EbayProduct | None"] = relationship(
         "EbayProduct",
         back_populates="product",
         uselist=False,
-        lazy="select"
+        lazy="raise"
     )
 
     publication_history: Mapped[list["PublicationHistory"]] = relationship(
@@ -444,34 +444,6 @@ class Product(Base):
     ai_generation_logs: Mapped[list["AIGenerationLog"]] = relationship(
         "AIGenerationLog", back_populates="product", cascade="all, delete-orphan"
     )
-
-    # Attribute relations (vers public schema) - Commented out to fix SQLAlchemy error
-    # TODO: Add explicit primaryjoin for each relationship
-    # brand_rel: Mapped["Brand | None"] = relationship(
-    #     "Brand", foreign_keys=[brand], viewonly=True
-    # )
-    # category_rel: Mapped["Category | None"] = relationship(
-    #     "Category", foreign_keys=[category], viewonly=True
-    # )
-    # condition_rel: Mapped["Condition | None"] = relationship(
-    #     "Condition", foreign_keys=[condition], viewonly=True
-    # )
-    # size_rel: Mapped["Size | None"] = relationship(
-    #     "Size", foreign_keys=[size_normalized], viewonly=True
-    # )
-    # color_rel: Mapped["Color | None"] = relationship(
-    #     "Color", foreign_keys=[color], viewonly=True
-    # )
-    # material_rel: Mapped["Material | None"] = relationship(
-    #     "Material", foreign_keys=[material], viewonly=True
-    # )
-    # fit_rel: Mapped["Fit | None"] = relationship("Fit", foreign_keys=[fit], viewonly=True)
-    # gender_rel: Mapped["Gender | None"] = relationship(
-    #     "Gender", foreign_keys=[gender], viewonly=True
-    # )
-    # season_rel: Mapped["Season | None"] = relationship(
-    #     "Season", foreign_keys=[season], viewonly=True
-    # )
 
     # ===== MANY-TO-MANY RELATIONSHIPS (NEW - 2026-01-07) =====
     product_colors: Mapped[list["ProductColor"]] = relationship(

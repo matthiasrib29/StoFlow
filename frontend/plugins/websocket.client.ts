@@ -12,9 +12,10 @@
  * Date: 2026-01-08
  * Updated: 2026-01-19 - Removed watcher, connection now managed by auth store
  */
+import { createLogger } from '~/utils/logger'
+
+const wsLogger = createLogger({ prefix: 'WS Plugin' })
 
 export default defineNuxtPlugin(() => {
-  if (import.meta.dev) {
-    console.log('%c[WS Plugin] WebSocket connection managed by auth store (no watcher)', 'color: #888')
-  }
+  wsLogger.debug('WebSocket connection managed by auth store (no watcher)')
 })

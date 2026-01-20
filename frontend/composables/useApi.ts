@@ -1,7 +1,11 @@
 /**
  * Composable pour gérer les appels API avec authentification JWT
  *
- * Security: Uses token validation before API calls
+ * Security (2026-01-20):
+ * - Uses httpOnly cookies for JWT storage (XSS protection)
+ * - Includes CSRF token header for state-changing requests
+ * - credentials: 'include' ensures cookies are sent cross-origin
+ * - Backward compatible: still supports localStorage during migration
  */
 
 import { useTokenValidator } from '~/composables/useTokenValidator'
@@ -12,6 +16,19 @@ interface ApiError {
   status?: number
 }
 
+// HTTP methods that require CSRF protection
+const CSRF_PROTECTED_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
+
+/**
+ * Get CSRF token from cookie (for double-submit pattern)
+ */
+const getCsrfToken = (): string | null => {
+  if (!import.meta.client) return null
+
+  const match = document.cookie.match(/csrf_token=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
 export const useApi = () => {
   const config = useRuntimeConfig()
   const baseURL = config.public.apiBaseUrl || 'http://localhost:8000/api'
@@ -19,7 +36,8 @@ export const useApi = () => {
 
   /**
    * Récupère le token d'accès depuis localStorage avec validation
-   * Returns null if token is invalid or expired
+   * NOTE: Kept for backward compatibility during migration
+   * TODO (2026-02-01): Remove after cookie migration complete
    */
   const getAccessToken = (): string | null => {
     if (import.meta.client) {
@@ -41,6 +59,8 @@ export const useApi = () => {
 
   /**
    * Récupère le refresh token depuis localStorage avec validation
+   * NOTE: Kept for backward compatibility during migration
+   * TODO (2026-02-01): Remove after cookie migration complete
    */
   const getRefreshToken = (): string | null => {
     if (import.meta.client) {
@@ -58,6 +78,8 @@ export const useApi = () => {
 
   /**
    * Sauvegarde les tokens dans localStorage
+   * NOTE: Kept for backward compatibility during migration
+   * TODO (2026-02-01): Remove after cookie migration complete
    */
   const saveTokens = (accessToken: string, refreshToken: string) => {
     if (import.meta.client) {
@@ -68,6 +90,8 @@ export const useApi = () => {
 
   /**
    * Supprime les tokens du localStorage
+   * NOTE: Kept for backward compatibility during migration
+   * Cookies are cleared by the backend on logout
    */
   const clearTokens = () => {
     if (import.meta.client) {
@@ -79,6 +103,11 @@ export const useApi = () => {
 
   /**
    * Effectue un appel API avec gestion automatique de l'authentification
+   *
+   * Security (2026-01-20):
+   * - credentials: 'include' sends cookies automatically
+   * - X-CSRF-Token header for state-changing requests
+   * - Authorization header kept for backward compatibility
    */
   const apiCall = async <T>(
     endpoint: string,
@@ -86,6 +115,7 @@ export const useApi = () => {
   ): Promise<T> => {
     const token = getAccessToken()
     const isFormData = options.body instanceof FormData
+    const method = options.method?.toUpperCase() || 'GET'
 
     const headers: Record<string, string> = {
       // Don't set Content-Type for FormData - browser will set it with boundary
@@ -93,7 +123,16 @@ export const useApi = () => {
       ...(options.headers as Record<string, string>),
     }
 
-    // Ajouter le token Bearer si disponible
+    // Add CSRF token for state-changing requests
+    if (CSRF_PROTECTED_METHODS.includes(method)) {
+      const csrfToken = getCsrfToken()
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken
+      }
+    }
+
+    // Add Bearer token for backward compatibility
+    // NOTE: Cookie auth takes priority on backend, this is fallback
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
@@ -104,38 +143,49 @@ export const useApi = () => {
       const response = await fetch(url, {
         ...options,
         headers,
+        credentials: 'include',  // CRITICAL: Send cookies with every request
       })
 
       // Si le token est expiré (401), essayer de le rafraîchir
-      if (response.status === 401 && token) {
+      if (response.status === 401) {
         const refreshed = await refreshAccessToken()
         if (refreshed) {
           // Retry la requête avec le nouveau token
           const newToken = getAccessToken()
           if (newToken) {
             headers['Authorization'] = `Bearer ${newToken}`
-            const retryResponse = await fetch(url, {
-              ...options,
-              headers,
-            })
+          }
 
-            if (!retryResponse.ok) {
-              const error = await retryResponse.json()
-              throw new Error(error.detail || 'Erreur lors de la requête API')
+          // Update CSRF token (may have changed after refresh)
+          if (CSRF_PROTECTED_METHODS.includes(method)) {
+            const newCsrfToken = getCsrfToken()
+            if (newCsrfToken) {
+              headers['X-CSRF-Token'] = newCsrfToken
             }
+          }
 
-            // Gérer les réponses sans contenu (204 No Content)
-            if (retryResponse.status === 204 || retryResponse.headers.get('content-length') === '0') {
-              return null as T
-            }
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers,
+            credentials: 'include',
+          })
 
-            const contentType = retryResponse.headers.get('content-type')
-            if (contentType && contentType.includes('application/json')) {
-              return await retryResponse.json()
-            }
+          if (!retryResponse.ok) {
+            const error = await retryResponse.json()
+            throw new Error(error.detail || 'Erreur lors de la requête API')
+          }
 
+          // Gérer les réponses sans contenu (204 No Content)
+          if (retryResponse.status === 204 || retryResponse.headers.get('content-length') === '0') {
             return null as T
           }
+
+          const contentType = retryResponse.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            return await retryResponse.json()
+          }
+
+          return null as T
         } else {
           // Le refresh a échoué, déconnecter l'utilisateur
           clearTokens()
@@ -171,25 +221,33 @@ export const useApi = () => {
 
   /**
    * Rafraîchit le token d'accès avec le refresh token
+   *
+   * Security (2026-01-20):
+   * - Uses httpOnly cookie for refresh token (automatic via credentials: include)
+   * - Falls back to localStorage body for backward compatibility
    */
   const refreshAccessToken = async (): Promise<boolean> => {
-    const refreshToken = getRefreshToken()
-    if (!refreshToken) return false
-
     try {
+      // The refresh token will be sent automatically via httpOnly cookie
+      // Body is kept for backward compatibility
+      const refreshToken = getRefreshToken()
+
       const response = await fetch(`${baseURL}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        credentials: 'include',  // CRITICAL: Send refresh_token cookie
+        // Body for backward compatibility (cookie takes priority on backend)
+        body: refreshToken ? JSON.stringify({ refresh_token: refreshToken }) : undefined,
       })
 
       if (!response.ok) return false
 
       const data = await response.json()
 
-      if (import.meta.client) {
+      // Store in localStorage for backward compatibility
+      if (import.meta.client && data.access_token) {
         localStorage.setItem('token', data.access_token)
       }
 
@@ -250,5 +308,6 @@ export const useApi = () => {
     getRefreshToken,
     saveTokens,
     clearTokens,
+    getCsrfToken,  // Export for components that need direct access
   }
 }

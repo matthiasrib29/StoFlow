@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ebayLogger } from '~/utils/logger'
 /**
  * eBay Cancellation Detail Page
  *
@@ -115,7 +116,7 @@ const loadCancellation = async () => {
   try {
     cancellation.value = await fetchCancellation(cancellationId.value)
   } catch (error) {
-    console.error('Failed to load cancellation:', error)
+    ebayLogger.error('Failed to load cancellation:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -161,7 +162,7 @@ const handleApprove = async () => {
       })
     }
   } catch (error) {
-    console.error('Failed to approve cancellation:', error)
+    ebayLogger.error('Failed to approve cancellation:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
@@ -207,7 +208,7 @@ const handleReject = async () => {
       })
     }
   } catch (error) {
-    console.error('Failed to reject cancellation:', error)
+    ebayLogger.error('Failed to reject cancellation:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',

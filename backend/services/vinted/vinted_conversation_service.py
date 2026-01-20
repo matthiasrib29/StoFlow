@@ -16,7 +16,7 @@ Author: Claude
 Date: 2025-12-19
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 from dateutil.parser import parse as parse_datetime
@@ -210,7 +210,7 @@ class VintedConversationService:
         if item_photo:
             conversation.item_photo_url = item_photo.get("url")
 
-        conversation.last_synced_at = datetime.utcnow()
+        conversation.last_synced_at = datetime.now(timezone.utc)
         db.commit()
 
     def _get_current_user_id(self, conv_data: dict) -> Optional[int]:

@@ -96,7 +96,8 @@ class MarketplaceHttpHelper:
             error_detail = ""
             try:
                 error_detail = e.response.json()
-            except:
+            except (ValueError, TypeError):
+                # JSON parsing failed, fallback to raw text
                 error_detail = e.response.text
 
             logger.error(

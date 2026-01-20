@@ -83,6 +83,10 @@ class ProductRepository:
                 selectinload(Product.product_images),
                 selectinload(Product.vinted_product),
                 selectinload(Product.ebay_product),
+                # M2M relationships for attributes (prevent N+1 queries)
+                selectinload(Product.product_colors),
+                selectinload(Product.product_materials),
+                selectinload(Product.product_condition_sups),
             )
             .where(and_(*conditions))
         )
@@ -131,13 +135,17 @@ class ProductRepository:
             count_stmt = count_stmt.where(and_(*conditions))
         total = db.execute(count_stmt).scalar_one() or 0
 
-        # Get products with images and marketplace links (2026-01-19)
+        # Get products with images, marketplace links, and M2M relations (2026-01-19, 2026-01-20)
         stmt = (
             select(Product)
             .options(
                 selectinload(Product.product_images),
                 selectinload(Product.vinted_product),
                 selectinload(Product.ebay_product),
+                # M2M relationships for attributes (prevent N+1 queries)
+                selectinload(Product.product_colors),
+                selectinload(Product.product_materials),
+                selectinload(Product.product_condition_sups),
             )
         )
         if conditions:
@@ -221,7 +229,11 @@ class ProductRepository:
         """
         stmt = (
             select(Product)
-            .options(selectinload(Product.product_images))
+            .options(
+                selectinload(Product.product_images),
+                selectinload(Product.product_colors),
+                selectinload(Product.product_materials),
+            )
             .where(Product.status == status, Product.deleted_at.is_(None))
             .order_by(Product.created_at.desc())
             .limit(limit)

@@ -150,6 +150,7 @@
 <script setup lang="ts">
 import { TITLE_FORMAT_LABELS, DESCRIPTION_STYLE_LABELS } from '~/types/textGenerator'
 import type { TitleFormat, DescriptionStyle } from '~/types/textGenerator'
+import { productLogger } from '~/utils/logger'
 
 interface Props {
   visible: boolean
@@ -243,7 +244,7 @@ const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text)
   }
   catch (e) {
-    console.error('Failed to copy to clipboard:', e)
+    productLogger.error('Failed to copy to clipboard:', e)
   }
 }
 </script>

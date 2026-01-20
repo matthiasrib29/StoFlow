@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ebayLogger } from '~/utils/logger'
 /**
  * eBay Refund Detail Page
  *
@@ -52,7 +53,7 @@ const loadRefund = async () => {
   try {
     refund.value = await fetchRefund(refundId.value)
   } catch (error) {
-    console.error('Failed to load refund:', error)
+    ebayLogger.error('Failed to load refund:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',

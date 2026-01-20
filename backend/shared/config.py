@@ -61,6 +61,21 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = 7
     password_hash_rounds: int = 12
 
+    # Cookies (Security: httpOnly cookies for JWT - 2026-01-20)
+    cookie_domain: Optional[str] = Field(
+        default=None,
+        description="Cookie domain (e.g., '.stoflow.io'). None = same origin only"
+    )
+    cookie_secure: bool = Field(
+        default=True,
+        description="HTTPS only in production. Auto-disabled in development"
+    )
+    cookie_samesite: str = Field(
+        default="lax",
+        pattern="^(strict|lax|none)$",
+        description="SameSite policy: strict, lax, or none"
+    )
+
     # Encryption (for sensitive data at rest)
     encryption_key: Optional[str] = Field(
         default=None,
@@ -182,6 +197,21 @@ class Settings(BaseSettings):
     def get_cors_origins_list(self) -> List[str]:
         """Get CORS origins as a list."""
         return [origin.strip() for origin in self.cors_origins.split(",")]
+
+    @field_validator('debug', mode='after')
+    @classmethod
+    def validate_debug_not_in_production(cls, v, info):
+        """
+        SECURITY: Prevent debug mode in production environment.
+        Debug mode can expose sensitive information via error traces.
+        """
+        app_env = info.data.get('app_env', 'development')
+        if app_env == 'production' and v is True:
+            raise ValueError(
+                "SECURITY: Debug mode cannot be enabled in production environment. "
+                "Set DEBUG=false or APP_ENV=development."
+            )
+        return v
 
     @property
     def is_development(self) -> bool:

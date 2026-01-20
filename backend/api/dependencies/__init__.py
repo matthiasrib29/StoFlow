@@ -3,6 +3,11 @@ API Dependencies
 
 Dependencies FastAPI reusables pour l'authentification et l'autorisation.
 
+Security (2026-01-20):
+- Supports both cookie and header authentication
+- Cookie takes priority over header (more secure)
+- Backward compatible with header-only auth during migration
+
 Author: Claude
 Date: 2025-12-08
 """
@@ -11,7 +16,7 @@ import logging
 import re
 from typing import Callable, Generator, Optional, Tuple
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
@@ -77,16 +82,23 @@ def _validate_schema_name(schema_name: str, db: Session = None) -> str:
 
     return schema_name
 
-# Security scheme pour JWT Bearer
-security = HTTPBearer(auto_error=True)
+# Security scheme pour JWT Bearer (auto_error=False to allow cookie fallback)
+security = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    access_token_cookie: Optional[str] = Cookie(None, alias="access_token"),
     db: Session = Depends(get_db),
 ) -> User:
     """
     Recupere l'utilisateur actuel depuis le JWT token.
+
+    Security (2026-01-20):
+    - Priority: cookie > header (cookie is more secure against XSS)
+    - Cookie auth: httpOnly cookie prevents JS access
+    - Header auth: kept for backward compatibility and API clients
+    - Logs token_source for monitoring migration adoption
 
     Business Rules (Updated: 2026-01-14):
     - Le token doit etre valide (pas expire, signature correcte)
@@ -99,12 +111,9 @@ def get_current_user(
     - Prevents N+1 queries and DetachedInstanceError in endpoints
     - Single JOIN adds ~5-7 columns to the query (minimal overhead)
 
-    Security (2025-12-23):
-    - All requests MUST have a valid JWT token
-    - No authentication bypass is allowed
-
     Args:
-        credentials: Bearer token depuis header Authorization
+        credentials: Bearer token depuis header Authorization (optional)
+        access_token_cookie: Access token from httpOnly cookie (optional)
         db: Session SQLAlchemy
 
     Returns:
@@ -113,14 +122,20 @@ def get_current_user(
     Raises:
         HTTPException: 401 si token invalide ou utilisateur inactif
     """
-    if not credentials:
+    # Priority: cookie > header (cookie is more secure)
+    token = access_token_cookie
+    token_source = "cookie"
+
+    if not token and credentials:
+        token = credentials.credentials
+        token_source = "header"
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token manquant",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    token = credentials.credentials
 
     # Verifier et decoder le JWT token
     payload = AuthService.verify_token(token, token_type="access")
@@ -162,6 +177,9 @@ def get_current_user(
             detail="Compte desactive",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Log token source for monitoring migration (debug level to avoid log spam)
+    logger.debug(f"User authenticated: user_id={user.id}, token_source={token_source}")
 
     return user
 
@@ -408,6 +426,10 @@ def get_user_db(
     - Models with schema="tenant" are remapped to actual user schema at query time
     - Creates a new session with configured engine bind (Session.connection() doesn't persist options)
 
+    Security (2026-01-20):
+    - Explicit verification that schema_name matches user_id
+    - Prevents data access if schema_name was corrupted or tampered with
+
     Usage:
         @router.get("/products")
         def list_products(db_user: Tuple[Session, User] = Depends(get_user_db)):
@@ -420,6 +442,19 @@ def get_user_db(
     """
     from sqlalchemy.exc import SQLAlchemyError
     from shared.database import engine
+
+    # SECURITY (2026-01-20): Verify schema_name matches user_id
+    # This prevents data access if schema_name was corrupted or tampered with
+    expected_schema = f"user_{current_user.id}"
+    if current_user.schema_name != expected_schema:
+        logger.critical(
+            f"🚨 SECURITY: Schema mismatch! user_id={current_user.id}, "
+            f"expected={expected_schema}, got={current_user.schema_name}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur interne de sécurité"
+        )
 
     # Valider strictement le schema_name (defense-in-depth contre SQL injection)
     # Passe db pour vérifier que le schema existe réellement
