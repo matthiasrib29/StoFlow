@@ -13,34 +13,34 @@
 
     // Get shared namespace
     const modules = window.StoflowModules;
-    if (!modules || !modules.log || !modules.StoflowAPI || !modules.DataDomeHandler) {
+    if (!modules || !modules.log || !modules.StoflowAPI || !(modules.SessionHandler || modules.SessionHandler)) {
         console.error('[Stoflow Bootstrap] Required modules not loaded');
         return;
     }
 
     const log = modules.log;
     const StoflowAPI = modules.StoflowAPI;
-    const DataDomeHandler = modules.DataDomeHandler;
+    const SessionHandler = modules.SessionHandler || modules.DataDomeHandler;
 
-    // ===== STARTUP: Eager init + DataDome ping =====
+    // ===== STARTUP: Eager init + session ping =====
     log.api.debug('Starting eager init...');
     StoflowAPI.init().then(async (ready) => {
         if (ready) {
             log.api.info('API ready, available:', StoflowAPI.getAvailableApis().join(', '));
 
-            // Startup DataDome ping
-            if (DataDomeHandler.isPresent() && !StoflowAPI._startupPingDone) {
-                log.dd.debug('Startup ping...');
+            // Startup session ping
+            if (SessionHandler.isPresent() && !StoflowAPI._startupPingDone) {
+                log.session.debug('Startup ping...');
                 try {
-                    const result = await DataDomeHandler.safePing();
+                    const result = await SessionHandler.safePing();
                     StoflowAPI._startupPingDone = true;
                     if (result.success) {
-                        log.dd.info(`Startup ping OK (#${result.pingCount})`);
+                        log.session.info(`Startup ping OK (#${result.pingCount})`);
                     } else {
-                        log.dd.warn(`Startup ping failed: ${result.error}`);
+                        log.session.warn(`Startup ping failed: ${result.error}`);
                     }
                 } catch (error) {
-                    log.dd.error('Startup ping error:', error);
+                    log.session.error('Startup ping error:', error);
                 }
             }
         } else {
@@ -64,9 +64,9 @@
         urlObserver.disconnect();
     });
 
-    // Log DataDome status
-    if (DataDomeHandler.isPresent()) {
-        log.dd.debug('Detected:', DataDomeHandler.getInfo());
+    // Log session status
+    if (SessionHandler.isPresent()) {
+        log.session.debug('Detected:', SessionHandler.getInfo());
     }
 
     // ===== MESSAGE LISTENERS =====
@@ -231,10 +231,10 @@
         if (message.type === 'STOFLOW_DATADOME_PING') {
             const { requestId } = message;
 
-            log.dd.debug('Ping request received');
+            log.session.debug('Ping request received');
 
             try {
-                const result = await DataDomeHandler.safePing();
+                const result = await SessionHandler.safePing();
 
                 window.postMessage({
                     type: 'STOFLOW_DATADOME_PING_RESPONSE',
@@ -245,12 +245,12 @@
                         ping_count: result.pingCount,
                         reloaded: result.reloaded || false,
                         error: result.error || null,
-                        datadome_info: DataDomeHandler.getInfo()
+                        datadome_info: SessionHandler.getInfo()
                     }
                 }, window.location.origin);
 
             } catch (error) {
-                log.dd.error('Ping error:', error);
+                log.session.error('Ping error:', error);
                 window.postMessage({
                     type: 'STOFLOW_DATADOME_PING_RESPONSE',
                     requestId,
@@ -318,6 +318,6 @@
         }
     });
 
-    log.api.info('Vinted API Hook loaded (multi-API + fetchHtml + DataDome + refreshSession)');
+    log.api.info('Vinted API Hook loaded (multi-API + fetchHtml + session + refreshSession)');
 
 })();

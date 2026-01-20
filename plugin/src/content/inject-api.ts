@@ -5,7 +5,7 @@ import { ENV } from '../config/environment';
  * Script injector for Stoflow Vinted API
  *
  * Injects modular scripts into MAIN world to access Webpack modules.
- * Scripts are loaded in sequence: logger -> datadome -> api-core -> bootstrap
+ * Scripts are loaded in sequence: logger -> session -> api-core -> bootstrap
  *
  * Author: Claude
  * Date: 2026-01-06
@@ -14,7 +14,7 @@ import { ENV } from '../config/environment';
 // Module files to inject in order
 const API_MODULES = [
   'src/content/stoflow-vinted-logger.js',
-  'src/content/stoflow-vinted-datadome.js',
+  'src/content/stoflow-vinted-session.js',
   'src/content/stoflow-vinted-api-core.js',
   'src/content/stoflow-vinted-bootstrap.js'
 ];
@@ -44,11 +44,19 @@ function injectScript(src: string): Promise<void> {
 
 // Inject the Stoflow API scripts into the page's MAIN world
 async function injectStoflowAPI() {
-  // Avoid double injection
-  if (document.getElementById('stoflow-api-marker')) {
-    ContentLogger.debug('🛍️ [Stoflow] API scripts already injected, skip');
+  // Guard: Avoid double injection (check both window flag and DOM marker)
+  if ((window as any).__STOFLOW_INJECTED__) {
+    ContentLogger.debug('🛍️ [Stoflow] Already injected (window flag), skip');
     return;
   }
+
+  if (document.getElementById('stoflow-api-marker')) {
+    ContentLogger.debug('🛍️ [Stoflow] API scripts already injected (DOM marker), skip');
+    return;
+  }
+
+  // Set injection flag immediately
+  (window as any).__STOFLOW_INJECTED__ = true;
 
   // Mark as injected
   const marker = document.createElement('div');

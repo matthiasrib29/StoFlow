@@ -60,7 +60,6 @@ Vinted API (www.vinted.fr/api/v2/*)
 | `VINTED_PUBLISH` | Publish new product |
 | `VINTED_UPDATE` | Update existing product |
 | `VINTED_DELETE` | Delete product |
-| `VINTED_BATCH` | Execute multiple operations |
 
 ---
 
@@ -110,7 +109,7 @@ src/
 |   |-- inject-api.ts               # Script injection orchestrator
 |   |-- message-utils.ts            # postMessage helpers
 |   |-- stoflow-vinted-logger.js    # Injected: logging utilities
-|   |-- stoflow-vinted-datadome.js  # Injected: DataDome handling
+|   |-- stoflow-vinted-session.js   # Injected: Session handling
 |   |-- stoflow-vinted-api-core.js  # Injected: API implementation
 |   |-- stoflow-vinted-bootstrap.js # Injected: Webpack module hooking
 |-- popup/
@@ -367,7 +366,7 @@ npm test             # Run Vitest tests
 
 1. **Firefox**: No `externally_connectable` support - uses postMessage fallback
 2. **Webpack hooking**: May break if Vinted updates their bundler
-3. **DataDome**: Bot detection may require manual solving
+3. **Session management**: Bot detection may require manual solving
 4. **Rate limiting**: Handled by backend, no local fallback
 
 ---

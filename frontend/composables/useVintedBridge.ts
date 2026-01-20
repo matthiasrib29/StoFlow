@@ -595,33 +595,6 @@ export function useVintedBridge() {
     }
   }
 
-  /**
-   * Execute a batch of Vinted operations
-   */
-  async function executeBatch(operations: Array<{ action: string; payload?: any }>): Promise<BridgeResponse> {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const response = await sendMessage({
-        action: 'VINTED_BATCH',
-        payload: { operations }
-      }, 120000) // 2 minutes for batch operations
-
-      if (!response.success) {
-        error.value = response.error || 'Batch operation failed'
-        lastError.value = response
-      }
-
-      return response
-    } catch (err: any) {
-      error.value = err.message
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
   // ============================================================
   // FIREFOX FALLBACK: MESSAGE LISTENER
   // ============================================================
@@ -772,7 +745,6 @@ export function useVintedBridge() {
     publishProduct,
     updateProduct,
     deleteProduct,
-    executeBatch,
 
     // Lifecycle (for manual control if needed)
     init,
