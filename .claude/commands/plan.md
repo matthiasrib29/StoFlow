@@ -32,6 +32,16 @@ Phase number: $ARGUMENTS
 
 <process>
 
+<step name="set_working_directory">
+**CRITIQUE - Exécuter en premier avant toute action :**
+
+```bash
+cd $PWD
+```
+
+Cela garantit que après un `/clear`, le plan s'exécute dans le bon worktree.
+</step>
+
 <step name="validate">
 ```bash
 [ -f .planning/PROJECT.md ] || { echo "ERROR: No PROJECT.md found. Run `/start` first."; exit 1; }

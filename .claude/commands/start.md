@@ -25,6 +25,16 @@ Task name: $ARGUMENTS (optional - can ask if not provided)
 
 <process>
 
+<step name="set_working_directory">
+**CRITIQUE - Exécuter en premier avant toute action :**
+
+```bash
+cd $PWD
+```
+
+Cela garantit que après un `/clear`, le plan s'exécute dans le bon worktree.
+</step>
+
 <step name="get_task_name">
 If $ARGUMENTS is empty, ask user:
 
