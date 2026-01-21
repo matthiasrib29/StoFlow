@@ -1,44 +1,42 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import {
+  type Settings,
+  DEFAULT_SETTINGS,
+  loadSettingsSafe,
+  saveSettingsSafe,
+  validateSettings
+} from '../schemas/settings';
 
-interface Settings {
-  syncInterval: number;
-  autoSync: boolean;
-  notifications: boolean;
-  platforms: {
-    vinted: { enabled: boolean; autoImport: boolean };
-    ebay: { enabled: boolean; autoImport: boolean };
-    etsy: { enabled: boolean; autoImport: boolean };
-  };
-}
-
-const settings = ref<Settings>({
-  syncInterval: 60,
-  autoSync: true,
-  notifications: true,
-  platforms: {
-    vinted: { enabled: true, autoImport: false },
-    ebay: { enabled: true, autoImport: false },
-    etsy: { enabled: false, autoImport: false }
-  }
-});
+// SECURITY: Use validated settings with type safety
+const settings = ref<Settings>({ ...DEFAULT_SETTINGS });
 
 const saving = ref(false);
 const saveMessage = ref('');
+const validationErrors = ref<string[]>([]);
 
 onMounted(async () => {
-  const stored = await chrome.storage.local.get('settings');
-  if (stored.settings) {
-    settings.value = stored.settings;
-  }
+  // SECURITY: Load settings through validation layer
+  settings.value = await loadSettingsSafe();
 });
 
 const saveSettings = async () => {
   saving.value = true;
   saveMessage.value = '';
+  validationErrors.value = [];
 
   try {
-    await chrome.storage.local.set({ settings: settings.value });
+    // SECURITY: Validate before saving
+    const validation = validateSettings(settings.value);
+
+    if (!validation.valid) {
+      validationErrors.value = validation.errors || ['Invalid settings'];
+      saveMessage.value = '❌ Paramètres invalides';
+      return;
+    }
+
+    // Save validated settings
+    await saveSettingsSafe(settings.value);
 
     // Mettre à jour l'intervalle de sync
     await chrome.runtime.sendMessage({
@@ -47,11 +45,14 @@ const saveSettings = async () => {
     });
 
     saveMessage.value = '✅ Paramètres enregistrés !';
-  } catch (error) {
-    saveMessage.value = "❌ Erreur lors de l'enregistrement";
+  } catch (error: any) {
+    saveMessage.value = `❌ ${error.message || "Erreur lors de l'enregistrement"}`;
   } finally {
     saving.value = false;
-    setTimeout(() => (saveMessage.value = ''), 3000);
+    setTimeout(() => {
+      saveMessage.value = '';
+      validationErrors.value = [];
+    }, 5000);
   }
 };
 </script>

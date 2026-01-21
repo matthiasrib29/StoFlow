@@ -104,12 +104,12 @@ export function sendPostMessageRequest(options: PostMessageRequestOptions): Prom
       });
     }, timeout);
 
-    // Send message to injected script
+    // Send message to injected script (same origin for security)
     window.postMessage({
       type: messageType,
       requestId,
       ...payload
-    }, '*');
+    }, window.location.origin);
 
     if (logContext) {
       VintedLogger.debug(`${logContext} Message sent to injected script`);

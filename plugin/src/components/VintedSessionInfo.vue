@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { PopupLogger } from '../utils/logger';
+import { Logger } from '../utils/logger';
 
 interface VintedSession {
   userId: string | null;
@@ -45,7 +45,7 @@ const loadVintedSession = async () => {
 
     // Envoyer un message au content script pour extraire userId + login
     try {
-      PopupLogger.debug('Requesting Vinted user info from tab', tab.id);
+      Logger.debug('Popup','Requesting Vinted user info from tab', tab.id);
 
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'GET_VINTED_USER_INFO' });
 
@@ -57,12 +57,12 @@ const loadVintedSession = async () => {
         session.value.isConnected = !!(response.data.userId && response.data.login);
 
         if (session.value.isConnected) {
-          PopupLogger.debug('Connected to Vinted', { userId: response.data.userId, login: response.data.login });
+          Logger.debug('Popup','Connected to Vinted', { userId: response.data.userId, login: response.data.login });
         } else {
-          PopupLogger.debug('Not connected (userId or login missing)');
+          Logger.debug('Popup','Not connected (userId or login missing)');
         }
       } else {
-        PopupLogger.error('Failed to extract info:', response?.error);
+        Logger.error('Popup','Failed to extract info:', response?.error);
         error.value = 'Impossible d\'extraire les informations';
         session.value.isConnected = false;
       }
@@ -99,7 +99,7 @@ const copyToClipboard = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text);
     alert(`${label} copié !`);
   } catch (err) {
-    PopupLogger.error('Copy failed:', err);
+    Logger.error('Popup','Copy failed:', err);
   }
 };
 

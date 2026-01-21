@@ -353,52 +353,10 @@ export const ContentLogger = {
   success: (msg: string, ...args: any[]) => Logger.success('Content', msg, ...args)
 };
 
-export const PopupLogger = {
-  debug: (msg: string, ...args: any[]) => Logger.debug('Popup', msg, ...args),
-  info: (msg: string, ...args: any[]) => Logger.info('Popup', msg, ...args),
-  warn: (msg: string, ...args: any[]) => Logger.warn('Popup', msg, ...args),
-  error: (msg: string, error?: Error, ...args: any[]) => Logger.error('Popup', msg, error, ...args),
-  success: (msg: string, ...args: any[]) => Logger.success('Popup', msg, ...args)
-};
-
-export const AuthLogger = {
-  debug: (msg: string, ...args: any[]) => Logger.debug('Auth', msg, ...args),
-  info: (msg: string, ...args: any[]) => Logger.info('Auth', msg, ...args),
-  warn: (msg: string, ...args: any[]) => Logger.warn('Auth', msg, ...args),
-  error: (msg: string, error?: Error, ...args: any[]) => Logger.error('Auth', msg, error, ...args),
-  success: (msg: string, ...args: any[]) => Logger.success('Auth', msg, ...args)
-};
-
-export const TaskPollerLogger = {
-  debug: (msg: string, ...args: any[]) => Logger.debug('TaskPoller', msg, ...args),
-  info: (msg: string, ...args: any[]) => Logger.info('TaskPoller', msg, ...args),
-  warn: (msg: string, ...args: any[]) => Logger.warn('TaskPoller', msg, ...args),
-  error: (msg: string, error?: Error, ...args: any[]) => Logger.error('TaskPoller', msg, error, ...args),
-  success: (msg: string, ...args: any[]) => Logger.success('TaskPoller', msg, ...args),
-  time: (label: string) => Logger.time('TaskPoller', label),
-  timeEnd: (label: string) => Logger.timeEnd('TaskPoller', label)
-};
-
-export const ProxyLogger = {
-  debug: (msg: string, ...args: any[]) => Logger.debug('Proxy', msg, ...args),
-  info: (msg: string, ...args: any[]) => Logger.info('Proxy', msg, ...args),
-  warn: (msg: string, ...args: any[]) => Logger.warn('Proxy', msg, ...args),
-  error: (msg: string, error?: Error, ...args: any[]) => Logger.error('Proxy', msg, error, ...args),
-  success: (msg: string, ...args: any[]) => Logger.success('Proxy', msg, ...args)
-};
-
 export const VintedLogger = {
   debug: (msg: string, ...args: any[]) => Logger.debug('Vinted', msg, ...args),
   info: (msg: string, ...args: any[]) => Logger.info('Vinted', msg, ...args),
   warn: (msg: string, ...args: any[]) => Logger.warn('Vinted', msg, ...args),
   error: (msg: string, error?: Error, ...args: any[]) => Logger.error('Vinted', msg, error, ...args),
   success: (msg: string, ...args: any[]) => Logger.success('Vinted', msg, ...args)
-};
-
-export const APILogger = {
-  debug: (msg: string, ...args: any[]) => Logger.debug('API', msg, ...args),
-  info: (msg: string, ...args: any[]) => Logger.info('API', msg, ...args),
-  warn: (msg: string, ...args: any[]) => Logger.warn('API', msg, ...args),
-  error: (msg: string, error?: Error, ...args: any[]) => Logger.error('API', msg, error, ...args),
-  success: (msg: string, ...args: any[]) => Logger.success('API', msg, ...args)
 };

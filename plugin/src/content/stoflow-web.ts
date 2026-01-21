@@ -9,35 +9,20 @@
  * - Firefox: Frontend uses postMessage → this content script → background script
  *
  * Security:
- * - Validates message origins against whitelist
+ * - Validates message origins against centralized whitelist (origins.ts)
  *
  * Author: Claude
  * Date: 2026-01-06
  */
 
-// ==================== CONFIGURATION SÉCURITÉ ====================
+// ==================== IMPORTS ====================
 
-// Origines autorisées pour recevoir des messages (frontend Stoflow)
-const ALLOWED_ORIGINS = [
-  'https://stoflow.io',
-  'https://www.stoflow.io',
-  'https://app.stoflow.io',
-  // Dev environments (ports 3000-3003)
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001',
-  'http://127.0.0.1:3002',
-  'http://127.0.0.1:3003',
-  // Vite HMR
-  'http://localhost:5173',
-  'http://127.0.0.1:5173'
-];
+import { getAllowedOrigins, isAllowedOrigin as validateOrigin } from '../config/origins';
 
-// Flag pour les logs (activés pour debug)
-const DEBUG_ENABLED = true;
+// ==================== CONFIGURATION ====================
+
+// Flag for logs (enabled only in development)
+const DEBUG_ENABLED = import.meta.env.DEV;
 
 /**
  * Mini-logger for content script context
@@ -52,13 +37,15 @@ const log = {
   success: (...args: any[]) => console.log(PREFIX, '✓', ...args)
 };
 
-// ==================== VALIDATION SÉCURITÉ ====================
+// ==================== SECURITY VALIDATION ====================
 
 /**
- * Vérifie si une origine est autorisée
+ * Check if an origin is allowed.
+ * Uses the centralized origin validator with strict equality check.
+ * SECURITY: Does NOT use startsWith to prevent bypass attacks (e.g., stoflow.io.evil.com)
  */
 function isAllowedOrigin(origin: string): boolean {
-  return ALLOWED_ORIGINS.some(allowed => origin === allowed || origin.startsWith(allowed));
+  return validateOrigin(origin);
 }
 
 // ==================== ANNONCE AU FRONTEND ====================
@@ -161,7 +148,7 @@ function setupMessageListener() {
 
     // SÉCURITÉ CRITIQUE: Valider l'origine du message
     if (!isAllowedOrigin(event.origin)) {
-      log.warn('❌ Origine refusée:', event.origin, 'Autorisées:', ALLOWED_ORIGINS);
+      log.warn('❌ Origine refusée:', event.origin, 'Autorisées:', getAllowedOrigins());
       return;
     }
 

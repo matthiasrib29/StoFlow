@@ -55,8 +55,12 @@ async function injectStoflowAPI() {
     return;
   }
 
-  // Set injection flag immediately
-  (window as any).__STOFLOW_INJECTED__ = true;
+  // SECURITY: Set injection flag as read-only to prevent tampering
+  Object.defineProperty(window, '__STOFLOW_INJECTED__', {
+    value: true,
+    writable: false,
+    configurable: false
+  });
 
   // Mark as injected
   const marker = document.createElement('div');
@@ -64,9 +68,15 @@ async function injectStoflowAPI() {
   marker.style.display = 'none';
   document.body.appendChild(marker);
 
-  // Set debug flag in MAIN world before loading modules
+  // SECURITY: Set debug flag in MAIN world as read-only
   const debugScript = document.createElement('script');
-  debugScript.textContent = `window.__STOFLOW_DEBUG__ = ${ENV.ENABLE_DEBUG_LOGS};`;
+  debugScript.textContent = `
+    Object.defineProperty(window, '__STOFLOW_DEBUG__', {
+      value: ${ENV.ENABLE_DEBUG_LOGS},
+      writable: false,
+      configurable: false
+    });
+  `;
   (document.head || document.documentElement).appendChild(debugScript);
   debugScript.remove();
 

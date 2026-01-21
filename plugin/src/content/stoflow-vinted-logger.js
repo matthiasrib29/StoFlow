@@ -32,13 +32,6 @@
             info: (...args) => console.log('[Session]', '✓', ...args),
             warn: (...args) => console.warn('[Session]', '⚠', ...args),
             error: (...args) => console.error('[Session]', '✗', ...args)
-        },
-        // Backward compatibility alias
-        dd: {
-            debug: (...args) => DEBUG_ENABLED && console.log('[Session]', ...args),
-            info: (...args) => console.log('[Session]', '✓', ...args),
-            warn: (...args) => console.warn('[Session]', '⚠', ...args),
-            error: (...args) => console.error('[Session]', '✗', ...args)
         }
     };
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Stoflow - Multi-Marketplace Manager",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Import, publish and sync your products across Vinted, eBay and Etsy",
 
   "icons": {
@@ -13,7 +13,6 @@
   "permissions": [
     "storage",
     "cookies",
-    "alarms",
     "notifications",
     "scripting",
     "activeTab",
@@ -23,17 +22,20 @@
   "host_permissions": [
     "https://www.vinted.fr/*",
     "https://www.vinted.com/*",
-    "https://www.ebay.fr/*",
-    "https://www.etsy.com/*",
-    "https://api.stoflow.com/*",
-    "https://api.stoflow.io/*",
     "https://stoflow.io/*",
-    "https://www.stoflow.io/*"
+    "https://www.stoflow.io/*",
+    "https://app.stoflow.io/*"
   ],
 
-  "optional_permissions": [
+  "optional_host_permissions": [
     "http://localhost:3000/*",
+    "http://localhost:3001/*",
+    "http://localhost:3002/*",
+    "http://localhost:3003/*",
     "http://127.0.0.1:3000/*",
+    "http://127.0.0.1:3001/*",
+    "http://127.0.0.1:3002/*",
+    "http://127.0.0.1:3003/*",
     "http://localhost:5173/*",
     "http://127.0.0.1:5173/*"
   ],
@@ -58,26 +60,23 @@
 
   "content_scripts": [
     {
-      "matches": ["https://www.vinted.fr/*"],
+      "matches": ["https://www.vinted.fr/*", "https://www.vinted.com/*"],
       "js": ["src/content/vinted.ts"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://www.ebay.fr/*"],
-      "js": ["src/content/ebay.ts"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://www.etsy.com/*"],
-      "js": ["src/content/etsy.ts"],
       "run_at": "document_idle"
     },
     {
       "matches": [
         "https://stoflow.io/*",
         "https://www.stoflow.io/*",
+        "https://app.stoflow.io/*",
         "http://localhost:3000/*",
+        "http://localhost:3001/*",
+        "http://localhost:3002/*",
+        "http://localhost:3003/*",
         "http://127.0.0.1:3000/*",
+        "http://127.0.0.1:3001/*",
+        "http://127.0.0.1:3002/*",
+        "http://127.0.0.1:3003/*",
         "http://localhost:5173/*",
         "http://127.0.0.1:5173/*"
       ],
@@ -89,9 +88,22 @@
   "web_accessible_resources": [
     {
       "resources": ["icons/*"],
-      "matches": ["<all_urls>"]
+      "matches": ["https://stoflow.io/*", "https://www.stoflow.io/*", "https://app.stoflow.io/*"]
+    },
+    {
+      "resources": [
+        "src/content/stoflow-vinted-logger.js",
+        "src/content/stoflow-vinted-session.js",
+        "src/content/stoflow-vinted-api-core.js",
+        "src/content/stoflow-vinted-bootstrap.js"
+      ],
+      "matches": ["https://www.vinted.fr/*", "https://www.vinted.com/*"]
     }
   ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
 
   "browser_specific_settings": {
     "gecko": {
