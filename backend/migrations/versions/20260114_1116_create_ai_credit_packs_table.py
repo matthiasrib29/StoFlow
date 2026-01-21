@@ -45,31 +45,63 @@ CREDIT_PACKS = [
 ]
 
 
+def table_exists(conn, schema: str, table: str) -> bool:
+    """Check if a table exists."""
+    result = conn.execute(
+        text("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = :schema AND table_name = :table
+            )
+        """),
+        {"schema": schema, "table": table}
+    )
+    return result.scalar()
+
+
+def index_exists(conn, schema: str, index_name: str) -> bool:
+    """Check if an index exists."""
+    result = conn.execute(
+        text("""
+            SELECT EXISTS (
+                SELECT 1 FROM pg_indexes
+                WHERE schemaname = :schema AND indexname = :index_name
+            )
+        """),
+        {"schema": schema, "index_name": index_name}
+    )
+    return result.scalar()
+
+
 def upgrade() -> None:
     """Create ai_credit_packs table and seed with initial data."""
-    # Create table
-    op.create_table(
-        'ai_credit_packs',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('credits', sa.Integer(), nullable=False, comment='Number of AI credits in this pack'),
-        sa.Column('price', sa.DECIMAL(precision=10, scale=2), nullable=False, comment='Price in euros'),
-        sa.Column('is_popular', sa.Boolean(), nullable=False, server_default='false', comment='Show as popular/recommended'),
-        sa.Column('display_order', sa.Integer(), nullable=False, default=0, comment='Order of display (lower = first)'),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true', comment='Pack is available for purchase'),
-        sa.PrimaryKeyConstraint('id'),
-        schema='public'
-    )
-
-    # Create index on display_order for sorting
-    op.create_index('ix_ai_credit_packs_display_order', 'ai_credit_packs', ['display_order'], schema='public')
-
-    # Seed initial packs
     conn = op.get_bind()
+
+    # Create table if not exists
+    if not table_exists(conn, 'public', 'ai_credit_packs'):
+        op.create_table(
+            'ai_credit_packs',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('credits', sa.Integer(), nullable=False, comment='Number of AI credits in this pack'),
+            sa.Column('price', sa.DECIMAL(precision=10, scale=2), nullable=False, comment='Price in euros'),
+            sa.Column('is_popular', sa.Boolean(), nullable=False, server_default='false', comment='Show as popular/recommended'),
+            sa.Column('display_order', sa.Integer(), nullable=False, default=0, comment='Order of display (lower = first)'),
+            sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true', comment='Pack is available for purchase'),
+            sa.PrimaryKeyConstraint('id'),
+            schema='public'
+        )
+
+    # Create index on display_order for sorting if not exists
+    if not index_exists(conn, 'public', 'ix_ai_credit_packs_display_order'):
+        op.create_index('ix_ai_credit_packs_display_order', 'ai_credit_packs', ['display_order'], schema='public')
+
+    # Seed initial packs (idempotent with ON CONFLICT)
     for pack in CREDIT_PACKS:
         conn.execute(
             text("""
                 INSERT INTO public.ai_credit_packs (credits, price, is_popular, display_order)
                 VALUES (:credits, :price, :is_popular, :display_order)
+                ON CONFLICT DO NOTHING
             """),
             pack
         )
