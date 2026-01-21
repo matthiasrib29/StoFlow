@@ -58,8 +58,8 @@ export default defineNuxtConfig({
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
       ],
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: getFavicon() },
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' } // Fallback
+        { rel: 'icon', type: 'image/svg+xml', href: `${getFavicon()}?v=2` },
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico?v=2' } // Fallback
       ]
     }
   },
