@@ -196,6 +196,45 @@ def validate_schema_name(schema_name: str) -> str:
 # Utiliser UserSchemaService.create_user_schema() à la place.
 
 
+def get_tenant_session(user_id: int) -> Session:
+    """
+    Create a SQLAlchemy session configured for a specific tenant.
+
+    This function creates a session with schema_translate_map properly configured
+    so that all ORM queries targeting 'tenant' schema will be translated to
+    the user's actual schema (e.g., 'user_123').
+
+    Usage:
+        db = get_tenant_session(user_id=1)
+        try:
+            products = db.query(Product).all()  # Queries user_1.products
+            db.commit()
+        finally:
+            db.close()
+
+    Args:
+        user_id: User ID for tenant isolation
+
+    Returns:
+        Session configured with schema_translate_map for the tenant
+    """
+    schema_name = f"user_{user_id}"
+
+    # Create an engine execution context with schema_translate_map
+    # This ensures ALL queries through this session use the correct schema
+    scoped_engine = engine.execution_options(
+        schema_translate_map={"tenant": schema_name}
+    )
+
+    # Create session bound to this scoped engine
+    db = Session(bind=scoped_engine, autocommit=False, autoflush=False)
+
+    # Also set search_path for raw SQL queries and function calls
+    db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+    return db
+
+
 def check_database_connection() -> bool:
     """
     Vérifie la connexion à la base de données.
