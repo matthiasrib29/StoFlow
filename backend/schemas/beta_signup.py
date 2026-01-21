@@ -22,7 +22,6 @@ class BetaSignupCreate(BaseModel):
         description="Number of products range"
     )
     # Honeypot field: invisible to users, bots fill it
-    # Security Fix 2026-01-20: Anti-spam protection
     website: str | None = Field(
         default=None,
         max_length=255,
@@ -55,21 +54,21 @@ class BetaSignupResponse(BaseModel):
     email: str
     name: str
     vendor_type: str
-    product_count: str
+    product_count: str  # Maps from monthly_volume in DB
     status: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_db(cls, db_obj):
-        """Create response from DB object, mapping monthly_volume to product_count."""
+    def from_orm_model(cls, obj) -> "BetaSignupResponse":
+        """Create response from ORM model, mapping monthly_volume to product_count."""
         return cls(
-            id=db_obj.id,
-            email=db_obj.email,
-            name=db_obj.name or "",
-            vendor_type=db_obj.vendor_type or "",
-            product_count=db_obj.monthly_volume or "",
-            status=db_obj.status.value if hasattr(db_obj.status, 'value') else db_obj.status,
-            created_at=db_obj.created_at
+            id=obj.id,
+            email=obj.email,
+            name=obj.name or "",
+            vendor_type=obj.vendor_type or "",
+            product_count=obj.monthly_volume or "",
+            status=obj.status,
+            created_at=obj.created_at
         )

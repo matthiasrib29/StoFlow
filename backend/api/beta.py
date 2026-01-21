@@ -1,13 +1,15 @@
 """
 Beta signup routes - Public endpoints for beta program registration.
 """
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 
 from middleware.auth_rate_limit import get_auth_rate_limiter
-from models.beta_signup import BetaSignup, BetaSignupStatus
+from models.beta_signup import BetaSignup
 from schemas.beta_signup import BetaSignupCreate, BetaSignupResponse
 from services.email_service import EmailService
 from shared.database import get_db
@@ -26,7 +28,7 @@ rate_limiter = get_auth_rate_limiter()
     response_model=BetaSignupResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Sign up for beta program",
-    description="Register for the Stoflow beta program waitlist. Public endpoint, no authentication required.",
+    description="Register for the Stoflow beta program waitlist.",
 )
 async def create_beta_signup(
     request: Request,
@@ -53,15 +55,12 @@ async def create_beta_signup(
     await rate_limiter.check_rate_limit(request, "beta_signup")
 
     # Honeypot check: if website field is filled, it's a bot
-    # Security Fix 2026-01-20: Anti-spam protection
-    # Return fake success (202) to not alert bots
     if signup_data.website:
         logger.warning(
             f"Honeypot triggered - bot detected: email={signup_data.email}, "
             f"website={signup_data.website}"
         )
         # Return a fake response to fool bots
-        from datetime import datetime
         return BetaSignupResponse(
             id=0,
             email=signup_data.email,
@@ -74,77 +73,54 @@ async def create_beta_signup(
 
     try:
         # Check if email already exists (case-insensitive)
-        # Use raw SQL to avoid ORM selecting columns that may not exist yet
-        from sqlalchemy import text
-        result = db.execute(
-            text("SELECT id FROM public.beta_signups WHERE lower(email) = lower(:email) LIMIT 1"),
-            {"email": signup_data.email}
-        )
-        existing_id = result.scalar()
+        existing_signup = db.query(BetaSignup).filter(
+            func.lower(BetaSignup.email) == func.lower(signup_data.email)
+        ).first()
 
-        if existing_id:
+        if existing_signup:
             logger.warning(f"Beta signup attempt with existing email: {signup_data.email}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Cette adresse email est déjà inscrite à la beta."
+                detail="Cette adresse email est deja inscrite a la beta."
             )
 
-        # Create new beta signup using raw SQL to avoid ORM column issues
-        # Note: product_count is stored in the monthly_volume column for backwards compatibility
-        from datetime import datetime
-        insert_result = db.execute(
-            text("""
-                INSERT INTO public.beta_signups (email, name, vendor_type, monthly_volume, status, created_at)
-                VALUES (:email, :name, :vendor_type, :monthly_volume, :status, :created_at)
-                RETURNING id, created_at
-            """),
-            {
-                "email": signup_data.email.lower(),
-                "name": signup_data.name,
-                "vendor_type": signup_data.vendor_type,
-                "monthly_volume": signup_data.product_count,
-                "status": "pending",
-                "created_at": datetime.now()
-            }
+        # Create new beta signup
+        new_signup = BetaSignup(
+            email=signup_data.email.lower(),
+            name=signup_data.name,
+            vendor_type=signup_data.vendor_type,
+            monthly_volume=signup_data.product_count,  # Map product_count to DB column
+            status="pending"
         )
-        row = insert_result.fetchone()
-        new_id = row[0]
-        created_at = row[1]
-        db.commit()
 
-        logger.info(f"Beta signup created: {new_id} ({signup_data.email})")
+        db.add(new_signup)
+        db.commit()
+        db.refresh(new_signup)
+
+        logger.info(f"Beta signup created: {new_signup.id} ({new_signup.email})")
 
         # Send confirmation email (don't fail signup if email fails)
         try:
             await EmailService.send_beta_confirmation_email(
-                to_email=signup_data.email.lower(),
-                to_name=signup_data.name,
-                vendor_type=signup_data.vendor_type,
-                product_count=signup_data.product_count
+                to_email=new_signup.email,
+                to_name=new_signup.name,
+                vendor_type=new_signup.vendor_type,
+                product_count=new_signup.monthly_volume
             )
-            logger.info(f"Beta confirmation email sent to {signup_data.email}")
+            logger.info(f"Beta confirmation email sent to {new_signup.email}")
         except Exception as email_error:
             logger.error(f"Failed to send beta confirmation email: {email_error}")
 
-        # Return response without using ORM
-        return BetaSignupResponse(
-            id=new_id,
-            email=signup_data.email.lower(),
-            name=signup_data.name,
-            vendor_type=signup_data.vendor_type,
-            product_count=signup_data.product_count,
-            status="pending",
-            created_at=created_at
-        )
+        return BetaSignupResponse.from_orm_model(new_signup)
 
     except HTTPException:
         raise
-    except IntegrityError as e:
+    except IntegrityError:
         db.rollback()
         logger.warning(f"Duplicate email signup attempt: {signup_data.email}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cette adresse email est déjà inscrite à la beta."
+            detail="Cette adresse email est deja inscrite a la beta."
         )
     except Exception as e:
         db.rollback()
