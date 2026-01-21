@@ -158,8 +158,9 @@
         // API HTTP Server (Express-like)
         // Cette page écoute les requêtes POST du backend
         window.addEventListener('message', async (event) => {
-            // Sécurité: vérifier l'origine
+            // SECURITY: Verify origin matches our own origin
             if (event.origin !== window.location.origin) {
+                console.warn('[Security] Blocked message from unauthorized origin:', event.origin);
                 return;
             }
 
@@ -174,16 +175,18 @@
 
                     console.log('📤 Réponse du plugin:', response);
 
-                    // Retourner au backend
+                    // SECURITY: Send response only to the original sender (event.origin)
+                    // instead of '*' which would broadcast to any listener
                     window.postMessage({
                         type: 'BACKEND_RESPONSE',
                         requestId: requestId,
                         payload: response
-                    }, '*');
+                    }, event.origin);
 
                 } catch (error) {
                     console.error('❌ Erreur:', error);
 
+                    // SECURITY: Send error response only to the original sender
                     window.postMessage({
                         type: 'BACKEND_RESPONSE',
                         requestId: requestId,
@@ -191,7 +194,7 @@
                             success: false,
                             error: error.message
                         }
-                    }, '*');
+                    }, event.origin);
                 }
             }
         });

@@ -22,6 +22,46 @@
     const log = modules.log;
 
     /**
+     * Check if DataDome captcha is currently displayed.
+     * This blocks all API requests until the user solves it.
+     *
+     * @returns {boolean} True if captcha is blocking the page
+     */
+    function isCaptchaDisplayed() {
+        // Check for DataDome captcha iframe (most common)
+        const ddIframe = document.querySelector('iframe[src*="datadome"]');
+        if (ddIframe) {
+            log.session.warn('[Session] DataDome captcha iframe detected');
+            return true;
+        }
+
+        // Check for DataDome captcha container
+        const ddCaptcha = document.querySelector('#datadome-captcha');
+        if (ddCaptcha) {
+            log.session.warn('[Session] DataDome captcha container detected');
+            return true;
+        }
+
+        // Check for GeeTest captcha (geo-captcha variant)
+        const geetest = document.querySelector('.geetest_panel, .geetest_popup_wrap');
+        if (geetest) {
+            log.session.warn('[Session] GeeTest captcha detected');
+            return true;
+        }
+
+        // Check for challenge page (403 with specific body text)
+        const body = document.body?.textContent || '';
+        if (body.includes('Please verify you are human') ||
+            body.includes('Veuillez vérifier que vous êtes humain') ||
+            body.includes('Checking your browser')) {
+            log.session.warn('[Session] Captcha challenge page detected');
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Session KeepAlive Handler
      */
     const SessionHandler = {
@@ -49,10 +89,22 @@
 
         /**
          * Trigger a session ping
-         * @returns {Promise<{success: boolean, pingCount: number, error?: string}>}
+         * @returns {Promise<{success: boolean, pingCount: number, captcha?: boolean, error?: string}>}
          */
         async ping() {
             return new Promise((resolve) => {
+                // Check for captcha BEFORE attempting ping
+                if (isCaptchaDisplayed()) {
+                    log.session.warn('Captcha detected - aborting ping');
+                    resolve({
+                        success: false,
+                        pingCount: this._pingCount,
+                        captcha: true,
+                        error: 'CAPTCHA_REQUIRED: DataDome captcha is displayed. Please solve it manually.'
+                    });
+                    return;
+                }
+
                 if (!this.isPresent()) {
                     log.session.debug('Not present on page');
                     resolve({
@@ -174,11 +226,9 @@
 
     // Export to shared namespace and globally
     modules.SessionHandler = SessionHandler;
+    modules.isCaptchaDisplayed = isCaptchaDisplayed;  // Export captcha detection
     window.SessionHandler = SessionHandler;
-
-    // Keep backward compatibility
-    modules.DataDomeHandler = SessionHandler;
-    window.DataDomeHandler = SessionHandler;
+    window.isCaptchaDisplayed = isCaptchaDisplayed;  // Global export for other scripts
 
     log.session.debug('Session module loaded');
 

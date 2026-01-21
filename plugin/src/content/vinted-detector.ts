@@ -68,8 +68,3 @@ export function isVintedConnected(): boolean {
   return !!(userInfo.userId && userInfo.login);
 }
 
-// Export pour usage dans d'autres scripts
-if (typeof window !== 'undefined') {
-  (window as any).getVintedUserInfo = getVintedUserInfo;
-  (window as any).isVintedConnected = isVintedConnected;
-}

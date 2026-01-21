@@ -23,9 +23,17 @@ const PRODUCTION_ORIGINS = [
 // ============================================================
 
 const DEVELOPMENT_ORIGINS = [
+  // Dev environments (ports 3000-3003)
   'http://localhost:3000',
-  'http://localhost:5173',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:3003',
   'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
+  'http://127.0.0.1:3003',
+  // Vite HMR
+  'http://localhost:5173',
   'http://127.0.0.1:5173'
 ] as const;
 
@@ -74,20 +82,32 @@ export function getAllowedOrigins(): string[] {
 /**
  * Verify if the sender origin is allowed.
  *
+ * SECURITY: Uses strict equality check (includes) instead of startsWith
+ * to prevent origin bypass attacks (e.g., stoflow.io.evil.com)
+ *
  * @param senderUrl - The URL or origin to validate
  * @returns true if the origin is in the allowed list
  */
 export function isAllowedOrigin(senderUrl: string | undefined): boolean {
-  if (!senderUrl) return false;
+  if (!senderUrl) {
+    console.warn('[Security] Blocked request: no origin provided');
+    return false;
+  }
 
   try {
     const origin = new URL(senderUrl).origin;
     const allowedOrigins = getAllowedOrigins();
 
-    return allowedOrigins.some(allowed =>
-      origin === allowed || origin.startsWith(allowed.replace('/*', ''))
-    );
-  } catch {
+    // SECURITY: Strict equality check - no startsWith to prevent bypass
+    const isValid = allowedOrigins.includes(origin);
+
+    if (!isValid) {
+      console.warn('[Security] Blocked unauthorized origin:', origin);
+    }
+
+    return isValid;
+  } catch (error) {
+    console.error('[Security] Invalid URL format:', senderUrl);
     return false;
   }
 }

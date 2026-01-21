@@ -11,11 +11,51 @@
  */
 
 import { BackgroundLogger } from '../utils/logger';
-import { handleExternalMessage, isAllowedOrigin, ExternalMessage, ExternalResponse } from './VintedActionHandler';
+import { handleExternalMessage, ExternalMessage, ExternalResponse } from './VintedActionHandler';
+import { isAllowedOrigin } from '../config/origins';
 
 interface Message {
   action: string;
   [key: string]: any;
+}
+
+// ============================================================
+// TAB LIFECYCLE MANAGEMENT - Track active Vinted operations
+// ============================================================
+
+/**
+ * Track active Vinted tab operations to detect tab closure during requests.
+ * When a tab is closed during an operation, we reject immediately instead of waiting for timeout.
+ */
+const activeVintedOperations = new Map<number, {
+  requestId: string;
+  reject: (error: Error) => void;
+}>();
+
+/**
+ * Register a Vinted operation in progress on a specific tab.
+ * @param tabId - The tab ID where the operation is running
+ * @param requestId - Unique request identifier
+ * @param reject - Promise reject function to call if tab is closed
+ */
+export function registerVintedOperation(
+  tabId: number,
+  requestId: string,
+  reject: (error: Error) => void
+): void {
+  activeVintedOperations.set(tabId, { requestId, reject });
+  BackgroundLogger.debug(`[TabLifecycle] Registered operation ${requestId} on tab ${tabId}`);
+}
+
+/**
+ * Unregister a completed Vinted operation.
+ * @param tabId - The tab ID to unregister
+ */
+export function unregisterVintedOperation(tabId: number): void {
+  if (activeVintedOperations.has(tabId)) {
+    BackgroundLogger.debug(`[TabLifecycle] Unregistered operation on tab ${tabId}`);
+    activeVintedOperations.delete(tabId);
+  }
 }
 
 class BackgroundService {
@@ -59,6 +99,16 @@ class BackgroundService {
     } else {
       BackgroundLogger.info('[Background] ⚠️ onMessageExternal not available (Firefox uses content script fallback)');
     }
+
+    // TAB CLOSURE DETECTION: Detect when a Vinted tab is closed during an operation
+    chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+      const operation = activeVintedOperations.get(tabId);
+      if (operation) {
+        BackgroundLogger.warn(`[TabLifecycle] Vinted tab ${tabId} closed during operation ${operation.requestId}`);
+        operation.reject(new Error('TAB_CLOSED: Vinted tab was closed during operation'));
+        activeVintedOperations.delete(tabId);
+      }
+    });
 
     // FIREFOX WORKAROUND: Inject content script manually on localhost tabs
     // Firefox sometimes doesn't inject content scripts automatically on localhost
@@ -174,10 +224,7 @@ class BackgroundService {
     BackgroundLogger.info(`[Background] 📬 Processing internal message: ${message.action}`);
 
     switch (message.action) {
-      // ============ VINTED COOKIES (legacy, kept for popup) ============
-      case 'SAVE_VINTED_COOKIES':
-        return await this.saveVintedCookies(message.cookies);
-
+      // ============ VINTED SESSION CHECK ============
       case 'GET_VINTED_INFO':
         return await this.getVintedInfo();
 
@@ -201,32 +248,31 @@ class BackgroundService {
   }
 
   // ============================================================
-  // COOKIE MANAGEMENT (kept for popup compatibility)
+  // SESSION CHECK (secure - no cookie storage)
   // ============================================================
 
-  private async saveVintedCookies(cookies: any[]): Promise<any> {
-    BackgroundLogger.debug('[Background] Saving', cookies.length, 'Vinted cookies');
-
+  /**
+   * Check if user has an active Vinted session.
+   * SECURITY: Accesses cookies directly via chrome.cookies API
+   * without storing them in chrome.storage.local
+   */
+  private async hasVintedSession(): Promise<boolean> {
     try {
-      await chrome.storage.local.set({
-        vinted_cookies: cookies,
-        vinted_cookies_timestamp: Date.now()
-      });
-
-      BackgroundLogger.debug('[Background] ✅ Cookies saved');
-
-      const sessionCookie = cookies.find(c => c.name === 'v_sid' || c.name === '_vinted_fr_session');
-      if (sessionCookie) {
-        BackgroundLogger.debug('[Background] 🔑 Session cookie found:', sessionCookie.name);
-      }
-
-      return { success: true, count: cookies.length };
-    } catch (error: any) {
-      BackgroundLogger.error('[Background] Cookie save error:', error);
-      return { success: false, error: error.message };
+      const cookies = await chrome.cookies.getAll({ domain: '.vinted.fr' });
+      const sessionCookie = cookies.find(c =>
+        c.name === 'v_sid' || c.name === '_vinted_fr_session'
+      );
+      return !!sessionCookie;
+    } catch (error) {
+      BackgroundLogger.error('[Background] Cookie check error:', error);
+      return false;
     }
   }
 
+  /**
+   * Get Vinted session info without exposing cookies.
+   * Returns only session status, not actual cookie values.
+   */
   private async getVintedInfo(): Promise<any> {
     try {
       const cookies = await chrome.cookies.getAll({ domain: '.vinted.fr' });
@@ -235,6 +281,7 @@ class BackgroundService {
         success: true,
         cookies_count: cookies.length,
         has_session: cookies.some(c => c.name === 'v_sid' || c.name === '_vinted_fr_session')
+        // SECURITY: Do NOT return actual cookie values
       };
     } catch (error: any) {
       BackgroundLogger.error('[Background] Get Vinted info error:', error);

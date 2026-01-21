@@ -119,8 +119,8 @@ let listenerInstalled = false
 export function useVintedBridge() {
   // No local state - using singleton state above
 
-  // Flag for logs (ALWAYS ENABLED for debugging plugin communication)
-  const DEBUG_ENABLED = true
+  // Flag for logs (enabled only in development)
+  const DEBUG_ENABLED = import.meta.env.DEV
 
   // ============================================================
   // INTERNAL HELPERS

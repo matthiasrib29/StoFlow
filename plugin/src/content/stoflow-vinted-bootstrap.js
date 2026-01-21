@@ -13,7 +13,7 @@
 
     // Get shared namespace
     const modules = window.StoflowModules;
-    if (!modules || !modules.log || !modules.StoflowAPI || !(modules.SessionHandler || modules.SessionHandler)) {
+    if (!modules || !modules.log || !modules.StoflowAPI || !modules.SessionHandler) {
         console.error('[Stoflow Bootstrap] Required modules not loaded');
         return;
     }
@@ -21,6 +21,46 @@
     const log = modules.log;
     const StoflowAPI = modules.StoflowAPI;
     const SessionHandler = modules.SessionHandler || modules.DataDomeHandler;
+
+    // ============================================================
+    // SECURITY: REQUEST DEDUPLICATION - Prevent replay attacks
+    // ============================================================
+    const processedRequests = new Map(); // {requestId: timestamp}
+    const DEDUP_WINDOW_MS = 30000; // 30 seconds
+    const MAX_STORED_REQUESTS = 100;
+
+    /**
+     * Check if a request has already been processed (replay detection)
+     * @param {string} requestId - The request ID to check
+     * @returns {boolean} True if this is a duplicate/replay request
+     */
+    function isDuplicateRequest(requestId) {
+        if (!requestId) return false;
+
+        const now = Date.now();
+
+        // Clean old entries periodically
+        if (processedRequests.size > MAX_STORED_REQUESTS) {
+            for (const [key, timestamp] of processedRequests) {
+                if (now - timestamp > DEDUP_WINDOW_MS) {
+                    processedRequests.delete(key);
+                }
+            }
+        }
+
+        // Check if already processed within dedup window
+        if (processedRequests.has(requestId)) {
+            const lastTime = processedRequests.get(requestId);
+            if (now - lastTime < DEDUP_WINDOW_MS) {
+                log.api.warn(`[SECURITY] Blocked replay request: ${requestId}`);
+                return true;
+            }
+        }
+
+        // Register this request
+        processedRequests.set(requestId, now);
+        return false;
+    }
 
     // ===== STARTUP: Eager init + session ping =====
     log.api.debug('Starting eager init...');
@@ -93,6 +133,18 @@
         // ===== API CALL (JSON) =====
         if (message.type === 'STOFLOW_API_CALL') {
             const { method, endpoint, params, data, config, requestId, apiName } = message;
+
+            // SECURITY: Check for replay attacks
+            if (isDuplicateRequest(requestId)) {
+                window.postMessage({
+                    type: 'STOFLOW_API_RESPONSE',
+                    requestId,
+                    success: false,
+                    error: 'Request already processed (replay detected)',
+                    status: 409
+                }, window.location.origin);
+                return;
+            }
 
             log.api.debug(`${method} ${endpoint} (api: ${apiName || 'api'})`);
 
