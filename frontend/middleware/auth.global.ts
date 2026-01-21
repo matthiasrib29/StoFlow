@@ -22,6 +22,14 @@ export default defineNuxtRouteMiddleware((to, from) => {
   // Check if beta mode is enabled
   const isBetaMode = config.public.betaMode === true || config.public.betaMode === 'true'
 
+  // === BLOCK PAGES DURING BETA PERIOD ===
+  // Registration and docs are disabled during beta period
+  const blockedRoutes = ['/register', '/docs']
+  if (blockedRoutes.includes(to.path)) {
+    authLogger.debug(`${to.path} blocked, redirecting to /beta`)
+    return navigateTo('/beta')
+  }
+
   // On first client-side navigation, load auth state from storage
   // This ensures tokens are restored before checking authentication
   if (!authStore.isAuthenticated && !authStore.token) {
@@ -31,6 +39,7 @@ export default defineNuxtRouteMiddleware((to, from) => {
   // === BETA MODE LOGIC ===
   // When enabled, only specific routes are publicly accessible
   if (isBetaMode) {
+
     // Routes that remain public in beta mode
     const betaModePublicRoutes = ['/beta', '/merci', '/login']
     const isBetaModePublicRoute =
