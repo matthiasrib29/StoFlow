@@ -48,7 +48,7 @@ const faqs = [
   {
     icon: 'pi-wallet',
     question: 'Stoflow est-il vraiment gratuit ?',
-    answer: 'Oui ! Notre plan gratuit vous permet de gérer jusqu\'à 10 produits sur une marketplace sans aucun frais. C\'est parfait pour découvrir la plateforme. Pour plus de fonctionnalités, nos plans payants commencent à 19€/mois.'
+    answer: 'Oui ! Notre plan gratuit vous permet de gérer jusqu\'à 30 produits sur 2 marketplaces sans aucun frais, avec 10 générations IA/mois. C\'est parfait pour découvrir la plateforme. Pour plus de fonctionnalités, nos plans payants commencent à 9.99€/mois.'
   },
   {
     icon: 'pi-link',
@@ -68,7 +68,7 @@ const faqs = [
   {
     icon: 'pi-sparkles',
     question: 'La génération IA est-elle incluse ?',
-    answer: 'La génération de descriptions par IA est incluse dans les plans Pro (100 générations/mois) et Business (illimité). Le plan gratuit n\'inclut pas cette fonctionnalité.'
+    answer: 'Oui ! Tous les plans incluent des crédits IA pour générer vos descriptions : Gratuit (10/mois), Starter (40/mois), Pro (100/mois) et Business (300/mois). L\'IA analyse vos photos et génère des descriptions optimisées pour chaque marketplace.'
   },
   {
     icon: 'pi-clock',

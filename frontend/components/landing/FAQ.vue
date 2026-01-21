@@ -29,7 +29,7 @@ const openIndex = ref<number | null>(null)
 const faqItems = [
   {
     question: 'Dois-je payer pour la beta ?',
-    answer: 'Non ! La beta est gratuite pendant 1 mois complet. Après, vous bénéficiez de -50% à vie (14,50€/mois au lieu de 29€) tant que vous donnez du feedback régulier et participez à l\'amélioration de Stoflow.'
+    answer: 'Non ! La beta est gratuite pendant 1 mois complet. Après, vous bénéficiez de -50% à vie (9.99€/mois au lieu de 19.99€ pour le plan Pro) tant que vous donnez du feedback régulier et participez à l\'amélioration de Stoflow.'
   },
   {
     question: 'Quelles marketplaces sont supportées ?',
