@@ -19,9 +19,9 @@
           <h2 class="social-title">En attendant :</h2>
 
           <div class="social-links">
-            <a href="#" class="social-link discord" @click.prevent>
+            <a href="https://discord.gg/NZh8FYgjuk" target="_blank" class="social-link discord">
               <i class="pi pi-discord"></i>
-              <span>Rejoignez notre Discord</span>
+              <span>Rejoindre le Discord</span>
             </a>
           </div>
         </div>
@@ -32,21 +32,27 @@
 
           <div class="share-buttons">
             <button class="share-button whatsapp" @click="shareWhatsApp">
+              <i class="pi pi-whatsapp"></i>
               <span>WhatsApp</span>
             </button>
             <button class="share-button instagram" @click="shareInstagram">
+              <i class="pi pi-instagram"></i>
               <span>Instagram</span>
             </button>
             <button class="share-button tiktok" @click="shareTikTok">
+              <svg class="tiktok-icon" viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+              </svg>
               <span>TikTok</span>
             </button>
             <button class="share-button email" @click="shareEmail">
+              <i class="pi pi-envelope"></i>
               <span>Email</span>
             </button>
           </div>
         </div>
 
-        <NuxtLink to="/beta" class="back-button">
+        <NuxtLink to="/beta" class="back-link">
           ← Retour à l'accueil
         </NuxtLink>
       </div>
@@ -164,12 +170,13 @@ const shareEmail = () => {
 }
 
 .info-box {
-  background: #f9fafb;
+  background: #fffef5;
   border-radius: 1rem;
   padding: 2rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  border: 2px solid #facc15;
 }
 
 .info-item {
@@ -182,7 +189,7 @@ const shareEmail = () => {
 .info-icon-svg {
   font-size: 1.5rem;
   flex-shrink: 0;
-  color: #6b7280;
+  color: #facc15;
 }
 
 .info-item p {
@@ -219,14 +226,19 @@ const shareEmail = () => {
   font-weight: 600;
   font-size: 1rem;
   transition: all 0.2s;
-  border: 1.5px solid #e5e7eb;
-  background: white;
-  color: #1a1a1a;
+  border: 2px solid #5865F2;
+  background: #5865F2;
+  color: white;
+}
+
+.social-link.discord i {
+  color: white;
 }
 
 .social-link.discord:hover {
-  border-color: #5865F2;
-  background: #f0f1ff;
+  background: #4752C4;
+  border-color: #4752C4;
+  transform: translateY(-2px);
 }
 
 .social-link.twitter:hover {
@@ -240,7 +252,7 @@ const shareEmail = () => {
 }
 
 .share-section {
-  background: #f9fafb;
+  background: #fafafa;
   border: 1.5px solid #e5e7eb;
   border-radius: 0.75rem;
   padding: 2rem;
@@ -251,6 +263,10 @@ const shareEmail = () => {
   font-weight: 700;
   margin-bottom: 0.5rem;
   color: #1a1a1a;
+}
+
+.share-title::before {
+  content: "✨ ";
 }
 
 .share-description {
@@ -267,6 +283,10 @@ const shareEmail = () => {
 }
 
 .share-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
   border: 1.5px solid #e5e7eb;
@@ -275,6 +295,11 @@ const shareEmail = () => {
   transition: all 0.2s;
   background: white;
   color: #1a1a1a;
+}
+
+.share-button i,
+.share-button .tiktok-icon {
+  font-size: 1.1rem;
 }
 
 .share-button.whatsapp:hover {
@@ -297,20 +322,15 @@ const shareEmail = () => {
   background: #f3f4f6;
 }
 
-.back-button {
-  display: inline-block;
-  padding: 1rem 2rem;
-  background: #1a1a1a;
-  color: white;
+.back-link {
+  color: #6b7280;
   text-decoration: none;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  transition: all 0.3s;
+  font-size: 0.875rem;
+  transition: color 0.2s;
 }
 
-.back-button:hover {
-  background: #2a2a2a;
-  transform: translateY(-2px);
+.back-link:hover {
+  color: #1a1a1a;
 }
 
 @media (max-width: 768px) {
@@ -384,10 +404,8 @@ const shareEmail = () => {
     min-height: 48px;
   }
 
-  .back-button {
-    padding: 0.875rem 1.5rem;
-    font-size: 0.9375rem;
-    min-height: 48px;
+  .back-link {
+    font-size: 0.8125rem;
   }
 }
 </style>

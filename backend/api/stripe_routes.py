@@ -21,9 +21,11 @@ import stripe
 from typing import Literal
 
 from api.dependencies import get_current_user
+from models.beta_signup import BetaSignup
 from models.public.user import User, SubscriptionTier
 from models.public.subscription_quota import SubscriptionQuota
 from models.public.ai_credit import AICredit
+from models.public.stripe_event import StripeEvent
 from shared.database import get_db
 from shared.stripe_config import (
     STRIPE_SUCCESS_URL,
@@ -33,6 +35,7 @@ from shared.stripe_config import (
 )
 from repositories.ai_credit_pack_repository import AiCreditPackRepository
 from services.ai_credit_pack_service import AiCreditPackService
+from services.beta_discount_service import BetaDiscountService, BETA_COUPON_CODE
 
 router = APIRouter(prefix="/stripe", tags=["Stripe"])
 
@@ -194,6 +197,27 @@ def create_checkout_session(
                 }
             ]
             checkout_params["metadata"]["tier"] = request.tier.value
+
+            # === BETA DISCOUNT ===
+            # Check if user is an eligible beta tester and apply -50% coupon
+            import logging
+            logger = logging.getLogger(__name__)
+
+            beta_signup = BetaDiscountService.is_beta_tester(db, current_user.email)
+            if beta_signup:
+                # Verify coupon exists in Stripe before applying
+                if BetaDiscountService.verify_coupon_exists():
+                    checkout_params["discounts"] = [{"coupon": BETA_COUPON_CODE}]
+                    checkout_params["metadata"]["beta_signup_id"] = str(beta_signup.id)
+                    logger.info(
+                        f"Applying beta discount ({BETA_COUPON_CODE}) to user {current_user.id} "
+                        f"(beta_signup_id={beta_signup.id})"
+                    )
+                else:
+                    logger.warning(
+                        f"Beta coupon {BETA_COUPON_CODE} not found in Stripe. "
+                        f"User {current_user.id} will not receive discount."
+                    )
 
         # === CREDITS ===
         elif request.payment_type == "credits":
@@ -360,6 +384,17 @@ async def stripe_webhook(
     # Logger l'événement
     logger.info(f"Received Stripe event: {event['type']} - {event['id']}")
 
+    # === IDEMPOTENCY CHECK ===
+    # Security Fix 2026-01-20: Prevent duplicate processing of webhooks
+    event_id = event["id"]
+    existing_event = db.query(StripeEvent).filter(
+        StripeEvent.event_id == event_id
+    ).first()
+
+    if existing_event:
+        logger.info(f"Stripe event {event_id} already processed, skipping")
+        return {"status": "already_processed", "event_id": event_id}
+
     # Traiter les différents types d'événements
     event_type = event["type"]
     data = event["data"]["object"]
@@ -396,6 +431,24 @@ async def stripe_webhook(
 
                     db.commit()
                     logger.info(f"User {user_id} upgraded to {new_tier.value}")
+
+                    # Track beta conversion if applicable
+                    # Security Fix 2026-01-20: Uses pessimistic locking to prevent race conditions
+                    beta_signup_id = session["metadata"].get("beta_signup_id")
+                    if beta_signup_id:
+                        converted = BetaDiscountService.mark_as_converted(
+                            db, int(beta_signup_id), user_id
+                        )
+                        if converted:
+                            logger.info(
+                                f"Beta discount tracked: user {user_id} converted "
+                                f"from beta_signup {beta_signup_id}"
+                            )
+                        else:
+                            logger.warning(
+                                f"Beta conversion skipped or failed: user {user_id}, "
+                                f"beta_signup_id {beta_signup_id}"
+                            )
 
             # CREDITS
             elif payment_type == "credits":
@@ -496,9 +549,32 @@ async def stripe_webhook(
             if user:
                 logger.info(f"Payment succeeded for user {user.id}")
 
+        # Record successful processing
+        stripe_event = StripeEvent(
+            event_id=event_id,
+            event_type=event_type,
+            status="processed"
+        )
+        db.add(stripe_event)
+        db.commit()
+
         return {"status": "success"}
 
     except Exception as e:
         logger.error(f"Error processing webhook {event['type']}: {e}")
+
+        # Record failed processing (still mark as processed to prevent infinite retries)
+        try:
+            stripe_event = StripeEvent(
+                event_id=event_id,
+                event_type=event_type,
+                status="failed",
+                error_message=str(e)[:1000]  # Truncate long error messages
+            )
+            db.add(stripe_event)
+            db.commit()
+        except Exception as record_error:
+            logger.error(f"Failed to record stripe event failure: {record_error}")
+
         # Retourner 200 pour éviter que Stripe ne retry indéfiniment
         return {"status": "error", "message": str(e)}

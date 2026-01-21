@@ -1,11 +1,12 @@
 """
 Beta signup routes - Public endpoints for beta program registration.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 
+from middleware.auth_rate_limit import get_auth_rate_limiter
 from models.beta_signup import BetaSignup, BetaSignupStatus
 from schemas.beta_signup import BetaSignupCreate, BetaSignupResponse
 from services.email_service import EmailService
@@ -16,6 +17,9 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/beta", tags=["beta"])
 
+# Rate limiter for beta signup (prevents spam)
+rate_limiter = get_auth_rate_limiter()
+
 
 @router.post(
     "/signup",
@@ -25,6 +29,7 @@ router = APIRouter(prefix="/beta", tags=["beta"])
     description="Register for the Stoflow beta program waitlist. Public endpoint, no authentication required.",
 )
 async def create_beta_signup(
+    request: Request,
     signup_data: BetaSignupCreate,
     db: Session = Depends(get_db),
 ) -> BetaSignupResponse:
@@ -32,6 +37,7 @@ async def create_beta_signup(
     Create a new beta signup.
 
     Args:
+        request: FastAPI request (for rate limiting)
         signup_data: Email and profile information
         db: Database session
 
@@ -39,9 +45,33 @@ async def create_beta_signup(
         Created beta signup
 
     Raises:
+        HTTPException 429: If rate limit exceeded
         HTTPException 409: If email already registered
         HTTPException 500: If database error occurs
     """
+    # Apply rate limiting (5 signups per hour per IP)
+    await rate_limiter.check_rate_limit(request, "beta_signup")
+
+    # Honeypot check: if website field is filled, it's a bot
+    # Security Fix 2026-01-20: Anti-spam protection
+    # Return fake success (202) to not alert bots
+    if signup_data.website:
+        logger.warning(
+            f"Honeypot triggered - bot detected: email={signup_data.email}, "
+            f"website={signup_data.website}"
+        )
+        # Return a fake response to fool bots
+        from datetime import datetime
+        return BetaSignupResponse(
+            id=0,
+            email=signup_data.email,
+            name=signup_data.name,
+            vendor_type=signup_data.vendor_type,
+            monthly_volume=signup_data.monthly_volume,
+            status="pending",
+            created_at=datetime.now()
+        )
+
     try:
         # Check if email already exists (case-insensitive)
         existing_signup = db.query(BetaSignup).filter(

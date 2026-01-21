@@ -23,7 +23,7 @@
         <div class="pricing-card beta">
           <div class="card-badge">🔥 OFFRE LIMITÉE</div>
           <div class="card-header">
-            <h3>Beta (50 premiers)</h3>
+            <h3>Beta (100 premiers)</h3>
           </div>
           <div class="card-price">
             <span class="price-old">29€</span>
@@ -38,7 +38,7 @@
             <li>✅ <strong>Support prioritaire</strong></li>
           </ul>
           <div class="card-cta">
-            <p class="cta-text">⏰ Plus que <strong>{{ placesRestantes }}/50</strong> places</p>
+            <p class="cta-text">⏰ Plus que <strong>{{ placesRestantes }}/100</strong> places</p>
           </div>
         </div>
       </div>

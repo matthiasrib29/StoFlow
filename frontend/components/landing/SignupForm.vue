@@ -6,7 +6,7 @@
         <InputText
           v-model="formData.email"
           type="email"
-          placeholder="Votre email"
+          placeholder="Votre email *"
           class="form-input"
           :class="{ 'p-invalid': errors.email }"
           required
@@ -14,16 +14,18 @@
         <small v-if="errors.email" class="p-error">{{ errors.email }}</small>
       </div>
 
-      <!-- Champs supplémentaires (optionnels) -->
+      <!-- Champs supplémentaires (obligatoires) -->
       <template v-if="showFullForm">
         <div class="form-group">
           <InputText
             v-model="formData.name"
             type="text"
-            placeholder="Votre nom complet"
+            placeholder="Votre nom complet *"
             class="form-input"
+            :class="{ 'p-invalid': errors.name }"
             required
           />
+          <small v-if="errors.name" class="p-error">{{ errors.name }}</small>
         </div>
 
         <div class="form-group">
@@ -32,9 +34,11 @@
             :options="vendorTypes"
             option-label="label"
             option-value="value"
-            placeholder="Type de vendeur (optionnel)"
+            placeholder="Type de vendeur *"
             class="w-full"
+            :class="{ 'p-invalid': errors.vendorType }"
           />
+          <small v-if="errors.vendorType" class="p-error">{{ errors.vendorType }}</small>
         </div>
 
         <div class="form-group">
@@ -43,11 +47,27 @@
             :options="monthlyVolumes"
             option-label="label"
             option-value="value"
-            placeholder="Volume mensuel (optionnel)"
+            placeholder="Volume mensuel *"
             class="w-full"
+            :class="{ 'p-invalid': errors.monthlyVolume }"
           />
+          <small v-if="errors.monthlyVolume" class="p-error">{{ errors.monthlyVolume }}</small>
         </div>
       </template>
+
+      <!-- Honeypot field - invisible to humans, bots fill it -->
+      <!-- Security Fix 2026-01-20: Anti-spam protection -->
+      <div class="honeypot-field" aria-hidden="true">
+        <label for="website">Website (leave empty)</label>
+        <input
+          v-model="formData.website"
+          type="text"
+          name="website"
+          id="website"
+          tabindex="-1"
+          autocomplete="off"
+        />
+      </div>
 
       <!-- Submit button -->
       <Button
@@ -84,7 +104,8 @@ const formData = reactive({
   email: '',
   name: '',
   vendorType: null as string | null,
-  monthlyVolume: null as string | null
+  monthlyVolume: null as string | null,
+  website: '' // Honeypot field - should remain empty
 })
 
 const vendorTypes = [
@@ -99,7 +120,10 @@ const monthlyVolumes = [
 ]
 
 const errors = reactive({
-  email: ''
+  email: '',
+  name: '',
+  vendorType: '',
+  monthlyVolume: ''
 })
 
 const isLoading = ref(false)
@@ -117,19 +141,42 @@ const validateEmail = (email: string) => {
 const handleSubmit = async () => {
   // Reset messages
   errors.email = ''
+  errors.name = ''
+  errors.vendorType = ''
+  errors.monthlyVolume = ''
   successMessage.value = ''
   errorMessage.value = ''
+
+  let hasError = false
 
   // Validate email
   if (!formData.email) {
     errors.email = 'Email requis'
-    return
+    hasError = true
+  } else if (!validateEmail(formData.email)) {
+    errors.email = 'Email invalide'
+    hasError = true
   }
 
-  if (!validateEmail(formData.email)) {
-    errors.email = 'Email invalide'
-    return
+  // Validate name (if full form is shown)
+  if (props.showFullForm && !formData.name) {
+    errors.name = 'Nom requis'
+    hasError = true
   }
+
+  // Validate vendor type (if full form is shown)
+  if (props.showFullForm && !formData.vendorType) {
+    errors.vendorType = 'Type de vendeur requis'
+    hasError = true
+  }
+
+  // Validate monthly volume (if full form is shown)
+  if (props.showFullForm && !formData.monthlyVolume) {
+    errors.monthlyVolume = 'Volume mensuel requis'
+    hasError = true
+  }
+
+  if (hasError) return
 
   isLoading.value = true
 
@@ -138,17 +185,19 @@ const handleSubmit = async () => {
       method: 'POST',
       body: {
         email: formData.email,
-        name: formData.name,
+        name: formData.name || 'Anonyme',
         vendor_type: formData.vendorType || 'particulier',
-        monthly_volume: formData.monthlyVolume || '0-10'
+        monthly_volume: formData.monthlyVolume || '0-10',
+        website: formData.website || null  // Honeypot field
       }
     })
 
     // Success!
     successMessage.value = 'Inscription réussie ! Vérifiez votre email.'
 
-    // Decrement places counter
-    if (placesRestantes && placesRestantes.value > 0) {
+    // Decrement places counter (minimum 15)
+    const PLACES_MIN = 15
+    if (placesRestantes && placesRestantes.value > PLACES_MIN) {
       placesRestantes.value--
       localStorage.setItem('placesRestantes', placesRestantes.value.toString())
     }
@@ -172,9 +221,23 @@ const handleSubmit = async () => {
 </script>
 
 <style scoped>
+/* Honeypot field - hidden from humans, bots fill it */
+/* Security Fix 2026-01-20: Anti-spam protection */
+.honeypot-field {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  width: 0;
+  overflow: hidden;
+}
+
 .signup-form-wrapper {
   max-width: 500px;
   margin: 0 auto;
+  position: relative; /* For honeypot absolute positioning */
 }
 
 .signup-form {

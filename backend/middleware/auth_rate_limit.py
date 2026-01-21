@@ -46,6 +46,7 @@ class AuthRateLimiter:
         "refresh": (10, 5),             # 10 refreshes per 5 minutes
         "resend_verification": (3, 60), # 3 emails per hour
         "verify_email": (10, 60),       # 10 verifications per hour
+        "beta_signup": (5, 60),         # 5 signups per hour per IP (anti-spam)
     }
 
     def __init__(self):

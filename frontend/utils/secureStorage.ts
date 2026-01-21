@@ -38,8 +38,10 @@ interface StorageConfig {
 }
 
 // Default config - can be overridden via setConfig
+// Security Fix 2026-01-20: Use sessionStorage by default (tokens cleared on browser close)
+// This prevents tokens from persisting if the user forgets to logout
 let config: StorageConfig = {
-  useSessionStorage: false, // Default to localStorage for persistence
+  useSessionStorage: true, // Security: Use sessionStorage by default
   inactivityTimeout: undefined
 }
 

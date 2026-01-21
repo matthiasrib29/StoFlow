@@ -4,11 +4,10 @@ import {
   setAuthData,
   getAuthData,
   clearTokens,
-  setAccessToken,
-  getAccessToken,
   getRefreshToken,
   setStorageConfig,
   recordActivity
+  // setAccessToken, getAccessToken removed - access token no longer stored
 } from '~/utils/secureStorage'
 import { authLogger } from '~/utils/logger'
 
@@ -80,14 +79,19 @@ interface RefreshResponse {
   token_type: string
 }
 
+// Token refresh interval (55 minutes = 55 * 60 * 1000 ms)
+// Security Fix 2026-01-20: Auto-refresh before 60min expiry
+const TOKEN_REFRESH_INTERVAL_MS = 55 * 60 * 1000
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as User | null,
-    token: null as string | null,
+    token: null as string | null, // Access token in memory only (not persisted)
     refreshToken: null as string | null,
     isAuthenticated: false,
     isLoading: false,
-    error: null as string | null
+    error: null as string | null,
+    refreshIntervalId: null as ReturnType<typeof setInterval> | null // For auto-refresh
   }),
 
   getters: {
@@ -234,14 +238,18 @@ export const useAuthStore = defineStore('auth', {
         this.refreshToken = data.refresh_token
         this.isAuthenticated = true
 
-        // Store in secure storage
+        // Store in secure storage (refresh token + user only)
+        // Security Fix 2026-01-20: Access token stays in memory only (not persisted)
+        // This prevents XSS attacks from stealing tokens via sessionStorage
         if (import.meta.client) {
           setAuthData({
-            accessToken: data.access_token,
             refreshToken: data.refresh_token,
-            user,
-            expiresInSeconds: 3600 // 1 hour default
+            user
+            // accessToken intentionally NOT stored - kept in this.token (memory only)
           })
+
+          // Start automatic token refresh
+          this.startAutoRefresh()
         }
 
         return { success: true }
@@ -257,6 +265,9 @@ export const useAuthStore = defineStore('auth', {
      * Déconnexion
      */
     logout() {
+      // Stop auto-refresh timer
+      this.stopAutoRefresh()
+
       this.user = null
       this.token = null
       this.refreshToken = null
@@ -266,6 +277,38 @@ export const useAuthStore = defineStore('auth', {
       if (import.meta.client) {
         // Clear all tokens from secure storage
         clearTokens()
+      }
+    },
+
+    /**
+     * Start automatic token refresh (every 55 minutes)
+     * Security Fix 2026-01-20: Proactive token refresh before expiry
+     */
+    startAutoRefresh() {
+      // Clear any existing interval
+      this.stopAutoRefresh()
+
+      // Set up new interval
+      this.refreshIntervalId = setInterval(async () => {
+        authLogger.debug('Auto-refreshing access token...')
+        const success = await this.refreshAccessToken()
+        if (!success) {
+          authLogger.warn('Auto-refresh failed, user may need to re-login')
+          // Don't logout here - let the user continue until next API call fails
+        }
+      }, TOKEN_REFRESH_INTERVAL_MS)
+
+      authLogger.debug('Auto-refresh timer started (55 min interval)')
+    },
+
+    /**
+     * Stop automatic token refresh
+     */
+    stopAutoRefresh() {
+      if (this.refreshIntervalId) {
+        clearInterval(this.refreshIntervalId)
+        this.refreshIntervalId = null
+        authLogger.debug('Auto-refresh timer stopped')
       }
     },
 
@@ -298,20 +341,15 @@ export const useAuthStore = defineStore('auth', {
             this.refreshToken = refreshToken
             this.isAuthenticated = true
 
-            if (accessValid && accessToken) {
-              this.token = accessToken
+            // Security Fix 2026-01-20: Access token is NOT stored anymore
+            // Always refresh on page load to get a fresh access token
+            // This is more secure: even if XSS occurs, no access token in storage
+            authLogger.debug('Restoring session, fetching fresh access token...')
+            this.refreshAccessToken()
 
-              // Check if token will expire soon (within 5 minutes)
-              if (willExpireSoon(accessToken, 5)) {
-                authLogger.debug('Token expiring soon, refreshing...')
-                this.refreshAccessToken()
-              }
-            } else {
-              // Access token invalid/expired but refresh token valid
-              // Attempt to get a new access token
-              authLogger.debug('Access token expired, refreshing...')
-              this.refreshAccessToken()
-            }
+            // Start auto-refresh timer
+            // Security Fix 2026-01-20: Ensure token refresh happens proactively
+            this.startAutoRefresh()
           } catch (error) {
             authLogger.error('Error loading session:', error)
             this.logout()
@@ -358,13 +396,9 @@ export const useAuthStore = defineStore('auth', {
 
         const data: RefreshResponse = await response.json()
 
-        // Mettre à jour seulement l'access token
+        // Mettre à jour seulement l'access token (en mémoire uniquement)
+        // Security Fix 2026-01-20: Access token NOT stored in sessionStorage
         this.token = data.access_token
-
-        if (import.meta.client) {
-          // Update access token in secure storage
-          setAccessToken(data.access_token, 3600) // 1 hour default
-        }
 
         return true
       } catch (error) {

@@ -271,7 +271,7 @@ StoFlow - Gestion multi-plateformes pour e-commerce
     def _get_beta_confirmation_email_html(
         cls, name: str, vendor_type: str, monthly_volume: str
     ) -> str:
-        """Generate HTML content for beta confirmation email (minimal version)."""
+        """Generate HTML content for beta confirmation email (light theme with yellow/black accents)."""
         return f"""
 <!DOCTYPE html>
 <html lang="fr">
@@ -284,55 +284,78 @@ StoFlow - Gestion multi-plateformes pour e-commerce
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f5;">
         <tr>
             <td align="center" style="padding: 40px 20px;">
-                <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);">
 
-                    <!-- Header simple -->
+                    <!-- Header noir avec accent jaune -->
                     <tr>
-                        <td style="padding: 40px 40px 0 40px;">
-                            <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #1a1a1a;">
-                                StoFlow
+                        <td style="padding: 32px 40px; background-color: #0a0a0a; border-bottom: 4px solid #facc15;">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #facc15; letter-spacing: -0.5px;">
+                                STOFLOW
                             </h1>
+                            <p style="margin: 8px 0 0 0; font-size: 12px; color: #a3a3a3; text-transform: uppercase; letter-spacing: 2px;">
+                                Beta Program
+                            </p>
                         </td>
                     </tr>
 
-                    <!-- Message principal -->
+                    <!-- Message principal sur fond blanc -->
                     <tr>
                         <td style="padding: 32px 40px;">
-                            <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 24px; color: #1a1a1a;">
-                                Bonjour {name},
+                            <p style="margin: 0 0 16px 0; font-size: 18px; line-height: 28px; color: #1a1a1a;">
+                                Bonjour <strong style="color: #0a0a0a;">{name}</strong>,
                             </p>
-                            <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 24px; color: #52525b;">
+                            <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 26px; color: #525252;">
                                 Merci de votre inscription à la beta StoFlow.
                             </p>
-                            <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 24px; color: #52525b;">
-                                Vous recevrez un email de notre part le <strong>14 février 2026</strong> avec vos identifiants de connexion.
+                            <p style="margin: 0 0 28px 0; font-size: 16px; line-height: 26px; color: #525252;">
+                                Vous recevrez un email de notre part le <strong style="color: #0a0a0a;">14 février 2026</strong> avec vos identifiants de connexion.
                             </p>
 
-                            <!-- Avantages - liste simple -->
-                            <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 500; color: #1a1a1a;">
-                                En tant que beta-testeur :
-                            </p>
-                            <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #52525b; font-size: 14px; line-height: 22px;">
-                                <li style="margin-bottom: 4px;">1 mois gratuit</li>
-                                <li style="margin-bottom: 4px;">-50% à vie sous condition de feedback régulier</li>
-                                <li style="margin-bottom: 4px;">Support prioritaire</li>
-                            </ul>
+                            <!-- Avantages avec bordure jaune sur fond gris clair -->
+                            <div style="background-color: #fafafa; border-radius: 8px; padding: 20px; margin-bottom: 28px; border-left: 4px solid #facc15;">
+                                <p style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #0a0a0a; text-transform: uppercase; letter-spacing: 1px;">
+                                    Vos avantages beta-testeur
+                                </p>
+                                <ul style="margin: 0; padding-left: 20px; color: #374151; font-size: 15px; line-height: 26px;">
+                                    <li style="margin-bottom: 6px;">✨ <strong>1 mois gratuit</strong></li>
+                                    <li style="margin-bottom: 6px;">💰 <strong>-50% à vie</strong> sous condition de feedback régulier</li>
+                                    <li style="margin-bottom: 0;">🚀 <strong>Support prioritaire</strong></li>
+                                </ul>
+                            </div>
 
-                            <p style="margin: 0; font-size: 14px; line-height: 22px; color: #71717a;">
-                                À bientôt,<br>
-                                L'équipe StoFlow
+                            <p style="margin: 0; font-size: 15px; line-height: 24px; color: #6b7280;">
+                                À très bientôt,<br>
+                                <strong style="color: #374151;">L'équipe StoFlow</strong>
                             </p>
                         </td>
                     </tr>
 
-                    <!-- Footer -->
+                    <!-- Discord CTA -->
                     <tr>
-                        <td style="padding: 24px 40px; background-color: #fafafa; border-top: 1px solid #e5e7eb;">
-                            <p style="margin: 0; font-size: 12px; line-height: 18px; color: #71717a; text-align: center;">
-                                Des questions ? Répondez à cet email.
+                        <td style="padding: 0 40px 32px 40px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f9fafb; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb;">
+                                <tr>
+                                    <td style="padding: 24px; text-align: center;">
+                                        <p style="margin: 0 0 16px 0; font-size: 14px; color: #525252;">
+                                            Rejoignez notre communauté Discord pour échanger avec les autres beta-testeurs !
+                                        </p>
+                                        <a href="https://discord.gg/NZh8FYgjuk" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 600; color: #ffffff; background-color: #5865F2; text-decoration: none; border-radius: 8px;">
+                                            <img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6918e57475a843f59f_icon_clyde_white_RGB.svg" alt="" width="20" height="15" style="vertical-align: middle; margin-right: 8px;">
+                                            Rejoindre le Discord
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer noir -->
+                    <tr>
+                        <td style="padding: 24px 40px; background-color: #0a0a0a;">
+                            <p style="margin: 0; font-size: 12px; line-height: 18px; color: #a3a3a3; text-align: center;">
+                                <strong style="color: #facc15;">STOFLOW</strong> • Publiez sur Vinted & eBay en 10 secondes
                             </p>
-                            <p style="margin: 0; font-size: 12px; line-height: 18px; color: #a1a1aa; text-align: center;">
-                                <strong style="color: #facc15;">STOFLOW</strong> • Publiez sur Vinted & eBay en 10 secondes<br>
+                            <p style="margin: 8px 0 0 0; font-size: 11px; line-height: 16px; color: #737373; text-align: center;">
                                 © 2026 StoFlow. Tous droits réservés.
                             </p>
                         </td>
@@ -364,12 +387,13 @@ En tant que beta-testeur :
 - -50% à vie sous condition de feedback régulier
 - Support prioritaire
 
+Rejoignez notre communauté Discord pour échanger avec les autres beta-testeurs :
+https://discord.gg/NZh8FYgjuk
+
 À bientôt,
 L'équipe StoFlow
 
 ---
-
-Des questions ? Répondez à cet email.
 
 STOFLOW • Publiez sur Vinted & eBay en 10 secondes
 © 2026 StoFlow. Tous droits réservés.

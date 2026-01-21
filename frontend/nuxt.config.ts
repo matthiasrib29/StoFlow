@@ -154,7 +154,10 @@ export default defineNuxtConfig({
       // URL de base de l'API (avec /api) - overridden by NUXT_PUBLIC_API_BASE_URL
       apiBaseUrl: 'http://localhost:8000/api',
       // Dev environment number (1, 2, or 3) - overridden by NUXT_PUBLIC_DEV_ENV
-      devEnv: ''
+      devEnv: '',
+      // Beta mode - Only /beta, /merci, /legal/* are public. All else requires admin.
+      // Set NUXT_PUBLIC_BETA_MODE=true in production to enable.
+      betaMode: false
     }
   },
 

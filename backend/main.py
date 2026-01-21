@@ -20,6 +20,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from api.admin import router as admin_router
 from api.admin_attributes import router as admin_attributes_router
 from api.admin_audit import router as admin_audit_router
+from api.admin_beta import router as admin_beta_router
 from api.admin_docs import router as admin_docs_router
 from api.admin_stats import router as admin_stats_router
 from api.auth import router as auth_router
@@ -240,6 +241,7 @@ app.middleware("http")(rate_limit_middleware)
 app.include_router(admin_router, prefix="/api")
 app.include_router(admin_attributes_router, prefix="/api")
 app.include_router(admin_audit_router, prefix="/api")
+app.include_router(admin_beta_router, prefix="/api")
 app.include_router(admin_stats_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(beta_router, prefix="/api")  # Beta signup (public, no auth required)

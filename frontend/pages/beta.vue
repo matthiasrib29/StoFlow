@@ -16,7 +16,7 @@
         <LandingSignupForm :show-full-form="true" />
         <div class="places-counter">
           <span class="counter-icon">⏰</span>
-          <span class="counter-text">Plus que <strong>{{ placesRestantes }}/50</strong> places</span>
+          <span class="counter-text">Plus que <strong>{{ placesRestantes }}/100</strong> places</span>
         </div>
       </div>
     </section>
@@ -43,9 +43,9 @@
         <p class="cta-final-conditions">* Sous conditions de feedback régulier</p>
         <LandingSignupForm :show-full-form="true" />
         <div class="urgency-bar">
-          <div class="urgency-progress" :style="{ width: `${(placesRestantes / 50) * 100}%` }"></div>
+          <div class="urgency-progress" :style="{ width: `${(placesRestantes / 100) * 100}%` }"></div>
         </div>
-        <p class="urgency-text">{{ placesRestantes }} places restantes sur 50</p>
+        <p class="urgency-text">{{ placesRestantes }} places restantes sur 100</p>
       </div>
     </section>
 
@@ -107,14 +107,19 @@ useHead({
   ]
 })
 
-// Initialize places counter (fake localStorage-based counter)
-const placesRestantes = ref(38)
+// Initialize places counter (cosmetic counter: starts at 88, min 15, max 100)
+const PLACES_TOTAL = 100
+const PLACES_START = 88
+const PLACES_MIN = 15
+
+const placesRestantes = ref(PLACES_START)
 
 onMounted(() => {
-  // Initialize places counter
+  // Initialize places counter from localStorage
   const saved = localStorage.getItem('placesRestantes')
   if (saved) {
-    placesRestantes.value = Math.max(0, Math.min(50, parseInt(saved)))
+    // Clamp between MIN and TOTAL
+    placesRestantes.value = Math.max(PLACES_MIN, Math.min(PLACES_TOTAL, parseInt(saved)))
   } else {
     localStorage.setItem('placesRestantes', placesRestantes.value.toString())
   }

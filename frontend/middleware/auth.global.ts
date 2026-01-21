@@ -6,6 +6,7 @@
  * - Protecting dashboard routes from unauthenticated access
  * - Redirecting authenticated users away from login/register pages
  * - Token validation before allowing access
+ * - BETA MODE: When enabled, only /beta, /merci, /legal/* are public
  */
 import { authLogger } from '~/utils/logger'
 
@@ -16,12 +17,65 @@ export default defineNuxtRouteMiddleware((to, from) => {
   }
 
   const authStore = useAuthStore()
+  const config = useRuntimeConfig()
+
+  // Check if beta mode is enabled
+  const isBetaMode = config.public.betaMode === true || config.public.betaMode === 'true'
 
   // On first client-side navigation, load auth state from storage
   // This ensures tokens are restored before checking authentication
   if (!authStore.isAuthenticated && !authStore.token) {
     authStore.loadFromStorage()
   }
+
+  // === BETA MODE LOGIC ===
+  // When enabled, only specific routes are publicly accessible
+  if (isBetaMode) {
+    // Routes that remain public in beta mode
+    const betaModePublicRoutes = ['/beta', '/merci', '/login']
+    const isBetaModePublicRoute =
+      betaModePublicRoutes.includes(to.path) ||
+      to.path.startsWith('/legal')
+
+    // If user is already authenticated admin and on login page, redirect to dashboard
+    if (to.path === '/login' && authStore.isAuthenticated && authStore.user?.role === 'admin') {
+      return navigateTo('/dashboard')
+    }
+
+    // If route is public in beta mode, allow access
+    if (isBetaModePublicRoute) {
+      return
+    }
+
+    // If user is not authenticated, redirect to /beta
+    if (!authStore.isAuthenticated) {
+      authLogger.debug('[Beta Mode] Unauthenticated access, redirecting to /beta')
+      return navigateTo('/beta')
+    }
+
+    // If user is authenticated but NOT admin, redirect to /beta
+    if (authStore.user?.role !== 'admin') {
+      authLogger.debug('[Beta Mode] Non-admin user, redirecting to /beta')
+      return navigateTo('/beta')
+    }
+
+    // Admin user: allow access to all routes
+    authLogger.debug('[Beta Mode] Admin access granted')
+
+    // Token validation for admin
+    const { willExpireSoon } = useTokenValidator()
+    const token = authStore.token
+    if (token && willExpireSoon(token, 2)) {
+      authLogger.debug('Token expiring soon, triggering refresh')
+      authStore.refreshAccessToken().catch(() => {
+        authLogger.warn('Token refresh failed')
+      })
+    }
+
+    return
+  }
+
+  // === NORMAL MODE LOGIC (Beta mode disabled) ===
 
   // Define public routes that don't require authentication
   const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/beta', '/merci']

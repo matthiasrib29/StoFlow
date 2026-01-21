@@ -132,6 +132,16 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Vérifier que le token n'est pas révoqué (logout)
+    # Security Fix 2026-01-20: Prevents using revoked tokens
+    if AuthService.is_token_revoked(db, token):
+        logger.warning(f"Revoked token used: user_id={payload.get('user_id')}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token révoqué",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     user_id = payload.get("user_id")
 
     if not user_id:

@@ -15,7 +15,7 @@
 
           <div class="places-counter">
             <span class="counter-icon">⏰</span>
-            <span class="counter-text">Plus que <strong>{{ placesRestantes }}/50</strong> places</span>
+            <span class="counter-text">Plus que <strong>{{ placesRestantes }}/100</strong> places</span>
           </div>
         </div>
 

@@ -21,6 +21,13 @@ class BetaSignupCreate(BaseModel):
         ...,
         description="Monthly sales volume range"
     )
+    # Honeypot field: invisible to users, bots fill it
+    # Security Fix 2026-01-20: Anti-spam protection
+    website: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Honeypot field - should remain empty"
+    )
 
     @field_validator('vendor_type')
     @classmethod
