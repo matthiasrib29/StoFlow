@@ -43,16 +43,21 @@ def column_exists(conn, schema: str, table: str, column: str) -> bool:
 
 
 def constraint_exists(conn, schema: str, constraint_name: str) -> bool:
-    """Check if a constraint exists."""
+    """Check if a constraint exists (checks both original and Alembic-prefixed names)."""
+    # Alembic may add ck_tablename_ prefix, so check both variants
     result = conn.execute(
         text("""
             SELECT EXISTS (
                 SELECT 1 FROM information_schema.table_constraints
                 WHERE constraint_schema = :schema
-                  AND constraint_name = :constraint_name
+                  AND (constraint_name = :name1 OR constraint_name = :name2)
             )
         """),
-        {"schema": schema, "constraint_name": constraint_name}
+        {
+            "schema": schema,
+            "name1": constraint_name,
+            "name2": f"ck_users_{constraint_name}"  # Alembic auto-prefixed version
+        }
     )
     return result.scalar()
 
