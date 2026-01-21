@@ -27,19 +27,6 @@ class VintedSellerStats(BaseModel):
     is_on_holiday: Optional[bool] = None
 
 
-class VintedConnectionCallbackRequest(BaseModel):
-    """
-    Request body pour le callback après exécution d'une instruction plugin.
-
-    Le frontend envoie ce payload après avoir exécuté une instruction
-    (ex: VINTED_GET_USER_PROFILE) via le plugin.
-    """
-    requestId: str  # UUID de l'instruction créée par le backend
-    success: bool  # Indique si l'opération a réussi
-    result: Optional[dict] = None  # Résultat de l'opération (userId, login, etc.)
-    error: Optional[str] = None  # Message d'erreur en cas d'échec
-
-
 def get_active_vinted_connection(db: Session, user_id: int) -> VintedConnection:
     """
     Récupère la connexion Vinted active pour un utilisateur.

@@ -64,9 +64,7 @@ from models.user import (
     # Products
     Product,
     ProductStatus,
-    # Publications
-    PublicationHistory,
-    PublicationStatus,
+    # PublicationHistory removed (2026-01-21): Obsolete, replaced by MarketplaceJob
     # AI
     AIGenerationLog,
     # Plugin removed (2026-01-09): Replaced by WebSocket communication
@@ -137,9 +135,8 @@ __all__ = [
     # Products
     "Product",
     "ProductStatus",
-    # Publications
-    "PublicationHistory",
-    "PublicationStatus",
+    # "PublicationHistory",  # Removed (2026-01-21): Obsolete, replaced by MarketplaceJob
+    # "PublicationStatus",   # Removed (2026-01-21): Obsolete
     # AI
     "AIGenerationLog",
     # Plugin removed (2026-01-09): Replaced by WebSocket communication

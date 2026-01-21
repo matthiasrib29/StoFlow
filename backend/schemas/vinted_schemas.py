@@ -259,41 +259,7 @@ class VintedBordereauListResponse(BaseModel):
     total: int = Field(..., description="Nombre total de bordereaux")
 
 
-# ===== Error Log Schemas =====
-
-class VintedErrorLogResponse(BaseModel):
-    """Response schema pour un VintedErrorLog."""
-
-    id: int = Field(..., description="ID du log d'erreur")
-    product_id: int = Field(..., description="ID du produit")
-    operation: str = Field(..., description="Type d'opération: publish, update, delete")
-    error_type: str = Field(..., description="Type d'erreur: mapping_error, api_error, image_error, validation_error")
-    error_message: str = Field(..., description="Message d'erreur")
-    error_details: Optional[str] = Field(None, description="Détails supplémentaires")
-    created_at: datetime = Field(..., description="Date de création")
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class VintedErrorLogListResponse(BaseModel):
-    """Response pour liste des erreurs."""
-
-    items: List[VintedErrorLogResponse]
-    total: int = Field(..., description="Nombre total d'erreurs")
-    page: int = Field(..., description="Page actuelle")
-    page_size: int = Field(..., description="Taille de page")
-    total_pages: int = Field(..., description="Nombre total de pages")
-
-
-class VintedErrorSummaryResponse(BaseModel):
-    """Response pour résumé des erreurs."""
-
-    total_errors: int = Field(..., description="Nombre total d'erreurs")
-    by_type: dict = Field(..., description="Comptage par type d'erreur")
-    by_operation: dict = Field(..., description="Comptage par opération")
-    last_24h: int = Field(..., description="Erreurs dernières 24h")
-    last_7d: int = Field(..., description="Erreurs derniers 7 jours")
-
+# VintedErrorLog schemas removed (2026-01-21): Never used
 
 # ===== Analytics Schemas =====
 

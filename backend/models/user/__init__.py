@@ -18,7 +18,7 @@ from models.user.product_attributes_m2m import (
     ProductMaterial,
     ProductConditionSup,
 )
-from models.user.publication_history import PublicationHistory, PublicationStatus
+# PublicationHistory removed (2026-01-21): Obsolete, replaced by MarketplaceJob
 from models.user.vinted_connection import VintedConnection, DataDomeStatus
 from models.user.vinted_conversation import VintedConversation, VintedMessage
 from models.user.vinted_product import VintedProduct
@@ -43,8 +43,8 @@ __all__ = [
     "EbayCredentials",
     "EtsyCredentials",
     "EbayProduct",
-    "PublicationHistory",
-    "PublicationStatus",
+    # "PublicationHistory",  # Removed (2026-01-21): Obsolete, replaced by MarketplaceJob
+    # "PublicationStatus",   # Removed (2026-01-21): Obsolete
     "AIGenerationLog",
     # "PluginTask",  # Removed (2026-01-09): Replaced by WebSocket
     # "TaskStatus",  # Removed (2026-01-09): Replaced by WebSocket

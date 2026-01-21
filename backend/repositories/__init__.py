@@ -10,7 +10,6 @@ Architecture:
 
 Repositories disponibles:
 - VintedProductRepository: Gestion VintedProduct (CRUD + analytics)
-- VintedErrorLogRepository: Gestion VintedErrorLog (CRUD + statistiques)
 - VintedMappingRepository: Mapping bidirectionnel Stoflow ↔ Vinted (vinted_mapping table)
 
 DEPRECATED:
@@ -30,7 +29,7 @@ from .user_repository import UserRepository
 from .vinted_job_repository import VintedJobRepository
 from .vinted_mapping_repository import VintedMappingRepository
 from .vinted_product_repository import VintedProductRepository
-from .vinted_error_log_repository import VintedErrorLogRepository
+# VintedErrorLogRepository removed (2026-01-21): Never used
 from .ebay_inquiry_repository import EbayInquiryRepository
 
 __all__ = [
@@ -42,6 +41,6 @@ __all__ = [
     'VintedJobRepository',
     'VintedMappingRepository',
     'VintedProductRepository',
-    'VintedErrorLogRepository',
+    # 'VintedErrorLogRepository',  # REMOVED (2026-01-21): Never used
     'EbayInquiryRepository',
 ]

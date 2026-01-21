@@ -44,14 +44,14 @@ from shared.database import Base
 
 from models.user.product import Product
 from models.user.vinted_product import VintedProduct
-from models.user.publication_history import PublicationHistory
+# PublicationHistory removed (2026-01-21): Obsolete, replaced by MarketplaceJob
 from models.user.ai_generation_log import AIGenerationLog
 from models.user.marketplace_batch import MarketplaceBatch
 from models.user.marketplace_job import MarketplaceJob
 from models.user.marketplace_task import MarketplaceTask
 from models.user.vinted_connection import VintedConnection
 from models.user.vinted_conversation import VintedConversation, VintedMessage
-from models.user.vinted_error_log import VintedErrorLog
+# VintedErrorLog removed (2026-01-21): Never used
 # MarketplaceJobStats removed (2026-01-20): Not used
 from models.user.ebay_credentials import EbayCredentials
 from models.user.ebay_product import EbayProduct

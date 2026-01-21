@@ -1,9 +1,9 @@
 /**
  * Composable for Vinted connection management.
  * Handles connection status, user info, and disconnect flow.
+ *
+ * Updated: 2026-01-21 - Simplified to use MarketplaceJob + WebSocket flow
  */
-
-import { getVintedBridge } from './useVintedBridge'
 
 export interface VintedConnectionInfo {
   userId: number | null
@@ -54,14 +54,12 @@ export function useVintedConnection() {
   }, { immediate: true })
 
   /**
-   * Check and establish connection with Vinted via plugin.
+   * Check and establish connection with Vinted via MarketplaceJob + WebSocket.
    *
-   * New backend-orchestrated flow:
-   * 1. Frontend asks backend what to do
-   * 2. Backend creates a PendingInstruction and returns it
-   * 3. Frontend executes the instruction via plugin
-   * 4. Frontend sends the result back to backend callback
-   * 5. Backend validates, saves, and returns final status
+   * New simplified flow (2026-01-21):
+   * 1. Frontend calls POST /check-connection
+   * 2. Backend creates MarketplaceJob and executes via WebSocket → Plugin
+   * 3. Backend returns connection result directly
    */
   const connect = async (): Promise<boolean> => {
     try {
@@ -69,44 +67,16 @@ export function useVintedConnection() {
 
       showInfo('Connexion en cours', 'Vérification de la connexion Vinted via le plugin...', 10000)
 
-      // 1. Ask backend what action to execute
-      const instruction = await post<{
-        instruction: string
-        action: string
-        requestId: string
-        timeout: number
-      }>('/vinted/check-connection')
-
-      if (instruction.instruction !== 'call_plugin') {
-        showError('Erreur', 'Instruction inconnue du backend', 5000)
-        return false
-      }
-
-      // 2. Execute the instruction by calling the plugin
-      const bridge = getVintedBridge()
-
-      // On attend toujours VINTED_GET_USER_PROFILE maintenant (API uniquement)
-      if (instruction.action !== 'VINTED_GET_USER_PROFILE') {
-        showError('Erreur', `Action non supportée: ${instruction.action}`, 5000)
-        return false
-      }
-
-      const pluginResult = await bridge.getUserProfile()
-
-      // 3. Send the result back to backend callback
+      // Single API call - backend handles everything via WebSocket → Plugin
       const response = await post<{
+        job_id: number
         connected: boolean
         vinted_user_id: number | null
         login: string | null
-        message: string
-      }>('/vinted/check-connection/callback', {
-        requestId: instruction.requestId,
-        success: pluginResult.success,
-        result: pluginResult.data,
-        error: pluginResult.error
-      })
+        error: string | null
+      }>('/vinted/check-connection')
 
-      // 4. Handle the final response
+      // Handle the response
       if (response.connected) {
         connectionInfo.value.userId = response.vinted_user_id
         connectionInfo.value.username = response.login
@@ -115,35 +85,38 @@ export function useVintedConnection() {
 
         await publicationsStore.connectIntegration('vinted')
 
-        showSuccess('Connecté', response.message, 5000)
+        showSuccess('Connecté', `Connecté en tant que ${response.login}`, 5000)
         return true
       } else {
-        showWarn('Non connecté', response.message, 5000)
+        // Parse error message for user-friendly display
+        const errorMsg = response.error || 'Échec de la connexion Vinted'
+
+        if (errorMsg.includes('Plugin not installed') || errorMsg.includes('not available')) {
+          showWarn(
+            'Plugin non installé',
+            'Installez le plugin Stoflow pour vous connecter à Vinted',
+            8000
+          )
+        } else if (errorMsg.includes('timeout')) {
+          showWarn(
+            'Plugin non répondu',
+            'Vérifiez que le plugin Stoflow est actif et qu\'un onglet Vinted.fr est ouvert',
+            8000
+          )
+        } else if (errorMsg.includes('No Vinted tab')) {
+          showWarn(
+            'Aucun onglet Vinted',
+            'Ouvrez www.vinted.fr dans un onglet et connectez-vous, puis réessayez',
+            8000
+          )
+        } else {
+          showWarn('Non connecté', errorMsg, 5000)
+        }
         return false
       }
 
     } catch (error: any) {
-      if (error.message?.includes('Plugin not installed') || error.message?.includes('not available')) {
-        showWarn(
-          'Plugin non installé',
-          'Installez le plugin Stoflow pour vous connecter à Vinted',
-          8000
-        )
-      } else if (error.message?.includes('timeout')) {
-        showWarn(
-          'Plugin non répondu',
-          'Vérifiez que le plugin Stoflow est actif et qu\'un onglet Vinted.fr est ouvert',
-          8000
-        )
-      } else if (error.message?.includes('No Vinted tab')) {
-        showWarn(
-          'Aucun onglet Vinted',
-          'Ouvrez www.vinted.fr dans un onglet et connectez-vous, puis réessayez',
-          8000
-        )
-      } else {
-        showError('Erreur de connexion', error.message || 'Impossible de vérifier la connexion à Vinted', 5000)
-      }
+      showError('Erreur de connexion', error.message || 'Impossible de vérifier la connexion à Vinted', 5000)
       return false
 
     } finally {

@@ -35,14 +35,14 @@ class UserSchemaService:
         "product_images",
         "vinted_products",
         "ai_generation_logs",
-        "publication_history",
+        # "publication_history",  # Removed (2026-01-21): Obsolete
         "plugin_tasks",
         "vinted_connection",
         "vinted_jobs",
-        "vinted_job_stats",
+        # "vinted_job_stats",  # Removed (2026-01-21): Replaced by marketplace_task_stats
+        # "vinted_error_logs",  # Removed (2026-01-21): Never used
         "vinted_conversations",
         "vinted_messages",
-        "vinted_error_logs",
         "ebay_credentials",
         "ebay_products",
         "ebay_orders",

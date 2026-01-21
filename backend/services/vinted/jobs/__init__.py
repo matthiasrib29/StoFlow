@@ -6,6 +6,7 @@ Le VintedJobProcessor utilise ces handlers pour exécuter les jobs.
 
 Author: Claude
 Date: 2025-12-19
+Updated: 2026-01-21 - Added CheckConnectionJobHandler
 """
 
 from .base_job_handler import BaseJobHandler
@@ -17,6 +18,7 @@ from .sync_job_handler import SyncJobHandler
 from .message_job_handler import MessageJobHandler
 from .link_product_job_handler import LinkProductJobHandler
 from .fetch_users_job_handler import FetchUsersJobHandler
+from .check_connection_job_handler import CheckConnectionJobHandler
 
 __all__ = [
     'BaseJobHandler',
@@ -28,6 +30,7 @@ __all__ = [
     'MessageJobHandler',
     'LinkProductJobHandler',
     'FetchUsersJobHandler',
+    'CheckConnectionJobHandler',
     'HANDLERS',
 ]
 
@@ -42,4 +45,5 @@ HANDLERS = {
     "message_vinted": MessageJobHandler,
     "link_product_vinted": LinkProductJobHandler,
     "fetch_users_vinted": FetchUsersJobHandler,
+    "check_connection_vinted": CheckConnectionJobHandler,
 }

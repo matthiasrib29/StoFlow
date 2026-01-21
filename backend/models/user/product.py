@@ -437,9 +437,7 @@ class Product(Base):
         lazy="raise"
     )
 
-    publication_history: Mapped[list["PublicationHistory"]] = relationship(
-        "PublicationHistory", back_populates="product", cascade="all, delete-orphan"
-    )
+    # publication_history removed (2026-01-21): Obsolete, replaced by MarketplaceJob
 
     ai_generation_logs: Mapped[list["AIGenerationLog"]] = relationship(
         "AIGenerationLog", back_populates="product", cascade="all, delete-orphan"
