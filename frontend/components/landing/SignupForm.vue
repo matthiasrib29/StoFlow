@@ -43,15 +43,15 @@
 
         <div class="form-group">
           <Dropdown
-            v-model="formData.monthlyVolume"
-            :options="monthlyVolumes"
+            v-model="formData.productCount"
+            :options="productCounts"
             option-label="label"
             option-value="value"
-            placeholder="Volume mensuel *"
+            placeholder="Combien de produits avez-vous ? *"
             class="w-full"
-            :class="{ 'p-invalid': errors.monthlyVolume }"
+            :class="{ 'p-invalid': errors.productCount }"
           />
-          <small v-if="errors.monthlyVolume" class="p-error">{{ errors.monthlyVolume }}</small>
+          <small v-if="errors.productCount" class="p-error">{{ errors.productCount }}</small>
         </div>
       </template>
 
@@ -104,7 +104,7 @@ const formData = reactive({
   email: '',
   name: '',
   vendorType: null as string | null,
-  monthlyVolume: null as string | null,
+  productCount: null as string | null,
   website: '' // Honeypot field - should remain empty
 })
 
@@ -113,17 +113,17 @@ const vendorTypes = [
   { label: 'Professionnel', value: 'professionnel' }
 ]
 
-const monthlyVolumes = [
-  { label: 'Moins de 10', value: '0-10' },
-  { label: '10-50', value: '10-50' },
-  { label: 'Plus de 50', value: '50+' }
+const productCounts = [
+  { label: 'Moins de 100', value: '0-100' },
+  { label: 'Entre 100 et 1000', value: '100-1000' },
+  { label: 'Plus de 1000', value: '1000+' }
 ]
 
 const errors = reactive({
   email: '',
   name: '',
   vendorType: '',
-  monthlyVolume: ''
+  productCount: ''
 })
 
 const isLoading = ref(false)
@@ -143,7 +143,7 @@ const handleSubmit = async () => {
   errors.email = ''
   errors.name = ''
   errors.vendorType = ''
-  errors.monthlyVolume = ''
+  errors.productCount = ''
   successMessage.value = ''
   errorMessage.value = ''
 
@@ -170,9 +170,9 @@ const handleSubmit = async () => {
     hasError = true
   }
 
-  // Validate monthly volume (if full form is shown)
-  if (props.showFullForm && !formData.monthlyVolume) {
-    errors.monthlyVolume = 'Volume mensuel requis'
+  // Validate product count (if full form is shown)
+  if (props.showFullForm && !formData.productCount) {
+    errors.productCount = 'Nombre de produits requis'
     hasError = true
   }
 
@@ -187,7 +187,7 @@ const handleSubmit = async () => {
         email: formData.email,
         name: formData.name || 'Anonyme',
         vendor_type: formData.vendorType || 'particulier',
-        monthly_volume: formData.monthlyVolume || '0-10',
+        product_count: formData.productCount || '0-100',
         website: formData.website || null  // Honeypot field
       }
     })

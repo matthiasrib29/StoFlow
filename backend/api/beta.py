@@ -67,7 +67,7 @@ async def create_beta_signup(
             email=signup_data.email,
             name=signup_data.name,
             vendor_type=signup_data.vendor_type,
-            monthly_volume=signup_data.monthly_volume,
+            product_count=signup_data.product_count,
             status="pending",
             created_at=datetime.now()
         )
@@ -86,11 +86,12 @@ async def create_beta_signup(
             )
 
         # Create new beta signup
+        # Note: product_count is stored in the monthly_volume column for backwards compatibility
         new_signup = BetaSignup(
             email=signup_data.email.lower(),
             name=signup_data.name,
             vendor_type=signup_data.vendor_type,
-            monthly_volume=signup_data.monthly_volume,
+            monthly_volume=signup_data.product_count,  # Map product_count to DB column
             status=BetaSignupStatus.PENDING
         )
 
@@ -106,13 +107,13 @@ async def create_beta_signup(
                 to_email=new_signup.email,
                 to_name=new_signup.name,
                 vendor_type=new_signup.vendor_type,
-                monthly_volume=new_signup.monthly_volume
+                product_count=new_signup.monthly_volume
             )
             logger.info(f"Beta confirmation email sent to {new_signup.email}")
         except Exception as email_error:
             logger.error(f"Failed to send beta confirmation email: {email_error}")
 
-        return BetaSignupResponse.model_validate(new_signup)
+        return BetaSignupResponse.from_db(new_signup)
 
     except HTTPException:
         raise

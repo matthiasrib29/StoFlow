@@ -17,9 +17,9 @@ class BetaSignupCreate(BaseModel):
         ...,
         description="Type of vendor (particulier or professionnel)"
     )
-    monthly_volume: str = Field(
+    product_count: str = Field(
         ...,
-        description="Monthly sales volume range"
+        description="Number of products range"
     )
     # Honeypot field: invisible to users, bots fill it
     # Security Fix 2026-01-20: Anti-spam protection
@@ -38,13 +38,13 @@ class BetaSignupCreate(BaseModel):
             raise ValueError(f'vendor_type must be one of {allowed}')
         return v
 
-    @field_validator('monthly_volume')
+    @field_validator('product_count')
     @classmethod
-    def validate_monthly_volume(cls, v: str) -> str:
-        """Validate monthly_volume is one of the allowed values."""
-        allowed = ['0-10', '10-50', '50+']
+    def validate_product_count(cls, v: str) -> str:
+        """Validate product_count is one of the allowed values."""
+        allowed = ['0-100', '100-1000', '1000+']
         if v not in allowed:
-            raise ValueError(f'monthly_volume must be one of {allowed}')
+            raise ValueError(f'product_count must be one of {allowed}')
         return v
 
 
@@ -55,8 +55,21 @@ class BetaSignupResponse(BaseModel):
     email: str
     name: str
     vendor_type: str
-    monthly_volume: str
+    product_count: str
     status: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_db(cls, db_obj):
+        """Create response from DB object, mapping monthly_volume to product_count."""
+        return cls(
+            id=db_obj.id,
+            email=db_obj.email,
+            name=db_obj.name or "",
+            vendor_type=db_obj.vendor_type or "",
+            product_count=db_obj.monthly_volume or "",
+            status=db_obj.status.value if hasattr(db_obj.status, 'value') else db_obj.status,
+            created_at=db_obj.created_at
+        )

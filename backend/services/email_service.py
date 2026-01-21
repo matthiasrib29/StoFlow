@@ -236,7 +236,7 @@ StoFlow - Gestion multi-plateformes pour e-commerce
         to_email: str,
         to_name: str,
         vendor_type: str,
-        monthly_volume: str,
+        product_count: str,
     ) -> bool:
         """
         Send beta signup confirmation email.
@@ -245,7 +245,7 @@ StoFlow - Gestion multi-plateformes pour e-commerce
             to_email: User's email address.
             to_name: User's full name.
             vendor_type: Type of vendor (particulier/professionnel).
-            monthly_volume: Monthly sales volume.
+            product_count: Number of products range.
 
         Returns:
             True if email was sent successfully.
@@ -253,10 +253,10 @@ StoFlow - Gestion multi-plateformes pour e-commerce
         subject = "🚀 Bienvenue dans la beta StoFlow !"
 
         html_content = cls._get_beta_confirmation_email_html(
-            to_name, vendor_type, monthly_volume
+            to_name, vendor_type, product_count
         )
         text_content = cls._get_beta_confirmation_email_text(
-            to_name, vendor_type, monthly_volume
+            to_name, vendor_type, product_count
         )
 
         return await cls.send_email(
@@ -269,7 +269,7 @@ StoFlow - Gestion multi-plateformes pour e-commerce
 
     @classmethod
     def _get_beta_confirmation_email_html(
-        cls, name: str, vendor_type: str, monthly_volume: str
+        cls, name: str, vendor_type: str, product_count: str
     ) -> str:
         """Generate HTML content for beta confirmation email (light theme with yellow/black accents)."""
         return f"""
@@ -370,7 +370,7 @@ StoFlow - Gestion multi-plateformes pour e-commerce
 
     @classmethod
     def _get_beta_confirmation_email_text(
-        cls, name: str, vendor_type: str, monthly_volume: str
+        cls, name: str, vendor_type: str, product_count: str
     ) -> str:
         """Generate plain text content for beta confirmation email."""
         return f"""
