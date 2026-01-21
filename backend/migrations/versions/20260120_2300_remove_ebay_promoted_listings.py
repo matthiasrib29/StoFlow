@@ -225,9 +225,10 @@ def upgrade() -> None:
                 schema=schema
             )
 
-        # 11. Drop ebay_promoted_listings table if exists
+        # 11. Drop ebay_promoted_listings table if exists (with CASCADE for sequences)
         if table_exists(connection, schema, "ebay_promoted_listings"):
-            op.drop_table("ebay_promoted_listings", schema=schema)
+            # Use raw SQL with CASCADE to handle dependent sequences
+            connection.execute(text(f'DROP TABLE IF EXISTS "{schema}".ebay_promoted_listings CASCADE'))
 
 
 def downgrade() -> None:
