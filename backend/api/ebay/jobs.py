@@ -9,7 +9,7 @@ Author: Claude
 Date: 2026-01-12
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -205,10 +205,16 @@ async def cancel_ebay_job(
     # Also set cancel_requested flag for cooperative cancellation
     job.cancel_requested = True
 
-    # If job is PENDING (not yet picked up), mark as cancelled directly
-    if job.status == JobStatus.PENDING:
+    # For RUNNING jobs: set flag AND mark cancelled immediately
+    # The handler will detect status=CANCELLED and stop processing
+    if job.status == JobStatus.RUNNING:
         job.status = JobStatus.CANCELLED
-    # If RUNNING, worker will detect cancel signal and mark as cancelled
+        job.completed_at = datetime.now(timezone.utc)
+
+    # If job is PENDING (not yet picked up), mark as cancelled directly
+    elif job.status == JobStatus.PENDING:
+        job.status = JobStatus.CANCELLED
+        job.completed_at = datetime.now(timezone.utc)
 
     db.commit()
 

@@ -50,7 +50,7 @@ def upgrade() -> None:
                         'marketplace', NEW.marketplace,
                         'action_type_id', NEW.action_type_id,
                         'priority', NEW.priority,
-                        'schema', current_schema()
+                        'schema', TG_TABLE_SCHEMA
                     )::text
                 );
             END IF;

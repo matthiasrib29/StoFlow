@@ -58,6 +58,31 @@ class BaseJobHandler(ABC):
         from services.marketplace.task_orchestrator import TaskOrchestrator
         self.orchestrator = TaskOrchestrator(db)
 
+    def is_cancelled(self, job: MarketplaceJob) -> bool:
+        """
+        Check if job cancellation was requested.
+
+        Uses DB refresh as primary signal (reliable).
+        Advisory lock is secondary (may be released).
+        """
+        from models.user.marketplace_job import JobStatus
+        from shared.advisory_locks import AdvisoryLockHelper
+
+        # Primary: refresh from DB and check flag
+        try:
+            self.db.refresh(job)
+        except Exception:
+            pass  # Continue with stale data if refresh fails
+
+        if job.cancel_requested or job.status == JobStatus.CANCELLED:
+            return True
+
+        # Secondary: advisory lock (optional backup)
+        if job.id and AdvisoryLockHelper.is_cancel_signaled(self.db, job.id):
+            return True
+
+        return False
+
     @abstractmethod
     async def execute(self, job: MarketplaceJob) -> dict[str, Any]:
         """

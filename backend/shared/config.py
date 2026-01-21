@@ -132,6 +132,33 @@ class Settings(BaseSettings):
     log_file_max_bytes: int = 10485760
     log_file_backup_count: int = 5
 
+    # Job Dispatcher (2026-01-21)
+    # Multi-tenant job dispatcher integrated into backend process
+    dispatcher_enabled: bool = Field(
+        default=True,
+        description="Enable integrated job dispatcher"
+    )
+    dispatcher_global_max_concurrent: int = Field(
+        default=150,
+        description="Maximum total concurrent jobs across all tenants"
+    )
+    dispatcher_per_client_max_concurrent: int = Field(
+        default=30,
+        description="Maximum concurrent jobs per tenant"
+    )
+    dispatcher_worker_idle_timeout_hours: float = Field(
+        default=2.0,
+        description="Remove idle workers after this duration (hours)"
+    )
+    dispatcher_worker_max_age_hours: float = Field(
+        default=24.0,
+        description="Force restart workers after this duration (hours)"
+    )
+    dispatcher_poll_interval: float = Field(
+        default=30.0,
+        description="Fallback polling interval in seconds"
+    )
+
     # CORS
     cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:8080"
     cors_allow_credentials: bool = True

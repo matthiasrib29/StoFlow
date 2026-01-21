@@ -64,8 +64,15 @@ from shared.exceptions import StoflowError
 # Note: SessionLocal removed - no longer needed after plugin tasks cleanup removal
 from shared.logging import setup_logging
 
+# Job Dispatcher (2026-01-21) - Multi-tenant job processing
+from worker.dispatcher import JobDispatcher
+from worker.dispatcher_config import DispatcherConfig
+
 # Configuration du logging
 logger = setup_logging()
+
+# Global dispatcher instance (managed by lifespan)
+_dispatcher: JobDispatcher | None = None
 
 
 # =============================================================================
@@ -130,10 +137,41 @@ async def lifespan(app: FastAPI):
     # TODO: Réactiver quand la logique de ping par nombre de requêtes sera implémentée
     logger.info("🛡️ DataDome scheduler DISABLED (stand-by)")
 
+    # ===== JOB DISPATCHER (2026-01-21) =====
+    # Multi-tenant job dispatcher integrated into backend process
+    global _dispatcher
+
+    if settings.dispatcher_enabled:
+        try:
+            config = DispatcherConfig.from_settings()
+            _dispatcher = JobDispatcher(config)
+            await _dispatcher.start()
+            logger.info(
+                f"🔧 Job dispatcher started (multi-tenant, "
+                f"global_max={config.global_max_concurrent}, "
+                f"per_client_max={config.per_client_max_concurrent})"
+            )
+        except Exception as e:
+            logger.exception(f"❌ Failed to start job dispatcher: {e}")
+            # Don't fail startup - jobs will just queue until dispatcher is fixed
+            _dispatcher = None
+    else:
+        logger.info("🔧 Job dispatcher DISABLED (dispatcher_enabled=false)")
+
     yield  # Application runs here
 
     # ===== SHUTDOWN =====
     logger.info("🛑 Shutting down StoFlow backend...")
+
+    # Stop job dispatcher
+    if _dispatcher:
+        try:
+            await _dispatcher.stop()
+            logger.info("🔧 Job dispatcher stopped")
+        except Exception as e:
+            logger.exception(f"Error stopping job dispatcher: {e}")
+        _dispatcher = None
+
     # Note: DataDome scheduler shutdown is currently disabled (stand-by mode)
 
 

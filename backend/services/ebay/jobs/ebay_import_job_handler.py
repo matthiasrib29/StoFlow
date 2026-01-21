@@ -12,7 +12,6 @@ from typing import Any
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 from services.marketplace.direct_api_job_handler import DirectAPIJobHandler
 from services.ebay.ebay_importer import EbayImporter
-from shared.advisory_locks import AdvisoryLockHelper
 from shared.logging_setup import get_logger
 from shared.schema_utils import configure_schema_translate_map
 
@@ -78,7 +77,7 @@ class EbayImportJobHandler(DirectAPIJobHandler):
 
             while True:
                 # Check for cancellation
-                if AdvisoryLockHelper.is_cancel_signaled(self.db, job_id):
+                if self.is_cancelled(job):
                     logger.info(f"[EbayImportHandler] Job #{job_id} cancelled")
                     return {"success": False, "error": "cancelled", "imported": imported_count}
 
@@ -103,7 +102,7 @@ class EbayImportJobHandler(DirectAPIJobHandler):
                     sku = item.get("sku", "unknown")
 
                     # Check cancellation periodically
-                    if idx % 10 == 0 and AdvisoryLockHelper.is_cancel_signaled(self.db, job_id):
+                    if idx % 10 == 0 and self.is_cancelled(job):
                         logger.info(f"[EbayImportHandler] Job #{job_id} cancelled during import")
                         return {"success": False, "error": "cancelled", "imported": imported_count}
 
@@ -131,7 +130,7 @@ class EbayImportJobHandler(DirectAPIJobHandler):
                 # Enrich in parallel batches
                 for i in range(0, len(page_products), self.ENRICHMENT_BATCH_SIZE):
                     # Check cancellation
-                    if AdvisoryLockHelper.is_cancel_signaled(self.db, job_id):
+                    if self.is_cancelled(job):
                         return {"success": False, "error": "cancelled", "imported": imported_count}
 
                     configure_schema_translate_map(self.db, schema_name)
@@ -198,7 +197,7 @@ class EbayImportJobHandler(DirectAPIJobHandler):
         importer: EbayImporter,
         products: list,
         schema_name: str,
-        max_workers: int = 30,
+        max_workers: int = 5,  # Reduced from 30 to avoid blocking the main process
     ) -> int:
         """
         Enrich products with offers data in parallel.

@@ -104,6 +104,11 @@ class DirectAPIJobHandler(BaseJobHandler):
         """
         product_id = job.product_id
 
+        # Pre-execution cancellation check
+        if self.is_cancelled(job):
+            self.log_start(f"Job #{job.id} cancelled before execution")
+            return {"success": False, "error": "cancelled"}
+
         # 1. Validate product_id
         if not product_id:
             self.log_error("product_id is required")
