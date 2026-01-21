@@ -1,7 +1,7 @@
 """
-Create Fresh Test Batches
+Create Fresh Test Marketplace Batches
 
-Creates sample batch jobs for validation after cleanup.
+Creates sample marketplace batches for validation after cleanup.
 Used to verify the batch processing system works correctly with fresh data.
 
 Usage:
@@ -10,6 +10,7 @@ Usage:
 
 Author: Claude
 Date: 2026-01-19
+Updated: 2026-01-20 - Renamed marketplace_batches → marketplace_batches
 """
 
 import sys
@@ -51,16 +52,16 @@ def create_test_batches(schema: str = "user_1"):
     try:
         db.execute(text(f"SET search_path TO {schema}, public"))
 
-        # Check if batch_jobs table exists
+        # Check if marketplace_batches table exists
         result = db.execute(text("""
             SELECT EXISTS (
                 SELECT 1 FROM information_schema.tables
-                WHERE table_schema = :schema AND table_name = 'batch_jobs'
+                WHERE table_schema = :schema AND table_name = 'marketplace_batches'
             )
         """), {"schema": schema})
 
         if not result.scalar():
-            logger.error(f"[TestBatches] Table batch_jobs not found in {schema}")
+            logger.error(f"[TestBatches] Table marketplace_batches not found in {schema}")
             return
 
         # Check if marketplace_jobs table exists
@@ -104,7 +105,7 @@ def create_test_batches(schema: str = "user_1"):
 
             # Create batch_job
             db.execute(text("""
-                INSERT INTO batch_jobs (
+                INSERT INTO marketplace_batches (
                     batch_id, marketplace, action_code, total_count, priority, status, created_at
                 ) VALUES (
                     :batch_id, :marketplace, :action_code, :total_count, :priority, 'pending', NOW()
@@ -119,7 +120,7 @@ def create_test_batches(schema: str = "user_1"):
 
             # Get the batch ID
             result = db.execute(text("""
-                SELECT id FROM batch_jobs WHERE batch_id = :batch_id
+                SELECT id FROM marketplace_batches WHERE batch_id = :batch_id
             """), {"batch_id": batch_id})
             batch_db_id = result.scalar()
 
@@ -171,7 +172,7 @@ def verify_test_batches(schema: str = "user_1"):
                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
                    SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running,
                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
-            FROM batch_jobs
+            FROM marketplace_batches
         """))
         row = result.fetchone()
 
@@ -184,7 +185,7 @@ def verify_test_batches(schema: str = "user_1"):
         # List batches
         result = db.execute(text("""
             SELECT id, batch_id, marketplace, action_code, total_count, status, created_at
-            FROM batch_jobs
+            FROM marketplace_batches
             ORDER BY created_at DESC
             LIMIT 10
         """))

@@ -34,7 +34,7 @@ class JobResponse(BaseModel):
     """Response schema for a single job (updated 2026-01-19)."""
 
     id: int
-    batch_job_id: Optional[int] = None
+    marketplace_batch_id: Optional[int] = None
     action_type_id: int
     action_code: Optional[str] = None
     action_name: Optional[str] = None
@@ -139,7 +139,7 @@ async def list_ebay_jobs(
 
         job_responses.append(JobResponse(
             id=job.id,
-            batch_job_id=job.batch_job_id,
+            marketplace_batch_id=job.marketplace_batch_id,
             action_type_id=job.action_type_id,
             action_code=action_type.code if action_type else None,
             action_name=action_type.name if action_type else None,

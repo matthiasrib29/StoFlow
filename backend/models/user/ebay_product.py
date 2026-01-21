@@ -108,6 +108,7 @@ class EbayProduct(Base):
         Index("idx_ebay_products_marketplace_id", "marketplace_id"),
         Index("idx_ebay_products_brand", "brand"),
         Index("idx_ebay_products_ebay_listing_id", "ebay_listing_id"),
+        Index("idx_ebay_products_sku_derived", "sku_derived"),
         {"schema": "tenant"},  # Placeholder for schema_translate_map
     )
 
@@ -276,9 +277,56 @@ class EbayProduct(Base):
         Integer, nullable=True, comment="Quantité disponible pour achat"
     )
 
+    # Multi-marketplace publishing (unified from ebay_products_marketplace)
+    sku_derived: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=True,
+        index=True,
+        comment="SKU dérivé pour publication (e.g., '1234-FR')",
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True, comment="Message d'erreur si publication échouée"
+    )
+
+    # Promoted Listings (unified from ebay_promoted_listings)
+    promoted_campaign_id: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, index=True, comment="ID campagne eBay"
+    )
+    promoted_campaign_name: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True, comment="Nom de la campagne"
+    )
+    promoted_ad_id: Mapped[Optional[str]] = mapped_column(
+        String(50), unique=True, nullable=True, comment="ID unique de l'annonce"
+    )
+    promoted_bid_percentage: Mapped[Optional[float]] = mapped_column(
+        Numeric(5, 2), nullable=True, comment="% d'enchère (2-100)"
+    )
+    promoted_ad_status: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, comment="ACTIVE, PAUSED, ENDED"
+    )
+    promoted_clicks: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, comment="Nombre de clics"
+    )
+    promoted_impressions: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, comment="Nombre d'impressions"
+    )
+    promoted_sales: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, comment="Nombre de ventes"
+    )
+    promoted_sales_amount: Mapped[float] = mapped_column(
+        Numeric(10, 2), nullable=False, default=0, comment="Montant total ventes"
+    )
+    promoted_ad_fees: Mapped[float] = mapped_column(
+        Numeric(10, 2), nullable=False, default=0, comment="Frais publicitaires"
+    )
+
     # Timestamps
     published_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True, comment="Date de publication sur eBay"
+    )
+    sold_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, comment="Date de vente"
     )
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True, comment="Dernière synchronisation"
@@ -319,3 +367,46 @@ class EbayProduct(Base):
     def is_published(self) -> bool:
         """Check if product has a listing on eBay."""
         return self.ebay_listing_id is not None
+
+    # ===== PROMOTED LISTINGS METRICS (from ebay_promoted_listings) =====
+
+    @property
+    def ctr(self) -> float:
+        """
+        Click-Through Rate (CTR).
+        Percentage of clicks per impressions.
+        """
+        if self.promoted_impressions == 0:
+            return 0.0
+        return (self.promoted_clicks / self.promoted_impressions) * 100
+
+    @property
+    def conversion_rate(self) -> float:
+        """
+        Conversion Rate.
+        Percentage of sales per clicks.
+        """
+        if self.promoted_clicks == 0:
+            return 0.0
+        return (self.promoted_sales / self.promoted_clicks) * 100
+
+    @property
+    def roi(self) -> float:
+        """
+        Return On Investment (ROI).
+        (Sales - Ad Fees) / Ad Fees * 100
+        """
+        if float(self.promoted_ad_fees) == 0:
+            return 0.0
+        profit = float(self.promoted_sales_amount) - float(self.promoted_ad_fees)
+        return (profit / float(self.promoted_ad_fees)) * 100
+
+    @property
+    def cpa(self) -> float:
+        """
+        Cost Per Acquisition (CPA).
+        Ad Fees / Number of Sales
+        """
+        if self.promoted_sales == 0:
+            return 0.0
+        return float(self.promoted_ad_fees) / self.promoted_sales

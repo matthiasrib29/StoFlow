@@ -46,18 +46,17 @@ from models.user.product import Product
 from models.user.vinted_product import VintedProduct
 from models.user.publication_history import PublicationHistory
 from models.user.ai_generation_log import AIGenerationLog
-from models.user.batch_job import BatchJob
+from models.user.marketplace_batch import MarketplaceBatch
 from models.user.marketplace_job import MarketplaceJob
 from models.user.marketplace_task import MarketplaceTask
 from models.user.vinted_connection import VintedConnection
 from models.user.vinted_conversation import VintedConversation, VintedMessage
 from models.user.vinted_error_log import VintedErrorLog
-from models.user.marketplace_job_stats import MarketplaceJobStats
+# MarketplaceJobStats removed (2026-01-20): Not used
 from models.user.ebay_credentials import EbayCredentials
 from models.user.ebay_product import EbayProduct
-from models.user.ebay_product_marketplace import EbayProductMarketplace
 from models.user.ebay_order import EbayOrder, EbayOrderProduct
-from models.user.ebay_promoted_listing import EbayPromotedListing
+# EbayPromotedListing removed (2026-01-20): Merged into EbayProduct
 from models.user.etsy_credentials import EtsyCredentials
 
 # Alembic Config object

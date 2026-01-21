@@ -11,8 +11,6 @@ from models.user.ebay_order import EbayOrder, EbayOrderProduct
 from models.user.ebay_inquiry import EbayInquiry
 from models.user.etsy_credentials import EtsyCredentials
 from models.user.ebay_product import EbayProduct
-from models.user.ebay_product_marketplace import EbayProductMarketplace
-from models.user.ebay_promoted_listing import EbayPromotedListing
 # PluginTask removed (2026-01-09): Replaced by WebSocket communication
 from models.user.product import Product, ProductStatus
 from models.user.product_attributes_m2m import (
@@ -27,9 +25,9 @@ from models.user.vinted_product import VintedProduct
 # Vinted schema models (re-exported for compatibility)
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from models.vinted.vinted_deletion import VintedDeletion
-from models.user.batch_job import BatchJob
+from models.user.marketplace_batch import MarketplaceBatch, MarketplaceBatchStatus, BatchJob, BatchJobStatus
 from models.user.marketplace_job import MarketplaceJob, JobStatus
-from models.user.marketplace_job_stats import MarketplaceJobStats
+# MarketplaceJobStats removed (2026-01-20): Not used
 
 __all__ = [
     "Product",
@@ -50,16 +48,20 @@ __all__ = [
     "AIGenerationLog",
     # "PluginTask",  # Removed (2026-01-09): Replaced by WebSocket
     # "TaskStatus",  # Removed (2026-01-09): Replaced by WebSocket
-    "EbayProductMarketplace",
-    "EbayPromotedListing",
+    # "EbayPromotedListing",  # Removed (2026-01-20): Merged into EbayProduct
     "EbayOrder",
     "EbayOrderProduct",
     "EbayInquiry",
     "VintedOrder",
     "VintedOrderProduct",
     "VintedDeletion",
-    "BatchJob",
+    # Marketplace Batch (formerly BatchJob)
+    "MarketplaceBatch",
+    "MarketplaceBatchStatus",
+    "BatchJob",  # Deprecated alias for backward compatibility
+    "BatchJobStatus",  # Deprecated alias for backward compatibility
+    # Marketplace Job
     "MarketplaceJob",
     "JobStatus",
-    "MarketplaceJobStats",
+    # "MarketplaceJobStats",  # Removed (2026-01-20): Not used
 ]

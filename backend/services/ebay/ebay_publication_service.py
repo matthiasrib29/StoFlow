@@ -14,11 +14,12 @@ Author: Claude
 Date: 2025-12-10
 """
 
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from models.user.ebay_product_marketplace import EbayProductMarketplace
+from models.user.ebay_product import EbayProduct
 from models.user.product import Product
 from services.ebay.ebay_account_client import EbayAccountClient
 from services.ebay.ebay_inventory_client import EbayInventoryClient
@@ -202,22 +203,23 @@ class EbayPublicationService:
         Examples:
             >>> service.unpublish_product(12345, "EBAY_FR")
         """
-        # Récupérer ebay_products_marketplace
+        # Generate sku_derived from product_id and marketplace
         marketplace_code = marketplace_id.split("_")[1]
         sku_derived = f"{product_id}-{marketplace_code}"
 
-        pm = (
-            self.db.query(EbayProductMarketplace)
-            .filter(EbayProductMarketplace.sku_derived == sku_derived)
+        # Find the EbayProduct by sku_derived
+        ebay_product = (
+            self.db.query(EbayProduct)
+            .filter(EbayProduct.sku_derived == sku_derived)
             .first()
         )
 
-        if not pm:
+        if not ebay_product:
             raise EbayPublicationError(
                 f"Produit {product_id} non publié sur {marketplace_id}"
             )
 
-        if not pm.ebay_offer_id:
+        if not ebay_product.ebay_offer_id:
             raise EbayPublicationError(
                 f"Pas d'offer_id pour {sku_derived}"
             )
@@ -226,10 +228,10 @@ class EbayPublicationService:
         offer_client = EbayOfferClient(
             self.db, self.user_id, marketplace_id=marketplace_id
         )
-        offer_client.withdraw_offer(str(pm.ebay_offer_id))
+        offer_client.withdraw_offer(str(ebay_product.ebay_offer_id))
 
-        # Mettre à jour status
-        pm.status = "withdrawn"
+        # Update status
+        ebay_product.status = "withdrawn"
         self.db.commit()
 
         return {"status": "withdrawn", "sku_derived": sku_derived}
@@ -292,7 +294,7 @@ class EbayPublicationService:
         error_message: Optional[str] = None,
     ) -> None:
         """
-        Enregistre ou met à jour ebay_products_marketplace.
+        Update ebay_products with publication data.
 
         Args:
             product_id: ID du Product
@@ -303,36 +305,29 @@ class EbayPublicationService:
             status: Status (draft, published, error, withdrawn)
             error_message: Message d'erreur si status=error
         """
-        # Chercher existant
-        existing = (
-            self.db.query(EbayProductMarketplace)
-            .filter(EbayProductMarketplace.sku_derived == sku_derived)
+        # Find the EbayProduct linked to this Product
+        ebay_product = (
+            self.db.query(EbayProduct)
+            .filter(EbayProduct.product_id == product_id)
             .first()
         )
 
-        if existing:
-            # Mettre à jour
-            existing.ebay_offer_id = ebay_offer_id or existing.ebay_offer_id
-            existing.ebay_listing_id = ebay_listing_id or existing.ebay_listing_id
-            existing.status = status
-            existing.error_message = error_message
-            if status == "published":
-                from datetime import datetime, timezone
-                existing.published_at = datetime.now(timezone.utc)
-        else:
-            # Créer nouveau
-            pm = EbayProductMarketplace(
-                sku_derived=sku_derived,
-                product_id=product_id,
-                marketplace_id=marketplace_id,
-                ebay_offer_id=ebay_offer_id,
-                ebay_listing_id=ebay_listing_id,
-                status=status,
-                error_message=error_message,
+        if not ebay_product:
+            raise EbayPublicationError(
+                f"EbayProduct not found for product_id={product_id}"
             )
-            if status == "published":
-                from datetime import datetime, timezone
-                pm.published_at = datetime.now(timezone.utc)
-            self.db.add(pm)
+
+        # Update ebay_product with publication data
+        ebay_product.sku_derived = sku_derived
+        ebay_product.marketplace_id = marketplace_id
+        if ebay_offer_id:
+            ebay_product.ebay_offer_id = ebay_offer_id
+        if ebay_listing_id:
+            ebay_product.ebay_listing_id = ebay_listing_id
+        ebay_product.status = status
+        ebay_product.error_message = error_message
+
+        if status == "published":
+            ebay_product.published_at = datetime.now(timezone.utc)
 
         self.db.commit()

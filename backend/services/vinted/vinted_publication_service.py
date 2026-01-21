@@ -55,6 +55,19 @@ class VintedPublicationService:
     - Post-processing
     """
 
+    # Step names for error tracking
+    STEP_GET_PRODUCT = "get_product"
+    STEP_CHECK_DUPLICATE = "check_duplicate"
+    STEP_VALIDATE = "validate_product"
+    STEP_MAP_ATTRIBUTES = "map_attributes"
+    STEP_CALCULATE_PRICE = "calculate_price"
+    STEP_GENERATE_TITLE = "generate_title"
+    STEP_GENERATE_DESCRIPTION = "generate_description"
+    STEP_UPLOAD_IMAGES = "upload_images"
+    STEP_BUILD_PAYLOAD = "build_payload"
+    STEP_CREATE_LISTING = "create_listing"
+    STEP_SAVE_RESULT = "save_result"
+
     def __init__(self, db: Session):
         """
         Initialize the publication service.
@@ -68,6 +81,7 @@ class VintedPublicationService:
         self.validator = VintedProductValidator()
         self.title_service = VintedTitleService()
         self.description_service = VintedDescriptionService()
+        self._current_step: str | None = None
 
     async def publish_product(
         self,
@@ -92,37 +106,49 @@ class VintedPublicationService:
                 "url": str | None,
                 "product_id": int,
                 "price": float | None,
-                "error": str | None
+                "error": str | None,
+                "failed_step": str | None  # Step where failure occurred
             }
         """
         start_time = time.time()
+        self._current_step = None
 
         try:
             logger.info(f"Starting publication for product #{product_id}")
 
             # 1. Retrieve product
+            self._current_step = self.STEP_GET_PRODUCT
             product = self._get_product(product_id)
 
             # 2. Check if already published
+            self._current_step = self.STEP_CHECK_DUPLICATE
             self._check_not_already_published(product_id)
 
             # 3. Validate product
+            self._current_step = self.STEP_VALIDATE
             self._validate_product(product)
 
             # 4. Map attributes
+            self._current_step = self.STEP_MAP_ATTRIBUTES
             mapped_attrs = self._map_attributes(product)
 
             # 5. Calculate price
+            self._current_step = self.STEP_CALCULATE_PRICE
             prix_vinted = self._calculate_price(product)
 
             # 6. Generate title and description
+            self._current_step = self.STEP_GENERATE_TITLE
             title = self.title_service.generate_title(product)
+
+            self._current_step = self.STEP_GENERATE_DESCRIPTION
             description = self.description_service.generate_description(product)
 
             # 7. Upload images
+            self._current_step = self.STEP_UPLOAD_IMAGES
             photo_ids = await self._upload_images(product, user_id, job_id)
 
             # 8. Build payload
+            self._current_step = self.STEP_BUILD_PAYLOAD
             payload = VintedProductConverter.build_create_payload(
                 product=product,
                 photo_ids=photo_ids,
@@ -133,6 +159,7 @@ class VintedPublicationService:
             )
 
             # 9. Create product via plugin
+            self._current_step = self.STEP_CREATE_LISTING
             logger.debug(f"Creating Vinted listing for product #{product_id}...")
             result = await self._call_plugin(
                 user_id=user_id,
@@ -154,6 +181,7 @@ class VintedPublicationService:
                 raise ValueError("vinted_id missing from response")
 
             # 11. Post-processing
+            self._current_step = self.STEP_SAVE_RESULT
             self._save_vinted_product(
                 product_id, result, prix_vinted, photo_ids, title
             )
@@ -175,8 +203,9 @@ class VintedPublicationService:
 
         except Exception as e:
             elapsed = time.time() - start_time
+            step_info = f" at step '{self._current_step}'" if self._current_step else ""
             logger.error(
-                f"Publication failed for product #{product_id}: {e} ({elapsed:.1f}s)",
+                f"Publication failed for product #{product_id}{step_info}: {e} ({elapsed:.1f}s)",
                 exc_info=True
             )
             self.db.rollback()
@@ -185,7 +214,8 @@ class VintedPublicationService:
                 "vinted_id": None,
                 "url": None,
                 "product_id": product_id,
-                "error": str(e)
+                "error": str(e),
+                "failed_step": self._current_step
             }
 
     # =========================================================================

@@ -24,7 +24,7 @@ from api.ebay import orders
 from api.ebay import jobs
 from models.public.ebay_marketplace_config import MarketplaceConfig
 from models.public.user import User
-from models.user.ebay_product_marketplace import EbayProductMarketplace
+from models.user.ebay_product import EbayProduct
 from services.ebay import (
     EbayAccountClient,
     EbayFulfillmentClient,
@@ -265,9 +265,9 @@ def get_product_status(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Récupère le status de publication d'un produit sur toutes les marketplaces.
+    Récupère le status de publication d'un produit sur eBay.
 
-    Retourne la liste des marketplaces où le produit est publié ou en erreur.
+    Retourne une liste avec le statut de publication (ou vide si non publié).
 
     **Exemple:**
     ```bash
@@ -275,28 +275,27 @@ def get_product_status(
       -H "Authorization: Bearer YOUR_TOKEN"
     ```
     """
-    # Récupérer tous les statuts du produit
-    product_marketplaces = (
-        db.query(EbayProductMarketplace)
-        .filter(EbayProductMarketplace.product_id == product_id)
-        .all()
+    # Find EbayProduct linked to this product_id
+    ebay_product = (
+        db.query(EbayProduct)
+        .filter(EbayProduct.product_id == product_id)
+        .first()
     )
 
-    if not product_marketplaces:
+    if not ebay_product or not ebay_product.sku_derived:
         return []
 
     return [
         ProductMarketplaceStatusResponse(
-            sku_derived=pm.sku_derived,
-            product_id=pm.product_id,
-            marketplace_id=pm.marketplace_id,
-            status=pm.status,
-            ebay_offer_id=pm.ebay_offer_id,
-            ebay_listing_id=pm.ebay_listing_id,
-            error_message=pm.error_message,
-            published_at=pm.published_at.isoformat() if pm.published_at else None,
+            sku_derived=ebay_product.sku_derived,
+            product_id=ebay_product.product_id,
+            marketplace_id=ebay_product.marketplace_id,
+            status=ebay_product.status,
+            ebay_offer_id=ebay_product.ebay_offer_id,
+            ebay_listing_id=ebay_product.ebay_listing_id,
+            error_message=ebay_product.error_message,
+            published_at=ebay_product.published_at.isoformat() if ebay_product.published_at else None,
         )
-        for pm in product_marketplaces
     ]
 
 

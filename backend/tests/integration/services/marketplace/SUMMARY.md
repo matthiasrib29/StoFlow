@@ -19,7 +19,7 @@ This test suite validates the core task orchestration foundation for marketplace
 |------|-------|---------|
 | `test_marketplace_job_multi_tenant.py` | 3 | Multi-tenant schema isolation |
 | `test_marketplace_job_status_transitions.py` | 8 | Job status state machine |
-| `test_batch_job_orchestration.py` | 5 | Batch job progress tracking |
+| `test_marketplace_batch_orchestration.py` | 5 | MarketplaceBatch progress tracking |
 | `test_websocket_vinted_communication.py` | 4 | Vinted WebSocket patterns |
 | `test_http_ebay_etsy_communication.py` | 5 | eBay/Etsy HTTP patterns |
 
@@ -64,7 +64,7 @@ PENDING → RUNNING → COMPLETED
 
 ---
 
-## Task 6: BatchJob Orchestration (5/5 ✅)
+## Task 6: MarketplaceBatch Orchestration (5/5 ✅)
 
 Tests validate batch job progress tracking:
 
@@ -182,7 +182,7 @@ All tests committed to `feature/task-orchestration-foundation`:
 
 1. ✅ `2c5259b` - test(10-02): test multi-tenant schema isolation (simplified)
 2. ✅ `b7c1f2b` - test(10-02): test job status transitions and state machine
-3. ✅ `d6a00d1` - test(10-02): test BatchJob orchestration and progress tracking
+3. ✅ `d6a00d1` - test(10-02): test MarketplaceBatch orchestration and progress tracking
 4. ✅ `a3a8452` - test(10-02): test WebSocket communication patterns for Vinted
 5. ✅ `51beb45` - test(10-02): test HTTP communication patterns for eBay/Etsy
 

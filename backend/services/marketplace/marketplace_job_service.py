@@ -6,17 +6,18 @@ and integration with the plugin task system.
 
 Extends VintedJobService to support multiple marketplaces (Vinted, eBay, Etsy).
 
-Business Rules (2026-01-07):
+Business Rules (2026-01-20):
 - 1 Job = 1 product operation
-- Jobs grouped by batch_job_id (FK) or batch_id (string, deprecated)
+- Jobs grouped by marketplace_batch_id (FK)
 - Supports marketplace field (vinted, ebay, etsy)
 - Priority: 1=CRITICAL, 2=HIGH, 3=NORMAL, 4=LOW
 - Expiration: 1 hour for pending jobs
 - Retry: 3 attempts max, then FAILED
-- Auto-updates parent BatchJob progress
+- Auto-updates parent MarketplaceBatch progress
 
 Author: Claude
 Date: 2026-01-07
+Updated: 2026-01-20 - Renamed marketplace_batch_id → marketplace_batch_id
 """
 
 import uuid
@@ -30,8 +31,8 @@ from models.public.marketplace_action_type import MarketplaceActionType
 from shared.advisory_locks import AdvisoryLockHelper
 from models.user.marketplace_task import MarketplaceTask, TaskStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
-from models.user.batch_job import BatchJob
-from models.user.marketplace_job_stats import MarketplaceJobStats
+from models.user.marketplace_batch import MarketplaceBatch
+# MarketplaceJobStats removed (2026-01-20): Table removed via migration
 from shared.logging import get_logger
 
 logger = get_logger(__name__)
@@ -110,7 +111,7 @@ class MarketplaceJobService:
         action_code: str,
         product_id: int | None = None,
         batch_id: str | None = None,
-        batch_job_id: int | None = None,
+        marketplace_batch_id: int | None = None,
         priority: int | None = None,
         input_data: dict | None = None,
     ) -> MarketplaceJob:
@@ -122,7 +123,7 @@ class MarketplaceJobService:
             action_code: Action type code (publish, sync, etc.)
             product_id: Product ID (optional)
             batch_id: DEPRECATED - Batch ID string for grouping (optional)
-            batch_job_id: BatchJob FK (preferred over batch_id)
+            marketplace_batch_id: MarketplaceBatch FK (preferred over batch_id)
             priority: Override priority (optional, uses action_type default)
             input_data: Initial data/parameters for the job (optional)
 
@@ -147,7 +148,7 @@ class MarketplaceJobService:
             action_type_id=action_type.id,
             product_id=product_id,
             # batch_id removed - column no longer exists in model
-            batch_job_id=batch_job_id,
+            marketplace_batch_id=marketplace_batch_id,
             status=JobStatus.PENDING,
             priority=priority if priority is not None else action_type.priority,
             expires_at=expires_at,
@@ -161,7 +162,7 @@ class MarketplaceJobService:
         logger.debug(
             f"[MarketplaceJobService] Created job #{job.id} "
             f"(marketplace={marketplace}, action={action_code}, product={product_id}, "
-            f"batch_job_id={batch_job_id})"
+            f"marketplace_batch_id={marketplace_batch_id})"
         )
 
         return job
@@ -177,7 +178,7 @@ class MarketplaceJobService:
         Create multiple jobs for a batch operation (DEPRECATED).
 
         This method is kept for backward compatibility.
-        New code should use BatchJobService.create_batch_job() instead.
+        New code should use MarketplaceBatchService.create_batch() instead.
 
         Args:
             marketplace: Target marketplace (vinted, ebay, etsy)
@@ -189,7 +190,7 @@ class MarketplaceJobService:
             Tuple of (batch_id string, list of created jobs)
         """
         logger.warning(
-            "create_batch_jobs() is deprecated. Use BatchJobService.create_batch_job() instead."
+            "create_batch_jobs() is deprecated. Use MarketplaceBatchService.create_batch() instead."
         )
 
         batch_id = f"{action_code}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
@@ -246,7 +247,7 @@ class MarketplaceJobService:
         """
         Mark a job as completed successfully.
 
-        Also updates parent BatchJob progress if applicable.
+        Also updates parent MarketplaceBatch progress if applicable.
 
         Args:
             job_id: Job ID
@@ -274,24 +275,30 @@ class MarketplaceJobService:
         self._update_job_stats(job, success=True)
 
         # Update parent batch progress if applicable
-        if job.batch_job_id:
-            from services.marketplace.batch_job_service import BatchJobService
+        if job.marketplace_batch_id:
+            from services.marketplace.marketplace_batch_service import MarketplaceBatchService
 
-            batch_service = BatchJobService(self.db)
-            batch_service.update_batch_progress(job.batch_job_id)
+            batch_service = MarketplaceBatchService(self.db)
+            batch_service.update_batch_progress(job.marketplace_batch_id)
 
         logger.info(f"[MarketplaceJobService] Completed job #{job_id}")
         return job
 
-    def fail_job(self, job_id: int, error_message: str) -> MarketplaceJob | None:
+    def fail_job(
+        self,
+        job_id: int,
+        error_message: str,
+        failed_step: str | None = None
+    ) -> MarketplaceJob | None:
         """
         Mark a job as failed.
 
-        Also updates parent BatchJob progress if applicable.
+        Also updates parent MarketplaceBatch progress if applicable.
 
         Args:
             job_id: Job ID
             error_message: Error description
+            failed_step: Step where the failure occurred (e.g., 'upload_images')
 
         Returns:
             Updated MarketplaceJob or None if not found
@@ -304,6 +311,7 @@ class MarketplaceJobService:
 
         job.status = JobStatus.FAILED
         job.error_message = error_message
+        job.failed_step = failed_step
         job.completed_at = datetime.now(timezone.utc)
         self.db.flush()  # Use flush, not commit (preserve search_path)
 
@@ -311,14 +319,15 @@ class MarketplaceJobService:
         self._update_job_stats(job, success=False)
 
         # Update parent batch progress if applicable
-        if job.batch_job_id:
-            from services.marketplace.batch_job_service import BatchJobService
+        if job.marketplace_batch_id:
+            from services.marketplace.marketplace_batch_service import MarketplaceBatchService
 
-            batch_service = BatchJobService(self.db)
-            batch_service.update_batch_progress(job.batch_job_id)
+            batch_service = MarketplaceBatchService(self.db)
+            batch_service.update_batch_progress(job.marketplace_batch_id)
 
+        step_info = f" at step '{failed_step}'" if failed_step else ""
         logger.warning(
-            f"[MarketplaceJobService] Failed job #{job_id}: {error_message}"
+            f"[MarketplaceJobService] Failed job #{job_id}{step_info}: {error_message}"
         )
         return job
 
@@ -520,11 +529,11 @@ class MarketplaceJobService:
 
             # Update parent batch progress if job belongs to a batch
             # This ensures batch status reflects failed jobs
-            if job.batch_job_id:
-                from services.marketplace.batch_job_service import BatchJobService
+            if job.marketplace_batch_id:
+                from services.marketplace.marketplace_batch_service import MarketplaceBatchService
 
-                batch_service = BatchJobService(self.db)
-                batch_service.update_batch_progress(job.batch_job_id)
+                batch_service = MarketplaceBatchService(self.db)
+                batch_service.update_batch_progress(job.marketplace_batch_id)
 
         # Use flush() instead of commit()
         # Preserves schema_translate_map (multi-tenant context)
@@ -601,7 +610,7 @@ class MarketplaceJobService:
         """
         Get all jobs in a batch (by batch_id string).
 
-        DEPRECATED: Use BatchJobService.get_batch_by_id() instead.
+        DEPRECATED: Use MarketplaceBatchService.get_batch_by_id() instead.
 
         Args:
             batch_id: Batch ID string
@@ -609,15 +618,15 @@ class MarketplaceJobService:
         Returns:
             List of MarketplaceJob in the batch
         """
-        # Get BatchJob by batch_id string first
-        batch = self.db.query(BatchJob).filter(BatchJob.batch_id == batch_id).first()
+        # Get MarketplaceBatch by batch_id string first
+        batch = self.db.query(MarketplaceBatch).filter(MarketplaceBatch.batch_id == batch_id).first()
         if not batch:
             return []
 
         # Then filter by FK
         return (
             self.db.query(MarketplaceJob)
-            .filter(MarketplaceJob.batch_job_id == batch.id)
+            .filter(MarketplaceJob.marketplace_batch_id == batch.id)
             .order_by(MarketplaceJob.created_at)
             .all()
         )
@@ -626,7 +635,7 @@ class MarketplaceJobService:
         """
         Get summary of a batch (by batch_id string).
 
-        DEPRECATED: Use BatchJobService.get_batch_summary() instead.
+        DEPRECATED: Use MarketplaceBatchService.get_batch_summary() instead.
 
         Args:
             batch_id: Batch ID string
@@ -728,98 +737,19 @@ class MarketplaceJobService:
 
     def _update_job_stats(self, job: MarketplaceJob, success: bool) -> None:
         """
-        Update daily statistics for a completed job.
+        DEPRECATED (2026-01-20): Stats tracking removed.
 
-        Args:
-            job: Completed MarketplaceJob
-            success: Whether job succeeded
+        This method is a no-op now. MarketplaceJobStats table was removed.
         """
-        today = datetime.now(timezone.utc).date()
-
-        # Get or create stats record (filtered by marketplace)
-        stats = (
-            self.db.query(MarketplaceJobStats)
-            .filter(
-                MarketplaceJobStats.action_type_id == job.action_type_id,
-                MarketplaceJobStats.marketplace == job.marketplace,
-                MarketplaceJobStats.date == today,
-            )
-            .first()
-        )
-
-        if not stats:
-            stats = MarketplaceJobStats(
-                marketplace=job.marketplace,
-                action_type_id=job.action_type_id,
-                date=today,
-                total_jobs=0,
-                success_count=0,
-                failure_count=0,
-            )
-            self.db.add(stats)
-
-        stats.total_jobs += 1
-        if success:
-            stats.success_count += 1
-        else:
-            stats.failure_count += 1
-
-        # Calculate average duration
-        if job.started_at and job.completed_at:
-            duration_ms = int(
-                (job.completed_at - job.started_at).total_seconds() * 1000
-            )
-            if stats.avg_duration_ms is None:
-                stats.avg_duration_ms = duration_ms
-            else:
-                # Rolling average
-                stats.avg_duration_ms = int(
-                    (stats.avg_duration_ms * (stats.total_jobs - 1) + duration_ms)
-                    / stats.total_jobs
-                )
-
-        self.db.flush()  # Use flush, not commit (preserve search_path)
+        pass
 
     def get_stats(self, days: int = 7, marketplace: str | None = None) -> list[dict]:
         """
-        Get job statistics for the last N days.
+        DEPRECATED (2026-01-20): Stats tracking removed.
 
-        Args:
-            days: Number of days to look back
-            marketplace: Optional marketplace filter (vinted, ebay, etsy). If None, returns all marketplaces.
-
-        Returns:
-            List of daily stats with action type info
+        Returns empty list. MarketplaceJobStats table was removed.
         """
-        start_date = datetime.now(timezone.utc).date() - timedelta(days=days)
-
-        query = self.db.query(MarketplaceJobStats).filter(
-            MarketplaceJobStats.date >= start_date
-        )
-
-        if marketplace:
-            query = query.filter(MarketplaceJobStats.marketplace == marketplace)
-
-        stats = query.order_by(MarketplaceJobStats.date.desc()).all()
-
-        result = []
-        for stat in stats:
-            action_type = self.get_action_type_by_id(stat.action_type_id)
-            result.append(
-                {
-                    "date": stat.date.isoformat(),
-                    "marketplace": stat.marketplace,
-                    "action_code": action_type.code if action_type else "unknown",
-                    "action_name": action_type.name if action_type else "Unknown",
-                    "total_jobs": stat.total_jobs,
-                    "success_count": stat.success_count,
-                    "failure_count": stat.failure_count,
-                    "success_rate": stat.success_rate,
-                    "avg_duration_ms": stat.avg_duration_ms,
-                }
-            )
-
-        return result
+        return []
 
     # =========================================================================
     # TASK MANAGEMENT

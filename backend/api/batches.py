@@ -22,9 +22,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
-from models.user.batch_job import BatchJob, BatchJobStatus
+from models.user.marketplace_batch import MarketplaceBatch, MarketplaceBatchStatus
 from models.user.marketplace_job import MarketplaceJob
-from services.marketplace.batch_job_service import BatchJobService
+from services.marketplace.marketplace_batch_service import MarketplaceBatchService
 from services.marketplace.marketplace_job_service import MarketplaceJobService
 
 router = APIRouter(prefix="/batches", tags=["Batch Jobs"])
@@ -107,7 +107,7 @@ class JobResponse(BaseModel):
     """Response schema for a marketplace job."""
 
     id: int
-    batch_job_id: Optional[int] = None
+    marketplace_batch_id: Optional[int] = None
     marketplace: str
     action_type_id: int
     product_id: Optional[int] = None
@@ -143,14 +143,14 @@ async def create_batch(
     """
     Create a new batch job.
 
-    Creates a BatchJob parent with N MarketplaceJobs (1 per product).
+    Creates a MarketplaceBatch parent with N MarketplaceJobs (1 per product).
 
     Args:
         request: Batch creation parameters
         db_user: Database session and user
 
     Returns:
-        Created BatchJob summary
+        Created MarketplaceBatch summary
 
     Raises:
         400: Invalid action_code or empty product_ids
@@ -159,7 +159,7 @@ async def create_batch(
     db, user = db_user
 
     try:
-        batch_service = BatchJobService(db)
+        batch_service = MarketplaceBatchService(db)
         batch = batch_service.create_batch_job(
             marketplace=request.marketplace,
             action_code=request.action_code,
@@ -203,11 +203,11 @@ async def list_batches(
         db_user: Database session and user
 
     Returns:
-        List of active BatchJobs
+        List of active MarketplaceBatches
     """
     db, user = db_user
 
-    batch_service = BatchJobService(db)
+    batch_service = MarketplaceBatchService(db)
     batches = batch_service.list_active_batches(marketplace=marketplace, limit=limit)
 
     batch_responses = [
@@ -247,14 +247,14 @@ async def get_batch(
         db_user: Database session and user
 
     Returns:
-        BatchJob summary
+        MarketplaceBatch summary
 
     Raises:
         404: Batch not found
     """
     db, user = db_user
 
-    batch_service = BatchJobService(db)
+    batch_service = MarketplaceBatchService(db)
     summary = batch_service.get_batch_summary(batch_id)
 
     if not summary:
@@ -311,11 +311,11 @@ async def cancel_batch(
     db, user = db_user
 
     try:
-        batch_service = BatchJobService(db)
+        batch_service = MarketplaceBatchService(db)
 
         # Get batch by batch_id string
         batch = (
-            db.query(BatchJob).filter(BatchJob.batch_id == batch_id).first()
+            db.query(MarketplaceBatch).filter(MarketplaceBatch.batch_id == batch_id).first()
         )
 
         if not batch:
@@ -365,7 +365,7 @@ async def get_batch_jobs(
     db, user = db_user
 
     # Get batch by batch_id string
-    batch = db.query(BatchJob).filter(BatchJob.batch_id == batch_id).first()
+    batch = db.query(MarketplaceBatch).filter(MarketplaceBatch.batch_id == batch_id).first()
 
     if not batch:
         raise HTTPException(
@@ -376,7 +376,7 @@ async def get_batch_jobs(
     # Get all child jobs
     jobs = (
         db.query(MarketplaceJob)
-        .filter(MarketplaceJob.batch_job_id == batch.id)
+        .filter(MarketplaceJob.marketplace_batch_id == batch.id)
         .order_by(MarketplaceJob.created_at)
         .all()
     )
@@ -384,7 +384,7 @@ async def get_batch_jobs(
     job_responses = [
         JobResponse(
             id=job.id,
-            batch_job_id=job.batch_job_id,
+            marketplace_batch_id=job.marketplace_batch_id,
             marketplace=job.marketplace,
             action_type_id=job.action_type_id,
             product_id=job.product_id,

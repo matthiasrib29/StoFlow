@@ -1,17 +1,20 @@
 """
-Batch Job Service
+Marketplace Batch Service
 
 Manages batch operations across marketplaces (Vinted, eBay, Etsy).
-Groups multiple MarketplaceJobs into a single BatchJob for simplified UI tracking.
+Groups multiple MarketplaceJobs into a single MarketplaceBatch for simplified UI tracking.
 
 Business Rules (2026-01-07):
-- 1 BatchJob = N MarketplaceJobs (1 per product)
-- BatchJob provides summary view (completed/total counts)
+- 1 MarketplaceBatch = N MarketplaceJobs (1 per product)
+- MarketplaceBatch provides summary view (completed/total counts)
 - Auto-updates progress when child jobs complete
 - Supports batch cancellation
 
+Renamed from BatchJobService to MarketplaceBatchService for consistency.
+
 Author: Claude
 Date: 2026-01-07
+Updated: 2026-01-20 - Renamed BatchJobService → MarketplaceBatchService
 """
 
 import uuid
@@ -21,7 +24,7 @@ from typing import Any
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
-from models.user.batch_job import BatchJob, BatchJobStatus
+from models.user.marketplace_batch import MarketplaceBatch, MarketplaceBatchStatus
 from models.user.marketplace_job import JobStatus, MarketplaceJob
 # MarketplaceTask removed (2026-01-09): WebSocket architecture, no granular tasks in DB
 from models.vinted.vinted_action_type import VintedActionType
@@ -30,11 +33,11 @@ from shared.logging import get_logger
 logger = get_logger(__name__)
 
 
-class BatchJobService:
+class MarketplaceBatchService:
     """
-    Service for managing batch job operations.
+    Service for managing marketplace batch operations.
 
-    Orchestrates batch operations by creating a parent BatchJob
+    Orchestrates batch operations by creating a parent MarketplaceBatch
     with multiple child MarketplaceJobs.
     """
 
@@ -85,19 +88,19 @@ class BatchJobService:
         return self._action_types_cache.get(cache_key)
 
     # =========================================================================
-    # BATCH JOB CREATION
+    # BATCH CREATION
     # =========================================================================
 
-    def create_batch_job(
+    def create_batch(
         self,
         marketplace: str,
         action_code: str,
         product_ids: list[int],
         priority: int | None = None,
         created_by_user_id: int | None = None,
-    ) -> BatchJob:
+    ) -> MarketplaceBatch:
         """
-        Create a batch job with N child MarketplaceJobs.
+        Create a marketplace batch with N child MarketplaceJobs.
 
         Args:
             marketplace: Target marketplace (vinted, ebay, etsy)
@@ -107,7 +110,7 @@ class BatchJobService:
             created_by_user_id: User ID creating the batch (for audit)
 
         Returns:
-            Created BatchJob instance with child jobs
+            Created MarketplaceBatch instance with child jobs
 
         Raises:
             ValueError: If action_code is invalid for the marketplace
@@ -131,12 +134,12 @@ class BatchJobService:
         batch_id = f"{action_code}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
         logger.info(
-            f"Creating batch job: marketplace={marketplace}, action={action_code}, "
+            f"Creating marketplace batch: marketplace={marketplace}, action={action_code}, "
             f"products={len(product_ids)}, priority={effective_priority}"
         )
 
-        # 1. Create BatchJob parent
-        batch = BatchJob(
+        # 1. Create MarketplaceBatch parent
+        batch = MarketplaceBatch(
             batch_id=batch_id,
             marketplace=marketplace,
             action_code=action_code,
@@ -144,7 +147,7 @@ class BatchJobService:
             completed_count=0,
             failed_count=0,
             cancelled_count=0,
-            status=BatchJobStatus.PENDING,
+            status=MarketplaceBatchStatus.PENDING,
             priority=effective_priority,
             created_by_user_id=created_by_user_id,
             created_at=datetime.now(timezone.utc),
@@ -155,7 +158,7 @@ class BatchJobService:
         # 2. Create child MarketplaceJobs
         for product_id in product_ids:
             job = MarketplaceJob(
-                batch_job_id=batch.id,
+                marketplace_batch_id=batch.id,
                 marketplace=marketplace,
                 action_type_id=action_type.id,
                 product_id=product_id,
@@ -168,39 +171,62 @@ class BatchJobService:
         self.db.commit()
 
         logger.info(
-            f"Batch job created: batch_id={batch_id}, id={batch.id}, "
+            f"Marketplace batch created: batch_id={batch_id}, id={batch.id}, "
             f"child_jobs={len(product_ids)}"
         )
 
         return batch
 
+    # Backward compatibility alias
+    def create_batch_job(
+        self,
+        marketplace: str,
+        action_code: str,
+        product_ids: list[int],
+        priority: int | None = None,
+        created_by_user_id: int | None = None,
+    ) -> MarketplaceBatch:
+        """
+        Create a marketplace batch (deprecated alias for create_batch).
+
+        This method is kept for backward compatibility.
+        New code should use create_batch() instead.
+        """
+        return self.create_batch(
+            marketplace=marketplace,
+            action_code=action_code,
+            product_ids=product_ids,
+            priority=priority,
+            created_by_user_id=created_by_user_id,
+        )
+
     # =========================================================================
     # BATCH PROGRESS TRACKING
     # =========================================================================
 
-    def update_batch_progress(self, batch_job_id: int) -> BatchJob:
+    def update_batch_progress(self, marketplace_batch_id: int) -> MarketplaceBatch:
         """
         Recalculate batch progress from child jobs.
 
         Called after each child MarketplaceJob completes/fails.
 
         Args:
-            batch_job_id: BatchJob primary key
+            marketplace_batch_id: MarketplaceBatch primary key
 
         Returns:
-            Updated BatchJob with recalculated counts
+            Updated MarketplaceBatch with recalculated counts
 
         Raises:
-            ValueError: If batch_job_id not found
+            ValueError: If marketplace_batch_id not found
         """
-        batch = self.db.query(BatchJob).filter(BatchJob.id == batch_job_id).first()
+        batch = self.db.query(MarketplaceBatch).filter(MarketplaceBatch.id == marketplace_batch_id).first()
         if not batch:
-            raise ValueError(f"BatchJob with id={batch_job_id} not found")
+            raise ValueError(f"MarketplaceBatch with id={marketplace_batch_id} not found")
 
         # Count job statuses
         jobs = (
             self.db.query(MarketplaceJob)
-            .filter(MarketplaceJob.batch_job_id == batch_job_id)
+            .filter(MarketplaceJob.marketplace_batch_id == marketplace_batch_id)
             .all()
         )
 
@@ -217,27 +243,27 @@ class BatchJobService:
         total = batch.total_count
 
         # Don't override CANCELLED status
-        if batch.status == BatchJobStatus.CANCELLED:
+        if batch.status == MarketplaceBatchStatus.CANCELLED:
             # Keep cancelled status, just update completed_at if not set
             if not batch.completed_at:
                 batch.completed_at = datetime.now(timezone.utc)
         elif completed_count == total:
-            batch.status = BatchJobStatus.COMPLETED
+            batch.status = MarketplaceBatchStatus.COMPLETED
             batch.completed_at = datetime.now(timezone.utc)
         elif failed_count == total:
-            batch.status = BatchJobStatus.FAILED
+            batch.status = MarketplaceBatchStatus.FAILED
             batch.completed_at = datetime.now(timezone.utc)
         elif completed_count + failed_count + cancelled_count == total:
             # All jobs finished (mixed results)
             if failed_count > 0:
-                batch.status = BatchJobStatus.PARTIALLY_FAILED
+                batch.status = MarketplaceBatchStatus.PARTIALLY_FAILED
             else:
-                batch.status = BatchJobStatus.COMPLETED
+                batch.status = MarketplaceBatchStatus.COMPLETED
             batch.completed_at = datetime.now(timezone.utc)
         elif completed_count > 0 or failed_count > 0:
             # At least one job finished, batch is running
-            if batch.status == BatchJobStatus.PENDING:
-                batch.status = BatchJobStatus.RUNNING
+            if batch.status == MarketplaceBatchStatus.PENDING:
+                batch.status = MarketplaceBatchStatus.RUNNING
                 batch.started_at = datetime.now(timezone.utc)
 
         self.db.commit()
@@ -260,9 +286,9 @@ class BatchJobService:
             Dictionary with batch summary or None if not found
         """
         batch = (
-            self.db.query(BatchJob)
-            .options(selectinload(BatchJob.jobs))
-            .filter(BatchJob.batch_id == batch_id)
+            self.db.query(MarketplaceBatch)
+            .options(selectinload(MarketplaceBatch.jobs))
+            .filter(MarketplaceBatch.batch_id == batch_id)
             .first()
         )
 
@@ -289,39 +315,39 @@ class BatchJobService:
             ),
         }
 
-    def get_batch_by_id(self, batch_job_id: int) -> BatchJob | None:
+    def get_batch_by_id(self, marketplace_batch_id: int) -> MarketplaceBatch | None:
         """
-        Get BatchJob by primary key.
+        Get MarketplaceBatch by primary key.
 
         Args:
-            batch_job_id: BatchJob primary key
+            marketplace_batch_id: MarketplaceBatch primary key
 
         Returns:
-            BatchJob or None
+            MarketplaceBatch or None
         """
-        return self.db.query(BatchJob).filter(BatchJob.id == batch_job_id).first()
+        return self.db.query(MarketplaceBatch).filter(MarketplaceBatch.id == marketplace_batch_id).first()
 
     def list_active_batches(
         self, marketplace: str | None = None, limit: int = 50
-    ) -> list[BatchJob]:
+    ) -> list[MarketplaceBatch]:
         """
-        List active batch jobs (pending or running).
+        List active marketplace batches (pending or running).
 
         Args:
             marketplace: Filter by marketplace (optional)
             limit: Maximum number of results
 
         Returns:
-            List of active BatchJob instances
+            List of active MarketplaceBatch instances
         """
-        query = self.db.query(BatchJob).filter(
-            BatchJob.status.in_([BatchJobStatus.PENDING, BatchJobStatus.RUNNING])
+        query = self.db.query(MarketplaceBatch).filter(
+            MarketplaceBatch.status.in_([MarketplaceBatchStatus.PENDING, MarketplaceBatchStatus.RUNNING])
         )
 
         if marketplace:
-            query = query.filter(BatchJob.marketplace == marketplace)
+            query = query.filter(MarketplaceBatch.marketplace == marketplace)
 
-        query = query.order_by(BatchJob.priority.asc(), BatchJob.created_at.desc())
+        query = query.order_by(MarketplaceBatch.priority.asc(), MarketplaceBatch.created_at.desc())
 
         return query.limit(limit).all()
 
@@ -329,22 +355,22 @@ class BatchJobService:
     # BATCH CANCELLATION
     # =========================================================================
 
-    def cancel_batch(self, batch_job_id: int) -> int:
+    def cancel_batch(self, marketplace_batch_id: int) -> int:
         """
         Cancel all pending/running jobs in a batch.
 
         Args:
-            batch_job_id: BatchJob primary key
+            marketplace_batch_id: MarketplaceBatch primary key
 
         Returns:
             Number of jobs cancelled
 
         Raises:
-            ValueError: If batch_job_id not found
+            ValueError: If marketplace_batch_id not found
         """
-        batch = self.db.query(BatchJob).filter(BatchJob.id == batch_job_id).first()
+        batch = self.db.query(MarketplaceBatch).filter(MarketplaceBatch.id == marketplace_batch_id).first()
         if not batch:
-            raise ValueError(f"BatchJob with id={batch_job_id} not found")
+            raise ValueError(f"MarketplaceBatch with id={marketplace_batch_id} not found")
 
         logger.info(f"Cancelling batch: batch_id={batch.batch_id}, id={batch.id}")
 
@@ -354,7 +380,7 @@ class BatchJobService:
         jobs = (
             self.db.query(MarketplaceJob)
             # .options(selectinload(MarketplaceJob.tasks))  # Removed: no tasks relationship (WebSocket architecture)
-            .filter(MarketplaceJob.batch_job_id == batch_job_id)
+            .filter(MarketplaceJob.marketplace_batch_id == marketplace_batch_id)
             .filter(
                 MarketplaceJob.status.in_([JobStatus.PENDING, JobStatus.RUNNING])
             )
@@ -370,11 +396,11 @@ class BatchJobService:
             cancelled_count += 1
 
         # Update batch status
-        batch.status = BatchJobStatus.CANCELLED
+        batch.status = MarketplaceBatchStatus.CANCELLED
         batch.completed_at = datetime.now(timezone.utc)
 
         # Recalculate counts
-        self.update_batch_progress(batch_job_id)
+        self.update_batch_progress(marketplace_batch_id)
 
         self.db.commit()
 
@@ -383,3 +409,7 @@ class BatchJobService:
         )
 
         return cancelled_count
+
+
+# Backward compatibility alias (deprecated)
+BatchJobService = MarketplaceBatchService

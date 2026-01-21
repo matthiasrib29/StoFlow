@@ -1,5 +1,5 @@
 """
-Unit Tests for BatchJob Migration Script
+Unit Tests for MarketplaceBatch Migration Script
 
 Tests the helper functions used in the retroactive migration script.
 
@@ -10,7 +10,7 @@ Phase 5.1: Data migration testing
 import pytest
 from datetime import datetime, timezone
 
-from models.user.batch_job import BatchJobStatus
+from models.user.marketplace_batch import MarketplaceBatchStatus
 from models.user.marketplace_job import MarketplaceJob, JobStatus
 from scripts.migrate_existing_jobs_to_batch import (
     extract_action_from_batch_id,
@@ -71,7 +71,7 @@ class TestCalculateBatchStatus:
             self.create_job(JobStatus.COMPLETED),
             self.create_job(JobStatus.COMPLETED),
         ]
-        assert calculate_batch_status(jobs) == BatchJobStatus.COMPLETED
+        assert calculate_batch_status(jobs) == MarketplaceBatchStatus.COMPLETED
 
     def test_all_failed(self):
         """Should return FAILED when all jobs failed."""
@@ -79,7 +79,7 @@ class TestCalculateBatchStatus:
             self.create_job(JobStatus.FAILED),
             self.create_job(JobStatus.FAILED),
         ]
-        assert calculate_batch_status(jobs) == BatchJobStatus.FAILED
+        assert calculate_batch_status(jobs) == MarketplaceBatchStatus.FAILED
 
     def test_all_cancelled(self):
         """Should return CANCELLED when all jobs cancelled."""
@@ -88,7 +88,7 @@ class TestCalculateBatchStatus:
             self.create_job(JobStatus.CANCELLED),
             self.create_job(JobStatus.CANCELLED),
         ]
-        assert calculate_batch_status(jobs) == BatchJobStatus.CANCELLED
+        assert calculate_batch_status(jobs) == MarketplaceBatchStatus.CANCELLED
 
     def test_partially_failed(self):
         """Should return PARTIALLY_FAILED when some completed, some failed."""
@@ -97,7 +97,7 @@ class TestCalculateBatchStatus:
             self.create_job(JobStatus.COMPLETED),
             self.create_job(JobStatus.FAILED),
         ]
-        assert calculate_batch_status(jobs) == BatchJobStatus.PARTIALLY_FAILED
+        assert calculate_batch_status(jobs) == MarketplaceBatchStatus.PARTIALLY_FAILED
 
     def test_running(self):
         """Should return RUNNING when any job is running."""
@@ -106,7 +106,7 @@ class TestCalculateBatchStatus:
             self.create_job(JobStatus.RUNNING),
             self.create_job(JobStatus.PENDING),
         ]
-        assert calculate_batch_status(jobs) == BatchJobStatus.RUNNING
+        assert calculate_batch_status(jobs) == MarketplaceBatchStatus.RUNNING
 
     def test_pending(self):
         """Should return PENDING for pending jobs."""
@@ -114,12 +114,12 @@ class TestCalculateBatchStatus:
             self.create_job(JobStatus.PENDING),
             self.create_job(JobStatus.PENDING),
         ]
-        assert calculate_batch_status(jobs) == BatchJobStatus.PENDING
+        assert calculate_batch_status(jobs) == MarketplaceBatchStatus.PENDING
 
     def test_empty_jobs_list(self):
         """Should return PENDING for empty jobs list."""
         jobs = []
-        assert calculate_batch_status(jobs) == BatchJobStatus.PENDING
+        assert calculate_batch_status(jobs) == MarketplaceBatchStatus.PENDING
 
     def test_mixed_terminal_statuses(self):
         """Should return PARTIALLY_FAILED for mixed terminal statuses."""
@@ -129,7 +129,7 @@ class TestCalculateBatchStatus:
             self.create_job(JobStatus.CANCELLED),
         ]
         # Has both completed and failed, so partially_failed
-        assert calculate_batch_status(jobs) == BatchJobStatus.PARTIALLY_FAILED
+        assert calculate_batch_status(jobs) == MarketplaceBatchStatus.PARTIALLY_FAILED
 
 
 class TestMigrationScriptIntegration:

@@ -39,13 +39,13 @@ class TestMarketplaceJobServiceComplete:
         assert completed.completed_at is not None
 
     @patch.object(MarketplaceJobService, '_update_job_stats')
-    @patch('services.marketplace.batch_job_service.BatchJobService')
+    @patch('services.marketplace.marketplace_batch_service.MarketplaceBatchService')
     def test_complete_job_updates_batch_progress(self, mock_batch_service_class, mock_update_stats, db_session, mock_job):
-        """Should call BatchJobService.update_batch_progress when job has batch_job_id."""
+        """Should call MarketplaceBatchService.update_batch_progress when job has marketplace_batch_id."""
         service = MarketplaceJobService(db_session)
 
-        # Set batch_job_id on mock job
-        mock_job.batch_job_id = 123
+        # Set marketplace_batch_id on mock job
+        mock_job.marketplace_batch_id = 123
 
         # Mock query
         db_session.query = Mock(return_value=Mock(
@@ -54,7 +54,7 @@ class TestMarketplaceJobServiceComplete:
             ))
         ))
 
-        # Mock BatchJobService
+        # Mock MarketplaceBatchService
         mock_batch_service = MagicMock()
         mock_batch_service_class.return_value = mock_batch_service
 
@@ -103,13 +103,9 @@ class TestMarketplaceJobServiceFail:
         assert failed.completed_at is not None
 
     @patch.object(MarketplaceJobService, '_update_job_stats')
-    @patch('services.marketplace.batch_job_service.BatchJobService')
-    def test_fail_job_updates_batch_progress(self, mock_batch_service_class, mock_update_stats, db_session, mock_job):
-        """Should call BatchJobService.update_batch_progress when job has batch_job_id."""
+    def test_fail_job_sets_failed_step(self, mock_update_stats, db_session, mock_job):
+        """Should set failed_step when provided."""
         service = MarketplaceJobService(db_session)
-
-        # Set batch_job_id on mock job
-        mock_job.batch_job_id = 456
 
         # Mock query
         db_session.query = Mock(return_value=Mock(
@@ -118,7 +114,31 @@ class TestMarketplaceJobServiceFail:
             ))
         ))
 
-        # Mock BatchJobService
+        # Fail job with failed_step
+        failed = service.fail_job(1, "Connection timeout", failed_step="upload_images")
+
+        assert failed is not None
+        assert failed.status == JobStatus.FAILED
+        assert failed.error_message == "Connection timeout"
+        assert failed.failed_step == "upload_images"
+
+    @patch.object(MarketplaceJobService, '_update_job_stats')
+    @patch('services.marketplace.marketplace_batch_service.MarketplaceBatchService')
+    def test_fail_job_updates_batch_progress(self, mock_batch_service_class, mock_update_stats, db_session, mock_job):
+        """Should call MarketplaceBatchService.update_batch_progress when job has marketplace_batch_id."""
+        service = MarketplaceJobService(db_session)
+
+        # Set marketplace_batch_id on mock job
+        mock_job.marketplace_batch_id = 456
+
+        # Mock query
+        db_session.query = Mock(return_value=Mock(
+            filter=Mock(return_value=Mock(
+                first=Mock(return_value=mock_job)
+            ))
+        ))
+
+        # Mock MarketplaceBatchService
         mock_batch_service = MagicMock()
         mock_batch_service_class.return_value = mock_batch_service
 
@@ -300,7 +320,7 @@ class TestMarketplaceJobServiceBatchJobs:
     """Test retrieving batch jobs."""
 
     def test_get_batch_jobs_success(self, db_session):
-        """Should return all jobs for a batch_id."""
+        """Should return all jobs for a marketplace_batch_id."""
         service = MarketplaceJobService(db_session)
 
         # Create mock jobs
@@ -310,7 +330,7 @@ class TestMarketplaceJobServiceBatchJobs:
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=101,
-                batch_id="batch_123",
+                marketplace_batch_id=123,
                 status=JobStatus.COMPLETED,
                 priority=3,
                 retry_count=0,
@@ -322,7 +342,7 @@ class TestMarketplaceJobServiceBatchJobs:
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=102,
-                batch_id="batch_123",
+                marketplace_batch_id=123,
                 status=JobStatus.RUNNING,
                 priority=3,
                 retry_count=0,
@@ -337,10 +357,10 @@ class TestMarketplaceJobServiceBatchJobs:
         mock_filter = Mock(return_value=Mock(order_by=mock_order_by))
         db_session.query = Mock(return_value=Mock(filter=mock_filter))
 
-        jobs = service.get_batch_jobs("batch_123")
+        jobs = service.get_batch_jobs(123)
 
         assert len(jobs) == 2
-        assert all(job.batch_id == "batch_123" for job in jobs)
+        assert all(job.marketplace_batch_id == 123 for job in jobs)
 
     def test_get_batch_jobs_empty(self, db_session):
         """Should return empty list when no jobs found."""
@@ -413,8 +433,7 @@ def mock_job():
         marketplace="vinted",
         action_type_id=1,
         product_id=101,
-        batch_id="batch_123",
-        batch_job_id=None,  # Can be set in tests
+        marketplace_batch_id=None,  # Can be set in tests
         status=JobStatus.PENDING,
         priority=3,
         retry_count=0,

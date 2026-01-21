@@ -22,7 +22,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from models.user.marketplace_job import MarketplaceJob, JobStatus
-from models.user.batch_job import BatchJob
+from models.user.marketplace_batch import MarketplaceBatch
 from models.vinted.vinted_action_type import VintedActionType
 from shared.logging import get_logger
 
@@ -260,15 +260,15 @@ class VintedJobRepository:
         Returns:
             Liste de MarketplaceJob du batch
         """
-        # Get BatchJob by batch_id string first
-        batch = db.query(BatchJob).filter(BatchJob.batch_id == batch_id).first()
+        # Get MarketplaceBatch by batch_id string first
+        batch = db.query(MarketplaceBatch).filter(MarketplaceBatch.batch_id == batch_id).first()
         if not batch:
             return []
 
         # Then filter by FK
         stmt = (
             select(MarketplaceJob)
-            .where(MarketplaceJob.batch_job_id == batch.id)
+            .where(MarketplaceJob.marketplace_batch_id == batch.id)
             .order_by(MarketplaceJob.created_at.asc())
         )
         return list(db.execute(stmt).scalars().all())

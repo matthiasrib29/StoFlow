@@ -11,10 +11,10 @@ import pytest
 from fastapi import status
 from sqlalchemy.orm import Session
 
-from models.user.batch_job import BatchJob, BatchJobStatus
+from models.user.marketplace_batch import MarketplaceBatch, MarketplaceBatchStatus
 from models.user.marketplace_job import MarketplaceJob, JobStatus
 from models.vinted.vinted_action_type import VintedActionType
-from services.marketplace.batch_job_service import BatchJobService
+from services.marketplace.marketplace_batch_service import MarketplaceBatchService
 
 
 class TestCreateBatch:
@@ -52,15 +52,15 @@ class TestCreateBatch:
 
         # Verify batch exists in database
         batch_id = data["batch_id"]
-        batch = db_session.query(BatchJob).filter(
-            BatchJob.batch_id == batch_id
+        batch = db_session.query(MarketplaceBatch).filter(
+            MarketplaceBatch.batch_id == batch_id
         ).first()
         assert batch is not None
         assert batch.total_count == 3
 
         # Verify child jobs were created
         jobs = db_session.query(MarketplaceJob).filter(
-            MarketplaceJob.batch_job_id == batch.id
+            MarketplaceJob.marketplace_batch_id == batch.id
         ).all()
         assert len(jobs) == 3
 
@@ -119,7 +119,7 @@ class TestListBatches:
     def test_list_batches_success(self, client, auth_headers, db_session):
         """Should return list of active batches."""
         # Create test batches
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
         batch1 = service.create_batch_job(
             marketplace="vinted",
             action_code="publish",
@@ -151,7 +151,7 @@ class TestListBatches:
     ):
         """Should return only batches for specified marketplace."""
         # Create test batches for different marketplaces
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
         vinted_batch = service.create_batch_job(
             marketplace="vinted",
             action_code="publish",
@@ -175,7 +175,7 @@ class TestListBatches:
     def test_list_batches_respects_limit(self, client, auth_headers, db_session):
         """Should respect limit parameter."""
         # Create multiple batches
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
         for i in range(5):
             service.create_batch_job(
                 marketplace="vinted",
@@ -207,7 +207,7 @@ class TestGetBatch:
     def test_get_batch_success(self, client, auth_headers, db_session):
         """Should return batch summary."""
         # Create test batch
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
         batch = service.create_batch_job(
             marketplace="vinted",
             action_code="publish",
@@ -291,15 +291,15 @@ class TestCancelBatch:
         assert "message" in data
 
         # Verify batch status in database
-        batch = db_session.query(BatchJob).filter(
-            BatchJob.batch_id == batch_id
+        batch = db_session.query(MarketplaceBatch).filter(
+            MarketplaceBatch.batch_id == batch_id
         ).first()
         assert batch is not None
-        assert batch.status == BatchJobStatus.CANCELLED
+        assert batch.status == MarketplaceBatchStatus.CANCELLED
 
         # Verify child jobs are cancelled
         jobs = db_session.query(MarketplaceJob).filter(
-            MarketplaceJob.batch_job_id == batch.id
+            MarketplaceJob.marketplace_batch_id == batch.id
         ).all()
         for job in jobs:
             assert job.status == JobStatus.CANCELLED
@@ -324,13 +324,13 @@ class TestCancelBatch:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
-class TestGetBatchJobs:
+class TestGetMarketplaceBatchs:
     """Test GET /api/batches/{batch_id}/jobs - Get child jobs."""
 
-    def test_get_batch_jobs_success(self, client, auth_headers, db_session):
+    def test_get_marketplace_batches_success(self, client, auth_headers, db_session):
         """Should return list of child jobs."""
         # Create test batch
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
         batch = service.create_batch_job(
             marketplace="vinted",
             action_code="publish",
@@ -357,7 +357,7 @@ class TestGetBatchJobs:
             assert "marketplace" in job
             assert job["marketplace"] == "vinted"
 
-    def test_get_batch_jobs_not_found(self, client, auth_headers):
+    def test_get_marketplace_batches_not_found(self, client, auth_headers):
         """Should return 404 when batch not found."""
         response = client.get(
             "/api/batches/nonexistent_batch_id/jobs",
@@ -368,7 +368,7 @@ class TestGetBatchJobs:
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    def test_get_batch_jobs_without_auth_fails(self, client):
+    def test_get_marketplace_batches_without_auth_fails(self, client):
         """Should fail with 403 when not authenticated."""
         # Use fake batch_id since we're testing auth failure
         fake_batch_id = "test_batch_123"

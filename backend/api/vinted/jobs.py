@@ -24,9 +24,9 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_user_db
 from api.dependencies.vinted_dependencies import build_job_response_dict
 from models.user.marketplace_job import JobStatus, MarketplaceJob
-from models.user.batch_job import BatchJob
+from models.user.marketplace_batch import MarketplaceBatch
 from services.vinted.vinted_job_service import VintedJobService
-from services.marketplace.batch_job_service import BatchJobService
+from services.marketplace.marketplace_batch_service import MarketplaceBatchService
 
 router = APIRouter(prefix="/jobs", tags=["Vinted Jobs"])
 
@@ -156,10 +156,10 @@ async def list_jobs(
             )
 
     if batch_id:
-        # Get BatchJob by batch_id string first
-        batch = db.query(BatchJob).filter(BatchJob.batch_id == batch_id).first()
+        # Get MarketplaceBatch by batch_id string first
+        batch = db.query(MarketplaceBatch).filter(MarketplaceBatch.batch_id == batch_id).first()
         if batch:
-            query = query.filter(MarketplaceJob.batch_job_id == batch.id)
+            query = query.filter(MarketplaceJob.marketplace_batch_id == batch.id)
         else:
             # If batch not found, return empty results
             query = query.filter(MarketplaceJob.id == -1)  # Always false
@@ -249,8 +249,8 @@ async def create_batch_jobs(
     """
     Create multiple jobs for a batch operation.
 
-    **UPDATED (2026-01-07):** Now uses BatchJobService for better tracking.
-    Creates a BatchJob parent with N MarketplaceJobs (1 per product).
+    **UPDATED (2026-01-07):** Now uses MarketplaceBatchService for better tracking.
+    Creates a MarketplaceBatch parent with N MarketplaceJobs (1 per product).
 
     **RECOMMENDED:** Use POST /api/batches instead for new code.
     This endpoint is kept for backward compatibility.
@@ -269,8 +269,8 @@ async def create_batch_jobs(
         )
 
     try:
-        # Use BatchJobService (creates BatchJob + MarketplaceJobs)
-        batch_service = BatchJobService(db)
+        # Use MarketplaceBatchService (creates MarketplaceBatch + MarketplaceJobs)
+        batch_service = MarketplaceBatchService(db)
         batch = batch_service.create_batch_job(
             marketplace="vinted",
             action_code=request.action_code,
@@ -282,7 +282,7 @@ async def create_batch_jobs(
         # Get child jobs for response
         jobs = (
             db.query(MarketplaceJob)
-            .filter(MarketplaceJob.batch_job_id == batch.id)
+            .filter(MarketplaceJob.marketplace_batch_id == batch.id)
             .all()
         )
 

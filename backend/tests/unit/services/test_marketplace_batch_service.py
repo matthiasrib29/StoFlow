@@ -1,28 +1,28 @@
 """
-Unit Tests for BatchJobService
+Unit Tests for MarketplaceBatchService
 
-Tests batch job creation, progress tracking, and cancellation.
+Tests batch creation, progress tracking, and cancellation.
 
 Created: 2026-01-07
-Phase 6.1: Unit testing
+Updated: 2026-01-20 - Renamed BatchJobService → MarketplaceBatchService
 """
 
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
-from models.user.batch_job import BatchJob, BatchJobStatus
+from models.user.marketplace_batch import MarketplaceBatch, MarketplaceBatchStatus
 from models.user.marketplace_job import MarketplaceJob, JobStatus
 from models.vinted.vinted_action_type import VintedActionType
-from services.marketplace.batch_job_service import BatchJobService
+from services.marketplace.marketplace_batch_service import MarketplaceBatchService
 
 
-class TestBatchJobServiceCreate:
-    """Test batch job creation."""
+class TestMarketplaceBatchServiceCreate:
+    """Test marketplace batch creation."""
 
-    def test_create_batch_job_success(self, db_session, mock_action_type):
-        """Should create BatchJob with N MarketplaceJobs."""
-        service = BatchJobService(db_session)
+    def test_create_batch_success(self, db_session, mock_action_type):
+        """Should create MarketplaceBatch with N MarketplaceJobs."""
+        service = MarketplaceBatchService(db_session)
 
         # Mock action type lookup
         db_session.query = Mock(return_value=Mock(
@@ -32,7 +32,7 @@ class TestBatchJobServiceCreate:
         ))
 
         # Create batch
-        batch = service.create_batch_job(
+        batch = service.create_batch(
             marketplace="vinted",
             action_code="publish",
             product_ids=[1, 2, 3],
@@ -46,24 +46,24 @@ class TestBatchJobServiceCreate:
         assert batch.total_count == 3
         assert batch.completed_count == 0
         assert batch.failed_count == 0
-        assert batch.status == BatchJobStatus.PENDING
+        assert batch.status == MarketplaceBatchStatus.PENDING
         assert batch.priority == 3
 
-    def test_create_batch_job_empty_products_raises(self, db_session):
+    def test_create_batch_empty_products_raises(self, db_session):
         """Should raise ValueError for empty product_ids."""
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
 
         with pytest.raises(ValueError, match="product_ids cannot be empty"):
-            service.create_batch_job(
+            service.create_batch(
                 marketplace="vinted",
                 action_code="publish",
                 product_ids=[],
                 priority=3
             )
 
-    def test_create_batch_job_invalid_action_raises(self, db_session):
+    def test_create_batch_invalid_action_raises(self, db_session):
         """Should raise ValueError for invalid action_code."""
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
 
         # Mock action type not found
         db_session.query = Mock(return_value=Mock(
@@ -73,7 +73,7 @@ class TestBatchJobServiceCreate:
         ))
 
         with pytest.raises(ValueError, match="Invalid action_code 'invalid_action' for marketplace 'vinted'"):
-            service.create_batch_job(
+            service.create_batch(
                 marketplace="vinted",
                 action_code="invalid_action",
                 product_ids=[1, 2, 3],
@@ -82,7 +82,7 @@ class TestBatchJobServiceCreate:
 
     def test_create_batch_generates_unique_batch_id(self, db_session, mock_action_type):
         """Should generate unique batch_id for each batch."""
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
 
         # Mock action type lookup
         db_session.query = Mock(return_value=Mock(
@@ -91,14 +91,14 @@ class TestBatchJobServiceCreate:
             ))
         ))
 
-        batch1 = service.create_batch_job(
+        batch1 = service.create_batch(
             marketplace="vinted",
             action_code="publish",
             product_ids=[1, 2],
             priority=3
         )
 
-        batch2 = service.create_batch_job(
+        batch2 = service.create_batch(
             marketplace="vinted",
             action_code="publish",
             product_ids=[3, 4],
@@ -108,21 +108,21 @@ class TestBatchJobServiceCreate:
         assert batch1.batch_id != batch2.batch_id
 
 
-class TestBatchJobServiceProgress:
+class TestMarketplaceBatchServiceProgress:
     """Test batch progress tracking."""
 
     def test_update_batch_progress_all_completed(self, db_session):
         """Should update batch to COMPLETED when all jobs completed."""
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
 
         # Create mock batch
-        batch = BatchJob(
+        batch = MarketplaceBatch(
             id=1,
             batch_id="test_batch_1",
             marketplace="vinted",
             action_code="publish",
             total_count=3,
-            status=BatchJobStatus.RUNNING,
+            status=MarketplaceBatchStatus.RUNNING,
             priority=3,
             created_at=datetime.now(timezone.utc)
         )
@@ -131,7 +131,7 @@ class TestBatchJobServiceProgress:
         jobs = [
             MarketplaceJob(
                 id=1,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=101,
@@ -143,7 +143,7 @@ class TestBatchJobServiceProgress:
             ),
             MarketplaceJob(
                 id=2,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=102,
@@ -155,7 +155,7 @@ class TestBatchJobServiceProgress:
             ),
             MarketplaceJob(
                 id=3,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=103,
@@ -169,7 +169,7 @@ class TestBatchJobServiceProgress:
 
         # Mock query chain for batch and jobs
         def query_side_effect(model):
-            if model == BatchJob:
+            if model == MarketplaceBatch:
                 # For batch query
                 return Mock(filter=Mock(return_value=Mock(first=Mock(return_value=batch))))
             else:  # MarketplaceJob
@@ -184,20 +184,20 @@ class TestBatchJobServiceProgress:
         assert updated_batch.completed_count == 3
         assert updated_batch.failed_count == 0
         assert updated_batch.cancelled_count == 0
-        assert updated_batch.status == BatchJobStatus.COMPLETED
+        assert updated_batch.status == MarketplaceBatchStatus.COMPLETED
 
     def test_update_batch_progress_partially_failed(self, db_session):
         """Should update batch to PARTIALLY_FAILED when some jobs failed."""
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
 
         # Create mock batch
-        batch = BatchJob(
+        batch = MarketplaceBatch(
             id=1,
             batch_id="test_batch_2",
             marketplace="vinted",
             action_code="publish",
             total_count=3,
-            status=BatchJobStatus.RUNNING,
+            status=MarketplaceBatchStatus.RUNNING,
             priority=3,
             created_at=datetime.now(timezone.utc)
         )
@@ -206,7 +206,7 @@ class TestBatchJobServiceProgress:
         jobs = [
             MarketplaceJob(
                 id=1,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=101,
@@ -218,7 +218,7 @@ class TestBatchJobServiceProgress:
             ),
             MarketplaceJob(
                 id=2,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=102,
@@ -230,7 +230,7 @@ class TestBatchJobServiceProgress:
             ),
             MarketplaceJob(
                 id=3,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=103,
@@ -244,7 +244,7 @@ class TestBatchJobServiceProgress:
 
         # Mock query chain for batch and jobs
         def query_side_effect(model):
-            if model == BatchJob:
+            if model == MarketplaceBatch:
                 return Mock(filter=Mock(return_value=Mock(first=Mock(return_value=batch))))
             else:  # MarketplaceJob
                 return Mock(filter=Mock(return_value=Mock(all=Mock(return_value=jobs))))
@@ -256,20 +256,20 @@ class TestBatchJobServiceProgress:
 
         assert updated_batch.completed_count == 2
         assert updated_batch.failed_count == 1
-        assert updated_batch.status == BatchJobStatus.PARTIALLY_FAILED
+        assert updated_batch.status == MarketplaceBatchStatus.PARTIALLY_FAILED
 
     def test_update_batch_progress_still_running(self, db_session):
         """Should keep batch as RUNNING when jobs still in progress."""
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
 
         # Create mock batch
-        batch = BatchJob(
+        batch = MarketplaceBatch(
             id=1,
             batch_id="test_batch_3",
             marketplace="vinted",
             action_code="publish",
             total_count=3,
-            status=BatchJobStatus.RUNNING,
+            status=MarketplaceBatchStatus.RUNNING,
             priority=3,
             created_at=datetime.now(timezone.utc)
         )
@@ -278,7 +278,7 @@ class TestBatchJobServiceProgress:
         jobs = [
             MarketplaceJob(
                 id=1,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=101,
@@ -290,7 +290,7 @@ class TestBatchJobServiceProgress:
             ),
             MarketplaceJob(
                 id=2,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=102,
@@ -302,7 +302,7 @@ class TestBatchJobServiceProgress:
             ),
             MarketplaceJob(
                 id=3,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=103,
@@ -316,7 +316,7 @@ class TestBatchJobServiceProgress:
 
         # Mock query chain for batch and jobs
         def query_side_effect(model):
-            if model == BatchJob:
+            if model == MarketplaceBatch:
                 return Mock(filter=Mock(return_value=Mock(first=Mock(return_value=batch))))
             else:  # MarketplaceJob
                 return Mock(filter=Mock(return_value=Mock(all=Mock(return_value=jobs))))
@@ -327,24 +327,24 @@ class TestBatchJobServiceProgress:
         updated_batch = service.update_batch_progress(1)
 
         assert updated_batch.completed_count == 1
-        assert updated_batch.status == BatchJobStatus.RUNNING
+        assert updated_batch.status == MarketplaceBatchStatus.RUNNING
 
 
-class TestBatchJobServiceCancel:
+class TestMarketplaceBatchServiceCancel:
     """Test batch cancellation."""
 
     def test_cancel_batch_cancels_pending_and_running(self, db_session):
         """Should cancel all pending and running jobs in batch."""
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
 
         # Create mock batch
-        batch = BatchJob(
+        batch = MarketplaceBatch(
             id=1,
             batch_id="test_batch_4",
             marketplace="vinted",
             action_code="publish",
             total_count=4,
-            status=BatchJobStatus.RUNNING,
+            status=MarketplaceBatchStatus.RUNNING,
             priority=3,
             created_at=datetime.now(timezone.utc)
         )
@@ -354,7 +354,7 @@ class TestBatchJobServiceCancel:
         cancelable_jobs = [
             MarketplaceJob(
                 id=2,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=102,
@@ -366,7 +366,7 @@ class TestBatchJobServiceCancel:
             ),
             MarketplaceJob(
                 id=3,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=103,
@@ -378,7 +378,7 @@ class TestBatchJobServiceCancel:
             ),
             MarketplaceJob(
                 id=4,
-                batch_job_id=1,
+                marketplace_batch_id=1,
                 marketplace="vinted",
                 action_type_id=1,
                 product_id=104,
@@ -390,12 +390,10 @@ class TestBatchJobServiceCancel:
             ),
         ]
 
-        # Tasks removed (2026-01-09): WebSocket architecture, no granular tasks in DB
-
         # Completed job for progress update
         completed_job = MarketplaceJob(
             id=1,
-            batch_job_id=1,
+            marketplace_batch_id=1,
             marketplace="vinted",
             action_type_id=1,
             product_id=101,
@@ -414,7 +412,7 @@ class TestBatchJobServiceCancel:
 
         def query_side_effect(model):
             call_count[0] += 1
-            if model == BatchJob:
+            if model == MarketplaceBatch:
                 # Batch query (first call)
                 return Mock(filter=Mock(return_value=Mock(first=Mock(return_value=batch))))
             else:  # MarketplaceJob
@@ -438,30 +436,30 @@ class TestBatchJobServiceCancel:
         assert cancelable_jobs[0].status == JobStatus.CANCELLED
         assert cancelable_jobs[1].status == JobStatus.CANCELLED
         assert cancelable_jobs[2].status == JobStatus.CANCELLED
-        assert batch.status == BatchJobStatus.CANCELLED
+        assert batch.status == MarketplaceBatchStatus.CANCELLED
 
     def test_cancel_batch_invalid_id_raises(self, db_session):
-        """Should raise ValueError for invalid batch_id."""
-        service = BatchJobService(db_session)
+        """Should raise ValueError for invalid marketplace_batch_id."""
+        service = MarketplaceBatchService(db_session)
 
         # Mock batch not found
         db_session.query = Mock(return_value=Mock(
             filter=Mock(return_value=Mock(first=Mock(return_value=None)))
         ))
 
-        with pytest.raises(ValueError, match="BatchJob with id=999 not found"):
+        with pytest.raises(ValueError, match="MarketplaceBatch with id=999 not found"):
             service.cancel_batch(999)
 
 
-class TestBatchJobServiceSummary:
+class TestMarketplaceBatchServiceSummary:
     """Test batch summary retrieval."""
 
     def test_get_batch_summary_success(self, db_session):
         """Should return batch summary dict."""
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
 
         # Create mock batch
-        batch = BatchJob(
+        batch = MarketplaceBatch(
             id=1,
             batch_id="test_batch_5",
             marketplace="vinted",
@@ -470,7 +468,7 @@ class TestBatchJobServiceSummary:
             completed_count=7,
             failed_count=2,
             cancelled_count=1,
-            status=BatchJobStatus.PARTIALLY_FAILED,
+            status=MarketplaceBatchStatus.PARTIALLY_FAILED,
             priority=3,
             created_at=datetime.now(timezone.utc)
         )
@@ -495,7 +493,7 @@ class TestBatchJobServiceSummary:
 
     def test_get_batch_summary_not_found_returns_none(self, db_session):
         """Should return None when batch not found."""
-        service = BatchJobService(db_session)
+        service = MarketplaceBatchService(db_session)
 
         # Mock batch not found
         mock_filter = Mock(return_value=Mock(first=Mock(return_value=None)))

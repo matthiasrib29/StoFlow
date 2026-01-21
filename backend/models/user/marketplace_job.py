@@ -4,9 +4,9 @@ Marketplace Job Model
 Job orchestration for marketplace operations (Vinted, eBay, Etsy).
 Each job represents a single operation (publish, sync, etc.) on a product.
 
-Business Rules (Updated: 2026-01-07):
+Business Rules (Updated: 2026-01-20):
 - 1 Job = 1 product operation
-- Jobs can be grouped into BatchJobs via batch_job_id FK
+- Jobs can be grouped into MarketplaceBatch via marketplace_batch_id FK
 - Jobs contain multiple MarketplaceTasks
 - Status: pending → running → completed/failed/cancelled/expired
 - Expiration: 1 hour for pending jobs
@@ -14,6 +14,7 @@ Business Rules (Updated: 2026-01-07):
 
 Author: Claude
 Date: 2026-01-07
+Updated: 2026-01-20 - Renamed batch_job_id → marketplace_batch_id
 """
 
 from datetime import datetime
@@ -46,7 +47,7 @@ class MarketplaceJob(Base):
     Table: user_{id}.marketplace_jobs
 
     A job represents a single operation on a marketplace (publish, update, delete, etc.)
-    Jobs can be grouped into BatchJobs when created from batch API calls.
+    Jobs can be grouped into MarketplaceBatches when created from batch API calls.
     Each job can have multiple MarketplaceTasks associated with it.
     """
 
@@ -68,13 +69,13 @@ class MarketplaceJob(Base):
         comment="Target marketplace (vinted, ebay, etsy)"
     )
 
-    # Batch reference (FK to BatchJob)
-    batch_job_id: Mapped[int | None] = mapped_column(
+    # Batch reference (FK to MarketplaceBatch)
+    marketplace_batch_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("tenant.batch_jobs.id", ondelete="SET NULL"),
+        ForeignKey("tenant.marketplace_batches.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="Parent BatchJob (for batch operations)"
+        comment="Parent MarketplaceBatch (for batch operations)"
     )
 
     # Action type reference (FK to vinted.action_types)
@@ -146,6 +147,12 @@ class MarketplaceJob(Base):
     )
 
     # Error tracking
+    failed_step: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Step where the job failed (e.g., 'upload_images', 'create_listing')"
+    )
+
     error_message: Mapped[str | None] = mapped_column(
         Text,
         nullable=True
@@ -190,7 +197,7 @@ class MarketplaceJob(Base):
     )
 
     # Relationships - lazy="raise" to prevent N+1 queries
-    batch_job = relationship("BatchJob", back_populates="jobs", lazy="raise")
+    marketplace_batch = relationship("MarketplaceBatch", back_populates="jobs", lazy="raise")
     product = relationship("Product", foreign_keys=[product_id], lazy="raise")
     # NOTE (2026-01-09): tasks relationship removed - MarketplaceTask not used (Option A: simple)
     # Handlers call WebSocket/HTTP directly without creating granular tasks in DB

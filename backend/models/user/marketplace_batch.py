@@ -1,11 +1,14 @@
 """
-Batch Job Model
+Marketplace Batch Model
 
 Groups multiple MarketplaceJobs into a single batch operation.
 Provides progress tracking and batch-level status management.
 
+Renamed from BatchJob to MarketplaceBatch for consistency with MarketplaceJob and MarketplaceTask.
+
 Author: Claude
 Date: 2026-01-06
+Updated: 2026-01-20 - Renamed BatchJob → MarketplaceBatch
 """
 
 from datetime import datetime
@@ -18,8 +21,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from shared.database import Base
 
 
-class BatchJobStatus(str, Enum):
-    """Status of a batch job."""
+class MarketplaceBatchStatus(str, Enum):
+    """Status of a marketplace batch."""
     PENDING = "pending"              # Not started yet
     RUNNING = "running"              # Some jobs are running
     COMPLETED = "completed"          # All jobs completed successfully
@@ -28,17 +31,21 @@ class BatchJobStatus(str, Enum):
     CANCELLED = "cancelled"          # Batch was cancelled
 
 
-class BatchJob(Base):
+# Backward compatibility alias (deprecated)
+BatchJobStatus = MarketplaceBatchStatus
+
+
+class MarketplaceBatch(Base):
     """
-    Batch job for grouping multiple marketplace operations.
+    Marketplace batch for grouping multiple marketplace operations.
 
-    Table: user_{id}.batch_jobs
+    Table: user_{id}.marketplace_batches
 
-    A batch job represents a bulk operation (e.g., publish 200 products).
+    A batch represents a bulk operation (e.g., publish 200 products).
     It groups N MarketplaceJobs and tracks overall progress.
     """
 
-    __tablename__ = "batch_jobs"
+    __tablename__ = "marketplace_batches"
     __table_args__ = {"schema": "tenant"}  # Placeholder for schema_translate_map
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -97,12 +104,12 @@ class BatchJob(Base):
     )
 
     # Status
-    status: Mapped[BatchJobStatus] = mapped_column(
+    status: Mapped[MarketplaceBatchStatus] = mapped_column(
         SQLEnum(
-            BatchJobStatus,
+            MarketplaceBatchStatus,
             values_callable=lambda x: [e.value for e in x]
         ),
-        default=BatchJobStatus.PENDING,
+        default=MarketplaceBatchStatus.PENDING,
         nullable=False,
         index=True
     )
@@ -147,13 +154,13 @@ class BatchJob(Base):
     # Relationships - lazy="raise" to prevent N+1 queries
     jobs = relationship(
         "MarketplaceJob",
-        back_populates="batch_job",
+        back_populates="marketplace_batch",
         lazy="raise",
         cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
-        return f"<BatchJob(id={self.id}, batch_id={self.batch_id}, status={self.status}, progress={self.progress_percent}%)>"
+        return f"<MarketplaceBatch(id={self.id}, batch_id={self.batch_id}, status={self.status}, progress={self.progress_percent}%)>"
 
     @property
     def progress_percent(self) -> float:
@@ -175,7 +182,7 @@ class BatchJob(Base):
         Returns:
             True if batch is pending or running
         """
-        return self.status in (BatchJobStatus.PENDING, BatchJobStatus.RUNNING)
+        return self.status in (MarketplaceBatchStatus.PENDING, MarketplaceBatchStatus.RUNNING)
 
     @property
     def is_terminal(self) -> bool:
@@ -186,10 +193,10 @@ class BatchJob(Base):
             True if batch is completed, failed, partially_failed, or cancelled
         """
         return self.status in (
-            BatchJobStatus.COMPLETED,
-            BatchJobStatus.FAILED,
-            BatchJobStatus.PARTIALLY_FAILED,
-            BatchJobStatus.CANCELLED
+            MarketplaceBatchStatus.COMPLETED,
+            MarketplaceBatchStatus.FAILED,
+            MarketplaceBatchStatus.PARTIALLY_FAILED,
+            MarketplaceBatchStatus.CANCELLED
         )
 
     @property
@@ -201,3 +208,7 @@ class BatchJob(Base):
             Number of jobs not yet processed
         """
         return self.total_count - (self.completed_count + self.failed_count + self.cancelled_count)
+
+
+# Backward compatibility alias (deprecated)
+BatchJob = MarketplaceBatch

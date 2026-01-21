@@ -135,7 +135,7 @@ def test_schema_not_found_fails_gracefully(db_session):
 
 # TODO: Additional tests for complete coverage (future work)
 # - test_batch_job_with_multiple_tenants_isolates_correctly
-#   Complex: Requires BatchJob setup and multi-schema job coordination
+#   Complex: Requires MarketplaceBatch setup and multi-schema job coordination
 # - test_task_execution_uses_correct_schema
 #   Complex: Requires MarketplaceTask with proper job_id relationships
 #

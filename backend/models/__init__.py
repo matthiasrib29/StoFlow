@@ -81,11 +81,10 @@ from models.user import (
     # Marketplace Job System
     MarketplaceJob,
     JobStatus,
-    MarketplaceJobStats,
+    # MarketplaceJobStats,  # Removed (2026-01-20): Not used
     # eBay
     EbayCredentials,
-    EbayProductMarketplace,
-    EbayPromotedListing,
+    # EbayPromotedListing,  # Removed (2026-01-20): Merged into EbayProduct
     EbayOrder,
     EbayOrderProduct,
     # Etsy
@@ -155,11 +154,10 @@ __all__ = [
     # Marketplace Job System (user)
     "MarketplaceJob",
     "JobStatus",
-    "MarketplaceJobStats",
+    # "MarketplaceJobStats",  # Removed (2026-01-20): Not used
     # eBay
     "EbayCredentials",
-    "EbayProductMarketplace",
-    "EbayPromotedListing",
+    # "EbayPromotedListing",  # Removed (2026-01-20): Merged into EbayProduct
     "EbayOrder",
     "EbayOrderProduct",
     # Etsy

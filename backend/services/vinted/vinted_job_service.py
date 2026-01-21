@@ -25,8 +25,8 @@ from sqlalchemy.orm import Session
 
 from models.public.marketplace_action_type import MarketplaceActionType
 from models.user.marketplace_job import JobStatus, MarketplaceJob
-from models.user.batch_job import BatchJob
-from models.user.marketplace_job_stats import MarketplaceJobStats
+from models.user.marketplace_batch import MarketplaceBatch
+# MarketplaceJobStats removed (2026-01-20): Table removed via migration
 from shared.advisory_locks import AdvisoryLockHelper
 from shared.logging import get_logger
 
@@ -95,7 +95,7 @@ class VintedJobService:
         self,
         action_code: str,
         product_id: int | None = None,
-        batch_job_id: int | None = None,
+        marketplace_batch_id: int | None = None,
         priority: int | None = None,
         result_data: dict | None = None,
     ) -> MarketplaceJob:
@@ -105,7 +105,7 @@ class VintedJobService:
         Args:
             action_code: Action type code (publish, sync, etc.)
             product_id: Product ID (optional)
-            batch_job_id: BatchJob ID for grouping (optional)
+            marketplace_batch_id: MarketplaceBatch ID for grouping (optional)
             priority: Override priority (optional, uses action_type default)
             result_data: Initial data/parameters for the job (optional)
 
@@ -127,7 +127,7 @@ class VintedJobService:
             marketplace="vinted",  # Explicit marketplace for Vinted jobs
             action_type_id=action_type.id,
             product_id=product_id,
-            batch_job_id=batch_job_id,
+            marketplace_batch_id=marketplace_batch_id,
             status=JobStatus.PENDING,
             priority=priority if priority is not None else action_type.priority,
             expires_at=expires_at,
@@ -140,7 +140,7 @@ class VintedJobService:
 
         logger.debug(
             f"[VintedJobService] Created job #{job.id} "
-            f"(action={action_code}, product={product_id}, batch_job_id={batch_job_id})"
+            f"(action={action_code}, product={product_id}, marketplace_batch_id={marketplace_batch_id})"
         )
 
         return job
@@ -169,7 +169,7 @@ class VintedJobService:
             job = self.create_job(
                 action_code=action_code,
                 product_id=product_id,
-                batch_job_id=None,  # No BatchJob FK for this legacy method
+                marketplace_batch_id=None,  # No MarketplaceBatch FK for this legacy method
                 priority=priority,
             )
             jobs.append(job)
@@ -477,15 +477,15 @@ class VintedJobService:
         Returns:
             List of MarketplaceJob in the batch
         """
-        # Get BatchJob by batch_id string first
-        batch = self.db.query(BatchJob).filter(BatchJob.batch_id == batch_id).first()
+        # Get MarketplaceBatch by batch_id string first
+        batch = self.db.query(MarketplaceBatch).filter(MarketplaceBatch.batch_id == batch_id).first()
         if not batch:
             return []
 
         # Then filter by FK
         return (
             self.db.query(MarketplaceJob)
-            .filter(MarketplaceJob.batch_job_id == batch.id)
+            .filter(MarketplaceJob.marketplace_batch_id == batch.id)
             .order_by(MarketplaceJob.created_at)
             .all()
         )
@@ -581,93 +581,19 @@ class VintedJobService:
 
     def _update_job_stats(self, job: MarketplaceJob, success: bool) -> None:
         """
-        Update daily statistics for a completed job.
+        DEPRECATED (2026-01-20): Stats tracking removed.
 
-        Args:
-            job: Completed MarketplaceJob
-            success: Whether job succeeded
+        This method is a no-op now. MarketplaceJobStats table was removed.
         """
-        today = datetime.now(timezone.utc).date()
-
-        # Get or create stats record
-        stats = (
-            self.db.query(MarketplaceJobStats)
-            .filter(
-                MarketplaceJobStats.action_type_id == job.action_type_id,
-                MarketplaceJobStats.marketplace == 'vinted',
-                MarketplaceJobStats.date == today,
-            )
-            .first()
-        )
-
-        if not stats:
-            stats = MarketplaceJobStats(
-                marketplace='vinted',
-                action_type_id=job.action_type_id,
-                date=today,
-                total_jobs=0,
-                success_count=0,
-                failure_count=0,
-            )
-            self.db.add(stats)
-
-        stats.total_jobs += 1
-        if success:
-            stats.success_count += 1
-        else:
-            stats.failure_count += 1
-
-        # Calculate average duration
-        if job.started_at and job.completed_at:
-            duration_ms = int((job.completed_at - job.started_at).total_seconds() * 1000)
-            if stats.avg_duration_ms is None:
-                stats.avg_duration_ms = duration_ms
-            else:
-                # Rolling average
-                stats.avg_duration_ms = int(
-                    (stats.avg_duration_ms * (stats.total_jobs - 1) + duration_ms)
-                    / stats.total_jobs
-                )
-
-        self.db.commit()
+        pass
 
     def get_stats(self, days: int = 7) -> list[dict]:
         """
-        Get job statistics for the last N days.
+        DEPRECATED (2026-01-20): Stats tracking removed.
 
-        Args:
-            days: Number of days to look back
-
-        Returns:
-            List of daily stats with action type info
+        Returns empty list. MarketplaceJobStats table was removed.
         """
-        start_date = datetime.now(timezone.utc).date() - timedelta(days=days)
-
-        stats = (
-            self.db.query(MarketplaceJobStats)
-            .filter(
-                MarketplaceJobStats.marketplace == 'vinted',
-                MarketplaceJobStats.date >= start_date
-            )
-            .order_by(MarketplaceJobStats.date.desc())
-            .all()
-        )
-
-        result = []
-        for stat in stats:
-            action_type = self.get_action_type_by_id(stat.action_type_id)
-            result.append({
-                "date": stat.date.isoformat(),
-                "action_code": action_type.code if action_type else "unknown",
-                "action_name": action_type.name if action_type else "Unknown",
-                "total_jobs": stat.total_jobs,
-                "success_count": stat.success_count,
-                "failure_count": stat.failure_count,
-                "success_rate": stat.success_rate,
-                "avg_duration_ms": stat.avg_duration_ms,
-            })
-
-        return result
+        return []
 
     # =========================================================================
     # TASK MANAGEMENT

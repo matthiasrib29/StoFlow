@@ -227,8 +227,10 @@ class MarketplaceJobProcessor:
             else:
                 # Operation returned success=False
                 error_msg = result.get("error", "Operation failed")
+                failed_step = result.get("failed_step")
                 return await self._handle_job_failure(
-                    job_id, marketplace, full_action_code, error_msg, start_time
+                    job_id, marketplace, full_action_code, error_msg, start_time,
+                    failed_step=failed_step
                 )
 
         except Exception as e:
@@ -245,7 +247,8 @@ class MarketplaceJobProcessor:
         marketplace: str,
         action_code: str,
         error_msg: str,
-        start_time: float
+        start_time: float,
+        failed_step: str | None = None
     ) -> dict[str, Any]:
         """
         Handle job failure with retry logic.
@@ -256,6 +259,7 @@ class MarketplaceJobProcessor:
             action_code: Full action code (e.g., "publish_ebay")
             error_msg: Error message
             start_time: Job start timestamp
+            failed_step: Step where the failure occurred (e.g., 'upload_images')
 
         Returns:
             dict: Failure result with retry information
@@ -294,10 +298,11 @@ class MarketplaceJobProcessor:
             }
         else:
             # Max retries reached, job is now FAILED
-            self.job_service.fail_job(job_id, error_msg)
+            self.job_service.fail_job(job_id, error_msg, failed_step=failed_step)
 
+            step_info = f" at step '{failed_step}'" if failed_step else ""
             logger.error(
-                f"[JobProcessor] Job #{job_id} failed permanently: {error_msg}"
+                f"[JobProcessor] Job #{job_id} failed permanently{step_info}: {error_msg}"
             )
 
             return {

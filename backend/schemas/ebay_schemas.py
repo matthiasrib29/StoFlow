@@ -42,28 +42,6 @@ class EbayUnpublishRequest(BaseModel):
 
 
 # ============================================================================
-# PRODUCT MARKETPLACE
-# ============================================================================
-
-
-class EbayProductMarketplaceResponse(BaseModel):
-    """eBay product marketplace status."""
-
-    sku_derived: str
-    product_id: int
-    marketplace_id: str
-    status: str
-    ebay_listing_id: Optional[int]
-    ebay_offer_id: Optional[int]
-    error_message: Optional[str]
-    published_at: Optional[datetime]
-    sold_at: Optional[datetime]
-    last_sync_at: Optional[datetime]
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ============================================================================
 # SETTINGS
 # ============================================================================
 
@@ -169,30 +147,9 @@ class EbayMarketplaceInfo(BaseModel):
 
 
 # ============================================================================
-# PROMOTED LISTINGS
+# PROMOTED LISTINGS (Removed 2026-01-20: Merged into EbayProduct)
+# EbayPromotedListingResponse removed - use ebay_products.promoted_* columns
 # ============================================================================
-
-
-class EbayPromotedListingResponse(BaseModel):
-    """eBay promoted listing info."""
-
-    id: int
-    campaign_id: str
-    campaign_name: Optional[str]
-    marketplace_id: str
-    product_id: int
-    sku_derived: str
-    ad_id: str
-    bid_percentage: Decimal
-    ad_status: str
-    total_clicks: int
-    total_impressions: int
-    total_sales: int
-    total_sales_amount: Decimal
-    total_ad_fees: Decimal
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================

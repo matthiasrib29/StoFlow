@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-Retroactive Migration Script: Create BatchJob Parents for Existing Jobs
+Retroactive Migration Script: Create MarketplaceBatch Parents for Existing Jobs
 
 This script migrates existing MarketplaceJobs with batch_id string (old system)
-to the new BatchJob architecture by creating BatchJob parents.
+to the new MarketplaceBatch architecture by creating MarketplaceBatch parents.
 
 Workflow:
-1. Find all unique batch_id strings in marketplace_jobs where batch_job_id IS NULL
+1. Find all unique batch_id strings in marketplace_jobs where marketplace_batch_id IS NULL
 2. For each batch_id:
-   - Create a BatchJob parent
-   - Link all jobs with that batch_id to the new BatchJob
+   - Create a MarketplaceBatch parent
+   - Link all jobs with that batch_id to the new MarketplaceBatch
    - Calculate batch progress counters
 
 Created: 2026-01-07
-Phase 5.1: Data migration
+Updated: 2026-01-20 - Renamed MarketplaceBatch → MarketplaceBatch
 """
 
 import sys
@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from models.user.batch_job import BatchJob, BatchJobStatus
+from models.user.marketplace_batch import MarketplaceBatch, MarketplaceBatchStatus
 from models.user.marketplace_job import MarketplaceJob, JobStatus
 from shared.database import engine
 from shared.logging import get_logger
@@ -84,7 +84,7 @@ def extract_action_from_batch_id(batch_id: str) -> str:
     return parts[0]
 
 
-def calculate_batch_status(jobs: list[MarketplaceJob]) -> BatchJobStatus:
+def calculate_batch_status(jobs: list[MarketplaceJob]) -> MarketplaceBatchStatus:
     """
     Calculate batch status from child jobs.
 
@@ -92,10 +92,10 @@ def calculate_batch_status(jobs: list[MarketplaceJob]) -> BatchJobStatus:
         jobs: List of MarketplaceJob instances
 
     Returns:
-        BatchJobStatus enum value
+        MarketplaceBatchStatus enum value
     """
     if not jobs:
-        return BatchJobStatus.PENDING
+        return MarketplaceBatchStatus.PENDING
 
     completed_count = sum(1 for j in jobs if j.status == JobStatus.COMPLETED)
     failed_count = sum(1 for j in jobs if j.status == JobStatus.FAILED)
@@ -106,30 +106,30 @@ def calculate_batch_status(jobs: list[MarketplaceJob]) -> BatchJobStatus:
 
     # All completed
     if completed_count == total_count:
-        return BatchJobStatus.COMPLETED
+        return MarketplaceBatchStatus.COMPLETED
 
     # All failed
     if failed_count == total_count:
-        return BatchJobStatus.FAILED
+        return MarketplaceBatchStatus.FAILED
 
     # All cancelled
     if cancelled_count == total_count:
-        return BatchJobStatus.CANCELLED
+        return MarketplaceBatchStatus.CANCELLED
 
     # Some running (regardless of other statuses)
     if running_count > 0:
-        return BatchJobStatus.RUNNING
+        return MarketplaceBatchStatus.RUNNING
 
     # Some pending (regardless of other statuses, but no running)
     if pending_count > 0:
-        return BatchJobStatus.PENDING
+        return MarketplaceBatchStatus.PENDING
 
     # All terminal statuses (completed, failed, cancelled) with at least one failure
     if completed_count + failed_count + cancelled_count == total_count and failed_count > 0:
-        return BatchJobStatus.PARTIALLY_FAILED
+        return MarketplaceBatchStatus.PARTIALLY_FAILED
 
     # Default: pending
-    return BatchJobStatus.PENDING
+    return MarketplaceBatchStatus.PENDING
 
 
 # =============================================================================
@@ -164,13 +164,13 @@ def migrate_schema(schema_name: str, db: Session) -> dict:
     }
 
     try:
-        # 1. Find all unique batch_id strings where batch_job_id IS NULL
+        # 1. Find all unique batch_id strings where marketplace_batch_id IS NULL
         result = db.execute(
             text("""
                 SELECT DISTINCT batch_id
                 FROM marketplace_jobs
                 WHERE batch_id IS NOT NULL
-                  AND batch_job_id IS NULL
+                  AND marketplace_batch_id IS NULL
                 ORDER BY batch_id
             """)
         )
@@ -182,7 +182,7 @@ def migrate_schema(schema_name: str, db: Session) -> dict:
             logger.info(f"   ✅ No batches to migrate in {schema_name}")
             return stats
 
-        # 2. For each batch_id, create BatchJob parent
+        # 2. For each batch_id, create MarketplaceBatch parent
         for batch_id_str in unique_batch_ids:
             try:
                 # Get all jobs for this batch
@@ -190,7 +190,7 @@ def migrate_schema(schema_name: str, db: Session) -> dict:
                     db.query(MarketplaceJob)
                     .filter(
                         MarketplaceJob.batch_id == batch_id_str,
-                        MarketplaceJob.batch_job_id.is_(None),
+                        MarketplaceJob.marketplace_batch_id.is_(None),
                     )
                     .all()
                 )
@@ -217,17 +217,17 @@ def migrate_schema(schema_name: str, db: Session) -> dict:
                 )
                 completed_at = None
                 if batch_status in (
-                    BatchJobStatus.COMPLETED,
-                    BatchJobStatus.PARTIALLY_FAILED,
-                    BatchJobStatus.FAILED,
-                    BatchJobStatus.CANCELLED,
+                    MarketplaceBatchStatus.COMPLETED,
+                    MarketplaceBatchStatus.PARTIALLY_FAILED,
+                    MarketplaceBatchStatus.FAILED,
+                    MarketplaceBatchStatus.CANCELLED,
                 ):
                     completed_at = max(
                         (j.completed_at for j in jobs if j.completed_at), default=None
                     )
 
-                # 3. Create BatchJob parent
-                batch = BatchJob(
+                # 3. Create MarketplaceBatch parent
+                batch = MarketplaceBatch(
                     batch_id=batch_id_str,
                     marketplace=marketplace,
                     action_code=action_code,
@@ -245,9 +245,9 @@ def migrate_schema(schema_name: str, db: Session) -> dict:
                 db.add(batch)
                 db.flush()  # Get batch.id
 
-                # 4. Link all jobs to this BatchJob
+                # 4. Link all jobs to this MarketplaceBatch
                 for job in jobs:
-                    job.batch_job_id = batch.id
+                    job.marketplace_batch_id = batch.id
 
                 db.commit()
 
@@ -255,7 +255,7 @@ def migrate_schema(schema_name: str, db: Session) -> dict:
                 stats["jobs_linked"] += len(jobs)
 
                 logger.info(
-                    f"   ✅ Created BatchJob #{batch.id} for batch_id '{batch_id_str}' "
+                    f"   ✅ Created MarketplaceBatch #{batch.id} for batch_id '{batch_id_str}' "
                     f"({len(jobs)} jobs, status={batch_status.value})"
                 )
 
@@ -282,7 +282,7 @@ def migrate_all_schemas() -> dict:
         Global migration stats
     """
     logger.info("=" * 80)
-    logger.info("🚀 Starting retroactive BatchJob migration")
+    logger.info("🚀 Starting retroactive MarketplaceBatch migration")
     logger.info("=" * 80)
 
     global_stats = {
@@ -341,7 +341,7 @@ def main():
         logger.info("📊 MIGRATION SUMMARY")
         logger.info("=" * 80)
         logger.info(f"✅ Schemas migrated:    {stats['schemas_migrated']}")
-        logger.info(f"✅ BatchJobs created:   {stats['batches_created']}")
+        logger.info(f"✅ MarketplaceBatchs created:   {stats['batches_created']}")
         logger.info(f"✅ Jobs linked:         {stats['jobs_linked']}")
         logger.info(f"❌ Errors:              {stats['errors']}")
         logger.info(f"⏱️  Duration:            {stats['duration']:.2f}s")
