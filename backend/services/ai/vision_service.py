@@ -104,10 +104,10 @@ class AIVisionService:
 
         # 7. Appeler Gemini Vision API
         try:
-            # Configure Gemini client with timeout
+            # Configure Gemini client with timeout (HttpOptions expects milliseconds)
             client = genai.Client(
                 api_key=settings.gemini_api_key,
-                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+                http_options=types.HttpOptions(timeout=settings.gemini_timeout_seconds * 1000),
             )
 
             # Construire le contenu multimodal
@@ -127,6 +127,16 @@ class AIVisionService:
 
             # Parser la réponse
             import json
+
+            # Check for empty response (can happen with safety filters or model issues)
+            if not response.text:
+                logger.warning(
+                    f"[AIVisionService] Empty response from Gemini. "
+                    f"Candidates: {response.candidates if hasattr(response, 'candidates') else 'N/A'}"
+                )
+                raise AIGenerationError(
+                    "L'IA n'a pas pu analyser les images. Réessayez ou vérifiez les images."
+                )
 
             response_data = json.loads(response.text)
 
@@ -395,7 +405,7 @@ ATTRIBUTES TO EXTRACT:
 - brand: Visible brand name (logo, label, tag) - return exact brand name as seen
 - condition: Product condition (0-10 scale)
 - label_size: Size label text (exact as shown on tag)
-- color: Colors visible (use exact names from list, comma-separated if multiple)
+- color: Colors visible (use exact names from list, MAX 2 colors, comma-separated if multiple)
 - material: Materials visible or estimated (use exact names from list, comma-separated if multiple)
 - fit: Fit type (use exact name from list above)
 - gender: Gender (use exact name from list above)
@@ -583,10 +593,10 @@ Analyze ALL provided images for complete extraction."""
 
         # 7. Appeler Gemini Vision API
         try:
-            # Configure Gemini client with timeout
+            # Configure Gemini client with timeout (HttpOptions expects milliseconds)
             client = genai.Client(
                 api_key=settings.gemini_api_key,
-                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+                http_options=types.HttpOptions(timeout=settings.gemini_timeout_seconds * 1000),
             )
 
             # Construire le contenu multimodal
@@ -606,6 +616,16 @@ Analyze ALL provided images for complete extraction."""
 
             # Parser la réponse
             import json
+
+            # Check for empty response (can happen with safety filters or model issues)
+            if not response.text:
+                logger.warning(
+                    f"[AIVisionService] Empty response from Gemini. "
+                    f"Candidates: {response.candidates if hasattr(response, 'candidates') else 'N/A'}"
+                )
+                raise AIGenerationError(
+                    "L'IA n'a pas pu analyser les images. Réessayez ou vérifiez les images."
+                )
 
             response_data = json.loads(response.text)
 

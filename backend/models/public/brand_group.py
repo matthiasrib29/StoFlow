@@ -59,6 +59,7 @@ class BrandGroup(Base):
     # Metadata
     generated_by_ai: Mapped[bool] = mapped_column(default=False, nullable=False)
     ai_confidence: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(3, 2), nullable=True)
+    generation_cost: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 6), nullable=True)  # Cost in USD
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

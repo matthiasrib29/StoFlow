@@ -115,7 +115,7 @@
         :category="modelValue.category"
         :gender="modelValue.gender"
         :size-normalized="modelValue.size_normalized"
-        :colors="modelValue.color ? [modelValue.color] : undefined"
+        :colors="colorsArray"
         :material="modelValue.material"
         :fit="modelValue.fit"
         :condition="modelValue.condition"
@@ -151,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import type { ProductFormData } from '~/types/product'
 
 interface Props {
@@ -205,6 +205,12 @@ provide('isFieldFlashing', isFieldFlashing)
 
 // Local form state to avoid race conditions when multiple fields update simultaneously
 const localForm = ref<ProductFormData>({ ...props.modelValue })
+
+// Memoized colors array to prevent infinite watch loops in child components
+// (creating inline array [color] triggers deep watch on every render)
+const colorsArray = computed<string[] | undefined>(() => {
+  return props.modelValue.color ? [props.modelValue.color] : undefined
+})
 
 // Sync local form with prop when prop changes from parent
 watch(() => props.modelValue, (newVal) => {

@@ -188,6 +188,9 @@ const textGeneratorError = ref<string | null>(null)
 const userEditedTitle = ref(false)
 const userEditedDescription = ref(false)
 
+// Track last sent attributes to prevent infinite loops
+const lastSentAttributesJson = ref<string>('')
+
 // Mapping format/style number to API key
 const titleFormatKeys: Record<TitleFormat, string> = {
   1: 'minimaliste',
@@ -255,6 +258,11 @@ onMounted(async () => {
 // Debounced auto-generation when attributes change
 const debouncedAutoGenerate = useDebounceFn(async () => {
   if (!hasMinimumAttributes.value) return
+
+  // Prevent infinite loops: skip if attributes haven't actually changed
+  const currentJson = JSON.stringify(textGeneratorAttributes.value)
+  if (currentJson === lastSentAttributesJson.value) return
+  lastSentAttributesJson.value = currentJson
 
   // Call preview API
   await previewText(textGeneratorAttributes.value)

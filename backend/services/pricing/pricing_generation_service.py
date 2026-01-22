@@ -12,6 +12,7 @@ Business Rules:
 """
 
 import json
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Optional
 
@@ -28,17 +29,27 @@ from shared.logging import get_logger
 logger = get_logger(__name__)
 
 
+@dataclass
+class GenerationResult:
+    """Result of a pricing generation with token usage info."""
+    brand_group: BrandGroup
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+    is_fallback: bool = False
+
+
 class PricingGenerationService:
     """Service for generating pricing data via Gemini LLM."""
 
     # Gemini pricing (USD per million tokens) - Jan 2026
     MODEL_PRICING = {
-        "gemini-2.5-flash": {"input": 0.075, "output": 0.30},
+        "gemini-3-flash-preview": {"input": 0.10, "output": 0.40},
         "gemini-2.5-pro": {"input": 1.25, "output": 5.00},
     }
 
     @staticmethod
-    async def generate_brand_group(brand: str, group: str) -> BrandGroup:
+    async def generate_brand_group(brand: str, group: str) -> GenerationResult:
         """
         Generate BrandGroup pricing data using Gemini LLM.
 
@@ -47,7 +58,7 @@ class PricingGenerationService:
             group: Pricing group (e.g., "jeans", "sneakers")
 
         Returns:
-            BrandGroup object with generated or fallback values
+            GenerationResult with BrandGroup and token usage info
 
         Raises:
             AIGenerationError: On unrecoverable API errors (after fallback attempted)
@@ -58,7 +69,7 @@ class PricingGenerationService:
             # Initialize Gemini client with timeout
             client = genai.Client(
                 api_key=settings.gemini_api_key,
-                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+                http_options=types.HttpOptions(timeout=settings.gemini_timeout_seconds * 1000),
             )
 
             # Build prompt
@@ -66,13 +77,24 @@ class PricingGenerationService:
 
             # Call Gemini API with structured output
             response = client.models.generate_content(
-                model="gemini-2.5-flash",  # Cost-efficient for structured data
+                model="gemini-3-flash-preview",  # Latest flash model
                 contents=[prompt],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     temperature=0.7,  # Balanced creativity for pricing
                 ),
             )
+
+            # Extract token usage and calculate cost
+            input_tokens = 0
+            output_tokens = 0
+            cost_usd = 0.0
+            if response.usage_metadata:
+                input_tokens = response.usage_metadata.prompt_token_count or 0
+                output_tokens = response.usage_metadata.candidates_token_count or 0
+                # Calculate cost (price per million tokens)
+                pricing = PricingGenerationService.MODEL_PRICING.get("gemini-3-flash-preview", {"input": 0.10, "output": 0.40})
+                cost_usd = (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
 
             # Parse JSON response
             response_data = json.loads(response.text)
@@ -86,7 +108,13 @@ class PricingGenerationService:
                 logger.warning(
                     f"LLM response validation failed for {brand} + {group}, using fallback"
                 )
-                return PricingGenerationService._get_fallback_brand_group(brand, group)
+                return GenerationResult(
+                    brand_group=PricingGenerationService._get_fallback_brand_group(brand, group),
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    cost_usd=cost_usd,
+                    is_fallback=True,
+                )
 
             # Create BrandGroup from validated data
             brand_group = BrandGroup(
@@ -97,30 +125,49 @@ class PricingGenerationService:
                 expected_decades=sanitized_data["expected_decades"],
                 expected_trends=sanitized_data["expected_trends"],
                 condition_sensitivity=Decimal(str(sanitized_data["condition_sensitivity"])),
+                generated_by_ai=True,
+                ai_confidence=Decimal(str(sanitized_data["confidence"])),
+                generation_cost=Decimal(str(round(cost_usd, 6))) if cost_usd > 0 else None,
             )
 
             logger.info(
                 f"Generated BrandGroup for {brand} + {group}: "
                 f"base_price={brand_group.base_price}, "
-                f"sensitivity={brand_group.condition_sensitivity}"
+                f"sensitivity={brand_group.condition_sensitivity}, "
+                f"confidence={brand_group.ai_confidence}"
             )
 
-            return brand_group
+            return GenerationResult(
+                brand_group=brand_group,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost_usd,
+                is_fallback=False,
+            )
 
         except genai.errors.ClientError as e:
             logger.error(f"Gemini client error for {brand} + {group}: {e}")
             logger.info(f"Using fallback values for {brand} + {group}")
-            return PricingGenerationService._get_fallback_brand_group(brand, group)
+            return GenerationResult(
+                brand_group=PricingGenerationService._get_fallback_brand_group(brand, group),
+                is_fallback=True,
+            )
 
         except genai.errors.ServerError as e:
             logger.error(f"Gemini server error for {brand} + {group}: {e}")
             logger.info(f"Using fallback values for {brand} + {group}")
-            return PricingGenerationService._get_fallback_brand_group(brand, group)
+            return GenerationResult(
+                brand_group=PricingGenerationService._get_fallback_brand_group(brand, group),
+                is_fallback=True,
+            )
 
         except genai.errors.APIError as e:
             logger.error(f"Gemini API error for {brand} + {group}: {e}")
             logger.info(f"Using fallback values for {brand} + {group}")
-            return PricingGenerationService._get_fallback_brand_group(brand, group)
+            return GenerationResult(
+                brand_group=PricingGenerationService._get_fallback_brand_group(brand, group),
+                is_fallback=True,
+            )
 
         except Exception as e:
             logger.error(
@@ -128,7 +175,10 @@ class PricingGenerationService:
                 exc_info=True
             )
             logger.info(f"Using fallback values for {brand} + {group}")
-            return PricingGenerationService._get_fallback_brand_group(brand, group)
+            return GenerationResult(
+                brand_group=PricingGenerationService._get_fallback_brand_group(brand, group),
+                is_fallback=True,
+            )
 
     @staticmethod
     def _build_brand_group_prompt(brand: str, group: str) -> str:
@@ -152,7 +202,8 @@ Output format: JSON with the following fields:
   "expected_origins": [<list of countries, max 5 strings>],
   "expected_decades": [<list of decades like "2010s", "1990s", max 3 strings>],
   "expected_trends": [<list of fashion trends, max 5 strings>],
-  "condition_sensitivity": <float between 0.5 and 1.5>
+  "condition_sensitivity": <float between 0.5 and 1.5>,
+  "confidence": <float between 0.0 and 1.0>
 }}
 
 Field explanations:
@@ -161,11 +212,12 @@ Field explanations:
 - expected_decades: Decades when this brand was popular in this category
 - expected_trends: Fashion trends associated with this brand+category combination
 - condition_sensitivity: How much condition affects price (0.5=forgiving, 1.0=standard, 1.5=critical)
+- confidence: Your confidence in the pricing data (0.0=uncertain/unknown brand, 1.0=very confident)
 
 Examples:
-- Levi's jeans → {{"base_price": 25, "expected_origins": ["USA", "Mexico"], "expected_decades": ["1990s", "2000s"], "expected_trends": ["vintage", "workwear"], "condition_sensitivity": 1.0}}
-- Nike sneakers → {{"base_price": 45, "expected_origins": ["Vietnam", "China"], "expected_decades": ["2010s", "2020s"], "expected_trends": ["streetwear", "athleisure"], "condition_sensitivity": 1.3}}
-- Hermès bags → {{"base_price": 450, "expected_origins": ["France"], "expected_decades": ["2000s", "2010s"], "expected_trends": ["luxury", "investment"], "condition_sensitivity": 1.5}}
+- Levi's jeans → {{"base_price": 25, "expected_origins": ["USA", "Mexico"], "expected_decades": ["1990s", "2000s"], "expected_trends": ["vintage", "workwear"], "condition_sensitivity": 1.0, "confidence": 0.95}}
+- Nike sneakers → {{"base_price": 45, "expected_origins": ["Vietnam", "China"], "expected_decades": ["2010s", "2020s"], "expected_trends": ["streetwear", "athleisure"], "condition_sensitivity": 1.3, "confidence": 0.9}}
+- Hermès bags → {{"base_price": 450, "expected_origins": ["France"], "expected_decades": ["2000s", "2010s"], "expected_trends": ["luxury", "investment"], "condition_sensitivity": 1.5, "confidence": 0.95}}
 
 Consider:
 - Brand positioning (luxury vs mass market)
@@ -197,6 +249,7 @@ Generate realistic secondhand pricing data:"""
                 "expected_decades",
                 "expected_trends",
                 "condition_sensitivity",
+                "confidence",
             ]
             for field in required_fields:
                 if field not in response_data:
@@ -220,6 +273,15 @@ Generate realistic secondhand pricing data:"""
                 logger.warning(
                     f"Validation failed for {brand} + {group}: "
                     f"condition_sensitivity {sensitivity} out of range [0.5, 1.5]"
+                )
+                return False, {}
+
+            # Validate confidence
+            confidence = float(response_data["confidence"])
+            if confidence < 0.0 or confidence > 1.0:
+                logger.warning(
+                    f"Validation failed for {brand} + {group}: "
+                    f"confidence {confidence} out of range [0.0, 1.0]"
                 )
                 return False, {}
 
@@ -260,6 +322,7 @@ Generate realistic secondhand pricing data:"""
                 "expected_decades": response_data["expected_decades"],
                 "expected_trends": response_data["expected_trends"],
                 "condition_sensitivity": sensitivity,
+                "confidence": confidence,
             }
 
             return True, sanitized
@@ -321,7 +384,7 @@ Generate realistic secondhand pricing data:"""
             # Initialize Gemini client with timeout
             client = genai.Client(
                 api_key=settings.gemini_api_key,
-                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+                http_options=types.HttpOptions(timeout=settings.gemini_timeout_seconds * 1000),
             )
 
             # Build prompt with base_price context
@@ -331,7 +394,7 @@ Generate realistic secondhand pricing data:"""
 
             # Call Gemini API with structured output
             response = client.models.generate_content(
-                model="gemini-2.5-flash",  # Cost-efficient for structured data
+                model="gemini-3-flash-preview",  # Latest flash model
                 contents=[prompt],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
