@@ -12,7 +12,6 @@ from datetime import datetime
 from sqlalchemy import select
 
 from services.ai.vision_service import AIVisionService
-from models.public.ai_credit import AICredit
 from models.user.ai_generation_log import AIGenerationLog
 from models.public.user import User, SubscriptionTier
 from models.public.subscription_quota import SubscriptionQuota
@@ -21,21 +20,19 @@ from shared.exceptions import AIQuotaExceededError, AIGenerationError
 
 
 class TestAIVisionServiceCredits:
-    """Test credit checking and consumption logic."""
+    """Test credit checking and consumption logic.
+
+    Updated (2026-01-22): AI credits are now stored directly in User model.
+    """
 
     def test_check_credits_sufficient(self, db_session, test_user, free_quota):
         """Test credit check passes when user has sufficient credits."""
         # Extract user from tuple
         user, _ = test_user
 
-        # Arrange: Create AI credit record with credits
-        # User already has FREE tier set from fixture
-        ai_credit = AICredit(
-            user_id=user.id,
-            ai_credits_purchased=5,
-            ai_credits_used_this_month=2
-        )
-        db_session.add(ai_credit)
+        # Arrange: Set AI credits directly on user
+        user.ai_credits_purchased = 5
+        user.ai_credits_used_this_month = 2
         db_session.commit()
 
         # Act & Assert: Should not raise
@@ -47,12 +44,8 @@ class TestAIVisionServiceCredits:
         user, _ = test_user
 
         # Arrange: User with no credits left
-        ai_credit = AICredit(
-            user_id=user.id,
-            ai_credits_purchased=0,
-            ai_credits_used_this_month=10
-        )
-        db_session.add(ai_credit)
+        user.ai_credits_purchased = 0
+        user.ai_credits_used_this_month = 10
         db_session.commit()
 
         # Act & Assert
@@ -61,25 +54,16 @@ class TestAIVisionServiceCredits:
 
         assert "Crédits IA insuffisants" in str(exc_info.value)
 
-    def test_check_credits_creates_record_if_missing(self, db_session, test_user, free_quota):
-        """Test credit check creates AICredit record if it doesn't exist."""
+    def test_check_credits_with_default_values(self, db_session, test_user, free_quota):
+        """Test credit check works with default values (0 purchased, 0 used)."""
         # Extract user from tuple
         user, _ = test_user
 
-        # Arrange: No AI credit record
-        stmt = select(AICredit).where(AICredit.user_id == user.id)
-        assert db_session.execute(stmt).scalar_one_or_none() is None
+        # Arrange: User has default values (0 purchased, 0 used)
+        # With 10 monthly credits, should have 10 remaining
 
-        # Act
+        # Act & Assert: Should not raise
         AIVisionService._check_credits(db_session, user.id, monthly_credits=10)
-        db_session.flush()
-
-        # Assert: Record created
-        stmt = select(AICredit).where(AICredit.user_id == user.id)
-        ai_credit = db_session.execute(stmt).scalar_one_or_none()
-        assert ai_credit is not None
-        assert ai_credit.ai_credits_purchased == 0
-        assert ai_credit.ai_credits_used_this_month == 0
 
     def test_consume_credit_increments_usage(self, db_session, test_user, free_quota):
         """Test consuming a credit increments the used_this_month counter."""
@@ -87,12 +71,8 @@ class TestAIVisionServiceCredits:
         user, _ = test_user
 
         # Arrange
-        ai_credit = AICredit(
-            user_id=user.id,
-            ai_credits_purchased=10,
-            ai_credits_used_this_month=5
-        )
-        db_session.add(ai_credit)
+        user.ai_credits_purchased = 10
+        user.ai_credits_used_this_month = 5
         db_session.commit()
 
         # Act
@@ -100,20 +80,16 @@ class TestAIVisionServiceCredits:
         db_session.commit()
 
         # Assert
-        db_session.refresh(ai_credit)
-        assert ai_credit.ai_credits_used_this_month == 6
+        db_session.refresh(user)
+        assert user.ai_credits_used_this_month == 6
 
-    def test_consume_credit_handles_missing_record(self, db_session, test_user, free_quota):
-        """Test consume_credit doesn't crash if AICredit record doesn't exist."""
+    def test_consume_credit_handles_missing_user(self, db_session, test_user, free_quota):
+        """Test consume_credit doesn't crash if user doesn't exist."""
         # Extract user from tuple
         user, _ = test_user
 
-        # Arrange: No AI credit record
-        stmt = select(AICredit).where(AICredit.user_id == user.id)
-        assert db_session.execute(stmt).scalar_one_or_none() is None
-
-        # Act & Assert: Should not raise
-        AIVisionService._consume_credit(db_session, user.id)
+        # Act & Assert: Should not raise (non-existent user_id)
+        AIVisionService._consume_credit(db_session, user_id=99999)
 
 
 class TestAIVisionServicePrompt:
@@ -285,15 +261,9 @@ class TestAIVisionServiceAnalyzeImages:
         # Extract user from tuple
         user, _ = test_user
 
-        # Arrange: Setup user credits
-        # User already has FREE tier configured from fixture
-
-        ai_credit = AICredit(
-            user_id=user.id,
-            ai_credits_purchased=5,
-            ai_credits_used_this_month=0
-        )
-        db_session.add(ai_credit)
+        # Arrange: Setup user credits directly on user
+        user.ai_credits_purchased = 5
+        user.ai_credits_used_this_month = 0
         db_session.commit()
 
         # Mock attributes - Note: brands are not included anymore
@@ -380,8 +350,8 @@ class TestAIVisionServiceAnalyzeImages:
         assert images_analyzed == 2
 
         # Check credit was consumed
-        db_session.refresh(ai_credit)
-        assert ai_credit.ai_credits_used_this_month == 1
+        db_session.refresh(user)
+        assert user.ai_credits_used_this_month == 1
 
     @pytest.mark.asyncio
     async def test_analyze_images_no_credits_raises_error(self, db_session, test_user, test_product, free_quota):
@@ -390,14 +360,8 @@ class TestAIVisionServiceAnalyzeImages:
         user, _ = test_user
 
         # Arrange: User with no credits
-        # User already has FREE tier configured from fixture
-
-        ai_credit = AICredit(
-            user_id=user.id,
-            ai_credits_purchased=0,
-            ai_credits_used_this_month=10  # All used
-        )
-        db_session.add(ai_credit)
+        user.ai_credits_purchased = 0
+        user.ai_credits_used_this_month = 10  # All used
         db_session.commit()
 
         # Act & Assert
@@ -415,15 +379,8 @@ class TestAIVisionServiceAnalyzeImages:
         user, _ = test_user
 
         # Arrange: Product with no images
-        # User already has FREE tier configured from fixture
-
-        ai_credit = AICredit(
-            user_id=user.id,
-            ai_credits_purchased=10,
-            ai_credits_used_this_month=0
-        )
-        db_session.add(ai_credit)
-
+        user.ai_credits_purchased = 10
+        user.ai_credits_used_this_month = 0
         test_product.images = []
         db_session.commit()
 
@@ -456,14 +413,8 @@ class TestAIVisionServiceAnalyzeImages:
         user, _ = test_user
 
         # Arrange: 10 images but max_images=3
-        # User already has FREE tier configured from fixture
-
-        ai_credit = AICredit(
-            user_id=user.id,
-            ai_credits_purchased=10,
-            ai_credits_used_this_month=0
-        )
-        db_session.add(ai_credit)
+        user.ai_credits_purchased = 10
+        user.ai_credits_used_this_month = 0
 
         # Create 10 images
         test_product.images = [
@@ -553,15 +504,9 @@ class TestAIVisionServiceAnalyzeImagesDirect:
         # Extract user from tuple
         user, _ = test_user
 
-        # Arrange: Setup user credits
-        # User already has FREE tier configured from fixture
-
-        ai_credit = AICredit(
-            user_id=user.id,
-            ai_credits_purchased=10,
-            ai_credits_used_this_month=0
-        )
-        db_session.add(ai_credit)
+        # Arrange: Setup user credits directly on user
+        user.ai_credits_purchased = 10
+        user.ai_credits_used_this_month = 0
         db_session.commit()
 
         mock_fetch_attrs.return_value = {
@@ -627,5 +572,5 @@ class TestAIVisionServiceAnalyzeImagesDirect:
         assert images_analyzed == 2
 
         # Check credit was consumed
-        db_session.refresh(ai_credit)
-        assert ai_credit.ai_credits_used_this_month == 1
+        db_session.refresh(user)
+        assert user.ai_credits_used_this_month == 1

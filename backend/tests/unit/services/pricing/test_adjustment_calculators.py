@@ -3,6 +3,9 @@ Unit Tests for Adjustment Calculators
 
 Tests for model coefficient and condition adjustment calculators.
 Covers success paths, edge cases, validation, capping, and supplements.
+
+Updated 2026-01-22: Decade, Trend, and Feature calculators now receive
+coefficients as parameters (loaded from database) instead of hardcoded dicts.
 """
 
 from decimal import Decimal
@@ -10,7 +13,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from models.public.model import Model
+from models.product_attributes.model import Model
 from services.pricing.adjustment_calculators import (
     calculateConditionAdjustment,
     calculateDecadeAdjustment,
@@ -19,6 +22,41 @@ from services.pricing.adjustment_calculators import (
     calculateOriginAdjustment,
     calculateTrendAdjustment,
 )
+
+
+# ===== Test Coefficients (simulating database values) =====
+
+TEST_DECADE_COEFFICIENTS = {
+    "1950s": Decimal("0.20"),
+    "1960s": Decimal("0.18"),
+    "1970s": Decimal("0.15"),
+    "1980s": Decimal("0.12"),
+    "1990s": Decimal("0.08"),
+    "2000s": Decimal("0.05"),
+    "2010s": Decimal("0.02"),
+    "2020s": Decimal("0.00"),
+}
+
+TEST_TREND_COEFFICIENTS = {
+    "y2k": Decimal("0.20"),
+    "vintage": Decimal("0.18"),
+    "grunge": Decimal("0.15"),
+    "streetwear": Decimal("0.12"),
+    "minimalist": Decimal("0.08"),
+    "bohemian": Decimal("0.06"),
+    "preppy": Decimal("0.04"),
+    "athleisure": Decimal("0.02"),
+}
+
+TEST_FEATURE_COEFFICIENTS = {
+    "deadstock": Decimal("0.20"),
+    "selvedge": Decimal("0.15"),
+    "og_colorway": Decimal("0.15"),
+    "limited_edition": Decimal("0.12"),
+    "vintage_label": Decimal("0.10"),
+    "original_box": Decimal("0.10"),
+    "chain_stitching": Decimal("0.08"),
+}
 
 
 # ===== TestCalculateModelCoefficient =====
@@ -501,7 +539,8 @@ class TestCalculateDecadeAdjustment:
         """Expected decade (single) should return 0.00."""
         result = calculateDecadeAdjustment(
             actual_decade="1990s",
-            expected_decades=["1990s"]
+            expected_decades=["1990s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -510,7 +549,8 @@ class TestCalculateDecadeAdjustment:
         """Expected decade (in list) should return 0.00."""
         result = calculateDecadeAdjustment(
             actual_decade="2010s",
-            expected_decades=["1990s", "2000s", "2010s"]
+            expected_decades=["1990s", "2000s", "2010s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -521,7 +561,8 @@ class TestCalculateDecadeAdjustment:
         """1950s not expected should return +0.20 (highest vintage)."""
         result = calculateDecadeAdjustment(
             actual_decade="1950s",
-            expected_decades=["2000s"]
+            expected_decades=["2000s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.20")
@@ -530,7 +571,8 @@ class TestCalculateDecadeAdjustment:
         """1960s not expected should return +0.18."""
         result = calculateDecadeAdjustment(
             actual_decade="1960s",
-            expected_decades=["2000s"]
+            expected_decades=["2000s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.18")
@@ -539,7 +581,8 @@ class TestCalculateDecadeAdjustment:
         """1970s not expected should return +0.15."""
         result = calculateDecadeAdjustment(
             actual_decade="1970s",
-            expected_decades=["2000s"]
+            expected_decades=["2000s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.15")
@@ -548,7 +591,8 @@ class TestCalculateDecadeAdjustment:
         """1980s not expected should return +0.12."""
         result = calculateDecadeAdjustment(
             actual_decade="1980s",
-            expected_decades=["2000s"]
+            expected_decades=["2000s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.12")
@@ -557,7 +601,8 @@ class TestCalculateDecadeAdjustment:
         """1990s not expected should return +0.08."""
         result = calculateDecadeAdjustment(
             actual_decade="1990s",
-            expected_decades=["2000s"]
+            expected_decades=["2000s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.08")
@@ -566,7 +611,8 @@ class TestCalculateDecadeAdjustment:
         """2000s not expected should return +0.05."""
         result = calculateDecadeAdjustment(
             actual_decade="2000s",
-            expected_decades=["2010s"]
+            expected_decades=["2010s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.05")
@@ -575,7 +621,8 @@ class TestCalculateDecadeAdjustment:
         """2010s not expected should return +0.02."""
         result = calculateDecadeAdjustment(
             actual_decade="2010s",
-            expected_decades=["2020s"]
+            expected_decades=["2020s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.02")
@@ -584,7 +631,8 @@ class TestCalculateDecadeAdjustment:
         """2020s not expected should return 0.00 (modern, no vintage value)."""
         result = calculateDecadeAdjustment(
             actual_decade="2020s",
-            expected_decades=["1990s"]
+            expected_decades=["1990s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -595,41 +643,49 @@ class TestCalculateDecadeAdjustment:
         """Empty expected decades should apply bonus (all unexpected)."""
         result = calculateDecadeAdjustment(
             actual_decade="1950s",
-            expected_decades=[]
+            expected_decades=[],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         # 1950s is unexpected → +0.20
         assert result == Decimal("0.20")
 
-    def test_raises_error_when_actual_decade_is_none(self):
-        """Should raise ValueError when actual_decade is None."""
-        with pytest.raises(ValueError, match="Actual decade cannot be None or empty"):
-            calculateDecadeAdjustment(
-                actual_decade=None,
-                expected_decades=["1990s"]
-            )
+    def test_none_decade_returns_zero(self):
+        """Should return 0.00 when actual_decade is None."""
+        result = calculateDecadeAdjustment(
+            actual_decade=None,
+            expected_decades=["1990s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
+        )
 
-    def test_raises_error_when_actual_decade_is_empty(self):
-        """Should raise ValueError when actual_decade is empty."""
-        with pytest.raises(ValueError, match="Actual decade cannot be None or empty"):
-            calculateDecadeAdjustment(
-                actual_decade="",
-                expected_decades=["1990s"]
-            )
+        assert result == Decimal("0.00")
 
-    def test_raises_error_when_actual_decade_unknown(self):
-        """Should raise ValueError when actual_decade format is unknown."""
-        with pytest.raises(ValueError, match="Unknown decade: 1945s"):
-            calculateDecadeAdjustment(
-                actual_decade="1945s",
-                expected_decades=["1990s"]
-            )
+    def test_empty_decade_returns_zero(self):
+        """Should return 0.00 when actual_decade is empty."""
+        result = calculateDecadeAdjustment(
+            actual_decade="",
+            expected_decades=["1990s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
+        )
+
+        assert result == Decimal("0.00")
+
+    def test_unknown_decade_returns_zero(self):
+        """Should return 0.00 when actual_decade format is unknown (not in coefficients)."""
+        result = calculateDecadeAdjustment(
+            actual_decade="1945s",
+            expected_decades=["1990s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
+        )
+
+        assert result == Decimal("0.00")
 
     def test_returns_decimal_type(self):
         """Should always return Decimal type for precision."""
         result = calculateDecadeAdjustment(
             actual_decade="1990s",
-            expected_decades=["2000s"]
+            expected_decades=["2000s"],
+            decade_coefficients=TEST_DECADE_COEFFICIENTS,
         )
 
         assert isinstance(result, Decimal)
@@ -647,7 +703,8 @@ class TestCalculateTrendAdjustment:
         """Should return 0.00 when single actual trend is in expected list."""
         result = calculateTrendAdjustment(
             actual_trends=["y2k"],
-            expected_trends=["y2k"]
+            expected_trends=["y2k"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -656,7 +713,8 @@ class TestCalculateTrendAdjustment:
         """Should return 0.00 when all actual trends are in expected list."""
         result = calculateTrendAdjustment(
             actual_trends=["y2k", "vintage"],
-            expected_trends=["y2k", "vintage"]
+            expected_trends=["y2k", "vintage"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -665,7 +723,8 @@ class TestCalculateTrendAdjustment:
         """Should return 0.00 when no actual trends provided."""
         result = calculateTrendAdjustment(
             actual_trends=[],
-            expected_trends=["vintage"]
+            expected_trends=["vintage"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -676,7 +735,8 @@ class TestCalculateTrendAdjustment:
         """Y2K trend (unexpected) should return +0.20 (highest bonus)."""
         result = calculateTrendAdjustment(
             actual_trends=["y2k"],
-            expected_trends=["vintage"]
+            expected_trends=["vintage"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert result == Decimal("0.20")
@@ -685,7 +745,8 @@ class TestCalculateTrendAdjustment:
         """Vintage trend (unexpected) should return +0.18."""
         result = calculateTrendAdjustment(
             actual_trends=["vintage"],
-            expected_trends=["grunge"]
+            expected_trends=["grunge"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert result == Decimal("0.18")
@@ -694,7 +755,8 @@ class TestCalculateTrendAdjustment:
         """Grunge trend (unexpected) should return +0.15."""
         result = calculateTrendAdjustment(
             actual_trends=["grunge"],
-            expected_trends=["y2k"]
+            expected_trends=["y2k"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert result == Decimal("0.15")
@@ -703,7 +765,8 @@ class TestCalculateTrendAdjustment:
         """Streetwear trend (unexpected) should return +0.12."""
         result = calculateTrendAdjustment(
             actual_trends=["streetwear"],
-            expected_trends=["minimalist"]
+            expected_trends=["minimalist"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert result == Decimal("0.12")
@@ -714,7 +777,8 @@ class TestCalculateTrendAdjustment:
         """Multiple unexpected trends should return MAX coefficient (y2k > vintage)."""
         result = calculateTrendAdjustment(
             actual_trends=["y2k", "vintage"],
-            expected_trends=["grunge"]
+            expected_trends=["grunge"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         # Max of y2k (0.20) and vintage (0.18) = 0.20
@@ -724,7 +788,8 @@ class TestCalculateTrendAdjustment:
         """Multiple unexpected trends should return MAX coefficient (streetwear > minimalist)."""
         result = calculateTrendAdjustment(
             actual_trends=["streetwear", "minimalist"],
-            expected_trends=["y2k"]
+            expected_trends=["y2k"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         # Max of streetwear (0.12) and minimalist (0.08) = 0.12
@@ -734,7 +799,8 @@ class TestCalculateTrendAdjustment:
         """All trends unexpected should return MAX coefficient."""
         result = calculateTrendAdjustment(
             actual_trends=["y2k", "vintage", "grunge"],
-            expected_trends=[]
+            expected_trends=[],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         # Max of y2k (0.20), vintage (0.18), grunge (0.15) = 0.20
@@ -746,7 +812,8 @@ class TestCalculateTrendAdjustment:
         """Mixed list should return MAX of unexpected trends only."""
         result = calculateTrendAdjustment(
             actual_trends=["y2k", "vintage"],
-            expected_trends=["y2k"]
+            expected_trends=["y2k"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         # y2k is expected (ignored), vintage is unexpected (0.18)
@@ -756,7 +823,8 @@ class TestCalculateTrendAdjustment:
         """Mixed list with one expected should return MAX of unexpected."""
         result = calculateTrendAdjustment(
             actual_trends=["grunge", "streetwear"],
-            expected_trends=["grunge"]
+            expected_trends=["grunge"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         # grunge is expected (ignored), streetwear is unexpected (0.12)
@@ -768,7 +836,8 @@ class TestCalculateTrendAdjustment:
         """Both empty lists should return 0.00."""
         result = calculateTrendAdjustment(
             actual_trends=[],
-            expected_trends=[]
+            expected_trends=[],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -777,7 +846,8 @@ class TestCalculateTrendAdjustment:
         """Unknown trends in actual should be ignored, not crash."""
         result = calculateTrendAdjustment(
             actual_trends=["unknown_trend", "y2k"],
-            expected_trends=["vintage"]
+            expected_trends=["vintage"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         # Only y2k counts (unknown ignored), y2k is unexpected (0.20)
@@ -787,7 +857,8 @@ class TestCalculateTrendAdjustment:
         """All unknown trends should return 0.00."""
         result = calculateTrendAdjustment(
             actual_trends=["unknown1", "unknown2"],
-            expected_trends=[]
+            expected_trends=[],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -796,7 +867,8 @@ class TestCalculateTrendAdjustment:
         """Should always return Decimal type for precision."""
         result = calculateTrendAdjustment(
             actual_trends=["y2k"],
-            expected_trends=["vintage"]
+            expected_trends=["vintage"],
+            trend_coefficients=TEST_TREND_COEFFICIENTS,
         )
 
         assert isinstance(result, Decimal)
@@ -814,7 +886,8 @@ class TestCalculateFeatureAdjustment:
         """Should return 0.00 when single actual feature is in expected list."""
         result = calculateFeatureAdjustment(
             actual_features=["selvedge"],
-            expected_features=["selvedge"]
+            expected_features=["selvedge"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -823,7 +896,8 @@ class TestCalculateFeatureAdjustment:
         """Should return 0.00 when all actual features are in expected list."""
         result = calculateFeatureAdjustment(
             actual_features=["selvedge", "original_box"],
-            expected_features=["selvedge", "original_box"]
+            expected_features=["selvedge", "original_box"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -832,7 +906,8 @@ class TestCalculateFeatureAdjustment:
         """Should return 0.00 when no actual features provided."""
         result = calculateFeatureAdjustment(
             actual_features=[],
-            expected_features=["selvedge"]
+            expected_features=["selvedge"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -843,7 +918,8 @@ class TestCalculateFeatureAdjustment:
         """Deadstock feature (unexpected) should return +0.20."""
         result = calculateFeatureAdjustment(
             actual_features=["deadstock"],
-            expected_features=["selvedge"]
+            expected_features=["selvedge"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.20")
@@ -852,7 +928,8 @@ class TestCalculateFeatureAdjustment:
         """Selvedge feature (unexpected) should return +0.15."""
         result = calculateFeatureAdjustment(
             actual_features=["selvedge"],
-            expected_features=["original_box"]
+            expected_features=["original_box"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.15")
@@ -861,7 +938,8 @@ class TestCalculateFeatureAdjustment:
         """OG colorway feature (unexpected) should return +0.15."""
         result = calculateFeatureAdjustment(
             actual_features=["og_colorway"],
-            expected_features=["deadstock"]
+            expected_features=["deadstock"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.15")
@@ -870,7 +948,8 @@ class TestCalculateFeatureAdjustment:
         """Original box feature (unexpected) should return +0.10."""
         result = calculateFeatureAdjustment(
             actual_features=["original_box"],
-            expected_features=["selvedge"]
+            expected_features=["selvedge"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.10")
@@ -881,7 +960,8 @@ class TestCalculateFeatureAdjustment:
         """Multiple unexpected features should sum their coefficients."""
         result = calculateFeatureAdjustment(
             actual_features=["selvedge", "original_box"],
-            expected_features=["deadstock"]
+            expected_features=["deadstock"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         # 0.15 (selvedge) + 0.10 (original_box) = 0.25
@@ -891,7 +971,8 @@ class TestCalculateFeatureAdjustment:
         """Multiple unexpected features should sum their coefficients."""
         result = calculateFeatureAdjustment(
             actual_features=["chain_stitching", "vintage_label"],
-            expected_features=[]
+            expected_features=[],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         # 0.08 (chain_stitching) + 0.10 (vintage_label) = 0.18
@@ -903,7 +984,8 @@ class TestCalculateFeatureAdjustment:
         """Sum exceeding 0.30 should cap at +0.30."""
         result = calculateFeatureAdjustment(
             actual_features=["deadstock", "selvedge"],
-            expected_features=[]
+            expected_features=[],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         # 0.20 (deadstock) + 0.15 (selvedge) = 0.35 → capped at 0.30
@@ -913,7 +995,8 @@ class TestCalculateFeatureAdjustment:
         """Sum exceeding 0.30 should cap at +0.30."""
         result = calculateFeatureAdjustment(
             actual_features=["deadstock", "og_colorway"],
-            expected_features=[]
+            expected_features=[],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         # 0.20 (deadstock) + 0.15 (og_colorway) = 0.35 → capped at 0.30
@@ -923,7 +1006,8 @@ class TestCalculateFeatureAdjustment:
         """Three features exceeding 0.30 should cap at +0.30."""
         result = calculateFeatureAdjustment(
             actual_features=["selvedge", "limited_edition", "vintage_label"],
-            expected_features=[]
+            expected_features=[],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         # 0.15 (selvedge) + 0.12 (limited_edition) + 0.10 (vintage_label) = 0.37 → capped at 0.30
@@ -935,7 +1019,8 @@ class TestCalculateFeatureAdjustment:
         """Mixed list should sum unexpected features only."""
         result = calculateFeatureAdjustment(
             actual_features=["selvedge", "original_box"],
-            expected_features=["selvedge"]
+            expected_features=["selvedge"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         # selvedge is expected (ignored), original_box is unexpected (0.10)
@@ -945,7 +1030,8 @@ class TestCalculateFeatureAdjustment:
         """Mixed list with one expected should sum unexpected only."""
         result = calculateFeatureAdjustment(
             actual_features=["deadstock", "selvedge"],
-            expected_features=["deadstock"]
+            expected_features=["deadstock"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         # deadstock is expected (ignored), selvedge is unexpected (0.15)
@@ -957,7 +1043,8 @@ class TestCalculateFeatureAdjustment:
         """Both empty lists should return 0.00."""
         result = calculateFeatureAdjustment(
             actual_features=[],
-            expected_features=[]
+            expected_features=[],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -966,7 +1053,8 @@ class TestCalculateFeatureAdjustment:
         """Unknown features in actual should be ignored, not crash."""
         result = calculateFeatureAdjustment(
             actual_features=["unknown_feature", "deadstock"],
-            expected_features=["selvedge"]
+            expected_features=["selvedge"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         # Only deadstock counts (unknown ignored), deadstock is unexpected (0.20)
@@ -976,7 +1064,8 @@ class TestCalculateFeatureAdjustment:
         """All unknown features should return 0.00."""
         result = calculateFeatureAdjustment(
             actual_features=["unknown1", "unknown2"],
-            expected_features=[]
+            expected_features=[],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert result == Decimal("0.00")
@@ -985,7 +1074,8 @@ class TestCalculateFeatureAdjustment:
         """Should always return Decimal type for precision."""
         result = calculateFeatureAdjustment(
             actual_features=["deadstock"],
-            expected_features=["selvedge"]
+            expected_features=["selvedge"],
+            feature_coefficients=TEST_FEATURE_COEFFICIENTS,
         )
 
         assert isinstance(result, Decimal)

@@ -13,7 +13,7 @@ import pytest
 from google import genai
 
 from models.public.brand_group import BrandGroup
-from models.public.model import Model
+from models.product_attributes.model import Model
 from services.pricing.pricing_generation_service import PricingGenerationService
 from shared.exceptions import AIGenerationError
 

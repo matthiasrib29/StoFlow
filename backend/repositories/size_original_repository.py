@@ -72,11 +72,11 @@ class SizeOriginalRepository:
         # Normaliser le nom
         normalized = SizeOriginalRepository.normalize_name(name)
 
-        # Lookup case-insensitive
+        # Lookup case-insensitive (use first() to handle potential duplicates in DB)
         stmt = select(SizeOriginal).where(
             func.upper(SizeOriginal.name) == normalized.upper()
         )
-        size = db.execute(stmt).scalar_one_or_none()
+        size = db.execute(stmt).scalars().first()
 
         if not size:
             # Créer nouvelle taille
@@ -116,7 +116,7 @@ class SizeOriginalRepository:
         stmt = select(SizeOriginal).where(
             func.upper(SizeOriginal.name) == name.upper()
         )
-        return db.execute(stmt).scalar_one_or_none()
+        return db.execute(stmt).scalars().first()
 
     @staticmethod
     def list_all(db: Session, limit: int = 500) -> list[SizeOriginal]:

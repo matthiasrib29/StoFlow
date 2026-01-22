@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from models.public.user import User, SubscriptionTier
 from models.public.subscription_quota import SubscriptionQuota
-from models.public.ai_credit import AICredit
 
 logger = logging.getLogger(__name__)
 
@@ -50,18 +49,8 @@ def handle_checkout_completed(data: dict, db: Session) -> dict:
     elif payment_type == "credits":
         credits = int(session["metadata"]["credits"])
 
-        ai_credit = db.query(AICredit).filter(AICredit.user_id == user_id).first()
-
-        if not ai_credit:
-            ai_credit = AICredit(
-                user_id=user_id,
-                ai_credits_purchased=credits,
-                ai_credits_used_this_month=0,
-                last_reset_date=datetime.now()
-            )
-            db.add(ai_credit)
-        else:
-            ai_credit.ai_credits_purchased += credits
+        # Add purchased credits directly to user
+        user.ai_credits_purchased += credits
 
         db.commit()
         logger.info(f"User {user_id} purchased {credits} AI credits")

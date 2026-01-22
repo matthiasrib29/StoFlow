@@ -10,6 +10,9 @@ Architecture:
 - Clean separation: data fetching → calculation → output
 - Error handling with graceful fallbacks
 
+Updated 2026-01-22: All coefficients now loaded from database.
+Formula: PRICE = BASE_PRICE × MODEL_COEFF × CONDITION_MULT × (1 + ADJUSTMENTS)
+
 Created: 2026-01-12
 Author: Claude
 """
@@ -17,15 +20,21 @@ Author: Claude
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from models.public.brand_group import BrandGroup
-from models.public.model import Model
+from models.public.condition import Condition
+from models.public.decade import Decade
+from models.public.origin import Origin
+from models.public.trend import Trend
+from models.public.unique_feature import UniqueFeature
+from models.product_attributes.model import Model
 from repositories.brand_group_repository import BrandGroupRepository
 from repositories.model_repository import ModelRepository
 from schemas.pricing import AdjustmentBreakdown, PriceInput, PriceOutput
 from services.pricing.adjustment_calculators import (
-    calculateConditionAdjustment,
+    calculateConditionMultiplier,
     calculateDecadeAdjustment,
     calculateFeatureAdjustment,
     calculateModelCoefficient,
@@ -52,7 +61,7 @@ class PricingService:
 
     Responsibilities:
     - Fetch or generate BrandGroup and Model data
-    - Calculate adjusted prices using all 6 calculators
+    - Calculate adjusted prices using all calculators
     - Generate 3 price levels (quick, standard, premium)
     - Return detailed breakdown for transparency
     """
@@ -77,6 +86,72 @@ class PricingService:
         self.brand_group_repo = brand_group_repo
         self.model_repo = model_repo
         self.generation_service = generation_service
+
+    def _load_pricing_coefficients(self) -> dict[str, dict[str, Decimal]]:
+        """
+        Load pricing coefficients from database tables.
+
+        Fetches coefficients from:
+        - product_attributes.conditions (condition_coefficients by note)
+        - product_attributes.origins (origin_coefficients)
+        - product_attributes.decades (decade_coefficients)
+        - product_attributes.trends (trend_coefficients)
+        - product_attributes.unique_features (feature_coefficients)
+
+        Returns:
+            dict with keys:
+            - condition_coefficients: Dict[int, Decimal] mapping note to coefficient
+            - origin_coefficients: Dict[str, Decimal] mapping origin name to coefficient
+            - decade_coefficients: Dict[str, Decimal] mapping decade name to coefficient
+            - trend_coefficients: Dict[str, Decimal] mapping trend name to coefficient
+            - feature_coefficients: Dict[str, Decimal] mapping feature name to coefficient
+        """
+        # Load condition coefficients (by note 0-10)
+        conditions = self.db.execute(select(Condition)).scalars().all()
+        condition_coefficients = {
+            c.note: c.coefficient for c in conditions if c.coefficient is not None
+        }
+
+        # Load origin coefficients
+        origins = self.db.execute(select(Origin)).scalars().all()
+        origin_coefficients = {
+            o.name_en: o.pricing_coefficient for o in origins
+        }
+
+        # Load decade coefficients
+        decades = self.db.execute(select(Decade)).scalars().all()
+        decade_coefficients = {
+            d.name_en: d.pricing_coefficient for d in decades
+        }
+
+        # Load trend coefficients
+        trends = self.db.execute(select(Trend)).scalars().all()
+        trend_coefficients = {
+            t.name_en: t.pricing_coefficient for t in trends
+        }
+
+        # Load feature coefficients
+        features = self.db.execute(select(UniqueFeature)).scalars().all()
+        feature_coefficients = {
+            f.name_en: f.pricing_coefficient for f in features
+        }
+
+        logger.debug(
+            f"[PricingService] Loaded pricing coefficients: "
+            f"{len(condition_coefficients)} conditions, "
+            f"{len(origin_coefficients)} origins, "
+            f"{len(decade_coefficients)} decades, "
+            f"{len(trend_coefficients)} trends, "
+            f"{len(feature_coefficients)} features"
+        )
+
+        return {
+            "condition_coefficients": condition_coefficients,
+            "origin_coefficients": origin_coefficients,
+            "decade_coefficients": decade_coefficients,
+            "trend_coefficients": trend_coefficients,
+            "feature_coefficients": feature_coefficients,
+        }
 
     async def fetch_or_generate_pricing_data(
         self,
@@ -219,10 +294,10 @@ class PricingService:
 
     async def calculate_price(self, input_data: PriceInput) -> PriceOutput:
         """
-        Calculate adjusted price with all 6 calculators and 3 price levels.
+        Calculate adjusted price with all calculators and 3 price levels.
 
-        Formula: PRICE = BASE_PRICE × MODEL_COEFF × (1 + ADJUSTMENTS)
-        Where ADJUSTMENTS = condition + origin + decade + trend + feature
+        Formula: PRICE = BASE_PRICE × MODEL_COEFF × CONDITION_MULT × (1 + ADJUSTMENTS)
+        Where ADJUSTMENTS = origin + decade + trend + feature
 
         3 price levels:
         - Quick: PRICE × 0.75
@@ -267,27 +342,34 @@ class PricingService:
             else:
                 model_coeff = Decimal("1.0")
 
-            # Step 3: Calculate all 6 adjustments with error handling
-            try:
-                condition_adj = calculateConditionAdjustment(
-                    input_data.condition_score,
-                    input_data.supplements,
-                    input_data.condition_sensitivity,
-                )
+            # Step 3: Load pricing coefficients from database
+            coefficients = self._load_pricing_coefficients()
 
+            # Step 4: Calculate condition multiplier and all adjustments
+            try:
+                # Get condition coefficient from DB (based on condition_score as note)
+                condition_coefficient = coefficients["condition_coefficients"].get(
+                    input_data.condition_score, Decimal("1.0")
+                )
+                condition_mult = calculateConditionMultiplier(condition_coefficient)
+
+                # Calculate other adjustments
                 origin_adj = calculateOriginAdjustment(
                     input_data.actual_origin,
                     input_data.expected_origins or brand_group.expected_origins,
+                    coefficients["origin_coefficients"],
                 )
 
                 decade_adj = calculateDecadeAdjustment(
                     input_data.actual_decade,
                     input_data.expected_decades or brand_group.expected_decades,
+                    coefficients["decade_coefficients"],
                 )
 
                 trend_adj = calculateTrendAdjustment(
                     input_data.actual_trends,
                     input_data.expected_trends or brand_group.expected_trends,
+                    coefficients["trend_coefficients"],
                 )
 
                 # For feature adjustment, use expected_features from Model if input is empty
@@ -298,6 +380,7 @@ class PricingService:
                 feature_adj = calculateFeatureAdjustment(
                     input_data.actual_features,
                     expected_features,
+                    coefficients["feature_coefficients"],
                 )
             except (ValueError, KeyError, InvalidOperation) as e:
                 logger.error(
@@ -311,14 +394,13 @@ class PricingService:
                 )
                 raise PricingCalculationError(f"Failed to calculate adjustments: {str(e)}") from e
 
-            # Step 4: Apply formula and calculate prices with error handling
+            # Step 5: Apply formula and calculate prices
+            # PRICE = BASE_PRICE × MODEL_COEFF × CONDITION_MULT × (1 + ADJUSTMENTS)
             try:
-                total_adjustment = (
-                    condition_adj + origin_adj + decade_adj + trend_adj + feature_adj
-                )
-                adjusted_price = base_price * model_coeff * (1 + total_adjustment)
+                total_adjustment = origin_adj + decade_adj + trend_adj + feature_adj
+                adjusted_price = base_price * model_coeff * condition_mult * (1 + total_adjustment)
 
-                # Step 5: Calculate 3 price levels with quantization
+                # Step 6: Calculate 3 price levels with quantization
                 quick_price = (adjusted_price * Decimal("0.75")).quantize(Decimal("0.01"))
                 standard_price = adjusted_price.quantize(Decimal("0.01"))
                 premium_price = (adjusted_price * Decimal("1.30")).quantize(Decimal("0.01"))
@@ -329,6 +411,7 @@ class PricingService:
                     extra={
                         "base_price": str(base_price),
                         "model_coeff": str(model_coeff),
+                        "condition_mult": str(condition_mult),
                         "total_adjustment": str(total_adjustment) if 'total_adjustment' in locals() else "N/A"
                     }
                 )
@@ -337,10 +420,14 @@ class PricingService:
             logger.info(
                 f"[PricingService] Price calculated: "
                 f"quick={quick_price}, standard={standard_price}, premium={premium_price}, "
-                f"base={base_price}, coeff={model_coeff}, total_adj={total_adjustment}"
+                f"base={base_price}, model_coeff={model_coeff}, condition_mult={condition_mult}, "
+                f"total_adj={total_adjustment}"
             )
 
-            # Step 6: Build output
+            # Step 7: Build output
+            # Note: condition is now a multiplier, we store it as (multiplier - 1) for consistency
+            condition_as_adjustment = condition_mult - Decimal("1.0")
+
             return PriceOutput(
                 # Price levels
                 quick_price=quick_price,
@@ -350,12 +437,12 @@ class PricingService:
                 base_price=base_price,
                 model_coefficient=model_coeff,
                 adjustments=AdjustmentBreakdown(
-                    condition=condition_adj,
+                    condition=condition_as_adjustment,
                     origin=origin_adj,
                     decade=decade_adj,
                     trend=trend_adj,
                     feature=feature_adj,
-                    total=total_adjustment,
+                    total=condition_as_adjustment + total_adjustment,
                 ),
                 # Metadata
                 brand=input_data.brand,

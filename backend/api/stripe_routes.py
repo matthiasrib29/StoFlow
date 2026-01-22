@@ -23,7 +23,6 @@ from typing import Literal
 from api.dependencies import get_current_user
 from models.public.user import User, SubscriptionTier
 from models.public.subscription_quota import SubscriptionQuota
-from models.public.ai_credit import AICredit
 from shared.database import get_db
 from shared.stripe_config import (
     STRIPE_SUCCESS_URL,

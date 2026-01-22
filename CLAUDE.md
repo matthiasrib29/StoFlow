@@ -342,18 +342,44 @@ Confirmes-tu vouloir supprimer ce fichier? (oui/non)
 > **Contexte** : Tous les worktrees partagent la même base PostgreSQL (Docker).
 > Cela peut causer des problèmes de synchronisation des migrations.
 
-#### ✨ Auto-Copy de Migrations (NOUVEAU - 2026-01-15)
+#### 🤖 RÈGLE POUR CLAUDE (CRITIQUE)
 
-**Les migrations manquantes sont maintenant copiées automatiquement !**
+**Quand Claude rencontre une erreur Alembic de type `Can't locate revision`, il DOIT automatiquement :**
 
-Un nouveau système (`scripts/alembic-utils.sh`) détecte et copie automatiquement les fichiers de migration manquants depuis d'autres worktrees lors de :
-- `/X-dev` (démarrage serveurs)
-- `/sync` (synchronisation avec develop)
-- `/finish` (merge et cleanup)
+1. **Identifier la révision manquante** dans le message d'erreur
+2. **Chercher le fichier** dans les autres worktrees avec :
+   ```bash
+   grep -rl "revision.*=.*'REVISION_ID'" ~/StoFlow*/backend/migrations/versions/
+   ```
+3. **Copier le fichier** vers le worktree actuel
+4. **Réessayer** `alembic upgrade head`
+
+**OU utiliser le script automatique :**
+```bash
+cd [worktree]/backend
+source .venv/bin/activate
+source ../scripts/alembic-utils.sh
+auto_copy_missing_migrations "."
+```
+
+**Claude ne doit PAS :**
+- Demander à l'utilisateur quoi faire (sauf si la migration est introuvable)
+- Proposer de supprimer des migrations
+- Proposer de downgrade la DB
+
+#### ✨ Script Auto-Copy (`scripts/alembic-utils.sh`)
+
+**Fonctions disponibles :**
+
+| Fonction | Description |
+|----------|-------------|
+| `auto_copy_missing_migrations "."` | Détecte, copie et applique les migrations manquantes (max 3 tentatives) |
+| `find_migration_in_worktrees "abc123"` | Cherche une révision dans tous les worktrees, retourne le chemin |
+| `list_all_migrations` | Liste toutes les migrations de tous les worktrees |
 
 **Comment ça marche** :
 1. Détecte l'erreur `Can't locate revision XXXXX`
-2. Cherche le fichier de migration dans tous les worktrees (`~/StoFlow-*` et `~/StoFlow`)
+2. Cherche le fichier de migration **par contenu** (grep `revision = 'xxx'`) dans tous les worktrees
 3. Copie automatiquement le fichier trouvé dans le worktree actuel
 4. Réessaye `alembic upgrade head`
 5. Maximum 3 tentatives (pour gérer plusieurs migrations manquantes en chaîne)
@@ -594,4 +620,4 @@ from services.etsy import EtsyBaseClient
 
 ---
 
-*Last updated: 2026-01-19*
+*Last updated: 2026-01-22*

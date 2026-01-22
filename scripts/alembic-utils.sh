@@ -40,16 +40,18 @@ auto_copy_missing_migrations() {
             echo -e "${BLUE}🔎 Recherche dans les autres worktrees...${NC}"
 
             # Search for the migration file in other worktrees
+            # NOTE: Files are named by DATE (20260122_*), not by revision ID
+            # So we must search by FILE CONTENT (grep for revision = 'xxx')
             local found_file=""
             local found_worktree=""
 
             # Get list of all StoFlow worktrees
-            for worktree_path in ~/StoFlow-*; do
+            for worktree_path in ~/StoFlow-* ~/StoFlow; do
                 if [ -d "$worktree_path" ]; then
                     local migration_dir="$worktree_path/backend/migrations/versions"
                     if [ -d "$migration_dir" ]; then
-                        # Search for migration file starting with missing_rev
-                        local found=$(find "$migration_dir" -name "${missing_rev}_*.py" 2>/dev/null | head -1)
+                        # Search for migration file by CONTENT (revision ID inside file)
+                        local found=$(grep -l "revision.*=.*['\"]${missing_rev}['\"]" "$migration_dir"/*.py 2>/dev/null | head -1)
                         if [ -n "$found" ]; then
                             found_file="$found"
                             found_worktree=$(basename "$worktree_path")
@@ -58,18 +60,6 @@ auto_copy_missing_migrations() {
                     fi
                 fi
             done
-
-            # Also check main repo
-            if [ -z "$found_file" ]; then
-                local main_migration_dir="$HOME/StoFlow/backend/migrations/versions"
-                if [ -d "$main_migration_dir" ]; then
-                    local found=$(find "$main_migration_dir" -name "${missing_rev}_*.py" 2>/dev/null | head -1)
-                    if [ -n "$found" ]; then
-                        found_file="$found"
-                        found_worktree="StoFlow (main repo)"
-                    fi
-                fi
-            fi
 
             if [ -z "$found_file" ]; then
                 echo -e "${RED}❌ Migration ${missing_rev} introuvable dans les worktrees${NC}"
@@ -128,12 +118,12 @@ auto_copy_missing_migrations() {
 find_migration_in_worktrees() {
     local revision_id="$1"
 
-    # Search in all worktrees
+    # Search in all worktrees by FILE CONTENT (revision ID is inside the file, not in filename)
     for worktree_path in ~/StoFlow-* ~/StoFlow; do
         if [ -d "$worktree_path" ]; then
             local migration_dir="$worktree_path/backend/migrations/versions"
             if [ -d "$migration_dir" ]; then
-                local found=$(find "$migration_dir" -name "${revision_id}_*.py" 2>/dev/null | head -1)
+                local found=$(grep -l "revision.*=.*['\"]${revision_id}['\"]" "$migration_dir"/*.py 2>/dev/null | head -1)
                 if [ -n "$found" ]; then
                     echo "$found"
                     return 0

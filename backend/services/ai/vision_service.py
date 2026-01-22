@@ -19,7 +19,7 @@ from google import genai
 from google.genai import types
 from sqlalchemy.orm import Session
 
-from models.public.ai_credit import AICredit
+from models.public.user import User
 from models.user.ai_generation_log import AIGenerationLog
 from schemas.ai_schemas import GeminiVisionSchema, VisionExtractedAttributes
 from shared.config import settings
@@ -104,10 +104,10 @@ class AIVisionService:
 
         # 7. Appeler Gemini Vision API
         try:
-            # Configure Gemini client with timeout
+            # Configure Gemini client with timeout (HttpOptions expects milliseconds)
             client = genai.Client(
                 api_key=settings.gemini_api_key,
-                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+                http_options=types.HttpOptions(timeout=settings.gemini_timeout_seconds * 1000),
             )
 
             # Construire le contenu multimodal
@@ -127,6 +127,16 @@ class AIVisionService:
 
             # Parser la réponse
             import json
+
+            # Check for empty response (can happen with safety filters or model issues)
+            if not response.text:
+                logger.warning(
+                    f"[AIVisionService] Empty response from Gemini. "
+                    f"Candidates: {response.candidates if hasattr(response, 'candidates') else 'N/A'}"
+                )
+                raise AIGenerationError(
+                    "L'IA n'a pas pu analyser les images. Réessayez ou vérifiez les images."
+                )
 
             response_data = json.loads(response.text)
 
@@ -203,15 +213,12 @@ class AIVisionService:
     @staticmethod
     def _check_credits(db: Session, user_id: int, monthly_credits: int) -> None:
         """Vérifie que l'utilisateur a des crédits disponibles."""
-        ai_credit = db.query(AICredit).filter(AICredit.user_id == user_id).first()
+        user = db.query(User).filter(User.id == user_id).first()
 
-        if not ai_credit:
-            # Créer l'enregistrement si n'existe pas
-            ai_credit = AICredit(user_id=user_id)
-            db.add(ai_credit)
-            db.flush()
+        if not user:
+            raise AIQuotaExceededError("Utilisateur non trouvé.")
 
-        remaining = ai_credit.get_remaining_credits(monthly_credits)
+        remaining = user.get_remaining_ai_credits(monthly_credits)
 
         if remaining <= 0:
             raise AIQuotaExceededError(
@@ -222,9 +229,9 @@ class AIVisionService:
     @staticmethod
     def _consume_credit(db: Session, user_id: int) -> None:
         """Décrémente les crédits utilisés."""
-        ai_credit = db.query(AICredit).filter(AICredit.user_id == user_id).first()
-        if ai_credit:
-            ai_credit.ai_credits_used_this_month += 1
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            user.ai_credits_used_this_month += 1
 
     @staticmethod
     async def _download_images(
@@ -398,7 +405,7 @@ ATTRIBUTES TO EXTRACT:
 - brand: Visible brand name (logo, label, tag) - return exact brand name as seen
 - condition: Product condition (0-10 scale)
 - label_size: Size label text (exact as shown on tag)
-- color: Colors visible (use exact names from list, comma-separated if multiple)
+- color: Colors visible (use exact names from list, MAX 2 colors, comma-separated if multiple)
 - material: Materials visible or estimated (use exact names from list, comma-separated if multiple)
 - fit: Fit type (use exact name from list above)
 - gender: Gender (use exact name from list above)
@@ -586,10 +593,10 @@ Analyze ALL provided images for complete extraction."""
 
         # 7. Appeler Gemini Vision API
         try:
-            # Configure Gemini client with timeout
+            # Configure Gemini client with timeout (HttpOptions expects milliseconds)
             client = genai.Client(
                 api_key=settings.gemini_api_key,
-                http_options=httpx.Timeout(timeout=settings.gemini_timeout_seconds),
+                http_options=types.HttpOptions(timeout=settings.gemini_timeout_seconds * 1000),
             )
 
             # Construire le contenu multimodal
@@ -609,6 +616,16 @@ Analyze ALL provided images for complete extraction."""
 
             # Parser la réponse
             import json
+
+            # Check for empty response (can happen with safety filters or model issues)
+            if not response.text:
+                logger.warning(
+                    f"[AIVisionService] Empty response from Gemini. "
+                    f"Candidates: {response.candidates if hasattr(response, 'candidates') else 'N/A'}"
+                )
+                raise AIGenerationError(
+                    "L'IA n'a pas pu analyser les images. Réessayez ou vérifiez les images."
+                )
 
             response_data = json.loads(response.text)
 
