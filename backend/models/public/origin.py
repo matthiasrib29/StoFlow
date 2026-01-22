@@ -1,16 +1,18 @@
 """
 Origin Model
 
-Table pour les origines/provenances (schema public, multilingue).
+Table pour les origines/provenances (schema product_attributes, multilingue).
 
-Business Rules (Updated: 2025-12-08):
+Business Rules (Updated: 2026-01-22):
 - 7 langues supportées: EN, FR, DE, IT, ES, NL, PL
 - Ex: Made in France, Made in Italy, Made in China, Made in Portugal
-- Compatibilité pythonApiWOO
+- Pricing coefficient: bonus for premium origins (Italy, France, Japan, USA, UK, Germany)
+- is_premium: marks high-value manufacturing countries
 """
 
-import os
-from sqlalchemy import String
+from decimal import Decimal
+
+from sqlalchemy import Boolean, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -20,9 +22,10 @@ class Origin(Base):
     """
     Modèle pour les origines/provenances de fabrication (multilingue).
 
-    Extended Attributes (2025-12-08):
+    Extended Attributes (2026-01-22):
     - 7 traductions (EN, FR, DE, IT, ES, NL, PL)
-    - Utilisé pour indiquer le pays/origine de fabrication
+    - pricing_coefficient: bonus for premium origins (+0.15)
+    - is_premium: marks premium manufacturing countries
     """
 
     __tablename__ = "origins"
@@ -53,5 +56,21 @@ class Origin(Base):
         String(100), nullable=True, comment="Nom de l'origine (PL)"
     )
 
+    # ===== PRICING =====
+    pricing_coefficient: Mapped[Decimal] = mapped_column(
+        Numeric(3, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0.00",
+        comment="Pricing coefficient for origin bonus (-0.10 to +0.20)"
+    )
+    is_premium: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Premium origin flag (Italy, France, Japan, USA, UK, Germany)"
+    )
+
     def __repr__(self) -> str:
-        return f"<Origin(name_en='{self.name_en}', name_fr='{self.name_fr}')>"
+        return f"<Origin(name_en='{self.name_en}', is_premium={self.is_premium}, coefficient={self.pricing_coefficient})>"
