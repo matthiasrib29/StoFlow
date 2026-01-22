@@ -243,6 +243,21 @@ async def sync_products(
                 from temporal.client import get_temporal_client
                 from temporal.workflows.vinted.sync_workflow import VintedSyncParams, VintedSyncWorkflow
 
+                # Check if a Vinted sync workflow is already running for this user
+                client = await get_temporal_client()
+                query = f'WorkflowType = "VintedSyncWorkflow" AND ExecutionStatus = "Running" AND WorkflowId STARTS_WITH "vinted-sync-user-{current_user.id}"'
+
+                async for workflow in client.list_workflows(query=query):
+                    # Found a running workflow - reject new sync
+                    logger.warning(
+                        f"Rejected sync request: workflow {workflow.id} already running for user {current_user.id}"
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Un sync Vinted est déjà en cours (workflow: {workflow.id}). "
+                               f"Attendez qu'il se termine ou annulez-le.",
+                    )
+
                 # Create job record for tracking in DB
                 job_service = MarketplaceJobService(db)
                 job = job_service.create_job(
@@ -257,8 +272,7 @@ async def sync_products(
                 job.status = JobStatus.RUNNING
                 db.commit()
 
-                # Start Temporal workflow
-                client = await get_temporal_client()
+                # Start Temporal workflow (client already obtained above)
                 workflow_id = f"vinted-sync-user-{current_user.id}-job-{job.id}"
 
                 params = VintedSyncParams(
@@ -297,8 +311,11 @@ async def sync_products(
                 }
 
         except Exception as e:
-            logger.warning(f"Temporal not available, falling back to legacy sync: {e}")
-            # Fall through to legacy system
+            logger.warning(
+                f"Temporal not available, falling back to legacy sync: {e}. "
+                "WARNING: Legacy sync has _mark_missing_products_as_sold DISABLED."
+            )
+            # Fall through to legacy system (now safe with disabled functions)
 
     # Legacy system fallback
     return await create_and_execute_vinted_job(

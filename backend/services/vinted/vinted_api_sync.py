@@ -205,24 +205,33 @@ class VintedApiSyncService:
             f"{errors} erreurs"
         )
 
-        # Phase 1.5: Mark products NOT in API response as sold/closed (2026-01-19)
-        # Products that disappear from the wardrobe are usually sold or deleted
+        # Phase 1.5: DISABLED (2026-01-22 incident)
+        # This logic is dangerous: it marks all unseen products as "sold"
+        # even if the sync is incomplete (e.g., only page 1/18 synced).
+        # The Temporal workflow handles this correctly (no auto-marking).
+        # If a product is truly sold, the API will return is_closed=true on next sync.
+        logger.info("Phase 1.5 (mark_missing_as_sold) is DISABLED for safety")
         vinted_marked_sold = 0
         stoflow_marked_sold = 0
-        if synced_vinted_ids and not last_error:  # Only if we got some products and no fatal error
-            vinted_marked_sold, stoflow_marked_sold = self._mark_missing_products_as_sold(
-                db, synced_vinted_ids
-            )
-            logger.info(
-                f"Marked as sold: {vinted_marked_sold} VintedProducts, "
-                f"{stoflow_marked_sold} StoFlow Products"
-            )
+        # if synced_vinted_ids and not last_error:
+        #     vinted_marked_sold, stoflow_marked_sold = self._mark_missing_products_as_sold(
+        #         db, synced_vinted_ids
+        #     )
+        #     logger.info(
+        #         f"Marked as sold: {vinted_marked_sold} VintedProducts, "
+        #         f"{stoflow_marked_sold} StoFlow Products"
+        #     )
 
-        # Phase 1.6: Double-check - catch up any mismatched statuses from history (2026-01-19)
-        catchup_synced = self._sync_existing_sold_status(db)
-        if catchup_synced > 0:
-            logger.info(f"[Catchup] {catchup_synced} StoFlow products synced from history")
-            stoflow_marked_sold += catchup_synced
+        # Phase 1.6: DISABLED (2026-01-22 incident)
+        # The catchup propagates SOLD status to StoFlow Products.
+        # Disabled because it was propagating Phase 1.5 errors.
+        # The Temporal workflow handles propagation via sync_sold_status activity.
+        logger.info("Phase 1.6 (sync_existing_sold_status) is DISABLED for safety")
+        catchup_synced = 0
+        # catchup_synced = self._sync_existing_sold_status(db)
+        # if catchup_synced > 0:
+        #     logger.info(f"[Catchup] {catchup_synced} StoFlow products synced from history")
+        #     stoflow_marked_sold += catchup_synced
 
         # Phase 2: Enrichir les produits sans description via HTML
         enrichment_result = await self.enricher.enrich_products_without_description(
@@ -279,11 +288,7 @@ class VintedApiSyncService:
         is_closed = api_product.get('is_closed', False)
         is_reserved = api_product.get('is_reserved', False)
         is_hidden = api_product.get('is_hidden', False)
-        status = self.extractor.map_api_status(
-            is_draft=is_draft,
-            is_closed=is_closed,
-            closing_action=api_product.get('item_closing_action')
-        )
+        status = self.extractor.map_api_status(is_draft=is_draft, is_closed=is_closed)
 
         # Seller info
         user = api_product.get('user') or {}
