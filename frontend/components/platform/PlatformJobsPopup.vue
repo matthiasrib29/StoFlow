@@ -122,11 +122,10 @@
         </div>
 
         <!-- Progress info -->
-        <div v-if="job.progress && job.progress.current !== undefined" class="mt-3">
+        <div v-if="job.progress && job.progress.label" class="mt-3">
           <div class="flex items-center gap-2 text-sm text-gray-600">
             <i class="pi pi-spin pi-spinner text-primary-400" v-if="job.status === 'running'" />
-            <span class="font-medium">{{ job.progress.current }}</span>
-            <span>{{ job.progress.label || 'traités' }}</span>
+            <span>{{ job.progress.label }}</span>
           </div>
         </div>
 
@@ -221,11 +220,11 @@ const {
   pauseJob,
   resumeJob,
   cancelAllJobs,
-  getDisplayStatus, // NEW: Get display status with cancelling support (2026-01-15)
+  getDisplayStatus,
   getStatusLabel,
   getStatusColor,
   getActionLabel,
-  hasCancellingJobs, // NEW: Check if any jobs are cancelling (2026-01-15)
+  hasCancellingJobs,
 } = usePlatformJobs(props.platformCode)
 
 const visible = computed({
@@ -240,7 +239,7 @@ const hasRunningJobs = computed(() =>
   activeJobs.value.some(j => j.status === 'running')
 )
 
-// Fetch jobs when dialog opens (no polling - use refresh button)
+// Fetch jobs when dialog opens (use refresh button for updates)
 watch(visible, (isVisible) => {
   if (isVisible) {
     fetchActiveJobs()

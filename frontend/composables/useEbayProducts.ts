@@ -1,6 +1,8 @@
 /**
  * Composable for eBay products management.
  * Handles loading, importing, enriching products.
+ *
+ * Uses Temporal for durable sync workflows (2026-01-22).
  */
 import type { PageState } from 'primevue/paginator'
 import { ebayLogger } from '~/utils/logger'
@@ -12,7 +14,7 @@ export function useEbayProducts() {
   // State
   const products = ref<any[]>([])
   const isLoading = ref(false)
-  const isImporting = ref(false)
+  const isSyncing = ref(false)
   const isEnriching = ref(false)
   const isRefreshingAspects = ref(false)
   const syncingProductId = ref<number | null>(null)
@@ -75,19 +77,61 @@ export function useEbayProducts() {
   }
 
   /**
-   * Import products from eBay.
+   * Sync products from eBay via Temporal workflow.
+   * Fire-and-forget: workflow runs in background.
    */
-  const importProducts = async (): Promise<void> => {
-    isImporting.value = true
+  const syncProducts = async (): Promise<void> => {
+    isSyncing.value = true
+
+    try {
+      // Start Temporal workflow
+      const response = await post<{
+        workflow_id: string
+        run_id: string
+        status: string
+        message: string
+      }>('/ebay/temporal/sync/start', {
+        marketplace_id: marketplaceFilter.value || 'EBAY_FR'
+      })
+
+      if (response?.status === 'started' && response.workflow_id) {
+        showInfo(
+          'Synchronisation démarrée',
+          'La sync eBay est en cours en arrière-plan. Rafraîchissez la page dans quelques minutes.',
+          5000
+        )
+      } else {
+        throw new Error(response?.message || 'Échec du démarrage de la sync')
+      }
+    } catch (error: any) {
+      ebayLogger.error('Error starting sync', { error: error.message })
+
+      // Check if Temporal is disabled, fall back to legacy
+      if (error.message?.includes('disabled') || error.status === 503) {
+        showWarn('Temporal indisponible', 'Utilisation du système legacy...', 3000)
+        await syncProductsLegacy()
+      } else {
+        showError('Erreur', error.message || 'Impossible de démarrer la sync', 5000)
+      }
+    } finally {
+      isSyncing.value = false
+    }
+  }
+
+  /**
+   * Legacy sync (fallback if Temporal is disabled).
+   */
+  const syncProductsLegacy = async (): Promise<void> => {
+    isSyncing.value = true
     try {
       const response = await post<{ imported_count: number }>('/ebay/products/import')
-      showSuccess('Import terminé', `${response?.imported_count || 0} produit(s) importé(s)`, 3000)
+      showSuccess('Sync terminée', `${response?.imported_count || 0} produit(s) synchronisé(s)`, 3000)
       await loadProducts()
     } catch (error: any) {
-      ebayLogger.error('Error importing products', { error: error.message })
-      showError('Erreur', error.message || 'Impossible d\'importer les produits', 5000)
+      ebayLogger.error('Error syncing products (legacy)', { error: error.message })
+      showError('Erreur', error.message || 'Impossible de synchroniser les produits', 5000)
     } finally {
-      isImporting.value = false
+      isSyncing.value = false
     }
   }
 
@@ -176,7 +220,7 @@ export function useEbayProducts() {
     // State
     products: readonly(products),
     isLoading: readonly(isLoading),
-    isImporting: readonly(isImporting),
+    isSyncing: readonly(isSyncing),
     isEnriching: readonly(isEnriching),
     isRefreshingAspects: readonly(isRefreshingAspects),
     syncingProductId: readonly(syncingProductId),
@@ -190,7 +234,7 @@ export function useEbayProducts() {
     // Methods
     loadProducts,
     onPageChange,
-    importProducts,
+    syncProducts,
     enrichProducts,
     refreshAspects,
     syncProduct

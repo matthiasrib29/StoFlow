@@ -146,6 +146,7 @@ async def list_ebay_jobs(
             product_id=job.product_id,
             product_title=product_title,
             status=job.status.value,
+            cancel_requested=job.cancel_requested,  # Cooperative cancellation flag
             priority=job.priority,
             error_message=job.error_message,
             retry_count=job.retry_count,
@@ -175,7 +176,7 @@ async def cancel_ebay_job(
     Cancel a specific eBay job.
 
     Uses advisory locks for non-blocking cancellation signaling.
-    The worker will detect the cancel signal and stop processing.
+    For Temporal jobs, also cancels the Temporal workflow.
     """
     db, current_user = user_db
 
@@ -197,6 +198,32 @@ async def cancel_ebay_job(
             new_status=job.status.value,
             message=f"Job already {job.status.value}",
         )
+
+    # Check if this is a Temporal job
+    is_temporal_job = (
+        job.input_data
+        and isinstance(job.input_data, dict)
+        and job.input_data.get("via_temporal")
+    )
+
+    temporal_cancelled = False
+    if is_temporal_job and job.input_data.get("workflow_id"):
+        # Cancel Temporal workflow
+        try:
+            from temporal.client import get_temporal_client
+            from temporal.config import get_temporal_config
+
+            config = get_temporal_config()
+            if config.temporal_enabled:
+                client = await get_temporal_client()
+                workflow_id = job.input_data["workflow_id"]
+                handle = client.get_workflow_handle(workflow_id)
+                await handle.cancel()
+                temporal_cancelled = True
+                logger.info(f"Temporal workflow {workflow_id} cancelled for job {job_id}")
+        except Exception as e:
+            logger.warning(f"Failed to cancel Temporal workflow: {e}")
+            # Continue with normal cancellation even if Temporal cancel fails
 
     # Signal cancellation via advisory lock (non-blocking)
     from shared.advisory_locks import AdvisoryLockHelper
@@ -220,7 +247,7 @@ async def cancel_ebay_job(
 
     logger.info(
         f"eBay job {job_id} cancellation requested by user {current_user.id} "
-        f"(advisory_lock_signaled={cancel_signaled})"
+        f"(advisory_lock_signaled={cancel_signaled}, temporal_cancelled={temporal_cancelled})"
     )
 
     return JobActionResponse(

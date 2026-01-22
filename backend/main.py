@@ -28,7 +28,7 @@ from api.attributes import router as attributes_router
 from api.batches import router as batches_router
 from api.docs import router as docs_router
 # eBay routers (re-enabled 2026-01-03)
-from api.ebay import router as ebay_router, products_router as ebay_products_router, returns_router as ebay_returns_router, cancellations_router as ebay_cancellations_router, refunds_router as ebay_refunds_router, payment_disputes_router as ebay_payment_disputes_router, inquiries_router as ebay_inquiries_router, dashboard_router as ebay_dashboard_router
+from api.ebay import router as ebay_router, products_router as ebay_products_router, returns_router as ebay_returns_router, cancellations_router as ebay_cancellations_router, refunds_router as ebay_refunds_router, payment_disputes_router as ebay_payment_disputes_router, inquiries_router as ebay_inquiries_router, dashboard_router as ebay_dashboard_router, temporal_router as ebay_temporal_router
 from api.ebay_oauth import router as ebay_oauth_router
 from api.ebay_webhook import router as ebay_webhook_router
 # TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)
@@ -67,6 +67,12 @@ from shared.logging import setup_logging
 # Job Dispatcher (2026-01-21) - Multi-tenant job processing
 from worker.dispatcher import JobDispatcher
 from worker.dispatcher_config import DispatcherConfig
+
+# Temporal Workflow Orchestration (2026-01-21)
+from temporal.config import get_temporal_config
+from temporal.worker import get_worker_manager
+from temporal.workflows import EbaySyncWorkflow
+from temporal.activities import EBAY_ACTIVITIES
 
 # Configuration du logging
 logger = setup_logging()
@@ -158,10 +164,44 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("🔧 Job dispatcher DISABLED (dispatcher_enabled=false)")
 
+    # ===== TEMPORAL WORKER (2026-01-21) =====
+    # Workflow orchestration for durable import operations
+    temporal_config = get_temporal_config()
+
+    if temporal_config.temporal_enabled:
+        try:
+            worker_manager = get_worker_manager()
+
+            # Register workflows and activities
+            worker_manager.register_workflow(EbaySyncWorkflow)
+            worker_manager.register_activities(EBAY_ACTIVITIES)
+
+            # Start worker
+            await worker_manager.start()
+            logger.info(
+                f"⏱️ Temporal worker started "
+                f"(namespace={temporal_config.temporal_namespace}, "
+                f"queue={temporal_config.temporal_task_queue})"
+            )
+        except Exception as e:
+            logger.exception(f"❌ Failed to start Temporal worker: {e}")
+            # Don't fail startup - Temporal is optional, jobs can use fallback
+    else:
+        logger.info("⏱️ Temporal worker DISABLED (temporal_enabled=false)")
+
     yield  # Application runs here
 
     # ===== SHUTDOWN =====
     logger.info("🛑 Shutting down StoFlow backend...")
+
+    # Stop Temporal worker
+    if temporal_config.temporal_enabled:
+        try:
+            worker_manager = get_worker_manager()
+            await worker_manager.stop()
+            logger.info("⏱️ Temporal worker stopped")
+        except Exception as e:
+            logger.exception(f"Error stopping Temporal worker: {e}")
 
     # Stop job dispatcher
     if _dispatcher:
@@ -309,6 +349,7 @@ app.include_router(ebay_refunds_router, prefix="/api")
 app.include_router(ebay_payment_disputes_router, prefix="/api")
 app.include_router(ebay_inquiries_router, prefix="/api")
 app.include_router(ebay_dashboard_router, prefix="/api")
+app.include_router(ebay_temporal_router, prefix="/api")  # Temporal import routes (2026-01-21)
 app.include_router(ebay_oauth_router, prefix="/api")
 app.include_router(ebay_webhook_router, prefix="/api")
 # TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)

@@ -13,8 +13,9 @@
         label="Importer"
         icon="pi pi-download"
         class="btn-primary"
-        :loading="isImporting"
-        @click="importProducts"
+        :loading="isSyncing"
+        :disabled="isSyncing"
+        @click="handleImport"
       />
     </template>
 
@@ -199,7 +200,8 @@
         label="Importer depuis eBay"
         icon="pi pi-download"
         class="mt-4 btn-primary"
-        @click="importProducts"
+        :loading="isSyncing"
+        @click="handleImport"
       />
     </template>
   </PlatformProductsPage>
@@ -249,6 +251,12 @@ const { showSuccess, showError } = useAppToast()
 const { get, post, delete: del } = useApi()
 const toast = import.meta.client ? useToast() : null
 
+// Use eBay products composable for Temporal sync
+const {
+  isSyncing,
+  syncProducts,
+} = useEbayProducts()
+
 // State
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -259,7 +267,6 @@ const pageSize = ref(20)
 const searchQuery = ref('')
 const statusFilter = ref<string | null>(null)
 const marketplaceFilter = ref<string | null>(null)
-const isImporting = ref(false)
 
 // Link modal state
 const showLinkModal = ref(false)
@@ -384,28 +391,13 @@ const onStatusChange = async () => {
   await fetchProducts(1, pageSize.value)
 }
 
-const importProducts = async () => {
-  ebayLogger.info('Starting eBay products import')
-  isImporting.value = true
-  try {
-    const response = await post<{ imported_count: number }>('/ebay/products/import')
-    const importedCount = response?.imported_count || 0
-
-    ebayLogger.info('eBay products import completed', {
-      importedCount
-    })
-
-    showSuccess('Import terminé', `${importedCount} produit(s) importé(s)`, 3000)
-    await fetchProducts()
-  } catch (e: any) {
-    ebayLogger.error('eBay products import failed', {
-      error: e.message,
-      stack: e.stack
-    })
-    showError('Erreur', e.message || 'Impossible d\'importer les produits', 5000)
-  } finally {
-    isImporting.value = false
-  }
+/**
+ * Handle sync via Temporal workflow.
+ * Fire-and-forget: workflow runs in background, user refreshes to see results.
+ */
+const handleImport = async () => {
+  ebayLogger.info('Starting eBay products sync via Temporal')
+  await syncProducts()
 }
 
 const getConditionLabel = (condition: string): string => {

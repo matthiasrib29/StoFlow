@@ -1,0 +1,22 @@
+# Temporal Dynamic Configuration
+# For local development - minimal configuration
+
+# Retention period for completed workflows
+frontend.enableClientVersionCheck:
+  - value: true
+    constraints: {}
+
+# Disable advanced visibility (not needed for dev)
+system.advancedVisibilityWritingMode:
+  - value: "off"
+    constraints: {}
+
+# Max concurrent workflow task pollers
+frontend.maxConcurrentLongPollPerNamespace:
+  - value: 10000
+    constraints: {}
+
+# History service settings
+history.maximumSignalsPerExecution:
+  - value: 10000
+    constraints: {}
