@@ -423,12 +423,15 @@ Generate realistic secondhand pricing data:"""
                 name=model,
                 coefficient=Decimal(str(sanitized_data["coefficient"])),
                 expected_features=sanitized_data["expected_features"],
+                generated_by_ai=True,
+                ai_confidence=Decimal(str(sanitized_data["confidence"])),
             )
 
             logger.info(
                 f"Generated Model for {brand} + {group} + {model}: "
                 f"coefficient={model_obj.coefficient}, "
-                f"features={len(model_obj.expected_features)}"
+                f"features={len(model_obj.expected_features)}, "
+                f"confidence={model_obj.ai_confidence}"
             )
 
             return model_obj
@@ -479,7 +482,8 @@ Your task: Generate pricing coefficient and expected features for the model "{mo
 Output format: JSON with the following fields:
 {{
   "coefficient": <float between 0.5 and 3.0>,
-  "expected_features": [<list of model-specific features, max 10 strings>]
+  "expected_features": [<list of model-specific features, max 10 strings>],
+  "confidence": <float between 0.0 and 1.0>
 }}
 
 Field explanations:
@@ -491,18 +495,19 @@ Field explanations:
   * Features should be model-specific, not category-wide
   * Examples: "selvedge denim", "original box", "limited edition", "vintage label"
   * Empty list if no special features expected
+- confidence: Your confidence in this pricing data (0.0=unknown model, 1.0=very confident)
 
 Examples:
-- Levi's jeans + "501" (base: 25€) → {{"coefficient": 1.4, "expected_features": []}}
+- Levi's jeans + "501" (base: 25€) → {{"coefficient": 1.4, "expected_features": [], "confidence": 0.95}}
   (Classic model with 40% premium, no special features expected)
 
-- Levi's jeans + "Big E" (base: 25€) → {{"coefficient": 2.5, "expected_features": ["selvedge", "chain_stitching", "vintage_label"]}}
+- Levi's jeans + "Big E" (base: 25€) → {{"coefficient": 2.5, "expected_features": ["selvedge", "chain_stitching", "vintage_label"], "confidence": 0.9}}
   (Vintage premium model, specific features drive value)
 
-- Nike sneakers + "Jordan 1" (base: 45€) → {{"coefficient": 2.8, "expected_features": ["original_box", "deadstock", "og_colorway"]}}
+- Nike sneakers + "Jordan 1" (base: 45€) → {{"coefficient": 2.8, "expected_features": ["original_box", "deadstock", "og_colorway"], "confidence": 0.95}}
   (Iconic model with strong premium, condition and features critical)
 
-- Zara basics + "Standard T-shirt" (base: 10€) → {{"coefficient": 0.8, "expected_features": []}}
+- Zara basics + "Standard T-shirt" (base: 10€) → {{"coefficient": 0.8, "expected_features": [], "confidence": 0.7}}
   (Budget model with 20% discount, no special features)
 
 Consider:
