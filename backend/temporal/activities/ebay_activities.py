@@ -14,6 +14,12 @@ Architecture:
 - cleanup_orphan_products: Delete products not seen in current sync
 - update_job_progress: Update job progress in DB
 - mark_job_completed/failed: Update job status
+
+IMPORTANT: Activities are defined as regular `def` (not `async def`) because:
+- The eBay client uses `requests` (synchronous HTTP library)
+- Temporal executes sync activities in a threadpool (max_concurrent_activities threads)
+- This allows true parallel execution (50 concurrent HTTP calls)
+- Using `async def` with sync code would block the event loop = no parallelism
 """
 
 from datetime import datetime, timezone
@@ -42,7 +48,7 @@ def _configure_session(db, user_id: int) -> None:
 
 
 @activity.defn
-async def fetch_and_sync_page(
+def fetch_and_sync_page(
     user_id: int,
     marketplace_id: str,
     limit: int,
@@ -211,7 +217,7 @@ def _apply_offer_to_product(product, offer: dict, marketplace_id: str) -> None:
 
 
 @activity.defn
-async def enrich_single_product(
+def enrich_single_product(
     user_id: int,
     marketplace_id: str,
     sku: str,
@@ -249,9 +255,14 @@ async def enrich_single_product(
                 # Use first offer (typically one offer per SKU per marketplace)
                 offer = offers[0]
                 _apply_offer_to_product(product, offer, marketplace_id)
+                # Mark as enriched to skip in future syncs (within 3h window)
+                product.last_enriched_at = datetime.now(timezone.utc)
                 db.commit()
                 return {"success": True, "sku": sku}
             else:
+                # No offer found, but still mark as enriched to avoid retrying
+                product.last_enriched_at = datetime.now(timezone.utc)
+                db.commit()
                 return {"success": False, "sku": sku, "error": "no_offer"}
         except Exception as e:
             return {"success": False, "sku": sku, "error": str(e)[:100]}
@@ -261,7 +272,7 @@ async def enrich_single_product(
 
 
 @activity.defn
-async def get_skus_to_enrich(
+def get_skus_to_enrich(
     user_id: int,
     sync_start_time: str,
     limit: int = 30,
@@ -269,6 +280,8 @@ async def get_skus_to_enrich(
 ) -> list:
     """
     Get a batch of SKUs to enrich from the current sync session.
+
+    Skips products that were enriched less than 3 hours ago.
 
     Args:
         user_id: User ID for schema isolation
@@ -279,6 +292,9 @@ async def get_skus_to_enrich(
     Returns:
         List of SKUs to enrich
     """
+    from datetime import timedelta
+    from sqlalchemy import or_
+
     db = SessionLocal()
     try:
         _configure_session(db, user_id)
@@ -288,10 +304,21 @@ async def get_skus_to_enrich(
         # Parse sync_start_time
         sync_time = datetime.fromisoformat(sync_start_time.replace("Z", "+00:00"))
 
-        # Get products synced in this session (all of them, not just those without listing_id)
+        # Skip products enriched less than 3 hours ago
+        enrich_threshold = datetime.now(timezone.utc) - timedelta(hours=3)
+
+        # Get products synced in this session that need enrichment:
+        # - last_enriched_at is NULL (never enriched)
+        # - OR last_enriched_at < 3 hours ago (stale)
         products = (
             db.query(EbayProduct.ebay_sku)
             .filter(EbayProduct.last_synced_at >= sync_time)
+            .filter(
+                or_(
+                    EbayProduct.last_enriched_at.is_(None),
+                    EbayProduct.last_enriched_at < enrich_threshold,
+                )
+            )
             .order_by(EbayProduct.id)
             .offset(offset)
             .limit(limit)
@@ -305,7 +332,7 @@ async def get_skus_to_enrich(
 
 
 @activity.defn
-async def cleanup_orphan_products(
+def cleanup_orphan_products(
     user_id: int,
     sync_start_time: str,
     marketplace_id: str = "EBAY_FR",
@@ -398,7 +425,7 @@ async def cleanup_orphan_products(
 
 
 @activity.defn
-async def update_job_progress(
+def update_job_progress(
     user_id: int,
     job_id: int,
     current: int,
@@ -435,7 +462,7 @@ async def update_job_progress(
 
 
 @activity.defn
-async def mark_job_completed(
+def mark_job_completed(
     user_id: int,
     job_id: int,
     final_count: int,
@@ -473,7 +500,7 @@ async def mark_job_completed(
 
 
 @activity.defn
-async def mark_job_failed(
+def mark_job_failed(
     user_id: int,
     job_id: int,
     error_msg: str,

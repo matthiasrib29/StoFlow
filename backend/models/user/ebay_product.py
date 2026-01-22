@@ -331,6 +331,9 @@ class EbayProduct(Base):
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True, comment="Dernière synchronisation"
     )
+    last_enriched_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, comment="Dernier enrichissement (offer data)"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
