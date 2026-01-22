@@ -12,6 +12,7 @@ from api.ebay.payment_disputes import router as payment_disputes_router
 from api.ebay.products import router as products_router
 from api.ebay.refunds import router as refunds_router
 from api.ebay.returns import router as returns_router
+from api.ebay.temporal import router as temporal_router
 
 __all__ = [
     "router",
@@ -22,4 +23,5 @@ __all__ = [
     "payment_disputes_router",
     "inquiries_router",
     "dashboard_router",
+    "temporal_router",
 ]

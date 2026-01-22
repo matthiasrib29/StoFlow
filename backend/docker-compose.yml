@@ -60,10 +60,77 @@ services:
     profiles:
       - tools  # Démarrer avec: docker compose --profile tools up
 
+  # ============================================
+  # TEMPORAL SERVICES (Workflow Orchestration)
+  # ============================================
+
+  # PostgreSQL for Temporal (separate from app DB)
+  temporal-postgres:
+    image: postgres:15-alpine
+    container_name: stoflow_temporal_postgres
+    environment:
+      POSTGRES_DB: temporal
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal_dev_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - temporal_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stoflow_network
+
+  # Temporal Server
+  temporal:
+    image: temporalio/auto-setup:1.25.2
+    container_name: stoflow_temporal
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal_dev_password
+      - POSTGRES_SEEDS=temporal-postgres
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/dynamicconfig.yaml
+    ports:
+      - "7233:7233"
+    volumes:
+      - ./temporal/dynamicconfig.yaml:/etc/temporal/dynamicconfig.yaml:ro
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - stoflow_network
+
+  # Temporal Web UI
+  temporal-ui:
+    image: temporalio/ui:2.31.2
+    container_name: stoflow_temporal_ui
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+    ports:
+      - "8088:8080"
+    depends_on:
+      - temporal
+    networks:
+      - stoflow_network
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  temporal_postgres_data:
     driver: local
 
 networks:

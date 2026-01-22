@@ -41,3 +41,6 @@ boto3==1.35.0
 
 # WebSocket (for real-time plugin communication)
 python-socketio==5.11.0
+
+# Workflow Orchestration (Temporal)
+temporalio==1.7.1
