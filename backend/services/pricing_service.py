@@ -214,11 +214,11 @@ class PricingService:
                 f"[PricingService] BrandGroup not found for {brand} + {group}, generating..."
             )
             try:
-                brand_group = await self.generation_service.generate_brand_group(
+                result = await self.generation_service.generate_brand_group(
                     brand, group
                 )
-                # Save to DB
-                brand_group = self.brand_group_repo.create(self.db, brand_group)
+                # Save to DB (extract BrandGroup from GenerationResult)
+                brand_group = self.brand_group_repo.create(self.db, result.brand_group)
                 self.db.commit()
                 logger.info(
                     f"[PricingService] BrandGroup generated and saved: "
