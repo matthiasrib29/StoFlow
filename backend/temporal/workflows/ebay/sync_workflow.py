@@ -9,8 +9,9 @@ It provides:
 - Automatic retries with backoff
 
 Architecture (optimized for large inventories):
-1. SYNC: Fetch inventory pages (10 parallel) and upsert directly to DB
-2. ENRICH: Fetch offer data (100 parallel) for price, listing_id, etc.
+1. SYNC: Fetch inventory pages (30 parallel) and upsert directly to DB
+2. ENRICH: Fetch offer data (500 batch, 30 concurrent) for price, listing_id, etc.
+   - Skip products enriched less than 3 hours ago
 3. CLEANUP: Delete products not seen in this sync
 
 Direct DB writes keep history small.
@@ -70,8 +71,8 @@ class EbaySyncWorkflow:
     Temporal workflow for synchronizing eBay products.
 
     Architecture (optimized for large inventories 10K+ items):
-    - Phase 1 (SYNC): Fetch inventory pages (10 parallel) and upsert to DB
-    - Phase 2 (ENRICH): Fetch offer data (100 parallel) per batch
+    - Phase 1 (SYNC): Fetch inventory pages (50 parallel) and upsert to DB
+    - Phase 2 (ENRICH): Fetch offer data (500 batch, 50 concurrent) per batch
     - Phase 3 (CLEANUP): Delete orphan products not seen in sync
 
     Features:
@@ -79,7 +80,7 @@ class EbaySyncWorkflow:
     - Queryable progress
     - Cancellable via signal
     - Automatic retries with backoff
-    - Parallel enrichment (30 HTTP calls at once)
+    - 50 concurrent activities via ThreadPoolExecutor
     """
 
     def __init__(self):
@@ -116,7 +117,7 @@ class EbaySyncWorkflow:
 
         # Activity options
         activity_options = {
-            "start_to_close_timeout": timedelta(minutes=10),
+            "start_to_close_timeout": timedelta(seconds=60),
             "retry_policy": retry_policy,
         }
 
@@ -171,8 +172,8 @@ class EbaySyncWorkflow:
                 remaining_offsets.append(next_offset)
                 next_offset += params.batch_size
 
-            # Step 3: Fetch remaining pages in parallel (10 at a time)
-            sync_parallel_batch = 10
+            # Step 3: Fetch remaining pages in parallel (30 at a time, uses ThreadPoolExecutor)
+            sync_parallel_batch = 30
 
             for i in range(0, len(remaining_offsets), sync_parallel_batch):
                 if self._cancelled:
@@ -233,15 +234,15 @@ class EbaySyncWorkflow:
                 **activity_options,
             )
 
-            # Enrich products: 500 activities launched at once, worker handles 50 concurrent (sliding window)
-            enrich_offset = 0
+            # Enrich products: 500 activities launched at once, worker handles 30 concurrent (sliding window)
             enrich_batch_size = 500
 
             while not self._cancelled:
-                # Get next batch of SKUs to enrich (all synced products)
+                # Get next batch of SKUs to enrich
+                # Always offset=0 because enriched products are excluded by last_enriched_at filter
                 skus_to_enrich = await workflow.execute_activity(
                     get_skus_to_enrich,
-                    args=[params.user_id, sync_start_time, enrich_batch_size, enrich_offset],
+                    args=[params.user_id, sync_start_time, enrich_batch_size, 0],
                     **activity_options,
                 )
 
@@ -265,8 +266,9 @@ class EbaySyncWorkflow:
                 batch_enriched = sum(1 for r in results if r.get("success"))
                 total_enriched += batch_enriched
 
-                # Move to next batch
-                enrich_offset += enrich_batch_size
+                # NOTE: Don't increment offset!
+                # Enriched products are automatically excluded by the last_enriched_at filter
+                # so we always query from offset=0 to get the next batch of unenriched products
 
                 # Update progress
                 label = f"{total_synced} synchronisés, {total_enriched} enrichis..."

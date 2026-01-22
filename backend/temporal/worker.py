@@ -6,6 +6,7 @@ Provides lifecycle management for Temporal workers.
 
 import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Type
 
 from temporalio.worker import Worker, UnsandboxedWorkflowRunner
@@ -27,6 +28,7 @@ class TemporalWorkerManager:
     def __init__(self):
         self._worker: Optional[Worker] = None
         self._worker_task: Optional[asyncio.Task] = None
+        self._executor: Optional[ThreadPoolExecutor] = None
         self._running = False
         self._workflows: List[Type] = []
         self._activities: List = []
@@ -77,7 +79,15 @@ class TemporalWorkerManager:
                     "identity": config.worker_identity,
                     "workflows": [w.__name__ for w in self._workflows],
                     "activities": [a.__name__ for a in self._activities],
+                    "max_concurrent_activities": config.temporal_max_concurrent_activities,
                 }
+            )
+
+            # Create ThreadPoolExecutor for sync activities
+            # This allows true parallel execution of activities using requests (sync HTTP)
+            self._executor = ThreadPoolExecutor(
+                max_workers=config.temporal_max_concurrent_activities,
+                thread_name_prefix="temporal-activity-",
             )
 
             self._worker = Worker(
@@ -88,6 +98,7 @@ class TemporalWorkerManager:
                 identity=config.worker_identity,
                 max_concurrent_workflow_tasks=config.temporal_max_concurrent_workflow_tasks,
                 max_concurrent_activities=config.temporal_max_concurrent_activities,
+                activity_executor=self._executor,  # Required for sync activities
                 workflow_runner=UnsandboxedWorkflowRunner(),  # Disable sandbox for simpler imports
             )
 
@@ -130,6 +141,11 @@ class TemporalWorkerManager:
                 await self._worker_task
             except asyncio.CancelledError:
                 pass
+
+        # Shutdown executor
+        if self._executor:
+            self._executor.shutdown(wait=False)
+            self._executor = None
 
         self._running = False
         self._worker = None

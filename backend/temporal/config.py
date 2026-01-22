@@ -48,7 +48,7 @@ class TemporalConfig(BaseSettings):
         description="Max concurrent workflow task executions"
     )
     temporal_max_concurrent_activities: int = Field(
-        default=50,
+        default=30,
         description="Max concurrent activity executions (sliding window)"
     )
 
@@ -79,9 +79,9 @@ class TemporalConfig(BaseSettings):
         default=1,
         description="Max single workflow run time in hours"
     )
-    temporal_activity_start_to_close_timeout_minutes: int = Field(
-        default=10,
-        description="Activity execution timeout in minutes"
+    temporal_activity_start_to_close_timeout_seconds: int = Field(
+        default=60,
+        description="Activity execution timeout in seconds"
     )
     temporal_activity_schedule_to_close_timeout_minutes: int = Field(
         default=30,
