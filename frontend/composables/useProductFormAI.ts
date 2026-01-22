@@ -8,8 +8,8 @@ interface VisionAnalysisResponse {
     condition?: number | null
     size?: string | null
     label_size?: string | null
-    color?: string | null
-    material?: string | null
+    color?: string | string[] | null
+    material?: string | string[] | null
     fit?: string | null
     gender?: string | null
     season?: string | null
@@ -102,8 +102,18 @@ export function useProductFormAI(
           updateField('condition', String(attrs.condition))
           fieldsUpdated++
         }
-        if (attrs.color) { updateField('color', attrs.color); fieldsUpdated++ }
-        if (attrs.material) { updateField('material', attrs.material); fieldsUpdated++ }
+        if (attrs.color) {
+          // Join array to comma-separated string (form handler supports this format)
+          const colorValue = Array.isArray(attrs.color) ? attrs.color.join(', ') : attrs.color
+          updateField('color', colorValue)
+          fieldsUpdated++
+        }
+        if (attrs.material) {
+          // Join array to comma-separated string (form handler supports this format)
+          const materialValue = Array.isArray(attrs.material) ? attrs.material.join(', ') : attrs.material
+          updateField('material', materialValue)
+          fieldsUpdated++
+        }
         if (attrs.size) { updateField('size', attrs.size); fieldsUpdated++ }
         if (attrs.label_size) { updateField('label_size', attrs.label_size); fieldsUpdated++ }
         if (attrs.gender) { updateField('gender', attrs.gender); fieldsUpdated++ }

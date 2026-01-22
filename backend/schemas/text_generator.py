@@ -15,7 +15,7 @@ Author: Claude
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TextGenerateInput(BaseModel):
@@ -87,6 +87,16 @@ class TextPreviewInput(BaseModel):
     length: Optional[str] = Field(None, description="Garment length (e.g., 'Regular', 'Long', 'Cropped')")
     marking: Optional[str] = Field(None, description="Marking/label type (e.g., 'Made in France')")
     location: Optional[str] = Field(None, description="Item location (e.g., 'Paris', 'Lyon')")
+
+    @field_validator('marking', mode='before')
+    @classmethod
+    def convert_marking_to_string(cls, value: str | list | None) -> str | None:
+        """Convert marking from list to comma-separated string if needed."""
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return ', '.join(str(v) for v in value if v)
+        return str(value)
     dim1: Optional[float] = Field(None, description="Pit-to-pit measurement in cm")
     dim2: Optional[float] = Field(None, description="Length measurement in cm")
     dim3: Optional[float] = Field(None, description="Shoulder measurement in cm")
