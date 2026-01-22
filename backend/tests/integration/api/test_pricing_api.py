@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from models.public.brand_group import BrandGroup
-from models.public.model import Model
+from models.product_attributes.model import Model
 
 
 # ===== TEST CLASSES =====

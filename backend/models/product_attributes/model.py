@@ -4,7 +4,7 @@ Model
 Stores pricing data for specific models within brand×group combinations.
 Used by the pricing algorithm to apply model-specific coefficients and feature expectations.
 
-Schema: public
+Schema: product_attributes
 Table: models
 """
 
@@ -38,7 +38,7 @@ class Model(Base):
         Index("idx_models_brand_group", "brand", "group"),
         Index("idx_models_name", "name"),
         Index("idx_models_created_at", "created_at"),
-        {"schema": "public"}
+        {"schema": "product_attributes"}
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

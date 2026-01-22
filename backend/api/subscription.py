@@ -16,7 +16,7 @@ Date: 2025-12-10
 """
 
 import asyncio
-from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_current_user
 from models.public.user import User, UserRole, SubscriptionTier
 from models.public.subscription_quota import SubscriptionQuota
-from models.public.ai_credit import AICredit
 from models.public.ai_credit_pack import AiCreditPack
 from shared.database import get_db
 from shared.access_control import ensure_can_modify
@@ -122,23 +121,8 @@ def get_subscription_info(
     Returns:
         SubscriptionInfoResponse: Info abonnement complète
     """
-    # Récupérer ou créer l'enregistrement AI credits
-    ai_credit = db.query(AICredit).filter(AICredit.user_id == current_user.id).first()
-
-    if not ai_credit:
-        # Créer un enregistrement AI credits si il n'existe pas
-        ai_credit = AICredit(
-            user_id=current_user.id,
-            ai_credits_purchased=0,
-            ai_credits_used_this_month=0,
-            last_reset_date=datetime.now()
-        )
-        db.add(ai_credit)
-        db.commit()
-        db.refresh(ai_credit)
-
-    # Calculer les crédits restants
-    ai_credits_remaining = ai_credit.get_remaining_credits(
+    # Calculate remaining credits directly from user
+    ai_credits_remaining = current_user.get_remaining_ai_credits(
         current_user.subscription_quota.ai_credits_monthly
     )
 
@@ -151,8 +135,8 @@ def get_subscription_info(
         ai_credits_monthly=current_user.subscription_quota.ai_credits_monthly,
         current_products_count=current_user.current_products_count,
         current_platforms_count=current_user.current_platforms_count,
-        ai_credits_purchased=ai_credit.ai_credits_purchased,
-        ai_credits_used_this_month=ai_credit.ai_credits_used_this_month,
+        ai_credits_purchased=current_user.ai_credits_purchased,
+        ai_credits_used_this_month=current_user.ai_credits_used_this_month,
         ai_credits_remaining=ai_credits_remaining,
     )
 
@@ -411,20 +395,8 @@ async def purchase_credits(
     # Simuler le délai de traitement du paiement (2 secondes)
     await asyncio.sleep(2)
 
-    # Récupérer ou créer l'enregistrement AI credits
-    ai_credit = db.query(AICredit).filter(AICredit.user_id == current_user.id).first()
-
-    if not ai_credit:
-        ai_credit = AICredit(
-            user_id=current_user.id,
-            ai_credits_purchased=request.credits,
-            ai_credits_used_this_month=0,
-            last_reset_date=datetime.now()
-        )
-        db.add(ai_credit)
-    else:
-        # Ajouter les crédits achetés
-        ai_credit.ai_credits_purchased += request.credits
+    # Add purchased credits directly to user
+    current_user.ai_credits_purchased += request.credits
 
     db.commit()
     db.refresh(current_user)

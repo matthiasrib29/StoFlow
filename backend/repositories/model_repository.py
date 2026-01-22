@@ -18,7 +18,7 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from models.public.model import Model
+from models.product_attributes.model import Model
 from shared.logging import get_logger
 
 logger = get_logger(__name__)

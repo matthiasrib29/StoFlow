@@ -19,7 +19,7 @@ from google import genai
 from google.genai import types
 from sqlalchemy.orm import Session
 
-from models.public.ai_credit import AICredit
+from models.public.user import User
 from models.user.ai_generation_log import AIGenerationLog
 from schemas.ai_schemas import GeminiVisionSchema, VisionExtractedAttributes
 from shared.config import settings
@@ -203,15 +203,12 @@ class AIVisionService:
     @staticmethod
     def _check_credits(db: Session, user_id: int, monthly_credits: int) -> None:
         """Vérifie que l'utilisateur a des crédits disponibles."""
-        ai_credit = db.query(AICredit).filter(AICredit.user_id == user_id).first()
+        user = db.query(User).filter(User.id == user_id).first()
 
-        if not ai_credit:
-            # Créer l'enregistrement si n'existe pas
-            ai_credit = AICredit(user_id=user_id)
-            db.add(ai_credit)
-            db.flush()
+        if not user:
+            raise AIQuotaExceededError("Utilisateur non trouvé.")
 
-        remaining = ai_credit.get_remaining_credits(monthly_credits)
+        remaining = user.get_remaining_ai_credits(monthly_credits)
 
         if remaining <= 0:
             raise AIQuotaExceededError(
@@ -222,9 +219,9 @@ class AIVisionService:
     @staticmethod
     def _consume_credit(db: Session, user_id: int) -> None:
         """Décrémente les crédits utilisés."""
-        ai_credit = db.query(AICredit).filter(AICredit.user_id == user_id).first()
-        if ai_credit:
-            ai_credit.ai_credits_used_this_month += 1
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            user.ai_credits_used_this_month += 1
 
     @staticmethod
     async def _download_images(

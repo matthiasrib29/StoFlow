@@ -108,7 +108,11 @@ class User(Base):
         # Usage counters (Added: 2025-12-10)
         current_products_count: Nombre actuel de produits actifs
         current_platforms_count: Nombre actuel de plateformes connectées
-        ai_credit: Relation vers les crédits IA (mensuels + achetés)
+
+        # AI Credits (merged from ai_credits table - 2026-01-22)
+        ai_credits_purchased: Crédits IA achetés (cumulables, n'expirent jamais)
+        ai_credits_used_this_month: Crédits IA utilisés ce mois-ci
+        ai_credits_last_reset_date: Date du dernier reset mensuel
 
         created_at: Date de création
         updated_at: Date de dernière modification
@@ -257,12 +261,24 @@ class User(Base):
         comment="ID de la subscription Stripe active (sub_xxx)"
     )
 
-    # Relation vers AICredit (Added: 2025-12-10)
-    ai_credit: Mapped["AICredit"] = relationship(
-        "AICredit",
-        back_populates="user",
-        uselist=False,
-        cascade="all, delete-orphan"
+    # AI Credits (merged from ai_credits table - 2026-01-22)
+    ai_credits_purchased: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="Purchased AI credits (cumulative, never expire)"
+    )
+    ai_credits_used_this_month: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="AI credits used this month"
+    )
+    ai_credits_last_reset_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="Last monthly reset date"
     )
 
     # Note: Vinted connection data is stored in VintedConnection table (user_{id}.vinted_connection)
@@ -321,6 +337,19 @@ class User(Base):
     def schema_name(self) -> str:
         """Retourne le nom du schema PostgreSQL pour cet utilisateur."""
         return f"user_{self.id}"
+
+    def get_remaining_ai_credits(self, monthly_credits: int) -> int:
+        """
+        Calculate remaining AI credits for this user.
+
+        Args:
+            monthly_credits: Monthly credits from subscription
+
+        Returns:
+            int: Remaining credits available
+        """
+        total = monthly_credits + self.ai_credits_purchased
+        return max(0, total - self.ai_credits_used_this_month)
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}', role={self.role}, tier={self.subscription_tier})>"

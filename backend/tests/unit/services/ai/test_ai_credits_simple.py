@@ -3,31 +3,33 @@ Simplified unit tests for AI credits system.
 
 Tests credit logic without complex fixtures or database dependencies.
 Focuses on the core business logic: credit checking, consumption, and quota management.
+
+Updated (2026-01-22): AI credits are now stored directly in User model (merged from ai_credits table).
 """
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 from decimal import Decimal
 
-from models.public.ai_credit import AICredit
+from models.public.user import User
 from services.ai.vision_service import AIVisionService
 from shared.exceptions import AIQuotaExceededError
 
 
 class TestAICreditsCalculation:
-    """Test credit calculation logic."""
+    """Test credit calculation logic directly on User model."""
 
     def test_get_remaining_credits_with_sufficient_credits(self):
         """Test remaining credits calculation when user has enough."""
-        # Arrange
-        ai_credit = AICredit(
-            user_id=1,
-            ai_credits_purchased=10,
-            ai_credits_used_this_month=5
-        )
+        # Arrange - Create a mock user with credits attributes
+        user = Mock(spec=User)
+        user.ai_credits_purchased = 10
+        user.ai_credits_used_this_month = 5
+        user.get_remaining_ai_credits = User.get_remaining_ai_credits.__get__(user, User)
+
         monthly_credits = 20
 
         # Act
-        remaining = ai_credit.get_remaining_credits(monthly_credits)
+        remaining = user.get_remaining_ai_credits(monthly_credits)
 
         # Assert
         # Total = 20 (monthly) + 10 (purchased) = 30
@@ -37,15 +39,15 @@ class TestAICreditsCalculation:
     def test_get_remaining_credits_with_no_purchased_credits(self):
         """Test remaining credits when user only has monthly credits."""
         # Arrange
-        ai_credit = AICredit(
-            user_id=1,
-            ai_credits_purchased=0,
-            ai_credits_used_this_month=5
-        )
+        user = Mock(spec=User)
+        user.ai_credits_purchased = 0
+        user.ai_credits_used_this_month = 5
+        user.get_remaining_ai_credits = User.get_remaining_ai_credits.__get__(user, User)
+
         monthly_credits = 10
 
         # Act
-        remaining = ai_credit.get_remaining_credits(monthly_credits)
+        remaining = user.get_remaining_ai_credits(monthly_credits)
 
         # Assert
         # Total = 10 (monthly) + 0 (purchased) = 10
@@ -55,15 +57,15 @@ class TestAICreditsCalculation:
     def test_get_remaining_credits_all_exhausted(self):
         """Test remaining credits when all credits are used."""
         # Arrange
-        ai_credit = AICredit(
-            user_id=1,
-            ai_credits_purchased=5,
-            ai_credits_used_this_month=25
-        )
+        user = Mock(spec=User)
+        user.ai_credits_purchased = 5
+        user.ai_credits_used_this_month = 25
+        user.get_remaining_ai_credits = User.get_remaining_ai_credits.__get__(user, User)
+
         monthly_credits = 20
 
         # Act
-        remaining = ai_credit.get_remaining_credits(monthly_credits)
+        remaining = user.get_remaining_ai_credits(monthly_credits)
 
         # Assert
         # Total = 20 (monthly) + 5 (purchased) = 25
@@ -73,15 +75,15 @@ class TestAICreditsCalculation:
     def test_get_remaining_credits_cannot_go_negative(self):
         """Test that remaining credits never go below zero."""
         # Arrange
-        ai_credit = AICredit(
-            user_id=1,
-            ai_credits_purchased=0,
-            ai_credits_used_this_month=30
-        )
+        user = Mock(spec=User)
+        user.ai_credits_purchased = 0
+        user.ai_credits_used_this_month = 30
+        user.get_remaining_ai_credits = User.get_remaining_ai_credits.__get__(user, User)
+
         monthly_credits = 10
 
         # Act
-        remaining = ai_credit.get_remaining_credits(monthly_credits)
+        remaining = user.get_remaining_ai_credits(monthly_credits)
 
         # Assert
         # Total = 10 (monthly) + 0 (purchased) = 10
@@ -102,12 +104,12 @@ class TestAICreditsCheckLogic:
         mock_query.filter.return_value = mock_query
 
         # User with sufficient credits
-        mock_ai_credit = AICredit(
-            user_id=1,
-            ai_credits_purchased=10,
-            ai_credits_used_this_month=5
-        )
-        mock_query.first.return_value = mock_ai_credit
+        mock_user = Mock(spec=User)
+        mock_user.id = 1
+        mock_user.ai_credits_purchased = 10
+        mock_user.ai_credits_used_this_month = 5
+        mock_user.get_remaining_ai_credits = User.get_remaining_ai_credits.__get__(mock_user, User)
+        mock_query.first.return_value = mock_user
 
         # Act & Assert: Should not raise
         AIVisionService._check_credits(mock_db, user_id=1, monthly_credits=20)
@@ -122,12 +124,12 @@ class TestAICreditsCheckLogic:
         mock_query.filter.return_value = mock_query
 
         # User with no credits left
-        mock_ai_credit = AICredit(
-            user_id=1,
-            ai_credits_purchased=0,
-            ai_credits_used_this_month=10
-        )
-        mock_query.first.return_value = mock_ai_credit
+        mock_user = Mock(spec=User)
+        mock_user.id = 1
+        mock_user.ai_credits_purchased = 0
+        mock_user.ai_credits_used_this_month = 10
+        mock_user.get_remaining_ai_credits = User.get_remaining_ai_credits.__get__(mock_user, User)
+        mock_query.first.return_value = mock_user
 
         # Act & Assert
         with pytest.raises(AIQuotaExceededError) as exc_info:
@@ -135,9 +137,20 @@ class TestAICreditsCheckLogic:
 
         assert "Crédits IA insuffisants" in str(exc_info.value)
 
-    # NOTE: The test for record creation when missing is complex to mock properly
-    # because it requires initializing SQLAlchemy defaults. This is tested in
-    # integration tests instead where we have a real database.
+    def test_check_credits_raises_when_user_not_found(self):
+        """Test that check_credits raises AIQuotaExceededError when user doesn't exist."""
+        # Arrange: Mock database session
+        mock_db = Mock()
+        mock_query = Mock()
+        mock_db.query.return_value = mock_query
+        mock_query.filter.return_value = mock_query
+        mock_query.first.return_value = None
+
+        # Act & Assert
+        with pytest.raises(AIQuotaExceededError) as exc_info:
+            AIVisionService._check_credits(mock_db, user_id=1, monthly_credits=10)
+
+        assert "Utilisateur non trouvé" in str(exc_info.value)
 
 
 class TestAICreditsConsumption:
@@ -151,29 +164,28 @@ class TestAICreditsConsumption:
         mock_db.query.return_value = mock_query
         mock_query.filter.return_value = mock_query
 
-        # Existing AI credit with some usage
-        mock_ai_credit = AICredit(
-            user_id=1,
-            ai_credits_purchased=10,
-            ai_credits_used_this_month=5
-        )
-        mock_query.first.return_value = mock_ai_credit
+        # Existing user with some usage
+        mock_user = Mock(spec=User)
+        mock_user.id = 1
+        mock_user.ai_credits_purchased = 10
+        mock_user.ai_credits_used_this_month = 5
+        mock_query.first.return_value = mock_user
 
         # Act
         AIVisionService._consume_credit(mock_db, user_id=1)
 
         # Assert
-        assert mock_ai_credit.ai_credits_used_this_month == 6
+        assert mock_user.ai_credits_used_this_month == 6
 
-    def test_consume_credit_handles_missing_record_gracefully(self):
-        """Test that consume_credit doesn't crash if AICredit doesn't exist."""
+    def test_consume_credit_handles_missing_user_gracefully(self):
+        """Test that consume_credit doesn't crash if user doesn't exist."""
         # Arrange: Mock database session
         mock_db = Mock()
         mock_query = Mock()
         mock_db.query.return_value = mock_query
         mock_query.filter.return_value = mock_query
 
-        # No existing AI credit record
+        # No existing user
         mock_query.first.return_value = None
 
         # Act & Assert: Should not raise

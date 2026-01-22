@@ -8,7 +8,7 @@ Includes model coefficient extraction and condition-based adjustments.
 from decimal import Decimal
 from typing import Optional
 
-from models.public.model import Model
+from models.product_attributes.model import Model
 
 
 # Supplement values for condition adjustment

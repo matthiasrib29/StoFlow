@@ -10,7 +10,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from models.public.model import Model
+from models.product_attributes.model import Model
 from services.pricing.adjustment_calculators import (
     calculateConditionAdjustment,
     calculateDecadeAdjustment,

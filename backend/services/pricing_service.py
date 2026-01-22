@@ -20,7 +20,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from models.public.brand_group import BrandGroup
-from models.public.model import Model
+from models.product_attributes.model import Model
 from repositories.brand_group_repository import BrandGroupRepository
 from repositories.model_repository import ModelRepository
 from schemas.pricing import AdjustmentBreakdown, PriceInput, PriceOutput

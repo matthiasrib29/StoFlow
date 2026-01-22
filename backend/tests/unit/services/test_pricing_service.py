@@ -19,7 +19,7 @@ from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 from models.public.brand_group import BrandGroup
-from models.public.model import Model
+from models.product_attributes.model import Model
 from repositories.brand_group_repository import BrandGroupRepository
 from repositories.model_repository import ModelRepository
 from schemas.pricing import PriceInput, PriceOutput

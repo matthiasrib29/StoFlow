@@ -19,9 +19,6 @@ from models.public import (
     UserRole,
     SubscriptionTier,
     SubscriptionQuota,
-    # Pricing & Credits
-    ClothingPrice,
-    AICredit,
     # eBay Configuration
     MarketplaceConfig,
     AspectMapping,
@@ -52,6 +49,9 @@ from models.public import (
     Trend,
     UniqueFeature,
 )
+
+# ===== PRODUCT_ATTRIBUTES SCHEMA MODELS =====
+from models.product_attributes import Model
 
 # ===== VINTED SCHEMA MODELS =====
 from models.vinted import (
@@ -96,9 +96,6 @@ __all__ = [
     "UserRole",
     "SubscriptionTier",
     "SubscriptionQuota",
-    # Pricing & Credits
-    "ClothingPrice",
-    "AICredit",
     # eBay Configuration
     "MarketplaceConfig",
     "AspectMapping",
@@ -120,6 +117,7 @@ __all__ = [
     "GenderAttribute",
     "Length",
     "Material",
+    "Model",
     "Neckline",
     "Origin",
     "Pattern",
