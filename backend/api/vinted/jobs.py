@@ -27,6 +27,9 @@ from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.marketplace_batch import MarketplaceBatch
 from services.vinted.vinted_job_service import VintedJobService
 from services.marketplace.marketplace_batch_service import MarketplaceBatchService
+from shared.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["Vinted Jobs"])
 
@@ -352,12 +355,28 @@ async def cancel_jobs(
 
     # Cancel single job
     if job_id:
+        # Get job first to check for Temporal workflow
+        job = service.get_job(job_id)
+        workflow_id = job.input_data.get("workflow_id") if job and job.input_data else None
+
         job = service.cancel_job(job_id)
         if not job:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot cancel job {job_id} (not found or already terminal)",
             )
+
+        # Send Temporal cancel signal if this is a Temporal workflow
+        if workflow_id:
+            try:
+                from temporal.client import get_temporal_client
+                client = await get_temporal_client()
+                handle = client.get_workflow_handle(workflow_id)
+                await handle.signal("cancel_sync")
+                logger.info(f"Sent cancel signal to Temporal workflow {workflow_id}")
+            except Exception as e:
+                logger.warning(f"Failed to cancel Temporal workflow {workflow_id}: {e}")
+
         return {
             "success": True,
             "job_id": job_id,

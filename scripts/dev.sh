@@ -138,7 +138,9 @@ else
     exit 1
 fi
 
-# Start uvicorn in background
+# Start uvicorn in background with isolated Temporal task queue
+export TEMPORAL_TASK_QUEUE="stoflow-sync-queue-dev${ENV_NUM}"
+echo -e "${YELLOW}   Temporal queue: ${TEMPORAL_TASK_QUEUE}${NC}"
 uvicorn main:socket_app --reload --host 0.0.0.0 --port ${BACKEND_PORT} > ../logs/${ENV_NAME}-backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..

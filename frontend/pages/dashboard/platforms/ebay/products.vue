@@ -10,8 +10,8 @@
     <!-- Header Actions -->
     <template #header-actions>
       <Button
-        label="Importer"
-        icon="pi pi-download"
+        label="Synchroniser"
+        icon="pi pi-sync"
         class="btn-primary"
         :loading="isSyncing"
         :disabled="isSyncing"
@@ -21,7 +21,7 @@
 
     <!-- Stats Summary -->
     <template #stats>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-3 gap-4">
         <div class="bg-white rounded-xl p-4 border border-gray-100">
           <p class="text-sm text-gray-500">Total</p>
           <p class="text-2xl font-bold text-secondary-900">{{ totalProducts }}</p>
@@ -29,10 +29,6 @@
         <div class="bg-white rounded-xl p-4 border border-gray-100">
           <p class="text-sm text-gray-500">Actifs</p>
           <p class="text-2xl font-bold text-success-600">{{ activeCount }}</p>
-        </div>
-        <div class="bg-white rounded-xl p-4 border border-gray-100">
-          <p class="text-sm text-gray-500">Brouillons</p>
-          <p class="text-2xl font-bold text-warning-600">{{ draftCount }}</p>
         </div>
         <div class="bg-white rounded-xl p-4 border border-gray-100">
           <p class="text-sm text-gray-500">Hors stock</p>
@@ -150,8 +146,8 @@
           <Column header="Statut" style="min-width: 100px">
             <template #body="{ data }">
               <Tag
-                :severity="getStatusSeverity(data.status)"
-                :value="getStatusLabel(data.status)"
+                :severity="getDisplayStatusSeverity(data)"
+                :value="getDisplayStatusLabel(data)"
               />
             </template>
           </Column>
@@ -197,8 +193,8 @@
     <!-- Empty Actions -->
     <template #empty-actions>
       <Button
-        label="Importer depuis eBay"
-        icon="pi pi-download"
+        label="Synchroniser depuis eBay"
+        icon="pi pi-sync"
         class="mt-4 btn-primary"
         :loading="isSyncing"
         @click="handleImport"
@@ -238,6 +234,7 @@ interface EbayProduct {
   color: string | null
   condition: string | null
   quantity: number
+  sold_quantity: number | null
   marketplace_id: string
   ebay_listing_id: number | null
   status: string
@@ -412,6 +409,21 @@ const getConditionLabel = (condition: string): string => {
     FOR_PARTS_OR_NOT_WORKING: 'Pour pièces'
   }
   return labels[condition] || condition || 'Non spécifié'
+}
+
+// Display status based on sold_quantity (sold_quantity >= 1 = out of stock)
+const getDisplayStatusLabel = (product: EbayProduct): string => {
+  if (product.sold_quantity && product.sold_quantity >= 1) {
+    return 'Hors stock'
+  }
+  return getStatusLabel(product.status)
+}
+
+const getDisplayStatusSeverity = (product: EbayProduct): string => {
+  if (product.sold_quantity && product.sold_quantity >= 1) {
+    return 'danger'
+  }
+  return getStatusSeverity(product.status)
 }
 
 // Link functions

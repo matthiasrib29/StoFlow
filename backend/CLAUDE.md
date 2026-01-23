@@ -249,15 +249,15 @@ Each marketplace has handlers in `services/{marketplace}/jobs/`:
 Examples:
 - `publish_vinted` → `VintedPublishJobHandler`
 - `publish_ebay` → `EbayPublishJobHandler`
-- `sync_etsy` → `EtsySyncJobHandler`
+- `import_ebay` → `EbayImportJobHandler`
 
 ### Available Handlers
 
 | Marketplace | Handlers |
 |-------------|----------|
 | **Vinted** | publish, update, delete, sync, orders, message, link |
-| **eBay** | publish, update, delete, sync, sync_orders |
-| **Etsy** | publish, update, delete, sync, sync_orders |
+| **eBay** | publish, update, delete, sync_orders, import |
+| **Etsy** | publish, update, delete |
 
 ### Key Files (Unified System)
 

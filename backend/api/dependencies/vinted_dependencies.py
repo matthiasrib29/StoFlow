@@ -59,8 +59,9 @@ def build_job_response_dict(
 
     # Determine batch_id
     batch_id = batch_id_override
-    if batch_id is None and job.batch_job:
-        batch_id = job.batch_job.batch_id
+    if batch_id is None and job.marketplace_batch_id:
+        # Access via FK directly to avoid lazy="raise" issue
+        batch_id = str(job.marketplace_batch_id)
 
     return {
         "id": job.id,

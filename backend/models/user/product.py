@@ -54,6 +54,7 @@ class ProductStatus(str, Enum):
     - SCHEDULED: Publication programmée
     - SUSPENDED: Suspendu (modération)
     - FLAGGED: Signalé (modération)
+    - PENDING_DELETION: En attente de confirmation de suppression/vente (2026-01-22)
     """
 
     DRAFT = "draft"
@@ -66,6 +67,7 @@ class ProductStatus(str, Enum):
     FLAGGED = "flagged"
     SOLD = "sold"
     ARCHIVED = "archived"
+    PENDING_DELETION = "pending_deletion"
 
 
 class Product(Base):
@@ -461,6 +463,14 @@ class Product(Base):
         back_populates="product",
         cascade="all, delete-orphan",
         lazy="selectin"
+    )
+
+    # ===== PENDING ACTIONS (2026-01-22) =====
+    pending_actions: Mapped[list["PendingAction"]] = relationship(
+        "PendingAction",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="raise"
     )
 
     # ===== ONE-TO-MANY RELATIONSHIP - PRODUCT IMAGES (NEW - 2026-01-15) =====

@@ -211,121 +211,105 @@ async def get_product(
 @router.post("/products/sync", response_model=VintedJobResponse)
 async def sync_products(
     user_db: tuple = Depends(get_user_db),
-    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
-    use_temporal: bool = Query(True, description="Utiliser Temporal workflow (recommandé)"),
 ):
     """
     Synchronise les produits depuis la garde-robe Vinted.
 
-    Utilise Temporal workflow par défaut (durable, avec progression).
+    Utilise Temporal workflow (durable, avec progression).
     Crée un MarketplaceJob pour tracer l'opération dans l'UI.
-
-    Args:
-        process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
-        use_temporal: Si True, utilise Temporal workflow. Sinon, ancien système.
 
     Returns:
         VintedJobResponse: Job info avec statut et résultat optionnel
+
+    Raises:
+        503: If Temporal is disabled
+        409: If a sync is already running for this user
     """
     db, current_user = user_db
     connection = get_active_vinted_connection(db, current_user.id)
     shop_id = connection.vinted_user_id
 
-    # Try Temporal workflow if enabled
-    if use_temporal:
-        try:
-            from temporal.config import get_temporal_config
-            config = get_temporal_config()
+    # Check Temporal is enabled
+    from temporal.config import get_temporal_config
+    config = get_temporal_config()
 
-            if config.temporal_enabled:
-                from models.user.marketplace_job import JobStatus
-                from services.marketplace.marketplace_job_service import MarketplaceJobService
-                from temporal.client import get_temporal_client
-                from temporal.workflows.vinted.sync_workflow import VintedSyncParams, VintedSyncWorkflow
+    if not config.temporal_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Temporal is disabled. Sync requires Temporal workflow.",
+        )
 
-                # Check if a Vinted sync workflow is already running for this user
-                client = await get_temporal_client()
-                query = f'WorkflowType = "VintedSyncWorkflow" AND ExecutionStatus = "Running" AND WorkflowId STARTS_WITH "vinted-sync-user-{current_user.id}"'
+    from models.user.marketplace_job import JobStatus
+    from services.marketplace.marketplace_job_service import MarketplaceJobService
+    from temporal.client import get_temporal_client
+    from temporal.workflows.vinted.sync_workflow import VintedSyncParams, VintedSyncWorkflow
 
-                async for workflow in client.list_workflows(query=query):
-                    # Found a running workflow - reject new sync
-                    logger.warning(
-                        f"Rejected sync request: workflow {workflow.id} already running for user {current_user.id}"
-                    )
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail=f"Un sync Vinted est déjà en cours (workflow: {workflow.id}). "
-                               f"Attendez qu'il se termine ou annulez-le.",
-                    )
+    # Check if a Vinted sync workflow is already running for this user
+    client = await get_temporal_client()
+    query = f'WorkflowType = "VintedSyncWorkflow" AND ExecutionStatus = "Running" AND WorkflowId STARTS_WITH "vinted-sync-user-{current_user.id}"'
 
-                # Create job record for tracking in DB
-                job_service = MarketplaceJobService(db)
-                job = job_service.create_job(
-                    marketplace="vinted",
-                    action_code="sync",
-                    product_id=None,
-                    input_data={
-                        "shop_id": shop_id,
-                        "via_temporal": True,
-                    },
-                )
-                job.status = JobStatus.RUNNING
-                db.commit()
+    async for workflow in client.list_workflows(query=query):
+        # Found a running workflow - reject new sync
+        logger.warning(
+            f"Rejected sync request: workflow {workflow.id} already running for user {current_user.id}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Un sync Vinted est déjà en cours (workflow: {workflow.id}). "
+                   f"Attendez qu'il se termine ou annulez-le.",
+        )
 
-                # Start Temporal workflow (client already obtained above)
-                workflow_id = f"vinted-sync-user-{current_user.id}-job-{job.id}"
-
-                params = VintedSyncParams(
-                    user_id=current_user.id,
-                    job_id=job.id,
-                    shop_id=shop_id,
-                )
-
-                handle = await client.start_workflow(
-                    VintedSyncWorkflow.run,
-                    params,
-                    id=workflow_id,
-                    task_queue=config.temporal_task_queue,
-                )
-
-                # Update job with workflow_id
-                job.input_data = {
-                    **job.input_data,
-                    "workflow_id": workflow_id,
-                    "run_id": handle.result_run_id,
-                }
-                db.commit()
-
-                logger.info(
-                    f"Started Temporal Vinted sync workflow: {workflow_id} for user {current_user.id}"
-                )
-
-                return {
-                    "job_id": job.id,
-                    "status": "running",
-                    "result": {
-                        "success": True,
-                        "message": "Temporal workflow started",
-                        "workflow_id": workflow_id,
-                    },
-                }
-
-        except Exception as e:
-            logger.warning(
-                f"Temporal not available, falling back to legacy sync: {e}. "
-                "WARNING: Legacy sync has _mark_missing_products_as_sold DISABLED."
-            )
-            # Fall through to legacy system (now safe with disabled functions)
-
-    # Legacy system fallback
-    return await create_and_execute_vinted_job(
-        db=db,
-        user_id=current_user.id,
-        shop_id=shop_id,
+    # Create job record for tracking in DB
+    job_service = MarketplaceJobService(db)
+    job = job_service.create_job(
+        marketplace="vinted",
         action_code="sync",
         product_id=None,
-        process_now=process_now,
+        input_data={
+            "shop_id": shop_id,
+            "via_temporal": True,
+        },
     )
+    job.status = JobStatus.RUNNING
+    db.commit()
+
+    # Start Temporal workflow
+    workflow_id = f"vinted-sync-user-{current_user.id}-job-{job.id}"
+
+    params = VintedSyncParams(
+        user_id=current_user.id,
+        job_id=job.id,
+        shop_id=shop_id,
+    )
+
+    handle = await client.start_workflow(
+        VintedSyncWorkflow.run,
+        params,
+        id=workflow_id,
+        task_queue=config.temporal_task_queue,
+    )
+
+    # Update job with workflow_id
+    job.input_data = {
+        **job.input_data,
+        "workflow_id": workflow_id,
+        "run_id": handle.result_run_id,
+    }
+    db.commit()
+
+    logger.info(
+        f"Started Temporal Vinted sync workflow: {workflow_id} for user {current_user.id}"
+    )
+
+    return {
+        "job_id": job.id,
+        "status": "running",
+        "result": {
+            "success": True,
+            "message": "Temporal workflow started",
+            "workflow_id": workflow_id,
+        },
+    }
 
 
 # Note: POST /products/{product_id}/publish is in publishing.py (uses job system)
