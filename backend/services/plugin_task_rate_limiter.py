@@ -33,22 +33,22 @@ class VintedRateLimiter:
     """
 
     # Configuration des délais par méthode HTTP (min_delay, max_delay en secondes)
-    # Minimum 1 seconde pour tout
+    # Protection renforcée contre détection bot (2026-01-22)
     METHOD_DELAYS = {
-        "GET": (1.0, 2.5),      # Lecture
-        "POST": (2.0, 4.0),     # Création
-        "PUT": (2.0, 4.0),      # Modification
-        "DELETE": (3.0, 5.0),   # Suppression
+        "GET": (3.0, 8.0),       # Lecture
+        "POST": (5.0, 12.0),     # Création
+        "PUT": (5.0, 12.0),      # Modification
+        "DELETE": (6.0, 15.0),   # Suppression
     }
 
     # Espacement minimum entre requêtes (en secondes)
-    MIN_SPACING = 1.0
+    MIN_SPACING = 3.0
 
     # Pause périodique (simule pause humaine)
-    PAUSE_INTERVAL_MIN = 8   # Pause après 8-14 requêtes (aléatoire)
-    PAUSE_INTERVAL_MAX = 14
-    PAUSE_DURATION_MIN = 5.0   # Durée de la pause: 5-15 secondes
-    PAUSE_DURATION_MAX = 15.0
+    PAUSE_INTERVAL_MIN = 10   # Pause après 10-15 requêtes (aléatoire)
+    PAUSE_INTERVAL_MAX = 15
+    PAUSE_DURATION_MIN = 15.0   # Durée de la pause: 15-30 secondes
+    PAUSE_DURATION_MAX = 30.0
 
     _last_request_time: float = 0
     _request_count: int = 0

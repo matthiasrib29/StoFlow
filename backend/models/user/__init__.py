@@ -27,6 +27,7 @@ from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from models.vinted.vinted_deletion import VintedDeletion
 from models.user.marketplace_batch import MarketplaceBatch, MarketplaceBatchStatus, BatchJob, BatchJobStatus
 from models.user.marketplace_job import MarketplaceJob, JobStatus
+from models.user.pending_action import PendingAction, PendingActionType
 # MarketplaceJobStats removed (2026-01-20): Not used
 
 __all__ = [
@@ -64,4 +65,7 @@ __all__ = [
     "MarketplaceJob",
     "JobStatus",
     # "MarketplaceJobStats",  # Removed (2026-01-20): Not used
+    # Pending Actions
+    "PendingAction",
+    "PendingActionType",
 ]

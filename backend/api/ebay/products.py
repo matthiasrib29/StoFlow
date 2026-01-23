@@ -66,14 +66,8 @@ async def list_ebay_products(
     # Apply filters
     if status:
         if status == "out_of_stock":
-            # Use available_quantity (from Offer API) which reflects actual availability
-            # Handle both NULL and 0 as out of stock
-            query = query.filter(
-                or_(
-                    EbayProduct.available_quantity == 0,
-                    EbayProduct.available_quantity.is_(None)
-                )
-            )
+            # Out of stock = sold_quantity >= 1 (product has been sold)
+            query = query.filter(EbayProduct.sold_quantity >= 1)
         else:
             query = query.filter(EbayProduct.status == status)
 
@@ -94,12 +88,19 @@ async def list_ebay_products(
     if marketplace_id:
         stats_query = stats_query.filter(EbayProduct.marketplace_id == marketplace_id)
 
-    active_count = stats_query.filter(EbayProduct.status == "active").count()
-    inactive_count = stats_query.filter(
-        EbayProduct.status.in_(["inactive", "draft", "ended"])
+    # Out of stock = sold_quantity >= 1 (product has been sold)
+    out_of_stock_count = stats_query.filter(EbayProduct.sold_quantity >= 1).count()
+
+    # Active = status active AND not sold (sold_quantity is NULL or 0)
+    active_count = stats_query.filter(
+        EbayProduct.status == "active",
+        or_(EbayProduct.sold_quantity.is_(None), EbayProduct.sold_quantity < 1)
     ).count()
-    out_of_stock_count = stats_query.filter(
-        or_(EbayProduct.quantity == 0, EbayProduct.quantity.is_(None))
+
+    # Inactive/draft = not sold (exclude products with sold_quantity >= 1)
+    inactive_count = stats_query.filter(
+        EbayProduct.status.in_(["inactive", "draft", "ended"]),
+        or_(EbayProduct.sold_quantity.is_(None), EbayProduct.sold_quantity < 1)
     ).count()
 
     return EbayProductListResponse(

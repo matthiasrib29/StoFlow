@@ -113,28 +113,21 @@ class VintedDataExtractor:
         return VintedDataExtractor.extract_text_field(catalog_obj)
 
     @staticmethod
-    def map_api_status(
-        is_draft: bool,
-        is_closed: bool,
-        closing_action: str | None
-    ) -> str:
+    def map_api_status(is_draft: bool, is_closed: bool) -> str:
         """
         Mappe le statut API vers statut DB.
 
         Args:
             is_draft: True si brouillon
-            is_closed: True si ferme
-            closing_action: Action de fermeture ('sold', etc.)
+            is_closed: True si fermé (= vendu sur Vinted)
 
         Returns:
-            str: 'draft', 'published', 'sold' ou 'deleted'
+            str: 'draft', 'published' ou 'sold'
         """
         if is_draft:
             return 'draft'
         if is_closed:
-            if closing_action == 'sold':
-                return 'sold'
-            return 'deleted'
+            return 'sold'
         return 'published'
 
     @staticmethod
