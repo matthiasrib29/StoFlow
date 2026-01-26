@@ -385,7 +385,8 @@ class EbayBaseClient:
             # Content-Language: fr-FR sera automatiquement ajouté
         """
         # Utiliser Commerce API base URL pour les endpoints /commerce/*
-        if path.startswith("/commerce/"):
+        # Exception: Taxonomy API uses standard api.ebay.com, not apiz.ebay.com
+        if path.startswith("/commerce/") and not path.startswith("/commerce/taxonomy/"):
             api_base = self.COMMERCE_API_BASE_SANDBOX if self.sandbox else self.COMMERCE_API_BASE_PRODUCTION
         else:
             api_base = self.api_base
