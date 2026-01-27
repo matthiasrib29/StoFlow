@@ -6,6 +6,8 @@
  * detected by marketplace sync workflows.
  */
 
+import { logger } from '~/utils/logger'
+
 export interface PendingActionProduct {
   id: number
   title: string
@@ -69,7 +71,7 @@ export function usePendingActions() {
       pendingCount.value = response.count
       return response.count
     } catch (e) {
-      console.error('Failed to fetch pending actions count:', e)
+      logger.error('Failed to fetch pending actions count:', e)
       return 0
     }
   }
@@ -89,7 +91,7 @@ export function usePendingActions() {
       currentPage.value = page
       return response
     } catch (e) {
-      console.error('Failed to fetch pending actions:', e)
+      logger.error('Failed to fetch pending actions:', e)
       return []
     } finally {
       isLoading.value = false
