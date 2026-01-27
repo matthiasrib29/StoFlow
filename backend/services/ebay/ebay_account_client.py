@@ -132,6 +132,22 @@ class EbayAccountClient(EbayBaseClient):
             scopes=["sell.account"],
         )
 
+    def delete_fulfillment_policy(self, policy_id: str) -> None:
+        """
+        Supprime une fulfillment policy.
+
+        Args:
+            policy_id: ID de la policy à supprimer
+
+        Returns:
+            None (204 No Content)
+        """
+        return self.api_call(
+            "DELETE",
+            f"{self.FULFILLMENT_POLICY_URL}/{policy_id}",
+            scopes=["sell.account"],
+        )
+
     def update_fulfillment_policy(
         self, policy_id: str, policy_data: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -205,6 +221,42 @@ class EbayAccountClient(EbayBaseClient):
             scopes=["sell.account"],
         )
 
+    def delete_payment_policy(self, policy_id: str) -> None:
+        """
+        Supprime une payment policy.
+
+        Args:
+            policy_id: ID de la policy à supprimer
+
+        Returns:
+            None (204 No Content)
+        """
+        return self.api_call(
+            "DELETE",
+            f"{self.PAYMENT_POLICY_URL}/{policy_id}",
+            scopes=["sell.account"],
+        )
+
+    def update_payment_policy(
+        self, policy_id: str, policy_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Met à jour une payment policy existante.
+
+        Args:
+            policy_id: ID de la policy à mettre à jour
+            policy_data: Nouvelles données (même format que create)
+
+        Returns:
+            Dict avec les détails de la policy mise à jour
+        """
+        return self.api_call(
+            "PUT",
+            f"{self.PAYMENT_POLICY_URL}/{policy_id}",
+            json_data=policy_data,
+            scopes=["sell.account"],
+        )
+
     # ========== RETURN POLICIES API ==========
 
     def get_return_policies(
@@ -251,6 +303,42 @@ class EbayAccountClient(EbayBaseClient):
         return self.api_call(
             "POST",
             self.RETURN_POLICY_URL,
+            json_data=policy_data,
+            scopes=["sell.account"],
+        )
+
+    def delete_return_policy(self, policy_id: str) -> None:
+        """
+        Supprime une return policy.
+
+        Args:
+            policy_id: ID de la policy à supprimer
+
+        Returns:
+            None (204 No Content)
+        """
+        return self.api_call(
+            "DELETE",
+            f"{self.RETURN_POLICY_URL}/{policy_id}",
+            scopes=["sell.account"],
+        )
+
+    def update_return_policy(
+        self, policy_id: str, policy_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Met à jour une return policy existante.
+
+        Args:
+            policy_id: ID de la policy à mettre à jour
+            policy_data: Nouvelles données (même format que create)
+
+        Returns:
+            Dict avec les détails de la policy mise à jour
+        """
+        return self.api_call(
+            "PUT",
+            f"{self.RETURN_POLICY_URL}/{policy_id}",
             json_data=policy_data,
             scopes=["sell.account"],
         )

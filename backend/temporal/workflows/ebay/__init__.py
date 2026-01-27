@@ -11,6 +11,10 @@ from temporal.workflows.ebay.cleanup_workflow import (
     EbayCleanupWorkflow,
     EbayCleanupParams,
 )
+from temporal.workflows.ebay.apply_policy_workflow import (
+    EbayApplyPolicyWorkflow,
+    ApplyPolicyParams,
+)
 
 __all__ = [
     "EbaySyncWorkflow",
@@ -18,4 +22,6 @@ __all__ = [
     "SyncProgress",
     "EbayCleanupWorkflow",
     "EbayCleanupParams",
+    "EbayApplyPolicyWorkflow",
+    "ApplyPolicyParams",
 ]

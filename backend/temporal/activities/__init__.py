@@ -15,6 +15,7 @@ from temporal.activities.ebay_activities import (
     get_skus_to_enrich,
     detect_ebay_sold_elsewhere,
     delete_ebay_listing,
+    apply_policy_to_single_offer,
     EBAY_ACTIVITIES,
 )
 
@@ -50,6 +51,7 @@ __all__ = [
     "get_skus_to_enrich",
     "detect_ebay_sold_elsewhere",
     "delete_ebay_listing",
+    "apply_policy_to_single_offer",
     # Vinted activities
     "VINTED_ACTIVITIES",
     "vinted_fetch_and_sync_page",
