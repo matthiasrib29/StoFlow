@@ -32,6 +32,10 @@ from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Pre-computed dummy hash for timing attack protection.
+# When user is not found, we verify against this hash to equalize response time.
+_DUMMY_HASH = "$2b$12$LJ3m4ys3Lg.Wy6TBKsWJceDNB9UhMxqF0LLjmYiT7NNMmr2FrQBG"
+
 
 class AuthService:
     """Service d'authentification avec JWT."""
@@ -188,6 +192,9 @@ class AuthService:
 
         # Vérifier que l'utilisateur existe
         if not user:
+            # Timing attack protection: perform dummy bcrypt verification
+            # to equalize response time regardless of user existence
+            AuthService.verify_password("dummy_password", _DUMMY_HASH)
             logger.warning(f"Login failed: email={email}, reason=user_not_found")
             return None
 

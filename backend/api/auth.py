@@ -9,8 +9,6 @@ Security (2026-01-20):
 - Backward compatibility: header auth still supported during migration
 """
 
-import asyncio
-import random
 from typing import Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, status
@@ -79,11 +77,6 @@ async def login(
     # ===== SECURITY FIX (2025-12-05): Redact password dans logs =====
     # Log sans exposer le password
     logger.info(f"Login attempt: email={credentials.email}, password={redact_password(credentials.password)}, source={source}")
-
-    # ===== SECURITY FIX (2025-12-05): Timing Attack Protection =====
-    # Délai aléatoire 100-300ms pour rendre timing attack impossible
-    delay_ms = random.uniform(0.1, 0.3)  # 100-300ms
-    await asyncio.sleep(delay_ms)
 
     user = AuthService.authenticate_user(
         db=db,
