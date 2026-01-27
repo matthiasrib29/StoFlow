@@ -1,7 +1,9 @@
 """
-Security Headers Middleware
+Security Headers Middleware (Pure ASGI).
 
 Ajoute les headers de sécurité HTTP pour protéger contre diverses attaques.
+Converted from BaseHTTPMiddleware to pure ASGI to avoid Content-Length mismatch
+when stacked with other middleware (known Starlette issue).
 
 Business Rules (Security - 2025-12-05):
 - HSTS: Force HTTPS pour 1 an (production uniquement)
@@ -10,18 +12,18 @@ Business Rules (Security - 2025-12-05):
 - Content-Security-Policy: Bloque inline scripts
 
 Created: 2025-12-05
+Updated: 2026-01-27 - Converted to pure ASGI middleware
 """
 
-from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from shared.config import settings
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+class SecurityHeadersMiddleware:
     """
-    Middleware pour ajouter les headers de sécurité HTTP.
+    Pure ASGI middleware pour ajouter les headers de sécurité HTTP.
 
     Headers ajoutés:
     - X-Frame-Options: DENY
@@ -30,45 +32,41 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - Strict-Transport-Security: max-age=31536000 (production uniquement)
     """
 
-    async def dispatch(self, request: Request, call_next):
-        """Ajoute les security headers à toutes les réponses."""
-        response: Response = await call_next(request)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-        # ===== X-Frame-Options: Bloque iframe (clickjacking) =====
-        response.headers["X-Frame-Options"] = "DENY"
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        # ===== X-Content-Type-Options: Empêche MIME-sniffing =====
-        response.headers["X-Content-Type-Options"] = "nosniff"
+        async def send_with_security_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
 
-        # ===== Content-Security-Policy: Bloque inline scripts =====
-        # Note: 'unsafe-inline' requis pour Swagger UI, à retirer en production
-        if settings.is_production:
-            csp = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'"
-        else:
-            # Dev: Autoriser Swagger UI avec CDN jsdelivr.net et fastapi.tiangolo.com
-            csp = (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                "img-src 'self' data: https://fastapi.tiangolo.com; "
-                "font-src 'self' https://cdn.jsdelivr.net; "
-                "connect-src 'self'"
-            )
+                headers.append("X-Frame-Options", "DENY")
+                headers.append("X-Content-Type-Options", "nosniff")
 
-        response.headers["Content-Security-Policy"] = csp
+                if settings.is_production:
+                    csp = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'"
+                else:
+                    csp = (
+                        "default-src 'self'; "
+                        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                        "img-src 'self' data: https://fastapi.tiangolo.com; "
+                        "font-src 'self' https://cdn.jsdelivr.net; "
+                        "connect-src 'self'"
+                    )
+                headers.append("Content-Security-Policy", csp)
 
-        # ===== HSTS: Force HTTPS (production uniquement) =====
-        if settings.is_production:
-            # max-age=31536000 = 1 an
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+                if settings.is_production:
+                    headers.append("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
-        # ===== X-XSS-Protection: Legacy header (bonus) =====
-        response.headers["X-XSS-Protection"] = "1; mode=block"
+                headers.append("X-XSS-Protection", "1; mode=block")
+                headers.append("Referrer-Policy", "strict-origin-when-cross-origin")
+                headers.append("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 
-        # ===== Referrer-Policy: Limite les infos envoyées (bonus) =====
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            await send(message)
 
-        # ===== Permissions-Policy: Désactive features non utilisées (bonus) =====
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-
-        return response
+        await self.app(scope, receive, send_with_security_headers)

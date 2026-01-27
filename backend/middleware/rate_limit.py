@@ -1,7 +1,9 @@
 """
-Rate Limiting Middleware
+Rate Limiting Middleware (Pure ASGI).
 
 Protection contre bruteforce attacks sur endpoints sensibles.
+Converted from function middleware to pure ASGI to avoid Content-Length mismatch
+when stacked with other middleware (known Starlette BaseHTTPMiddleware issue).
 
 Business Rules (Security - 2025-12-18):
 - /auth/login:
@@ -13,19 +15,20 @@ Business Rules (Security - 2025-12-18):
 
 Created: 2025-12-05
 Updated: 2025-12-18 - Ajout rate limiting par email
+Updated: 2026-01-27 - Converted to pure ASGI middleware
 """
 
 import json
 import os
 import time
 from collections import defaultdict
-from typing import Callable, Optional
+from typing import Optional
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from shared.logging import get_logger
-from shared.timing import timed_operation, measure_operation
 
 logger = get_logger(__name__)
 
@@ -102,35 +105,92 @@ class RateLimitStore:
 rate_limit_store = RateLimitStore()
 
 
-async def _extract_email_from_body(request: Request) -> Optional[str]:
-    """
-    Extrait l'email du body JSON de la requête.
+async def _read_body_from_receive(receive: Receive) -> bytes:
+    """Read the full request body from ASGI receive channel."""
+    body = b""
+    while True:
+        message = await receive()
+        body += message.get("body", b"")
+        if not message.get("more_body", False):
+            break
+    return body
 
-    Note: Cette fonction consomme le body, donc on doit le re-stocker
-    pour que le handler puisse le lire ensuite.
-    """
+
+def _make_body_replay(body: bytes, original_receive: Receive) -> Receive:
+    """Create a receive callable that replays buffered body then delegates to original."""
+    body_sent = False
+
+    async def replay_receive():
+        nonlocal body_sent
+        if not body_sent:
+            body_sent = True
+            return {"type": "http.request", "body": body, "more_body": False}
+        return await original_receive()
+
+    return replay_receive
+
+
+def _extract_email_from_body_bytes(body: bytes) -> Optional[str]:
+    """Extract email from JSON body bytes."""
     try:
-        # Lire le body
-        body = await request.body()
         if not body:
             return None
-
-        # Parser le JSON
         data = json.loads(body)
         email = data.get("email")
-
-        # Re-stocker le body pour le handler (important!)
-        # FastAPI/Starlette permet de relire le body si on le stocke dans _body
-        request._body = body
-
         return email.lower() if email else None
     except (json.JSONDecodeError, AttributeError):
         return None
 
 
-async def rate_limit_middleware(request: Request, call_next: Callable):
+# Configuration par endpoint (Security 2025-12-23: Extended rate limiting)
+RATE_LIMITS = {
+    # Authentication endpoints
+    '/api/auth/login': {
+        'max_attempts_ip': 10,       # Par IP (général)
+        'max_attempts_email': 5,     # Par email (plus strict, anti credential stuffing)
+        'window_seconds': 300        # 5 minutes
+    },
+    '/api/auth/register': {
+        'max_attempts_ip': 5,        # Anti-spam registration
+        'window_seconds': 3600       # 1 heure
+    },
+    '/api/auth/resend-verification': {
+        'max_attempts_ip': 3,
+        'max_attempts_email': 1,     # 1 seul renvoi par email/heure (anti-spam)
+        'window_seconds': 3600       # 1 heure
+    },
+    '/api/auth/verify-email': {
+        'max_attempts_ip': 10,       # Anti brute force token
+        'window_seconds': 300        # 5 minutes
+    },
+    '/api/auth/forgot-password': {
+        'max_attempts_ip': 5,
+        'window_seconds': 3600       # 1 heure
+    },
+    # Stripe payment endpoints
+    '/api/stripe/create-checkout-session': {
+        'max_attempts_ip': 10,
+        'window_seconds': 3600       # 1 heure
+    },
+    '/api/stripe/create-portal-session': {
+        'max_attempts_ip': 10,
+        'window_seconds': 3600       # 1 heure
+    },
+    # Marketplace expensive operations (2026-01-08)
+    '/api/vinted/products/sync': {
+        'max_attempts_ip': 10,       # Limite sync Vinted (expensive DB/API operation)
+        'window_seconds': 3600       # 1 heure
+    },
+    '/api/ebay/products/import': {
+        'max_attempts_ip': 5,        # Limite import eBay (very expensive operation)
+        'window_seconds': 3600       # 1 heure
+    },
+}
+
+
+class RateLimitMiddleware:
     """
-    Middleware de rate limiting.
+    Pure ASGI rate limiting middleware.
 
     Business Rules (Security - 2025-12-18):
     - /auth/login:
@@ -139,155 +199,121 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
     - Autres endpoints: pas de limite (pour l'instant)
     - DÉSACTIVÉ en mode TESTING pour permettre les tests
 
-    Returns:
-        429 Too Many Requests si limite dépassée
+    Returns 429 Too Many Requests si limite dépassée.
     """
-    # BYPASS RULES (Security 2026-01-12):
-    # - NEVER bypass in production (checked via APP_ENV)
-    # - Only bypass in test environment (DISABLE_RATE_LIMIT=1 AND APP_ENV=test)
-    # - Logs warning if bypass is used
-    app_env = os.getenv("APP_ENV", "development")
-    disable_rate_limit = os.getenv("DISABLE_RATE_LIMIT") == "1"
 
-    if disable_rate_limit:
-        if app_env == "production":
-            # CRITICAL: Log and IGNORE the bypass in production
-            logger.critical(
-                "🚨 SECURITY: DISABLE_RATE_LIMIT=1 detected in production environment. "
-                "This flag is IGNORED for security. Rate limiting is ACTIVE."
-            )
-            # Continue to rate limiting (do NOT bypass)
-        elif app_env == "test":
-            # Allow bypass in test environment only
-            logger.debug("[RateLimit] Bypass active (test environment)")
-            return await call_next(request)
-        else:
-            # Development: allow but warn
-            logger.warning(
-                "[RateLimit] Bypass active (development environment). "
-                "Do NOT use in production."
-            )
-            return await call_next(request)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-    # Configuration par endpoint (Security 2025-12-23: Extended rate limiting)
-    rate_limits = {
-        # Authentication endpoints
-        '/api/auth/login': {
-            'max_attempts_ip': 10,       # Par IP (général)
-            'max_attempts_email': 5,     # Par email (plus strict, anti credential stuffing)
-            'window_seconds': 300        # 5 minutes
-        },
-        '/api/auth/register': {
-            'max_attempts_ip': 5,        # Anti-spam registration
-            'window_seconds': 3600       # 1 heure
-        },
-        '/api/auth/resend-verification': {
-            'max_attempts_ip': 3,
-            'max_attempts_email': 1,     # 1 seul renvoi par email/heure (anti-spam)
-            'window_seconds': 3600       # 1 heure
-        },
-        '/api/auth/verify-email': {
-            'max_attempts_ip': 10,       # Anti brute force token
-            'window_seconds': 300        # 5 minutes
-        },
-        '/api/auth/forgot-password': {
-            'max_attempts_ip': 5,
-            'window_seconds': 3600       # 1 heure
-        },
-        # Stripe payment endpoints
-        '/api/stripe/create-checkout-session': {
-            'max_attempts_ip': 10,
-            'window_seconds': 3600       # 1 heure
-        },
-        '/api/stripe/create-portal-session': {
-            'max_attempts_ip': 10,
-            'window_seconds': 3600       # 1 heure
-        },
-        # Marketplace expensive operations (2026-01-08)
-        '/api/vinted/products/sync': {
-            'max_attempts_ip': 10,       # Limite sync Vinted (expensive DB/API operation)
-            'window_seconds': 3600       # 1 heure
-        },
-        '/api/ebay/products/import': {
-            'max_attempts_ip': 5,        # Limite import eBay (very expensive operation)
-            'window_seconds': 3600       # 1 heure
-        },
-    }
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-    # Check si endpoint rate-limité
-    path = request.url.path
-    if path not in rate_limits:
-        # Pas de limite sur cet endpoint
-        return await call_next(request)
+        request = Request(scope)
 
-    config = rate_limits[path]
+        # BYPASS RULES (Security 2026-01-12)
+        app_env = os.getenv("APP_ENV", "development")
+        disable_rate_limit = os.getenv("DISABLE_RATE_LIMIT") == "1"
 
-    # Récupérer IP du client
-    client_ip = request.client.host if request.client else "unknown"
-    key_ip = f"ip:{client_ip}:{path}"
+        if disable_rate_limit:
+            if app_env == "production":
+                logger.critical(
+                    "🚨 SECURITY: DISABLE_RATE_LIMIT=1 detected in production environment. "
+                    "This flag is IGNORED for security. Rate limiting is ACTIVE."
+                )
+                # Continue to rate limiting (do NOT bypass)
+            elif app_env == "test":
+                logger.debug("[RateLimit] Bypass active (test environment)")
+                await self.app(scope, receive, send)
+                return
+            else:
+                logger.warning(
+                    "[RateLimit] Bypass active (development environment). "
+                    "Do NOT use in production."
+                )
+                await self.app(scope, receive, send)
+                return
 
-    # Vérifier limite par IP
-    attempts_ip = rate_limit_store.get_attempts(key_ip)
-    if attempts_ip >= config['max_attempts_ip']:
-        reset_at = rate_limit_store.get_reset_time(key_ip)
-        retry_after = max(1, int(reset_at - time.time()))
+        # Check si endpoint rate-limité
+        path = request.url.path
+        if path not in RATE_LIMITS:
+            await self.app(scope, receive, send)
+            return
 
-        logger.warning(f"Rate limit exceeded (IP): ip={client_ip}, attempts={attempts_ip}")
+        config = RATE_LIMITS[path]
 
-        return JSONResponse(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            content={
-                "detail": f"Too many login attempts from this IP. Please try again in {retry_after} seconds.",
-                "retry_after": retry_after,
-                "limit_type": "ip"
-            },
-            headers={"Retry-After": str(retry_after)}
-        )
+        # Récupérer IP du client
+        client_ip = request.client.host if request.client else "unknown"
+        key_ip = f"ip:{client_ip}:{path}"
 
-    # Extraire email pour rate limiting par email
-    email = None
-    if path == '/api/auth/login' and request.method == "POST":
-        # Login: email dans le body JSON
-        email = await _extract_email_from_body(request)
-    elif path == '/api/auth/resend-verification' and request.method == "POST":
-        # Resend verification: email dans query param
-        email = request.query_params.get('email')
-        if email:
-            email = email.lower()
-
-    # Vérifier limite par email (si configurée et email disponible)
-    if email and 'max_attempts_email' in config:
-        key_email = f"email:{email}:{path}"
-        attempts_email = rate_limit_store.get_attempts(key_email)
-
-        if attempts_email >= config['max_attempts_email']:
-            reset_at = rate_limit_store.get_reset_time(key_email)
+        # Vérifier limite par IP
+        attempts_ip = rate_limit_store.get_attempts(key_ip)
+        if attempts_ip >= config['max_attempts_ip']:
+            reset_at = rate_limit_store.get_reset_time(key_ip)
             retry_after = max(1, int(reset_at - time.time()))
 
-            logger.warning(f"Rate limit exceeded (email): email={email[:3]}***, path={path}, attempts={attempts_email}")
+            logger.warning(f"Rate limit exceeded (IP): ip={client_ip}, attempts={attempts_ip}")
 
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={
-                    "detail": f"Trop de tentatives pour cette adresse email. Réessayez dans {retry_after} secondes.",
+                    "detail": f"Too many login attempts from this IP. Please try again in {retry_after} seconds.",
                     "retry_after": retry_after,
-                    "limit_type": "email"
+                    "limit_type": "ip"
                 },
                 headers={"Retry-After": str(retry_after)}
             )
+            await response(scope, receive, send)
+            return
 
-    # Incrémenter les compteurs (seulement si pas dépassé)
-    rate_limit_store.increment(key_ip, config['window_seconds'])
-    if email and 'max_attempts_email' in config:
-        key_email = f"email:{email}:{path}"
-        rate_limit_store.increment(key_email, config['window_seconds'])
+        # Extraire email pour rate limiting par email
+        email = None
+        body_bytes = None
+        if path == '/api/auth/login' and request.method == "POST":
+            body_bytes = await _read_body_from_receive(receive)
+            email = _extract_email_from_body_bytes(body_bytes)
+        elif path == '/api/auth/resend-verification' and request.method == "POST":
+            email = request.query_params.get('email')
+            if email:
+                email = email.lower()
 
-    # Continuer la requête
-    response = await call_next(request)
+        # Vérifier limite par email (si configurée et email disponible)
+        if email and 'max_attempts_email' in config:
+            key_email = f"email:{email}:{path}"
+            attempts_email = rate_limit_store.get_attempts(key_email)
 
-    # Cleanup périodique (1 fois sur 100 requêtes)
-    import random
-    if random.randint(1, 100) == 1:
-        rate_limit_store.cleanup_expired()
+            if attempts_email >= config['max_attempts_email']:
+                reset_at = rate_limit_store.get_reset_time(key_email)
+                retry_after = max(1, int(reset_at - time.time()))
 
-    return response
+                logger.warning(f"Rate limit exceeded (email): email={email[:3]}***, path={path}, attempts={attempts_email}")
+
+                response = JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={
+                        "detail": f"Trop de tentatives pour cette adresse email. Réessayez dans {retry_after} secondes.",
+                        "retry_after": retry_after,
+                        "limit_type": "email"
+                    },
+                    headers={"Retry-After": str(retry_after)}
+                )
+                await response(scope, receive, send)
+                return
+
+        # Incrémenter les compteurs (seulement si pas dépassé)
+        rate_limit_store.increment(key_ip, config['window_seconds'])
+        if email and 'max_attempts_email' in config:
+            key_email = f"email:{email}:{path}"
+            rate_limit_store.increment(key_email, config['window_seconds'])
+
+        # Cleanup périodique (1 fois sur 100 requêtes)
+        import random
+        if random.randint(1, 100) == 1:
+            rate_limit_store.cleanup_expired()
+
+        # If body was consumed for email extraction, replay it for downstream
+        if body_bytes is not None:
+            await self.app(scope, _make_body_replay(body_bytes, receive), send)
+        else:
+            await self.app(scope, receive, send)
