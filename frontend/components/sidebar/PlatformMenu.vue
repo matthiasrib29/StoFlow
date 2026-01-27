@@ -56,6 +56,17 @@
           <span>Paramètres</span>
         </NuxtLink>
 
+        <!-- Vendeurs Pro (admin only, vinted only) -->
+        <NuxtLink
+          v-if="platform === 'vinted' && isAdmin"
+          to="/dashboard/platforms/vinted/pro-sellers"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all text-gray-500 text-sm font-medium"
+          active-class="bg-primary-50 text-secondary-900 font-semibold"
+        >
+          <i class="pi pi-briefcase text-sm"/>
+          <span>Vendeurs Pro</span>
+        </NuxtLink>
+
         <!-- PMV2: eBay Post-Sale Management caché pour la phase 1 -->
         <template v-if="platform === 'ebay' && showEbayPostSale">
           <div class="my-2 border-t border-gray-100" />
@@ -127,5 +138,8 @@ defineEmits<{
 }>()
 
 const route = useRoute()
+const authStore = useAuthStore()
 const { showPlatformStatistics, showEbayPostSale } = useFeatureFlags()
+
+const isAdmin = computed(() => authStore.user?.role === 'admin')
 </script>

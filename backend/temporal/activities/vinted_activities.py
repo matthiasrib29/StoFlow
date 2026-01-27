@@ -958,6 +958,170 @@ async def delete_vinted_listing(user_id: int, product_id: int) -> dict:
         db.close()
 
 
+@activity.defn(name="vinted_scan_pro_sellers_page")
+async def scan_pro_sellers_page(
+    user_id: int,
+    search_text: str,
+    page: int,
+    per_page: int = 90,
+) -> dict:
+    """
+    Fetch a page of Vinted users via plugin and filter for business accounts.
+
+    Uses VINTED_FETCH_USERS plugin action to search users, then filters
+    for business=true accounts on the backend side.
+
+    Args:
+        user_id: User ID for WebSocket plugin communication
+        search_text: Search text (e.g., a single letter 'a', 'b', etc.)
+        page: Page number (1-indexed)
+        per_page: Results per page (max 90)
+
+    Returns:
+        Dict with:
+        - pro_sellers: list of user dicts with business=true
+        - total_pages: estimated total pages (based on result count)
+        - error: error code if any (disconnected, rate_limited, etc.)
+    """
+    activity.logger.info(
+        f"Scanning pro sellers: search='{search_text}', page={page}, per_page={per_page}"
+    )
+
+    db = SessionLocal()
+    try:
+        from services.plugin_websocket_helper import PluginWebSocketHelper, PluginHTTPError
+
+        try:
+            result = await PluginWebSocketHelper.call_plugin(
+                db=db,
+                user_id=user_id,
+                action="VINTED_FETCH_USERS",
+                payload={
+                    "search_text": search_text,
+                    "page": page,
+                    "per_page": per_page,
+                },
+                timeout=60,
+                description=f"Fetch users '{search_text}' page {page}",
+            )
+
+            users = result.get("users", [])
+
+            # Filter for business accounts (backend-side)
+            pro_sellers = [u for u in users if u.get("business") is True]
+
+            # Estimate total pages: if we got a full page, there are likely more
+            has_more = len(users) >= per_page
+            # We don't know the exact total, so use a simple heuristic
+            total_pages = page + 1 if has_more else page
+
+            activity.logger.info(
+                f"Page {page} for '{search_text}': "
+                f"{len(users)} users fetched, {len(pro_sellers)} pro sellers"
+            )
+
+            return {
+                "pro_sellers": pro_sellers,
+                "total_pages": total_pages,
+                "error": None,
+            }
+
+        except PluginHTTPError as e:
+            error_code = e.get_result_code()
+            activity.logger.warning(
+                f"Plugin HTTP error [{e.status}] scanning '{search_text}' page {page}: {e.message}"
+            )
+            return {
+                "pro_sellers": [],
+                "total_pages": 0,
+                "error": error_code,
+            }
+
+        except TimeoutError:
+            activity.logger.warning(
+                f"Timeout scanning '{search_text}' page {page}"
+            )
+            return {
+                "pro_sellers": [],
+                "total_pages": 0,
+                "error": "timeout",
+            }
+
+        except RuntimeError as e:
+            error_msg = str(e).lower()
+            if any(pattern in error_msg for pattern in (
+                "not connected", "disconnected", "receiving end does not exist",
+                "could not establish connection", "no plugin",
+            )):
+                activity.logger.warning(
+                    f"Plugin disconnected scanning '{search_text}' page {page}: {e}"
+                )
+                return {
+                    "pro_sellers": [],
+                    "total_pages": 0,
+                    "error": "disconnected",
+                }
+            raise
+
+    finally:
+        db.close()
+
+
+@activity.defn(name="vinted_save_pro_sellers_batch")
+async def save_pro_sellers_batch(
+    sellers_data: list,
+    marketplace: str,
+    created_by: int,
+) -> dict:
+    """
+    Save a batch of pro sellers to the database.
+
+    Uses VintedProSellerService.upsert_from_api() for each seller.
+    Contact extraction is handled inside the service.
+
+    Args:
+        sellers_data: List of raw user dicts from Vinted API
+        marketplace: Marketplace identifier (e.g., 'vinted_fr')
+        created_by: Admin user ID who triggered the scan
+
+    Returns:
+        Dict with 'saved' (new), 'updated', 'errors' counts
+    """
+    from services.vinted_pro_seller_service import VintedProSellerService
+    from shared.database import get_db_context
+
+    saved = 0
+    updated = 0
+    errors = 0
+
+    with get_db_context() as db:
+        for user_data in sellers_data:
+            try:
+                _, is_new = VintedProSellerService.upsert_from_api(
+                    db=db,
+                    user_data=user_data,
+                    marketplace=marketplace,
+                    created_by=created_by,
+                )
+                if is_new:
+                    saved += 1
+                else:
+                    updated += 1
+            except Exception as e:
+                activity.logger.warning(
+                    f"Error saving pro seller {user_data.get('id')}: {e}"
+                )
+                errors += 1
+
+        db.commit()
+
+    activity.logger.info(
+        f"Batch save: {saved} new, {updated} updated, {errors} errors"
+    )
+
+    return {"saved": saved, "updated": updated, "errors": errors}
+
+
 # Export all activities for registration
 VINTED_ACTIVITIES = [
     fetch_and_sync_page,
@@ -971,4 +1135,6 @@ VINTED_ACTIVITIES = [
     sync_sold_status,
     detect_sold_with_active_listing,
     delete_vinted_listing,
+    scan_pro_sellers_page,
+    save_pro_sellers_batch,
 ]

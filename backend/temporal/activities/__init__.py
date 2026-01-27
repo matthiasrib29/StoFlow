@@ -30,6 +30,8 @@ from temporal.activities.vinted_activities import (
     sync_sold_status as vinted_sync_sold_status,
     detect_sold_with_active_listing,
     delete_vinted_listing,
+    scan_pro_sellers_page,
+    save_pro_sellers_batch,
     VINTED_ACTIVITIES,
 )
 
@@ -61,4 +63,6 @@ __all__ = [
     "vinted_sync_sold_status",
     "detect_sold_with_active_listing",
     "delete_vinted_listing",
+    "scan_pro_sellers_page",
+    "save_pro_sellers_batch",
 ]
