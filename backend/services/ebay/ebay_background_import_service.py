@@ -126,7 +126,7 @@ class EbayBackgroundImportService:
             )
 
             # Enrich all products without price
-            result = importer.enrich_products_batch(limit=50000, only_without_price=True)
+            result = importer.enrichment.enrich_products_batch(limit=50000, only_without_price=True)
 
             logger.info(
                 f"[Background Enrich] eBay enrichment for user {self.user_id}: "
