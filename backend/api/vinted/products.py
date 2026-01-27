@@ -286,7 +286,7 @@ async def sync_products(
         VintedSyncWorkflow.run,
         params,
         id=workflow_id,
-        task_queue=config.temporal_task_queue,
+        task_queue=config.temporal_vinted_task_queue,
     )
 
     # Update job with workflow_id

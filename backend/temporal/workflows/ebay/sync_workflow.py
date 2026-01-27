@@ -31,7 +31,7 @@ from temporal.activities.ebay_activities import (
     get_skus_to_delete,
     delete_single_product,
     sync_sold_status,
-    get_skus_sold_elsewhere,
+    detect_ebay_sold_elsewhere,
     update_job_progress,
     mark_job_completed,
     mark_job_failed,
@@ -365,61 +365,24 @@ class EbaySyncWorkflow:
                 )
 
             # ═══════════════════════════════════════════════════════════
-            # PHASE 5: Delete eBay products sold elsewhere (not on eBay)
-            # Uses individual activities like Phase 3 for proper retry
+            # PHASE 5: Detect eBay products sold elsewhere (pending actions)
+            # Creates pending actions instead of auto-deleting
             # ═══════════════════════════════════════════════════════════
             self._progress.phase = "sold_elsewhere"
-            self._progress.label = "suppression produits vendus ailleurs..."
-            total_sold_elsewhere_deleted = 0
+            self._progress.label = "détection produits vendus ailleurs..."
 
             await workflow.execute_activity(
                 update_job_progress,
-                args=[params.user_id, params.job_id, total_synced, "suppression produits vendus ailleurs..."],
+                args=[params.user_id, params.job_id, total_synced, "détection produits vendus ailleurs..."],
                 **activity_options,
             )
 
-            # Delete in batches of 500, same pattern as cleanup phase
-            sold_elsewhere_batch_size = 500
-
-            while not self._cancelled:
-                # Get next batch of SKUs to delete
-                skus_sold_elsewhere = await workflow.execute_activity(
-                    get_skus_sold_elsewhere,
-                    args=[params.user_id, sold_elsewhere_batch_size],
-                    **activity_options,
-                )
-
-                if not skus_sold_elsewhere:
-                    break  # No more products to delete
-
-                # Launch deletions in parallel (individual activities)
-                delete_tasks = []
-                for sku in skus_sold_elsewhere:
-                    task = workflow.execute_activity(
-                        delete_single_product,
-                        args=[params.user_id, params.marketplace_id, sku],
-                        **activity_options,
-                    )
-                    delete_tasks.append(task)
-
-                # Wait for all to complete
-                results = await asyncio.gather(*delete_tasks)
-
-                # Count successes
-                batch_deleted = sum(1 for r in results if r.get("success"))
-                total_sold_elsewhere_deleted += batch_deleted
-
-                # Update progress
-                label = f"{total_synced} sync, {sold_updated} vendus, {total_sold_elsewhere_deleted} supprimés (vendus ailleurs)..."
-                self._progress.label = label
-
-                await workflow.execute_activity(
-                    update_job_progress,
-                    args=[params.user_id, params.job_id, total_synced, label],
-                    **activity_options,
-                )
-
-            oos_deleted = total_sold_elsewhere_deleted
+            sold_elsewhere_result = await workflow.execute_activity(
+                detect_ebay_sold_elsewhere,
+                args=[params.user_id],
+                **activity_options,
+            )
+            sold_elsewhere_proposed = sold_elsewhere_result.get("pending_count", 0)
 
             # ═══════════════════════════════════════════════════════════
             # DONE
@@ -436,7 +399,7 @@ class EbaySyncWorkflow:
             self._progress.status = "completed"
             self._progress.phase = "done"
             self._progress.current_count = final_count
-            final_label = f"{final_count} sync, {total_enriched} enrichis, {sold_updated} vendus, {deleted_count} orphelins supprimés, {oos_deleted} vendus ailleurs supprimés"
+            final_label = f"{final_count} sync, {total_enriched} enrichis, {sold_updated} vendus, {deleted_count} orphelins supprimés, {sold_elsewhere_proposed} vendus ailleurs détectés"
             self._progress.label = final_label
 
             return {
@@ -444,7 +407,7 @@ class EbaySyncWorkflow:
                 "final_count": final_count,
                 "enriched": total_enriched,
                 "sold_updated": sold_updated,
-                "sold_elsewhere_deleted": oos_deleted,
+                "sold_elsewhere_proposed": sold_elsewhere_proposed,
                 "orphans_deleted": deleted_count,
                 "errors": total_errors,
                 "total_fetched": total_items,

@@ -12,6 +12,7 @@ export interface PendingActionProduct {
   price: number
   brand: string | null
   status: string
+  image_url: string | null
 }
 
 export interface PendingAction {
@@ -44,6 +45,8 @@ export interface ActionResultResponse {
   new_status: string
 }
 
+const PAGE_SIZE = 20
+
 export function usePendingActions() {
   const { get, post } = useApi()
   const { showSuccess, showError } = useAppToast()
@@ -51,7 +54,11 @@ export function usePendingActions() {
   // State
   const pendingActions = ref<PendingAction[]>([])
   const pendingCount = ref(0)
+  const currentPage = ref(1)
   const isLoading = ref(false)
+
+  // Computed
+  const totalPages = computed(() => Math.max(1, Math.ceil(pendingCount.value / PAGE_SIZE)))
 
   /**
    * Fetch the count of pending actions (for badge display).
@@ -68,20 +75,42 @@ export function usePendingActions() {
   }
 
   /**
-   * Fetch the list of pending actions.
+   * Fetch a page of pending actions.
    */
-  async function fetchPendingActions(limit = 50): Promise<PendingAction[]> {
+  async function fetchPendingActions(page = 1): Promise<PendingAction[]> {
     isLoading.value = true
     try {
-      const response = await get<PendingAction[]>(`/pending-actions?limit=${limit}`)
+      // Fetch count first to know total
+      await fetchCount()
+
+      const offset = (page - 1) * PAGE_SIZE
+      const response = await get<PendingAction[]>(`/pending-actions?limit=${PAGE_SIZE}&offset=${offset}`)
       pendingActions.value = response
-      pendingCount.value = response.length
+      currentPage.value = page
       return response
     } catch (e) {
       console.error('Failed to fetch pending actions:', e)
       return []
     } finally {
       isLoading.value = false
+    }
+  }
+
+  /**
+   * Go to next page.
+   */
+  async function nextPage() {
+    if (currentPage.value < totalPages.value) {
+      await fetchPendingActions(currentPage.value + 1)
+    }
+  }
+
+  /**
+   * Go to previous page.
+   */
+  async function prevPage() {
+    if (currentPage.value > 1) {
+      await fetchPendingActions(currentPage.value - 1)
     }
   }
 
@@ -95,6 +124,11 @@ export function usePendingActions() {
       pendingActions.value = pendingActions.value.filter(a => a.id !== actionId)
       pendingCount.value = Math.max(0, pendingCount.value - 1)
       showSuccess('Action confirmée', 'Le produit a été marqué comme vendu.')
+
+      // If page is now empty and not first page, go back
+      if (pendingActions.value.length === 0 && currentPage.value > 1) {
+        await fetchPendingActions(currentPage.value - 1)
+      }
       return true
     } catch (e) {
       showError('Erreur', 'Impossible de confirmer cette action.')
@@ -112,6 +146,11 @@ export function usePendingActions() {
       pendingActions.value = pendingActions.value.filter(a => a.id !== actionId)
       pendingCount.value = Math.max(0, pendingCount.value - 1)
       showSuccess('Action restaurée', 'Le produit a été restauré à son statut précédent.')
+
+      // If page is now empty and not first page, go back
+      if (pendingActions.value.length === 0 && currentPage.value > 1) {
+        await fetchPendingActions(currentPage.value - 1)
+      }
       return true
     } catch (e) {
       showError('Erreur', 'Impossible de restaurer ce produit.')
@@ -120,19 +159,16 @@ export function usePendingActions() {
   }
 
   /**
-   * Confirm all pending actions at once.
+   * Confirm ALL pending actions across all pages.
+   * Uses the /confirm-all endpoint (no IDs needed).
    */
-  async function bulkConfirmAll(): Promise<boolean> {
-    const ids = pendingActions.value.map(a => a.id)
-    if (ids.length === 0) return true
-
+  async function confirmAllPending(): Promise<boolean> {
     try {
-      const response = await post<BulkActionResponse>('/pending-actions/bulk-confirm', {
-        body: JSON.stringify({ action_ids: ids }),
-      })
+      const response = await post<BulkActionResponse>('/pending-actions/confirm-all')
       pendingActions.value = []
       pendingCount.value = 0
-      showSuccess('Tout confirmé', `${response.processed} actions confirmées.`)
+      currentPage.value = 1
+      showSuccess('Tout confirmé', `${response.processed} produits marqués comme vendus.`)
       return true
     } catch (e) {
       showError('Erreur', 'Impossible de confirmer les actions en masse.')
@@ -141,19 +177,36 @@ export function usePendingActions() {
   }
 
   /**
-   * Reject all pending actions at once (restore all products).
+   * Confirm visible page actions only.
+   */
+  async function bulkConfirmAll(): Promise<boolean> {
+    const ids = pendingActions.value.map(a => a.id)
+    if (ids.length === 0) return true
+
+    try {
+      const response = await post<BulkActionResponse>('/pending-actions/bulk-confirm', { action_ids: ids })
+      showSuccess('Page confirmée', `${response.processed} actions confirmées.`)
+      // Reload current page (or go back if was last page)
+      await fetchPendingActions(Math.min(currentPage.value, Math.max(1, totalPages.value - 1)))
+      return true
+    } catch (e) {
+      showError('Erreur', 'Impossible de confirmer les actions en masse.')
+      return false
+    }
+  }
+
+  /**
+   * Reject visible page actions only.
    */
   async function bulkRejectAll(): Promise<boolean> {
     const ids = pendingActions.value.map(a => a.id)
     if (ids.length === 0) return true
 
     try {
-      const response = await post<BulkActionResponse>('/pending-actions/bulk-reject', {
-        body: JSON.stringify({ action_ids: ids }),
-      })
-      pendingActions.value = []
-      pendingCount.value = 0
-      showSuccess('Tout restauré', `${response.processed} produits restaurés.`)
+      const response = await post<BulkActionResponse>('/pending-actions/bulk-reject', { action_ids: ids })
+      showSuccess('Page restaurée', `${response.processed} produits restaurés.`)
+      // Reload current page
+      await fetchPendingActions(Math.min(currentPage.value, Math.max(1, totalPages.value - 1)))
       return true
     } catch (e) {
       showError('Erreur', 'Impossible de restaurer les produits en masse.')
@@ -169,6 +222,8 @@ export function usePendingActions() {
       mark_sold: 'Vendu',
       delete: 'Supprimé',
       archive: 'Archivé',
+      delete_vinted_listing: 'Supprimer de Vinted',
+      delete_ebay_listing: 'Supprimer d\'eBay',
     }
     return labels[actionType] || actionType
   }
@@ -185,20 +240,60 @@ export function usePendingActions() {
     return labels[marketplace] || marketplace
   }
 
+  /**
+   * Get a contextual description for a pending action.
+   * Differentiates between "sold on marketplace" vs "sold on StoFlow, delete from marketplace".
+   */
+  function getActionDescription(action: PendingAction): string {
+    switch (action.action_type) {
+      case 'delete_vinted_listing':
+        return 'Vendu sur StoFlow — à supprimer de Vinted'
+      case 'delete_ebay_listing':
+        return 'Vendu sur StoFlow — à supprimer d\'eBay'
+      case 'mark_sold':
+        return `Vendu sur ${getMarketplaceLabel(action.marketplace)}`
+      default:
+        return `${getActionTypeLabel(action.action_type)} sur ${getMarketplaceLabel(action.marketplace)}`
+    }
+  }
+
+  /**
+   * Get the confirm button label for a pending action.
+   */
+  function getConfirmLabel(action: PendingAction): string {
+    switch (action.action_type) {
+      case 'delete_vinted_listing':
+        return 'Supprimer de Vinted'
+      case 'delete_ebay_listing':
+        return 'Supprimer d\'eBay'
+      case 'mark_sold':
+        return 'Marquer vendu'
+      default:
+        return 'Confirmer'
+    }
+  }
+
   return {
     // State
     pendingActions,
     pendingCount,
+    currentPage,
+    totalPages,
     isLoading,
     // Actions
     fetchCount,
     fetchPendingActions,
+    nextPage,
+    prevPage,
     confirmAction,
     rejectAction,
+    confirmAllPending,
     bulkConfirmAll,
     bulkRejectAll,
     // Helpers
     getActionTypeLabel,
     getMarketplaceLabel,
+    getActionDescription,
+    getConfirmLabel,
   }
 }

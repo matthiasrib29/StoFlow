@@ -13,6 +13,8 @@ from temporal.activities.ebay_activities import (
     mark_job_failed,
     enrich_single_product,
     get_skus_to_enrich,
+    detect_ebay_sold_elsewhere,
+    delete_ebay_listing,
     EBAY_ACTIVITIES,
 )
 
@@ -26,6 +28,8 @@ from temporal.activities.vinted_activities import (
     check_plugin_connection as vinted_check_plugin_connection,
     mark_job_paused as vinted_mark_job_paused,
     sync_sold_status as vinted_sync_sold_status,
+    detect_sold_with_active_listing,
+    delete_vinted_listing,
     VINTED_ACTIVITIES,
 )
 
@@ -42,6 +46,8 @@ __all__ = [
     "mark_job_failed",
     "enrich_single_product",
     "get_skus_to_enrich",
+    "detect_ebay_sold_elsewhere",
+    "delete_ebay_listing",
     # Vinted activities
     "VINTED_ACTIVITIES",
     "vinted_fetch_and_sync_page",
@@ -53,4 +59,6 @@ __all__ = [
     "vinted_check_plugin_connection",
     "vinted_mark_job_paused",
     "vinted_sync_sold_status",
+    "detect_sold_with_active_listing",
+    "delete_vinted_listing",
 ]

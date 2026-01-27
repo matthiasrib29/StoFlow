@@ -21,7 +21,7 @@ Key differences from eBay:
 - Uses WebSocket plugin for API calls (not direct HTTP)
 - Sequential fetching (DataDome protection)
 - Mark as "sold" instead of delete for missing products
-- Enrichment in small batches (15) with longer pauses (20-30s)
+- Sequential enrichment (one product at a time)
 
 Author: Claude
 Date: 2026-01-22
@@ -125,7 +125,10 @@ async def _call_vinted_api(
 
     except RuntimeError as e:
         error_msg = str(e).lower()
-        if "not connected" in error_msg or "disconnected" in error_msg:
+        if any(pattern in error_msg for pattern in (
+            "not connected", "disconnected", "receiving end does not exist",
+            "could not establish connection", "no plugin",
+        )):
             activity.logger.warning(f"Plugin disconnected for {description}: {e}")
             return {
                 "success": False,
@@ -369,11 +372,9 @@ def _extract_product_data(api_product: dict, extractor) -> dict:
 async def get_vinted_ids_to_enrich(
     user_id: int,
     sync_start_time: str,
-    limit: int = 15,
-    offset: int = 0,
 ) -> list[int]:
     """
-    Get a batch of vinted_ids to enrich from the current sync session.
+    Get all vinted_ids to enrich from the current sync session.
 
     Filters products that:
     - Were synced in this session (last_synced_at >= sync_start_time)
@@ -383,8 +384,6 @@ async def get_vinted_ids_to_enrich(
     Args:
         user_id: User ID for schema isolation
         sync_start_time: ISO timestamp - only products synced at/after this time
-        limit: Max vinted_ids to return (default 15 for DataDome protection)
-        offset: Pagination offset
 
     Returns:
         List of vinted_ids to enrich
@@ -398,7 +397,7 @@ async def get_vinted_ids_to_enrich(
         # Parse sync_start_time
         sync_time = datetime.fromisoformat(sync_start_time.replace("Z", "+00:00"))
 
-        # Get products synced in this session without description
+        # Get all products synced in this session without description
         products = (
             db.query(VintedProduct.vinted_id)
             .filter(
@@ -409,8 +408,6 @@ async def get_vinted_ids_to_enrich(
                 VintedProduct.is_hidden == False,
             )
             .order_by(VintedProduct.vinted_id)
-            .offset(offset)
-            .limit(limit)
             .all()
         )
 
@@ -798,7 +795,7 @@ async def sync_sold_status(user_id: int) -> dict:
                 JOIN products p ON p.id = vp.product_id
                 WHERE (vp.is_closed = true OR vp.status = 'sold')
                   AND vp.product_id IS NOT NULL
-                  AND p.status NOT IN ('sold', 'pending_deletion')
+                  AND p.status NOT IN ('SOLD', 'PENDING_DELETION')
             """)
         ).fetchall()
 
@@ -845,6 +842,122 @@ async def sync_sold_status(user_id: int) -> dict:
         db.close()
 
 
+@activity.defn(name="vinted_detect_sold_with_active_listing")
+async def detect_sold_with_active_listing(user_id: int) -> dict:
+    """
+    Detect products SOLD on StoFlow but still active on Vinted.
+
+    Creates PendingAction (DELETE_VINTED_LISTING) for each product found,
+    so the user can confirm or reject the Vinted listing deletion.
+
+    Args:
+        user_id: User ID for schema isolation
+
+    Returns:
+        Dict with 'pending_count' and 'product_ids'
+    """
+    db = SessionLocal()
+    try:
+        _configure_session(db, user_id)
+
+        from services.pending_action_service import PendingActionService
+        from models.user.pending_action import PendingActionType
+
+        # Find products SOLD on StoFlow but still active on Vinted
+        result = db.execute(
+            text("""
+                SELECT vp.vinted_id, vp.product_id, vp.title, vp.price,
+                       p.status as stoflow_status
+                FROM vinted_products vp
+                JOIN products p ON p.id = vp.product_id
+                WHERE p.status::text = 'SOLD'
+                  AND vp.is_closed = false
+                  AND vp.status != 'sold'
+                  AND vp.product_id IS NOT NULL
+            """)
+        ).fetchall()
+
+        if not result:
+            activity.logger.info(
+                "No products to clean up - all SOLD products have inactive Vinted listings"
+            )
+            return {"pending_count": 0, "product_ids": []}
+
+        service = PendingActionService(db)
+        product_ids = []
+
+        for vinted_id, product_id, title, price, stoflow_status in result:
+            action = service.create_pending_action(
+                product_id=product_id,
+                action_type=PendingActionType.DELETE_VINTED_LISTING,
+                marketplace="vinted",
+                reason=f"Produit vendu sur StoFlow mais annonce Vinted #{vinted_id} encore active",
+                context_data={
+                    "vinted_id": vinted_id,
+                    "title": title,
+                    "price": float(price) if price else None,
+                },
+            )
+            if action:
+                product_ids.append(product_id)
+                activity.logger.info(
+                    f"Created DELETE_VINTED_LISTING pending action for product #{product_id} "
+                    f"(Vinted #{vinted_id} still active)"
+                )
+
+        db.commit()
+
+        activity.logger.info(
+            f"Created {len(product_ids)} pending actions for SOLD products "
+            f"with active Vinted listings"
+        )
+
+        return {
+            "pending_count": len(product_ids),
+            "product_ids": product_ids,
+        }
+
+    finally:
+        db.close()
+
+
+@activity.defn(name="delete_vinted_listing")
+async def delete_vinted_listing(user_id: int, product_id: int) -> dict:
+    """
+    Delete a Vinted listing for a product marked as SOLD.
+
+    Uses VintedDeletionService with check_conditions=False since the user
+    explicitly chose to mark the product as SOLD.
+
+    Args:
+        user_id: User ID for schema isolation and plugin communication
+        product_id: StoFlow product ID
+
+    Returns:
+        Dict with 'success', 'product_id', and optionally 'vinted_id' or 'error'
+    """
+    db = SessionLocal()
+    try:
+        _configure_session(db, user_id)
+
+        from services.vinted.vinted_deletion_service import VintedDeletionService
+
+        service = VintedDeletionService(db)
+        result = await service.delete_product(
+            product_id=product_id,
+            user_id=user_id,
+            check_conditions=False,
+        )
+        return result
+
+    except Exception as e:
+        activity.logger.error(f"Vinted deletion failed for product #{product_id}: {e}")
+        return {"success": False, "product_id": product_id, "error": str(e)}
+
+    finally:
+        db.close()
+
+
 # Export all activities for registration
 VINTED_ACTIVITIES = [
     fetch_and_sync_page,
@@ -856,4 +969,6 @@ VINTED_ACTIVITIES = [
     check_plugin_connection,
     mark_job_paused,
     sync_sold_status,
+    detect_sold_with_active_listing,
+    delete_vinted_listing,
 ]

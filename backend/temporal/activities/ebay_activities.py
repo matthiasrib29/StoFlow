@@ -436,16 +436,9 @@ def sync_sold_status(user_id: int) -> dict:
     """
     Sync sold status from eBay to StoFlow products.
 
-    Creates pending actions for eBay products that are truly sold out
-    (quantity=0 AND sold_quantity >= 1). Products are set to PENDING_DELETION
-    status and require user confirmation before being marked as SOLD.
-
-    IMPORTANT: We check BOTH conditions:
-    - quantity = 0 (no more stock available)
-    - sold_quantity >= 1 (has been sold at least once)
-
-    This avoids marking products as SOLD just because they have historical sales
-    but still have stock available.
+    Creates pending actions for eBay products with sold_quantity >= 1.
+    Any product that has been sold at least once is considered no longer
+    available, regardless of current eBay quantity.
 
     Args:
         user_id: User ID for schema isolation
@@ -460,18 +453,20 @@ def sync_sold_status(user_id: int) -> dict:
         from services.pending_action_service import PendingActionService
         from models.user.pending_action import PendingActionType
 
-        # Find eBay products that are TRULY sold out (qty=0 AND has sold)
+        # Find eBay products with sold_quantity >= 1 (sold at least once)
         # Exclude products already SOLD or PENDING_DELETION
+        # Use DISTINCT ON to avoid duplicate pending actions for same product
         result = db.execute(
             text("""
-                SELECT ep.ebay_sku, ep.product_id, ep.title, ep.sold_quantity,
-                       ep.price, p.status as stoflow_status
+                SELECT DISTINCT ON (ep.product_id)
+                       ep.ebay_sku, ep.product_id, ep.title, ep.sold_quantity,
+                       ep.price, p.status::text as stoflow_status
                 FROM ebay_products ep
                 JOIN products p ON p.id = ep.product_id
-                WHERE ep.quantity = 0
-                  AND ep.sold_quantity >= 1
+                WHERE ep.sold_quantity >= 1
                   AND ep.product_id IS NOT NULL
-                  AND p.status NOT IN ('sold', 'pending_deletion')
+                  AND p.status::text NOT IN ('SOLD', 'PENDING_DELETION')
+                ORDER BY ep.product_id, ep.sold_quantity DESC
             """)
         ).fetchall()
 
@@ -546,7 +541,7 @@ def get_skus_sold_elsewhere(user_id: int, batch_size: int = 500) -> list:
                 SELECT ep.ebay_sku
                 FROM ebay_products ep
                 JOIN products p ON p.id = ep.product_id
-                WHERE p.status = 'SOLD'
+                WHERE p.status::text = 'SOLD'
                   AND ep.product_id IS NOT NULL
                   AND (ep.sold_quantity IS NULL OR ep.sold_quantity < 1)
                 LIMIT :batch_size
@@ -673,6 +668,136 @@ def mark_job_failed(
         db.close()
 
 
+@activity.defn
+def detect_ebay_sold_elsewhere(user_id: int) -> dict:
+    """
+    Detect products SOLD on StoFlow but still listed on eBay (not sold on eBay).
+
+    Creates PendingAction (DELETE_EBAY_LISTING) for each product found,
+    so the user can confirm or reject the eBay listing deletion.
+
+    Criteria:
+    - StoFlow product status = SOLD
+    - eBay sold_quantity is NULL or < 1 (not sold on eBay)
+
+    Args:
+        user_id: User ID for schema isolation
+
+    Returns:
+        Dict with 'pending_count' and 'product_ids'
+    """
+    db = SessionLocal()
+    try:
+        _configure_session(db, user_id)
+
+        from services.pending_action_service import PendingActionService
+        from models.user.pending_action import PendingActionType
+
+        result = db.execute(
+            text("""
+                SELECT ep.ebay_sku, ep.product_id, ep.title, ep.price,
+                       p.status::text as stoflow_status
+                FROM ebay_products ep
+                JOIN products p ON p.id = ep.product_id
+                WHERE p.status::text = 'SOLD'
+                  AND ep.product_id IS NOT NULL
+                  AND (ep.sold_quantity IS NULL OR ep.sold_quantity < 1)
+            """)
+        ).fetchall()
+
+        if not result:
+            activity.logger.info(
+                "No eBay products sold elsewhere to clean up"
+            )
+            return {"pending_count": 0, "product_ids": []}
+
+        service = PendingActionService(db)
+        product_ids = []
+
+        for sku, product_id, title, price, stoflow_status in result:
+            action = service.create_pending_action(
+                product_id=product_id,
+                action_type=PendingActionType.DELETE_EBAY_LISTING,
+                marketplace="ebay",
+                reason=f"Produit vendu ailleurs — listing eBay (SKU={sku}) encore actif",
+                context_data={
+                    "ebay_sku": sku,
+                    "title": title,
+                    "price": float(price) if price else None,
+                },
+            )
+            if action:
+                product_ids.append(product_id)
+                activity.logger.info(
+                    f"Created pending action for StoFlow #{product_id} "
+                    f"(eBay SKU={sku}, was {stoflow_status})"
+                )
+
+        db.commit()
+
+        activity.logger.info(
+            f"Created {len(product_ids)} pending actions for eBay products sold elsewhere"
+        )
+
+        return {
+            "pending_count": len(product_ids),
+            "product_ids": product_ids,
+        }
+
+    finally:
+        db.close()
+
+
+@activity.defn
+def delete_ebay_listing(user_id: int, product_id: int, marketplace_id: str = "EBAY_FR") -> dict:
+    """
+    Delete an eBay listing for a product (API + local DB).
+
+    Called by EbayCleanupWorkflow when user confirms a DELETE_EBAY_LISTING pending action.
+
+    Args:
+        user_id: User ID for schema isolation
+        product_id: StoFlow product ID
+        marketplace_id: eBay marketplace (default EBAY_FR)
+
+    Returns:
+        Dict with 'success', 'product_id', optional 'error'
+    """
+    db = SessionLocal()
+    try:
+        _configure_session(db, user_id)
+
+        from models.user.ebay_product import EbayProduct
+        from services.ebay.ebay_inventory_client import EbayInventoryClient
+
+        ebay_product = db.query(EbayProduct).filter_by(product_id=product_id).first()
+        if not ebay_product:
+            activity.logger.warning(f"No eBay product found for product #{product_id}")
+            return {"success": False, "product_id": product_id, "error": "not_found"}
+
+        sku = ebay_product.ebay_sku
+        client = EbayInventoryClient(db, user_id, marketplace_id)
+
+        try:
+            client.delete_inventory_item(sku)
+        except Exception as e:
+            activity.logger.warning(f"eBay API delete failed for SKU={sku}: {e}")
+
+        # Delete from local DB (always, even if eBay API failed)
+        db.delete(ebay_product)
+        db.commit()
+
+        activity.logger.info(f"Deleted eBay listing for product #{product_id} (SKU={sku})")
+        return {"success": True, "product_id": product_id}
+
+    except Exception as e:
+        activity.logger.error(f"Failed to delete eBay listing for product #{product_id}: {e}")
+        return {"success": False, "product_id": product_id, "error": str(e)[:100]}
+
+    finally:
+        db.close()
+
+
 # Export all activities for registration
 EBAY_ACTIVITIES = [
     fetch_and_sync_page,
@@ -685,4 +810,6 @@ EBAY_ACTIVITIES = [
     mark_job_failed,
     enrich_single_product,
     get_skus_to_enrich,
+    detect_ebay_sold_elsewhere,
+    delete_ebay_listing,
 ]

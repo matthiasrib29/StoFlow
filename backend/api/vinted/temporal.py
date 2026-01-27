@@ -229,7 +229,7 @@ async def start_sync(
             VintedSyncWorkflow.run,
             params,
             id=workflow_id,
-            task_queue=config.temporal_task_queue,
+            task_queue=config.temporal_vinted_task_queue,
         )
 
         # Update job with workflow_id for cancellation support

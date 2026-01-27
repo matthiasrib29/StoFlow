@@ -13,7 +13,7 @@ Business Rules (2026-01-22):
 """
 
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, subqueryload
 
 from models.user.pending_action import PendingAction, PendingActionType
 from models.user.product import Product, ProductStatus
@@ -28,6 +28,14 @@ ACTION_TYPE_TO_STATUS = {
     PendingActionType.MARK_SOLD: ProductStatus.SOLD,
     PendingActionType.DELETE: ProductStatus.ARCHIVED,
     PendingActionType.ARCHIVE: ProductStatus.ARCHIVED,
+    PendingActionType.DELETE_VINTED_LISTING: ProductStatus.SOLD,  # Keep SOLD
+    PendingActionType.DELETE_EBAY_LISTING: ProductStatus.SOLD,    # Keep SOLD
+}
+
+# Action types that don't change product status to PENDING_DELETION on create
+_NO_STATUS_CHANGE_TYPES = {
+    PendingActionType.DELETE_VINTED_LISTING,
+    PendingActionType.DELETE_EBAY_LISTING,
 }
 
 
@@ -91,8 +99,9 @@ class PendingActionService:
         )
         self.db.add(pending_action)
 
-        # Set product to PENDING_DELETION
-        product.status = ProductStatus.PENDING_DELETION
+        # Set product to PENDING_DELETION (unless action type preserves current status)
+        if action_type not in _NO_STATUS_CHANGE_TYPES:
+            product.status = ProductStatus.PENDING_DELETION
         self.db.flush()
 
         logger.info(
@@ -122,7 +131,10 @@ class PendingActionService:
         stmt = (
             select(PendingAction)
             .where(PendingAction.confirmed_at.is_(None))
-            .options(joinedload(PendingAction.product))
+            .options(
+                joinedload(PendingAction.product)
+                .subqueryload(Product.product_images)
+            )
             .order_by(PendingAction.detected_at.desc())
             .offset(offset)
             .limit(limit)

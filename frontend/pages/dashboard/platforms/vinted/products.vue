@@ -302,6 +302,7 @@ const { isConnected, fetchStatus } = usePlatformConnection('vinted')
 const products = ref<VintedProduct[]>([])
 const loading = ref(false)
 const syncing = ref(false)
+const syncPollInterval = ref<ReturnType<typeof setInterval> | null>(null)
 const error = ref<string | null>(null)
 const searchQuery = ref('')
 const statusFilter = ref<string | null>(null)
@@ -375,17 +376,52 @@ async function fetchProducts(page: number = 1, limit: number = 20) {
 }
 
 async function syncProducts() {
+  if (syncing.value) return
   syncing.value = true
 
   try {
     await api.post('/vinted/products/sync')
-    // Reload first page after sync
-    await fetchProducts(1, pageSize.value)
+    startSyncPolling()
   } catch (e: any) {
-    vintedLogger.error('Failed to sync Vinted products', { error: e.message })
-    error.value = e.message || 'Erreur lors de la synchronisation'
-  } finally {
-    syncing.value = false
+    // Sync already running - just poll for completion
+    if (e.message?.includes('déjà en cours')) {
+      startSyncPolling()
+    } else {
+      vintedLogger.error('Failed to sync Vinted products', { error: e.message })
+      error.value = e.message || 'Erreur lors de la synchronisation'
+      syncing.value = false
+    }
+  }
+}
+
+async function checkSyncStatus(): Promise<boolean> {
+  try {
+    const result = await api.get<any[]>('/vinted/temporal/sync/list?limit=1')
+    const workflows = result || []
+    // close_time is null when workflow is still running
+    return workflows.some((w: any) => !w.close_time)
+  } catch {
+    return false
+  }
+}
+
+function startSyncPolling() {
+  if (syncPollInterval.value) return
+
+  syncPollInterval.value = setInterval(async () => {
+    const isRunning = await checkSyncStatus()
+    if (!isRunning) {
+      stopSyncPolling()
+      syncing.value = false
+      await fetchProducts(1, pageSize.value)
+    }
+  }, 5000)
+}
+
+function stopSyncPolling() {
+  if (syncPollInterval.value) {
+    clearInterval(syncPollInterval.value)
+    syncPollInterval.value = null
   }
 }
 
@@ -451,8 +487,18 @@ function goToProduct(productId: number) {
 // Init
 onMounted(async () => {
   await fetchStatus()
-  // Charger les produits même si déconnecté
   await fetchProducts()
+
+  // Check if a sync is already running
+  const isRunning = await checkSyncStatus()
+  if (isRunning) {
+    syncing.value = true
+    startSyncPolling()
+  }
+})
+
+onUnmounted(() => {
+  stopSyncPolling()
 })
 
 // Reload when status filter changes

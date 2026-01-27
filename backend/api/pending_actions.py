@@ -25,7 +25,12 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
 from models.public.user import User
+from models.user.pending_action import PendingAction, PendingActionType
 from services.pending_action_service import PendingActionService
+from shared.logging import get_logger
+from temporal.config import get_temporal_config
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/pending-actions", tags=["Pending Actions"])
 
@@ -44,6 +49,7 @@ class PendingActionProductResponse(BaseModel):
     price: float
     brand: str | None = None
     status: str
+    image_url: str | None = None
 
 
 class PendingActionResponse(BaseModel):
@@ -88,6 +94,133 @@ class ActionResultResponse(BaseModel):
 
 
 # =============================================================================
+# HELPERS
+# =============================================================================
+
+
+async def _trigger_cleanup_workflow(db: Session, action: PendingAction, user_id: int) -> None:
+    """
+    Start cleanup workflow for a SINGLE confirmed action.
+
+    Used by the single-confirm endpoint.
+    Fire-and-forget: logs a warning on failure but never raises.
+    """
+    config = get_temporal_config()
+    if not config.temporal_enabled:
+        return
+
+    if action.action_type == PendingActionType.DELETE_VINTED_LISTING:
+        try:
+            from temporal.client import get_temporal_client
+            from temporal.workflows.vinted.cleanup_workflow import (
+                VintedCleanupWorkflow,
+                VintedCleanupParams,
+            )
+
+            client = await get_temporal_client()
+            await client.start_workflow(
+                VintedCleanupWorkflow.run,
+                VintedCleanupParams(user_id=user_id, product_id=action.product_id),
+                id=f"vinted-cleanup-product-{action.product_id}",
+                task_queue=config.temporal_vinted_task_queue,
+            )
+            logger.info(f"Started Vinted cleanup workflow for product #{action.product_id}")
+        except Exception as e:
+            logger.warning(f"Failed to start Vinted cleanup for product #{action.product_id}: {e}")
+
+    elif action.action_type == PendingActionType.DELETE_EBAY_LISTING:
+        try:
+            from temporal.client import get_temporal_client
+            from temporal.workflows.ebay.cleanup_workflow import (
+                EbayCleanupWorkflow,
+                EbayCleanupParams,
+            )
+
+            client = await get_temporal_client()
+            await client.start_workflow(
+                EbayCleanupWorkflow.run,
+                EbayCleanupParams(user_id=user_id, product_id=action.product_id),
+                id=f"ebay-cleanup-product-{action.product_id}",
+                task_queue=config.temporal_task_queue,
+            )
+            logger.info(f"Started eBay cleanup workflow for product #{action.product_id}")
+        except Exception as e:
+            logger.warning(f"Failed to start eBay cleanup for product #{action.product_id}: {e}")
+
+
+async def _trigger_batch_cleanup_workflows(actions: list[PendingAction], user_id: int) -> None:
+    """
+    Start cleanup workflows for MULTIPLE confirmed actions.
+
+    Groups by marketplace:
+    - Vinted → ONE VintedBatchCleanupWorkflow (sequential, no parallel plugin calls)
+    - eBay → Individual EbayCleanupWorkflow per product (direct API, parallel OK)
+
+    Fire-and-forget: logs warnings on failure but never raises.
+    """
+    config = get_temporal_config()
+    if not config.temporal_enabled or not actions:
+        return
+
+    # Group by type
+    vinted_product_ids = [
+        a.product_id for a in actions
+        if a.action_type == PendingActionType.DELETE_VINTED_LISTING
+    ]
+    ebay_product_ids = [
+        a.product_id for a in actions
+        if a.action_type == PendingActionType.DELETE_EBAY_LISTING
+    ]
+
+    # Vinted: ONE batch workflow (sequential execution)
+    if vinted_product_ids:
+        try:
+            from temporal.client import get_temporal_client
+            from temporal.workflows.vinted.cleanup_workflow import (
+                VintedBatchCleanupWorkflow,
+                VintedBatchCleanupParams,
+            )
+
+            client = await get_temporal_client()
+            await client.start_workflow(
+                VintedBatchCleanupWorkflow.run,
+                VintedBatchCleanupParams(user_id=user_id, product_ids=vinted_product_ids),
+                id=f"vinted-batch-cleanup-user-{user_id}-{len(vinted_product_ids)}p",
+                task_queue=config.temporal_vinted_task_queue,
+            )
+            logger.info(
+                f"Started Vinted batch cleanup workflow for {len(vinted_product_ids)} products"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to start Vinted batch cleanup: {e}")
+
+    # eBay: individual workflows (direct API, parallel OK)
+    if ebay_product_ids:
+        try:
+            from temporal.client import get_temporal_client
+            from temporal.workflows.ebay.cleanup_workflow import (
+                EbayCleanupWorkflow,
+                EbayCleanupParams,
+            )
+
+            client = await get_temporal_client()
+            for product_id in ebay_product_ids:
+                try:
+                    await client.start_workflow(
+                        EbayCleanupWorkflow.run,
+                        EbayCleanupParams(user_id=user_id, product_id=product_id),
+                        id=f"ebay-cleanup-product-{product_id}",
+                        task_queue=config.temporal_task_queue,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to start eBay cleanup for product #{product_id}: {e}")
+
+            logger.info(f"Started eBay cleanup workflows for {len(ebay_product_ids)} products")
+        except Exception as e:
+            logger.warning(f"Failed to start eBay cleanup workflows: {e}")
+
+
+# =============================================================================
 # ENDPOINTS
 # =============================================================================
 
@@ -117,12 +250,16 @@ def get_pending_count(
 
 
 @router.post("/{action_id}/confirm", response_model=ActionResultResponse)
-def confirm_action(
+async def confirm_action(
     action_id: int,
     user_db: tuple = Depends(get_user_db),
 ):
     """Confirm a pending action (apply the status change)."""
     db, user = user_db
+
+    # Load action before confirm to check its type
+    action = db.get(PendingAction, action_id)
+
     service = PendingActionService(db)
     product = service.confirm_action(action_id, confirmed_by=str(user.id))
 
@@ -133,6 +270,11 @@ def confirm_action(
         )
 
     db.commit()
+
+    # Trigger marketplace cleanup workflow if applicable (fire-and-forget)
+    if action:
+        await _trigger_cleanup_workflow(db, action, user.id)
+
     return ActionResultResponse(
         success=True,
         product_id=product.id,
@@ -165,16 +307,57 @@ def reject_action(
 
 
 @router.post("/bulk-confirm", response_model=BulkActionResponse)
-def bulk_confirm_actions(
+async def bulk_confirm_actions(
     request: BulkActionRequest,
     user_db: tuple = Depends(get_user_db),
 ):
     """Confirm multiple pending actions at once."""
     db, user = user_db
+
+    # Load actions before confirm to check their types
+    _CLEANUP_TYPES = {PendingActionType.DELETE_VINTED_LISTING, PendingActionType.DELETE_EBAY_LISTING}
+    actions_to_cleanup = []
+    for action_id in request.action_ids:
+        action = db.get(PendingAction, action_id)
+        if action and action.action_type in _CLEANUP_TYPES and action.confirmed_at is None:
+            actions_to_cleanup.append(action)
+
     service = PendingActionService(db)
     processed = service.bulk_confirm(request.action_ids, confirmed_by=str(user.id))
     db.commit()
+
+    # Trigger cleanup: batch for Vinted (sequential), individual for eBay
+    await _trigger_batch_cleanup_workflows(actions_to_cleanup, user.id)
+
     return BulkActionResponse(processed=processed, total=len(request.action_ids))
+
+
+@router.post("/confirm-all", response_model=BulkActionResponse)
+async def confirm_all_actions(
+    user_db: tuple = Depends(get_user_db),
+):
+    """Confirm ALL pending actions at once (no IDs needed)."""
+    db, user = user_db
+    service = PendingActionService(db)
+
+    # Get all unconfirmed action IDs
+    all_actions = service.get_pending_actions(limit=10000, offset=0)
+    if not all_actions:
+        return BulkActionResponse(processed=0, total=0)
+
+    # Identify cleanup actions before confirming
+    _CLEANUP_TYPES = {PendingActionType.DELETE_VINTED_LISTING, PendingActionType.DELETE_EBAY_LISTING}
+    actions_to_cleanup = [a for a in all_actions if a.action_type in _CLEANUP_TYPES]
+
+    # Confirm all
+    action_ids = [a.id for a in all_actions]
+    processed = service.bulk_confirm(action_ids, confirmed_by=str(user.id))
+    db.commit()
+
+    # Trigger cleanup: batch for Vinted (sequential), individual for eBay
+    await _trigger_batch_cleanup_workflows(actions_to_cleanup, user.id)
+
+    return BulkActionResponse(processed=processed, total=len(action_ids))
 
 
 @router.post("/bulk-reject", response_model=BulkActionResponse)

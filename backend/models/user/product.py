@@ -512,6 +512,14 @@ class Product(Base):
         return [pcs.condition_sup for pcs in self.product_condition_sups]
 
     @property
+    def image_url(self) -> str | None:
+        """Return the URL of the first image (for thumbnails)."""
+        if self.product_images:
+            sorted_imgs = sorted(self.product_images, key=lambda i: i.order or 0)
+            return sorted_imgs[0].url if sorted_imgs else None
+        return None
+
+    @property
     def images(self) -> list[dict]:
         """
         Return images as list of dicts for Pydantic serialization.
