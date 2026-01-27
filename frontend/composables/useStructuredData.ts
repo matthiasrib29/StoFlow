@@ -54,13 +54,6 @@ export const useSoftwareApplicationSchema = () => {
             price: '0',
             priceCurrency: 'EUR',
             description: 'Essai gratuit 14 jours disponible'
-          },
-          aggregateRating: {
-            '@type': 'AggregateRating',
-            ratingValue: '4.8',
-            ratingCount: '127',
-            bestRating: '5',
-            worstRating: '1'
           }
         })
       }

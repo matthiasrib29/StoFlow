@@ -49,6 +49,7 @@
 
 <script setup lang="ts">
 import type { PricingPlan } from '~/composables/usePricing'
+import { landingFaqs } from '~/data/landing-faqs'
 
 definePageMeta({
   layout: 'landing'
@@ -64,6 +65,7 @@ useSeoHead({
 // Structured Data (Schema.org JSON-LD)
 useOrganizationSchema()
 useSoftwareApplicationSchema()
+useFAQPageSchema(landingFaqs.map(f => ({ question: f.question, answer: f.answer })))
 
 // Pricing - Dynamic from API
 const { plans, loading: pricingLoading, fetchPricingPlans, getAnnualPrice, getAnnualSavings } = usePricing()
