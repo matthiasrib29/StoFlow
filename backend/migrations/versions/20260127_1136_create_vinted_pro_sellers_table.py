@@ -34,7 +34,7 @@ def upgrade() -> None:
     """Create vinted_pro_sellers table in public schema (idempotent)."""
     conn = op.get_bind()
 
-    if table_exists(conn, 'template_tenant', 'vinted_pro_sellers'):
+    if table_exists(conn, 'public', 'vinted_pro_sellers'):
         print("  - vinted_pro_sellers table already exists, skipping")
         return
 
@@ -96,25 +96,26 @@ def upgrade() -> None:
         # Constraints
         sa.PrimaryKeyConstraint('id', name=op.f('pk_vinted_pro_sellers')),
         sa.UniqueConstraint('vinted_user_id', name=op.f('uq_vinted_pro_sellers_vinted_user_id')),
+        schema='public',
     )
 
     # Create indexes
-    op.create_index('idx_vinted_pro_sellers_vinted_user_id', 'vinted_pro_sellers', ['vinted_user_id'], unique=True)
-    op.create_index('idx_vinted_pro_sellers_country_code', 'vinted_pro_sellers', ['country_code'], unique=False)
-    op.create_index('idx_vinted_pro_sellers_marketplace', 'vinted_pro_sellers', ['marketplace'], unique=False)
-    op.create_index('idx_vinted_pro_sellers_status', 'vinted_pro_sellers', ['status'], unique=False)
-    op.create_index('idx_vinted_pro_sellers_item_count', 'vinted_pro_sellers', ['item_count'], unique=False)
-    op.create_index('idx_vinted_pro_sellers_legal_code', 'vinted_pro_sellers', ['legal_code'], unique=False)
+    op.create_index('idx_vinted_pro_sellers_vinted_user_id', 'vinted_pro_sellers', ['vinted_user_id'], unique=True, schema='public')
+    op.create_index('idx_vinted_pro_sellers_country_code', 'vinted_pro_sellers', ['country_code'], unique=False, schema='public')
+    op.create_index('idx_vinted_pro_sellers_marketplace', 'vinted_pro_sellers', ['marketplace'], unique=False, schema='public')
+    op.create_index('idx_vinted_pro_sellers_status', 'vinted_pro_sellers', ['status'], unique=False, schema='public')
+    op.create_index('idx_vinted_pro_sellers_item_count', 'vinted_pro_sellers', ['item_count'], unique=False, schema='public')
+    op.create_index('idx_vinted_pro_sellers_legal_code', 'vinted_pro_sellers', ['legal_code'], unique=False, schema='public')
 
     print("  + Created vinted_pro_sellers table with 6 indexes")
 
 
 def downgrade() -> None:
     """Drop vinted_pro_sellers table."""
-    op.drop_index('idx_vinted_pro_sellers_legal_code', table_name='vinted_pro_sellers')
-    op.drop_index('idx_vinted_pro_sellers_item_count', table_name='vinted_pro_sellers')
-    op.drop_index('idx_vinted_pro_sellers_status', table_name='vinted_pro_sellers')
-    op.drop_index('idx_vinted_pro_sellers_marketplace', table_name='vinted_pro_sellers')
-    op.drop_index('idx_vinted_pro_sellers_country_code', table_name='vinted_pro_sellers')
-    op.drop_index('idx_vinted_pro_sellers_vinted_user_id', table_name='vinted_pro_sellers')
-    op.drop_table('vinted_pro_sellers')
+    op.drop_index('idx_vinted_pro_sellers_legal_code', table_name='vinted_pro_sellers', schema='public')
+    op.drop_index('idx_vinted_pro_sellers_item_count', table_name='vinted_pro_sellers', schema='public')
+    op.drop_index('idx_vinted_pro_sellers_status', table_name='vinted_pro_sellers', schema='public')
+    op.drop_index('idx_vinted_pro_sellers_marketplace', table_name='vinted_pro_sellers', schema='public')
+    op.drop_index('idx_vinted_pro_sellers_country_code', table_name='vinted_pro_sellers', schema='public')
+    op.drop_index('idx_vinted_pro_sellers_vinted_user_id', table_name='vinted_pro_sellers', schema='public')
+    op.drop_table('vinted_pro_sellers', schema='public')
