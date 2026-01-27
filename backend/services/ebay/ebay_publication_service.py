@@ -106,6 +106,9 @@ class EbayPublicationService:
             >>> result = service.publish_product(12345, "EBAY_FR", category_id="11450")
             >>> print(f"Publié sur eBay: {result['listing_id']}")
         """
+        # 0. Check not already published (Issue #30 - Audit)
+        self._check_not_already_published(product_id)
+
         # 1. Load Product
         product = self.db.query(Product).filter(Product.id == product_id).first()
         if not product:
@@ -341,3 +344,29 @@ class EbayPublicationService:
             ebay_product.published_at = datetime.now(timezone.utc)
 
         self.db.flush()
+
+    def _check_not_already_published(self, product_id: int) -> None:
+        """
+        Check that the product is not already published on eBay.
+
+        Prevents duplicate listings. Issue #30 - Business Logic Audit.
+
+        Args:
+            product_id: Product ID to check.
+
+        Raises:
+            EbayPublicationError: If product already has active/published listing.
+        """
+        existing = (
+            self.db.query(EbayProduct)
+            .filter(
+                EbayProduct.product_id == product_id,
+                EbayProduct.status.in_(("active", "published")),
+            )
+            .first()
+        )
+        if existing:
+            raise EbayPublicationError(
+                f"Product {product_id} is already published on eBay "
+                f"(ebay_product_id={existing.id}, status={existing.status})"
+            )
