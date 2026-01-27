@@ -28,7 +28,7 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         {
           name: 'description',
-          content: 'Synchronisez vos stocks, automatisez vos publications et gérez vos ventes multi-marketplace en un clic. Essai gratuit 14 jours. Support Vinted, eBay, Etsy.'
+          content: 'Gérez vos ventes Vinted, eBay et Etsy en un seul endroit. Synchronisation des stocks, publication multi-marketplace en un clic. Essai gratuit.'
         },
         { name: 'author', content: 'Stoflow' },
         { name: 'robots', content: 'index, follow' },
