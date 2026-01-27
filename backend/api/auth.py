@@ -137,6 +137,7 @@ async def login(
     # Include CSRF token in response body (cross-origin can't read cookies via JS)
     response_data_base["csrf_token"] = csrf_token
     response.body = JSONResponse(content=response_data_base).body
+    response.headers["content-length"] = str(len(response.body))
 
     logger.info(f"Login successful: user_id={user.id}, source={source}, token_source=cookie")
 
@@ -216,6 +217,7 @@ async def refresh_token(
     csrf_token = set_csrf_token_cookie(response)
     response_data["csrf_token"] = csrf_token
     response.body = JSONResponse(content=response_data).body
+    response.headers["content-length"] = str(len(response.body))
 
     return response
 
