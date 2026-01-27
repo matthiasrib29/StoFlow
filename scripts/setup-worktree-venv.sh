@@ -24,5 +24,6 @@ else
     source .venv/bin/activate
     pip install --upgrade pip
     pip install -r requirements.txt
-    echo "✅ Venv créé et dépendances installées"
+    pip install -r requirements-dev.txt
+    echo "✅ Venv créé et dépendances installées (prod + dev)"
 fi
