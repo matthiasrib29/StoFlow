@@ -45,7 +45,7 @@ class VintedImageSyncService:
             logger.debug(f"[VintedImageSync] Parsed {len(photos)} photos from photos_data")
             return photos if isinstance(photos, list) else []
         except json.JSONDecodeError as e:
-            logger.error(f"[VintedImageSync] Failed to parse photos_data: {e}")
+            logger.error(f"[VintedImageSync] Failed to parse photos_data: {e}", exc_info=True)
             return []
 
     @staticmethod

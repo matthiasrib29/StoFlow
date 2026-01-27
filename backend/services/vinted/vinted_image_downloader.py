@@ -57,7 +57,7 @@ class VintedImageDownloader:
         try:
             photos = json.loads(photos_data)
         except json.JSONDecodeError as e:
-            logger.error(f"[ImageDownloader] Failed to parse photos_data: {e}")
+            logger.error(f"[ImageDownloader] Failed to parse photos_data: {e}", exc_info=True)
             return {"images_copied": 0, "images_failed": 0, "total_images": 0}
 
         total_images = len(photos)

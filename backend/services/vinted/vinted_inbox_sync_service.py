@@ -123,7 +123,7 @@ class VintedInboxSyncService:
 
                     except (ValueError, KeyError, TypeError) as e:
                         conv_id = conv_data.get("id", "unknown")
-                        logger.error(f"[VintedInboxSyncService] Error processing conv {conv_id}: {e}")
+                        logger.error(f"[VintedInboxSyncService] Error processing conv {conv_id}: {e}", exc_info=True)
                         result["errors"].append(f"Conv {conv_id}: {str(e)}")
 
                 # Check if more pages
@@ -142,7 +142,7 @@ class VintedInboxSyncService:
             return result
 
         except Exception as e:
-            logger.error(f"[VintedInboxSyncService] sync_inbox error: {e}")
+            logger.error(f"[VintedInboxSyncService] sync_inbox error: {e}", exc_info=True)
             # schema_translate_map survives rollback - no need to restore
             raise
 

@@ -158,7 +158,7 @@ class EbayOrderSyncService:
                 f"{len(all_orders)} total unique"
             )
         except Exception as e:
-            logger.warning(f"[EbayOrderSyncService] Failed to fetch recent orders: {e}")
+            logger.warning(f"[EbayOrderSyncService] Failed to fetch recent orders: {e}", exc_info=True)
 
         # Strategy 2: Fetch historical orders by year (2025 only - eBay rejects 2024 and 2026)
         # Note: eBay is in 2025, our system date is 2026. 2026 dates are rejected.

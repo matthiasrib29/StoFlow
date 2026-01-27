@@ -89,7 +89,7 @@ class VintedOrderSyncService:
             )
             return result
         except Exception as e:
-            logger.error(f"Erreur invoices p{page}: {type(e).__name__}: {e}")
+            logger.error(f"Erreur invoices p{page}: {type(e).__name__}: {e}", exc_info=True)
             return None
 
     @staticmethod
@@ -133,7 +133,7 @@ class VintedOrderSyncService:
             return transaction_id
 
         except Exception as e:
-            logger.error(f"Erreur conv {conversation_id}: {type(e).__name__}: {e}")
+            logger.error(f"Erreur conv {conversation_id}: {type(e).__name__}: {e}", exc_info=True)
             return None
 
     async def _fetch_transaction_details(
@@ -163,7 +163,7 @@ class VintedOrderSyncService:
             return transaction
 
         except Exception as e:
-            logger.error(f"Erreur tx {transaction_id}: {type(e).__name__}: {e}")
+            logger.error(f"Erreur tx {transaction_id}: {type(e).__name__}: {e}", exc_info=True)
             return None
 
     async def _fetch_orders_page(
@@ -186,7 +186,7 @@ class VintedOrderSyncService:
             )
             return result
         except Exception as e:
-            logger.error(f"Erreur orders p{page}: {type(e).__name__}: {e}")
+            logger.error(f"Erreur orders p{page}: {type(e).__name__}: {e}", exc_info=True)
             return None
 
     # =========================================================================

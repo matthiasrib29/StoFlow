@@ -379,7 +379,7 @@ class EbayAspectValueService:
             )
             return translated or gb_value
         except Exception as e:
-            logger.error(f"Error translating {gb_value}: {e}")
+            logger.error(f"Error translating {gb_value}: {e}", exc_info=True)
             return gb_value
 
     def get_waist_size(self, size_value: str) -> Optional[str]:

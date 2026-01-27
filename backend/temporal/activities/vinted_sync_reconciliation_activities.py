@@ -199,7 +199,7 @@ async def delete_vinted_listing(user_id: int, product_id: int) -> dict:
         return result
 
     except Exception as e:
-        activity.logger.error(f"Vinted deletion failed for product #{product_id}: {e}")
+        activity.logger.error(f"Vinted deletion failed for product #{product_id}: {e}", exc_info=True)
         return {"success": False, "product_id": product_id, "error": str(e)}
 
     finally:

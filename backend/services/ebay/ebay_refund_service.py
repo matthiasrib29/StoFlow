@@ -152,7 +152,7 @@ class EbayRefundService:
             }
 
         except EbayError as e:
-            logger.error(f"[EbayRefundService] Failed to issue refund: {e}")
+            logger.error(f"[EbayRefundService] Failed to issue refund: {e}", exc_info=True)
             return {
                 "success": False,
                 "refund_id": None,
@@ -220,7 +220,7 @@ class EbayRefundService:
             )
 
         except EbayError as e:
-            logger.error(f"[EbayRefundService] Failed to sync refunds: {e}")
+            logger.error(f"[EbayRefundService] Failed to sync refunds: {e}", exc_info=True)
 
         return {"created": created, "updated": updated, "skipped": skipped}
 
@@ -384,7 +384,7 @@ class EbayRefundService:
                     total_errors += 1
 
         except EbayError as e:
-            logger.error(f"[EbayRefundService] Failed to fetch orders: {e}")
+            logger.error(f"[EbayRefundService] Failed to fetch orders: {e}", exc_info=True)
 
         logger.info(
             f"[EbayRefundService] Sync complete: created={total_created}, "

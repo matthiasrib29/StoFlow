@@ -113,7 +113,7 @@ async def _call_vinted_api(
             "not connected", "disconnected", "receiving end does not exist",
             "could not establish connection", "no plugin",
         )):
-            activity.logger.warning(f"Plugin disconnected for {description}: {e}")
+            activity.logger.warning(f"Plugin disconnected for {description}: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": "disconnected",
@@ -123,7 +123,7 @@ async def _call_vinted_api(
         raise
 
     except Exception as e:
-        activity.logger.error(f"Unexpected error for {description}: {e}")
+        activity.logger.error(f"Unexpected error for {description}: {e}", exc_info=True)
         raise
 
 
@@ -233,7 +233,7 @@ async def fetch_and_sync_page(
                 synced += 1
 
             except Exception as e:
-                activity.logger.warning(f"Error syncing vinted_id={item.get('id')}: {e}")
+                activity.logger.warning(f"Error syncing vinted_id={item.get('id')}: {e}", exc_info=True)
                 errors += 1
                 db.rollback()
                 configure_activity_session(db, user_id)

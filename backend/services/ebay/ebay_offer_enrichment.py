@@ -54,7 +54,7 @@ class EbayOfferEnrichment:
             result = self.offer_client.get_offers(sku=sku)
             return result.get("offers", [])
         except Exception as e:
-            logger.warning(f"Could not fetch offers for SKU {sku}: {e}")
+            logger.warning(f"Could not fetch offers for SKU {sku}: {e}", exc_info=True)
             return []
 
     def _get_aspect_by_key(self, aspects: dict, aspect_key: str) -> Optional[str]:
@@ -116,7 +116,7 @@ class EbayOfferEnrichment:
             self._apply_offer_data(ebay_product, selected_offer)
 
         except Exception as e:
-            logger.warning(f"Could not enrich product {ebay_product.ebay_sku}: {e}")
+            logger.warning(f"Could not enrich product {ebay_product.ebay_sku}: {e}", exc_info=True)
 
     def _apply_offer_data(self, ebay_product: EbayProduct, offer: dict) -> None:
         """Apply offer data to an eBay product."""
@@ -234,7 +234,7 @@ class EbayOfferEnrichment:
                     "price": product.price,
                 })
             except Exception as e:
-                logger.warning(f"Error enriching {product.ebay_sku}: {e}")
+                logger.warning(f"Error enriching {product.ebay_sku}: {e}", exc_info=True)
                 results["errors"] += 1
                 results["details"].append({
                     "sku": product.ebay_sku,
@@ -246,7 +246,7 @@ class EbayOfferEnrichment:
             self.db.commit()
             results["remaining"] -= results["enriched"]
         except Exception as e:
-            logger.error(f"Error committing enrichment: {e}")
+            logger.error(f"Error committing enrichment: {e}", exc_info=True)
             self.db.rollback()
             raise
 
@@ -287,7 +287,7 @@ class EbayOfferEnrichment:
                 self.enrich_with_offers(product)
                 results["enriched"] += 1
             except Exception as e:
-                logger.warning(f"[EnrichOffers] Error enriching {product.ebay_sku}: {e}")
+                logger.warning(f"[EnrichOffers] Error enriching {product.ebay_sku}: {e}", exc_info=True)
                 results["errors"] += 1
 
             if (i + 1) % batch_size == 0:
@@ -295,7 +295,7 @@ class EbayOfferEnrichment:
                     self.db.commit()
                     logger.info(f"[EnrichOffers] Progress: {i + 1}/{len(products)} products")
                 except Exception as e:
-                    logger.error(f"[EnrichOffers] Error committing batch: {e}")
+                    logger.error(f"[EnrichOffers] Error committing batch: {e}", exc_info=True)
                     self.db.rollback()
 
         try:
@@ -305,7 +305,7 @@ class EbayOfferEnrichment:
                 f"{results['errors']} errors"
             )
         except Exception as e:
-            logger.error(f"[EnrichOffers] Error committing: {e}")
+            logger.error(f"[EnrichOffers] Error committing: {e}", exc_info=True)
             self.db.rollback()
             raise
 
@@ -343,14 +343,14 @@ class EbayOfferEnrichment:
 
                 results["updated"] += 1
             except Exception as e:
-                logger.warning(f"Error refreshing aspects for {product.ebay_sku}: {e}")
+                logger.warning(f"Error refreshing aspects for {product.ebay_sku}: {e}", exc_info=True)
                 results["errors"] += 1
 
         try:
             self.db.commit()
             results["remaining"] -= results["updated"]
         except Exception as e:
-            logger.error(f"Error committing aspect refresh: {e}")
+            logger.error(f"Error committing aspect refresh: {e}", exc_info=True)
             self.db.rollback()
             raise
 

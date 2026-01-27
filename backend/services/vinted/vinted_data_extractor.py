@@ -251,7 +251,7 @@ class VintedDataExtractor:
             }
 
         except Exception as e:
-            logger.error(f"Erreur extraction order: {e}")
+            logger.error(f"Erreur extraction order: {e}", exc_info=True)
             return None
 
     @staticmethod
@@ -311,7 +311,7 @@ class VintedDataExtractor:
                 })
 
         except Exception as e:
-            logger.error(f"Erreur extraction products: {e}")
+            logger.error(f"Erreur extraction products: {e}", exc_info=True)
 
         return products
 

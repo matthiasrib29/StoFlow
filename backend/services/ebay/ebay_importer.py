@@ -117,7 +117,7 @@ class EbayImporter:
                 offset += limit
 
             except Exception as e:
-                logger.error(f"Error fetching inventory items at offset {offset}: {e}")
+                logger.error(f"Error fetching inventory items at offset {offset}: {e}", exc_info=True)
                 break
 
         logger.info(f"Total inventory items fetched: {len(all_items)}")
@@ -137,7 +137,7 @@ class EbayImporter:
             result = self.offer_client.get_offers(sku=sku)
             return result.get("offers", [])
         except Exception as e:
-            logger.warning(f"Could not fetch offers for SKU {sku}: {e}")
+            logger.warning(f"Could not fetch offers for SKU {sku}: {e}", exc_info=True)
             return []
 
     async def import_all_products(self, enrich: bool = False) -> dict:
@@ -204,12 +204,12 @@ class EbayImporter:
                         self.db.commit()
                         logger.info(f"Progress saved: {i + 1}/{len(inventory_items)} items processed")
                     except Exception as e:
-                        logger.error(f"Error committing batch: {e}")
+                        logger.error(f"Error committing batch: {e}", exc_info=True)
                         self.db.rollback()
 
             except Exception as e:
                 sku = item.get("sku", "unknown")
-                logger.error(f"Error importing item {sku}: {e}")
+                logger.error(f"Error importing item {sku}: {e}", exc_info=True)
                 results["errors"] += 1
                 results["details"].append({
                     "sku": sku,
@@ -221,7 +221,7 @@ class EbayImporter:
         try:
             self.db.commit()
         except Exception as e:
-            logger.error(f"Error committing changes: {e}")
+            logger.error(f"Error committing changes: {e}", exc_info=True)
             self.db.rollback()
             raise
 
@@ -449,7 +449,7 @@ class EbayImporter:
                     return ebay_product
 
         except Exception as e:
-            logger.error(f"Error syncing product {sku}: {e}")
+            logger.error(f"Error syncing product {sku}: {e}", exc_info=True)
             self.db.rollback()
 
         return None
@@ -538,7 +538,7 @@ class EbayImporter:
                 )
 
             except Exception as e:
-                logger.warning(f"[SyncInventory] Error updating {product.ebay_sku}: {e}")
+                logger.warning(f"[SyncInventory] Error updating {product.ebay_sku}: {e}", exc_info=True)
                 results["errors"] += 1
 
         # 5. Commit changes
@@ -549,7 +549,7 @@ class EbayImporter:
                 f"{results['not_found']} not found, {results['errors']} errors"
             )
         except Exception as e:
-            logger.error(f"[SyncInventory] Error committing: {e}")
+            logger.error(f"[SyncInventory] Error committing: {e}", exc_info=True)
             self.db.rollback()
             raise
 

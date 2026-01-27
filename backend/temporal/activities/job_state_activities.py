@@ -204,7 +204,7 @@ async def check_plugin_connection(user_id: int) -> bool:
         return is_connected
 
     except Exception as e:
-        activity.logger.warning(f"Error checking plugin connection for user {user_id}: {e}")
+        activity.logger.warning(f"Error checking plugin connection for user {user_id}: {e}", exc_info=True)
         return False
 
 

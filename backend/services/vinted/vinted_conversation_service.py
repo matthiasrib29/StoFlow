@@ -166,7 +166,7 @@ class VintedConversationService:
                     result["messages_new"] += 1
 
                 except (ValueError, KeyError, TypeError) as e:
-                    logger.error(f"[VintedConversationService] Error processing message: {e}")
+                    logger.error(f"[VintedConversationService] Error processing message: {e}", exc_info=True)
                     result["errors"].append(str(e))
 
             # Mark conversation as read in local DB
@@ -180,7 +180,7 @@ class VintedConversationService:
             return result
 
         except Exception as e:
-            logger.error(f"[VintedConversationService] sync_conversation error: {e}")
+            logger.error(f"[VintedConversationService] sync_conversation error: {e}", exc_info=True)
             # schema_translate_map survives rollback - no need to restore
             raise
 

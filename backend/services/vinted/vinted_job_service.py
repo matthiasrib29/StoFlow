@@ -340,7 +340,7 @@ class VintedJobService:
                 return job
             except Exception as e:
                 self.db.rollback()
-                logger.error(f"[VintedJobService] Failed to cancel pending job #{job_id}: {e}")
+                logger.error(f"[VintedJobService] Failed to cancel pending job #{job_id}: {e}", exc_info=True)
                 return None
 
         # If job is RUNNING, signal via advisory lock AND mark as cancelled
@@ -373,7 +373,7 @@ class VintedJobService:
 
             except Exception as e:
                 self.db.rollback()
-                logger.error(f"[VintedJobService] Failed to cancel running job #{job_id}: {e}")
+                logger.error(f"[VintedJobService] Failed to cancel running job #{job_id}: {e}", exc_info=True)
                 return None
 
         # Other statuses (shouldn't happen but handle gracefully)

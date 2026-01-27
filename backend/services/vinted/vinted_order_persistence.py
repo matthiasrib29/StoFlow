@@ -73,7 +73,7 @@ class VintedOrderPersistence:
             return False
 
         except Exception as e:
-            logger.error(f"Erreur save order: {type(e).__name__}: {e}")
+            logger.error(f"Erreur save order: {type(e).__name__}: {e}", exc_info=True)
             db.rollback()
             return False
 
@@ -341,7 +341,7 @@ class VintedOrderPersistence:
             return vinted_order
 
         except Exception as e:
-            logger.error(f"Error creating order from my_orders: {e}")
+            logger.error(f"Error creating order from my_orders: {e}", exc_info=True)
             db.rollback()
             return None
 
@@ -385,7 +385,7 @@ class VintedOrderPersistence:
             return changed
 
         except Exception as e:
-            logger.error(f"Error updating order: {e}")
+            logger.error(f"Error updating order: {e}", exc_info=True)
             db.rollback()
             return False
 
@@ -481,7 +481,7 @@ class VintedOrderPersistence:
             )
 
         except Exception as e:
-            logger.error(f"Error enriching order: {e}")
+            logger.error(f"Error enriching order: {e}", exc_info=True)
 
     @staticmethod
     def _update_products_from_transaction(
@@ -527,4 +527,4 @@ class VintedOrderPersistence:
                 db.add(order_product)
 
         except Exception as e:
-            logger.error(f"Error updating products: {e}")
+            logger.error(f"Error updating products: {e}", exc_info=True)
