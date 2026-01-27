@@ -12,9 +12,10 @@ Business Rules:
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Text, func
+from sqlalchemy import BigInteger, DateTime, DECIMAL, ForeignKey, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -93,7 +94,7 @@ class EbayReturn(Base):
     reason_detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Refund
-    refund_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    refund_amount: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 2), nullable=True)
     refund_currency: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     refund_status: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
