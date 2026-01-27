@@ -174,6 +174,7 @@ class MarketplaceJob(Base):
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+        index=True,
         comment="When job started processing"
     )
 
@@ -186,6 +187,7 @@ class MarketplaceJob(Base):
     expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+        index=True,
         comment="When pending job expires (created_at + 1h)"
     )
 
