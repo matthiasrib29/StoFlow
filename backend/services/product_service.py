@@ -689,6 +689,34 @@ class ProductService:
             )
 
     @staticmethod
+    def _lock_product_for_update(db: Session, product_id: int) -> Product:
+        """
+        Acquire a FOR UPDATE lock on the product row.
+
+        Prevents concurrent M2M modifications on the same product.
+        The lock is released when the transaction commits or rolls back.
+
+        Args:
+            db: SQLAlchemy Session
+            product_id: Product ID to lock
+
+        Returns:
+            Locked Product instance
+
+        Raises:
+            ValueError: If product not found
+        """
+        product = (
+            db.query(Product)
+            .filter(Product.id == product_id)
+            .with_for_update()
+            .first()
+        )
+        if not product:
+            raise ValueError(f"Product {product_id} not found for locking")
+        return product
+
+    @staticmethod
     def _apply_m2m_updates(
         db: Session,
         product_id: int,
@@ -700,9 +728,24 @@ class ProductService:
         """
         Apply M2M relation updates (REPLACE strategy).
 
+        Acquires FOR UPDATE lock on the product row to prevent concurrent
+        M2M modifications (Issue #23 - Business Logic Audit).
+
         Returns:
             True if any M2M update was applied
         """
+        has_updates = (
+            validated_colors is not None
+            or validated_materials is not None
+            or validated_condition_sups is not None
+        )
+
+        if not has_updates:
+            return False
+
+        # Lock the product row to prevent concurrent M2M modifications
+        ProductService._lock_product_for_update(db, product_id)
+
         updated = False
 
         if validated_colors is not None:
