@@ -132,16 +132,7 @@ class AuthService:
     @staticmethod
     def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
         """
-        Vérifie et décode un token JWT.
-
-        Stratégie de migration HS256 → RS256:
-        1. Essaie d'abord RS256 (nouveau, asymétrique) avec clé publique
-        2. Si échoue, essaie HS256 (ancien, symétrique) pour fallback 30 jours
-        3. Log les tokens HS256 pour monitoring de la migration
-
-        Supporte aussi la rotation de secrets JWT:
-        - Essaie secret actuel en premier
-        - Si échec et ancien secret configuré, essaie avec ancien (période de grâce)
+        Verify and decode a JWT token (RS256 only).
 
         Args:
             token: Token JWT à vérifier
@@ -150,52 +141,18 @@ class AuthService:
         Returns:
             Payload du token si valide, None sinon
         """
-        last_error = None
+        if not settings.jwt_public_key_pem:
+            logger.error("JWT_PUBLIC_KEY_PEM not configured - cannot verify tokens")
+            return None
 
-        # ÉTAPE 1: Essayer RS256 (nouveau, asymétrique) avec clé publique
-        if settings.jwt_public_key_pem:
-            try:
-                payload = jwt.decode(token, settings.jwt_public_key_pem, algorithms=["RS256"])
-
-                # Vérifier que le type de token correspond
-                if payload.get("type") != token_type:
-                    return None
-
-                return payload
-            except JWTError as e:
-                last_error = e
-                # Continuer vers fallback HS256
-
-        # ÉTAPE 2: Fallback HS256 (ancien, symétrique) pour migration en douceur
-        # Essayer avec les anciens secrets (actuel en premier, puis précédent)
-        hs256_secrets_to_try = [settings.jwt_secret_key]
-        if settings.jwt_secret_key_previous:
-            hs256_secrets_to_try.append(settings.jwt_secret_key_previous)
-
-        for i, secret in enumerate(hs256_secrets_to_try):
-            try:
-                payload = jwt.decode(token, secret, algorithms=["HS256"])
-
-                # Vérifier que le type de token correspond
-                if payload.get("type") != token_type:
-                    return None
-
-                # ⚠️ IMPORTANT: Log le fallback HS256 pour monitoring de la migration
-                logger.warning(
-                    f"JWT HS256 fallback used (migration in progress). "
-                    f"user_id={payload.get('user_id')}, token_type={token_type}, "
-                    f"secret_index={i}. Please upgrade to RS256."
-                )
-
-                return payload
-            except JWTError as e:
-                last_error = e
-                continue
-
-        # Tous les secrets ont échoué
-        if last_error:
-            logger.debug(f"Token verification failed: {last_error}")
-        return None
+        try:
+            payload = jwt.decode(token, settings.jwt_public_key_pem, algorithms=["RS256"])
+            if payload.get("type") != token_type:
+                return None
+            return payload
+        except JWTError as e:
+            logger.debug(f"Token verification failed: {e}")
+            return None
 
     # Configuration blocage compte (nombre d'échecs avant blocage et durée)
     MAX_FAILED_ATTEMPTS = 5
