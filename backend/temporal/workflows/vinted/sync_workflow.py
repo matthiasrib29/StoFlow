@@ -45,6 +45,7 @@ from temporal.activities.vinted_activities import (
     check_plugin_connection,
     mark_job_paused,
     sync_sold_status,
+    detect_sold_with_active_listing,
 )
 
 
@@ -277,130 +278,99 @@ class VintedSyncWorkflow:
                 **activity_options,
             )
 
-            # Enrich products sequentially in batches
-            # IMPORTANT: Always use offset=0 because enriched products exit the filter
-            enrich_batch_size = 15
-            batch_count = 0
+            # Get all product IDs to enrich
+            vinted_ids_to_enrich = await workflow.execute_activity(
+                get_vinted_ids_to_enrich,
+                args=[params.user_id, sync_start_time],
+                **activity_options,
+            )
 
-            while not self._cancelled:
+            # Enrich products sequentially
+            for i, vinted_id in enumerate(vinted_ids_to_enrich):
+                if self._cancelled:
+                    break
+
                 # Check for pause signal
                 if self._paused:
                     if not await self._wait_while_paused(params, activity_options):
                         return await self._handle_cancellation(params, activity_options, total_synced)
-                    # Restore running status after resume
-                    await workflow.execute_activity(
-                        update_job_progress,
-                        args=[params.user_id, params.job_id, total_synced, "enrichissement en cours..."],
-                        **activity_options,
-                    )
-                    continue
 
-                # Get next batch (always offset=0 since enriched products have description now)
-                vinted_ids_to_enrich = await workflow.execute_activity(
-                    get_vinted_ids_to_enrich,
-                    args=[params.user_id, sync_start_time, enrich_batch_size, 0],
+                result = await workflow.execute_activity(
+                    enrich_single_product,
+                    args=[params.user_id, vinted_id],
                     **activity_options,
                 )
 
-                if not vinted_ids_to_enrich:
-                    break  # No more products to enrich
+                if result.get("success"):
+                    total_enriched += 1
+                else:
+                    total_enrich_errors += 1
+                    error = result.get("error", "")
 
-                # Enrich products SEQUENTIALLY (no parallel - DataDome protection)
-                should_retry_batch = False
-                for vinted_id in vinted_ids_to_enrich:
-                    if self._cancelled:
-                        break
-
-                    # Check for pause within batch
-                    if self._paused:
-                        if not await self._wait_while_paused(params, activity_options):
-                            return await self._handle_cancellation(params, activity_options, total_synced)
-
-                    result = await workflow.execute_activity(
-                        enrich_single_product,
-                        args=[params.user_id, vinted_id],
-                        **activity_options,
-                    )
-
-                    if result.get("success"):
-                        total_enriched += 1
-                    else:
-                        total_enrich_errors += 1
-                        error = result.get("error", "")
-
-                        # Handle disconnection or timeout with reconnection wait
-                        if error in ("disconnected", "timeout"):
-                            workflow.logger.warning(f"Plugin connection issue during enrich ({error}), waiting for reconnection")
-                            if await self._wait_for_reconnection(params, activity_options):
-                                await workflow.execute_activity(
-                                    update_job_progress,
-                                    args=[params.user_id, params.job_id, total_synced, "reprise de l'enrichissement..."],
-                                    **activity_options,
-                                )
-                                should_retry_batch = True
-                                break
-                            else:
-                                return {
-                                    "status": "failed",
-                                    "error": "disconnected_timeout",
-                                    "synced_count": total_synced,
-                                    "enriched": total_enriched,
-                                    "message": "Plugin disconnected and reconnection timeout reached",
-                                }
-
-                        # 401 Unauthorized / 403 Forbidden - STOP immediately (no retry)
-                        if error in ("unauthorized", "forbidden"):
-                            workflow.logger.error(f"{error.upper()} during enrich - stopping workflow")
-                            error_messages = {
-                                "unauthorized": "Session Vinted expirée. Veuillez vous reconnecter au plugin.",
-                                "forbidden": "Accès bloqué par Vinted (403). Réessayez plus tard.",
-                            }
+                    # Handle disconnection or timeout with reconnection wait
+                    if error in ("disconnected", "timeout"):
+                        workflow.logger.warning(f"Plugin connection issue during enrich ({error}), waiting for reconnection")
+                        if await self._wait_for_reconnection(params, activity_options):
+                            await workflow.execute_activity(
+                                update_job_progress,
+                                args=[params.user_id, params.job_id, total_synced, "reprise de l'enrichissement..."],
+                                **activity_options,
+                            )
+                            # Retry same product after reconnection
+                            continue
+                        else:
                             return {
                                 "status": "failed",
-                                "error": error,
+                                "error": "disconnected_timeout",
                                 "synced_count": total_synced,
                                 "enriched": total_enriched,
-                                "message": error_messages.get(error, f"Erreur {error}"),
+                                "message": "Plugin disconnected and reconnection timeout reached",
                             }
 
-                        # 429 Rate Limited - pause and retry batch
-                        if error == "rate_limited":
-                            workflow.logger.warning("Rate limited during enrich, pausing 60s")
-                            self._progress.label = "pause anti-blocage (rate_limited)..."
-                            await asyncio.sleep(60)
-                            should_retry_batch = True
-                            break
+                    # 401 Unauthorized / 403 Forbidden - STOP immediately
+                    if error in ("unauthorized", "forbidden"):
+                        workflow.logger.error(f"{error.upper()} during enrich - stopping workflow")
+                        error_messages = {
+                            "unauthorized": "Session Vinted expirée. Veuillez vous reconnecter au plugin.",
+                            "forbidden": "Accès bloqué par Vinted (403). Réessayez plus tard.",
+                        }
+                        return {
+                            "status": "failed",
+                            "error": error,
+                            "synced_count": total_synced,
+                            "enriched": total_enriched,
+                            "message": error_messages.get(error, f"Erreur {error}"),
+                        }
 
-                        # 5xx Server Error - pause and retry
-                        if error == "server_error":
-                            workflow.logger.warning("Vinted server error during enrich, pausing 30s")
-                            self._progress.label = "erreur serveur Vinted, pause..."
-                            await asyncio.sleep(30)
-                            should_retry_batch = True
-                            break
+                    # 429 Rate Limited - pause then continue
+                    if error == "rate_limited":
+                        workflow.logger.warning("Rate limited during enrich, pausing 60s")
+                        self._progress.label = "pause anti-blocage (rate_limited)..."
+                        await asyncio.sleep(60)
+                        continue
 
-                        # 404 not found - product sold/deleted, just skip it (not an error)
-                        if error in ("not_found_vinted", "not_found_db"):
-                            continue
+                    # 5xx Server Error - pause then continue
+                    if error == "server_error":
+                        workflow.logger.warning("Vinted server error during enrich, pausing 30s")
+                        self._progress.label = "erreur serveur Vinted, pause..."
+                        await asyncio.sleep(30)
+                        continue
 
-                # If we should retry due to reconnection, continue the while loop
-                if should_retry_batch:
-                    continue
+                    # 404 not found - product sold/deleted, just skip
+                    if error in ("not_found_vinted", "not_found_db"):
+                        continue
 
-                # Update progress after each batch
-                label = f"{total_synced} synchronisés, {total_enriched} enrichis..."
-                self._progress.label = label
-                self._progress.current_count = total_synced + total_enriched
+                # Update progress every 5 products
+                if (i + 1) % 5 == 0 or (i + 1) == len(vinted_ids_to_enrich):
+                    label = f"{total_synced} synchronisés, {total_enriched}/{len(vinted_ids_to_enrich)} enrichis..."
+                    self._progress.label = label
+                    self._progress.current_count = total_synced + total_enriched
 
-                await workflow.execute_activity(
-                    update_job_progress,
-                    args=[params.user_id, params.job_id, total_synced, label],
-                    **activity_options,
-                )
-
-                batch_count += 1
-
-                # NOTE: No pause between batches - rate limiter handles delays
+                    await workflow.execute_activity(
+                        update_job_progress,
+                        args=[params.user_id, params.job_id, total_synced, label],
+                        **activity_options,
+                    )
 
             # Handle cancellation after enrich phase
             if self._cancelled:
@@ -433,6 +403,36 @@ class VintedSyncWorkflow:
                 return await self._handle_cancellation(params, activity_options, total_synced)
 
             # ═══════════════════════════════════════════════════════════
+            # PHASE 4: Detect SOLD products with active Vinted listings
+            # ═══════════════════════════════════════════════════════════
+            self._progress.phase = "cleanup_detect"
+            self._progress.label = "détection des annonces Vinted à supprimer..."
+
+            await workflow.execute_activity(
+                update_job_progress,
+                args=[params.user_id, params.job_id, total_synced,
+                      "détection des annonces Vinted à supprimer..."],
+                **activity_options,
+            )
+
+            cleanup_result = await workflow.execute_activity(
+                detect_sold_with_active_listing,
+                args=[params.user_id],
+                **activity_options,
+            )
+
+            cleanup_count = cleanup_result.get("pending_count", 0)
+            if cleanup_count > 0:
+                workflow.logger.info(
+                    f"Created {cleanup_count} pending actions for SOLD products "
+                    f"with active Vinted listings"
+                )
+
+            # Handle cancellation after cleanup detect phase
+            if self._cancelled:
+                return await self._handle_cancellation(params, activity_options, total_synced)
+
+            # ═══════════════════════════════════════════════════════════
             # DONE
             # ═══════════════════════════════════════════════════════════
             final_count = total_synced
@@ -448,6 +448,8 @@ class VintedSyncWorkflow:
             self._progress.phase = "done"
             self._progress.current_count = final_count
             final_label = f"{final_count} sync, {total_enriched} enrichis, {sold_count} vendus"
+            if cleanup_count > 0:
+                final_label += f", {cleanup_count} suppressions proposées"
             self._progress.label = final_label
 
             return {
@@ -455,6 +457,7 @@ class VintedSyncWorkflow:
                 "final_count": final_count,
                 "enriched": total_enriched,
                 "sold_updated": sold_count,
+                "cleanup_proposed": cleanup_count,
                 "errors": total_errors,
             }
 

@@ -37,6 +37,10 @@ class TemporalConfig(BaseSettings):
         default="stoflow-sync-queue",
         description="Default task queue for sync workflows"
     )
+    temporal_vinted_task_queue: str = Field(
+        default="stoflow-vinted-queue",
+        description="Dedicated task queue for ALL Vinted workflows (sequential, max_concurrent=1)"
+    )
 
     # Worker Configuration
     temporal_worker_identity: Optional[str] = Field(

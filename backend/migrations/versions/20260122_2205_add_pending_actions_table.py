@@ -85,13 +85,13 @@ def create_pending_actions_ddl(schema: str) -> str:
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # 1. Add PENDING_DELETION to product_status enum
-    if not enum_value_exists(conn, "product_status", "pending_deletion"):
+    # 1. Add PENDING_DELETION to product_status enum (uppercase to match existing values)
+    if not enum_value_exists(conn, "product_status", "PENDING_DELETION"):
         conn.execute(text(
-            "ALTER TYPE product_status ADD VALUE IF NOT EXISTS 'pending_deletion'"
+            "ALTER TYPE product_status ADD VALUE IF NOT EXISTS 'PENDING_DELETION'"
         ))
         conn.execute(text("COMMIT"))
-        print("  Added 'pending_deletion' to product_status enum")
+        print("  Added 'PENDING_DELETION' to product_status enum")
 
     # 2. Create pending_actions table in all tenant schemas
     schemas = get_user_schemas(conn)

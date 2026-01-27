@@ -26,9 +26,11 @@ from shared.database import Base
 
 class PendingActionType(str, Enum):
     """Types of pending actions detected by sync workflows."""
-    MARK_SOLD = "mark_sold"       # Product sold on marketplace
-    DELETE = "delete"             # Product deleted from marketplace
-    ARCHIVE = "archive"          # Product to archive
+    MARK_SOLD = "mark_sold"                       # Product sold on marketplace
+    DELETE = "delete"                             # Product deleted from marketplace
+    ARCHIVE = "archive"                          # Product to archive
+    DELETE_VINTED_LISTING = "delete_vinted_listing"  # StoFlow SOLD but Vinted listing still active
+    DELETE_EBAY_LISTING = "delete_ebay_listing"      # StoFlow SOLD but eBay listing still active
 
 
 class PendingAction(Base):

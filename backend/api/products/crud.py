@@ -25,7 +25,9 @@ from schemas.product_schemas import (
     ProductResponse,
     ProductUpdate,
 )
+from models.user.pending_action import PendingActionType
 from services.product_service import ProductService
+from services.pending_action_service import PendingActionService
 from shared.subscription_limits import check_product_limit
 from shared.access_control import ensure_user_owns_resource, ensure_can_modify
 from shared.logging import get_logger
@@ -33,6 +35,31 @@ from shared.logging import get_logger
 logger = get_logger(__name__)
 
 router = APIRouter()
+
+
+def _create_vinted_cleanup_pending_action(db: Session, product_id: int) -> None:
+    """
+    Create a DELETE_VINTED_LISTING pending action if the product has a Vinted listing.
+
+    The user will need to confirm the pending action to trigger the actual deletion.
+
+    Args:
+        db: SQLAlchemy session (already configured for user schema)
+        product_id: StoFlow product ID just marked SOLD
+    """
+    from models.user.vinted_product import VintedProduct
+
+    vinted_product = db.query(VintedProduct).filter_by(product_id=product_id).first()
+    if not vinted_product:
+        return
+
+    service = PendingActionService(db)
+    service.create_pending_action(
+        product_id=product_id,
+        action_type=PendingActionType.DELETE_VINTED_LISTING,
+        marketplace="vinted",
+        reason=f"Product marked SOLD — Vinted listing {vinted_product.vinted_id} still active",
+    )
 
 
 @router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
@@ -360,6 +387,7 @@ def bulk_update_status(
     - Validation pour PUBLISHED: stock > 0, images >= 1
     - Transitions MVP autorisées (voir update_product_status)
     - Retourne succès/erreur pour chaque produit
+    - SOLD: crée une Pending Action si le produit a un listing Vinted actif
 
     Raises:
         403 FORBIDDEN: Si SUPPORT essaie de modifier
@@ -387,6 +415,7 @@ def bulk_update_status(
     results: list[BulkStatusUpdateResult] = []
     success_count = 0
     error_count = 0
+    sold_product_ids: list[int] = []
 
     for product_id in request.product_ids:
         try:
@@ -424,6 +453,9 @@ def bulk_update_status(
             ))
             success_count += 1
 
+            if target_status == ProductStatus.SOLD:
+                sold_product_ids.append(product_id)
+
         except ValueError as e:
             results.append(BulkStatusUpdateResult(
                 product_id=product_id,
@@ -431,6 +463,10 @@ def bulk_update_status(
                 error=str(e)
             ))
             error_count += 1
+
+    # Create pending actions for Vinted listings on products marked SOLD
+    for pid in sold_product_ids:
+        _create_vinted_cleanup_pending_action(db, pid)
 
     logger.info(
         f"[API:products] bulk_update_status completed: user_id={current_user.id}, "
@@ -467,6 +503,7 @@ def update_product_status(
     - Autres transitions non autorisées pour MVP
     - published_at automatiquement rempli lors de la publication
     - sold_at automatiquement rempli lors de la vente
+    - SOLD: crée une Pending Action si le produit a un listing Vinted actif
 
     Raises:
         400 BAD REQUEST: Si status non autorisé ou transition invalide
@@ -494,6 +531,10 @@ def update_product_status(
 
         # Mettre à jour le status
         updated_product = ProductService.update_product_status(db, product_id, new_status)
+
+        # Create pending action if product has a Vinted listing
+        if new_status == ProductStatus.SOLD:
+            _create_vinted_cleanup_pending_action(db, product_id)
 
         return updated_product
     except ValueError as e:

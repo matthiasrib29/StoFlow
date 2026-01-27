@@ -3,6 +3,22 @@ Temporal workflows for StoFlow.
 """
 
 from temporal.workflows.ebay.sync_workflow import EbaySyncWorkflow
+from temporal.workflows.ebay.cleanup_workflow import EbayCleanupWorkflow, EbayCleanupParams
 from temporal.workflows.vinted.sync_workflow import VintedSyncWorkflow
+from temporal.workflows.vinted.cleanup_workflow import (
+    VintedCleanupWorkflow,
+    VintedCleanupParams,
+    VintedBatchCleanupWorkflow,
+    VintedBatchCleanupParams,
+)
 
-__all__ = ["EbaySyncWorkflow", "VintedSyncWorkflow"]
+__all__ = [
+    "EbaySyncWorkflow",
+    "EbayCleanupWorkflow",
+    "EbayCleanupParams",
+    "VintedSyncWorkflow",
+    "VintedCleanupWorkflow",
+    "VintedCleanupParams",
+    "VintedBatchCleanupWorkflow",
+    "VintedBatchCleanupParams",
+]
