@@ -161,6 +161,14 @@ export default defineNuxtConfig({
   // Security headers (CSP)
   // Protects against XSS attacks by controlling which resources can be loaded
   routeRules: {
+    // SSG: Pre-render public pages as static HTML
+    '/': { prerender: true },
+    '/login': { prerender: true },
+    '/register': { prerender: true },
+    '/legal/**': { prerender: true },
+    '/docs': { prerender: true },
+    '/docs/**': { prerender: true },
+
     '/**': {
       headers: {
         // Content Security Policy
