@@ -1122,6 +1122,88 @@ async def save_pro_sellers_batch(
     return {"saved": saved, "updated": updated, "errors": errors}
 
 
+@activity.defn(name="vinted_get_keyword_scan_logs")
+async def get_keyword_scan_logs(marketplace: str) -> dict:
+    """
+    Fetch all keyword scan logs for a marketplace.
+
+    Returns a dict mapping keyword -> {last_page, exhausted, total_found}.
+    The workflow uses this at startup to know where to resume each keyword.
+    """
+    from models.vinted.vinted_keyword_scan_log import VintedKeywordScanLog
+    from shared.database import get_db_context
+
+    result = {}
+    with get_db_context() as db:
+        logs = db.query(VintedKeywordScanLog).filter(
+            VintedKeywordScanLog.marketplace == marketplace
+        ).all()
+        for log in logs:
+            result[log.keyword] = {
+                "last_page": log.last_page_scanned,
+                "exhausted": log.exhausted,
+                "total_found": log.total_pro_sellers_found,
+            }
+
+    activity.logger.info(
+        f"Loaded {len(result)} keyword scan logs for {marketplace}"
+    )
+    return result
+
+
+@activity.defn(name="vinted_update_keyword_scan_log")
+async def update_keyword_scan_log(
+    keyword: str,
+    marketplace: str,
+    last_page: int,
+    pro_sellers_found: int,
+    exhausted: bool,
+) -> None:
+    """
+    Update or create a keyword scan log entry.
+
+    Called after each keyword is fully scanned to record progress.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import text
+
+    from shared.database import get_db_context
+
+    with get_db_context() as db:
+        db.execute(
+            text("""
+                INSERT INTO vinted.vinted_keyword_scan_logs
+                    (keyword, marketplace, last_page_scanned, total_pro_sellers_found, exhausted, last_scanned_at)
+                VALUES
+                    (:keyword, :marketplace, :last_page, :found, :exhausted, :now)
+                ON CONFLICT (keyword, marketplace)
+                DO UPDATE SET
+                    last_page_scanned = GREATEST(
+                        vinted_keyword_scan_logs.last_page_scanned,
+                        EXCLUDED.last_page_scanned
+                    ),
+                    total_pro_sellers_found = vinted_keyword_scan_logs.total_pro_sellers_found + EXCLUDED.total_pro_sellers_found,
+                    exhausted = EXCLUDED.exhausted,
+                    last_scanned_at = EXCLUDED.last_scanned_at
+            """),
+            {
+                "keyword": keyword,
+                "marketplace": marketplace,
+                "last_page": last_page,
+                "found": pro_sellers_found,
+                "exhausted": exhausted,
+                "now": datetime.now(timezone.utc),
+            },
+        )
+        db.commit()
+
+    activity.logger.info(
+        f"Updated scan log: '{keyword}' ({marketplace}) page={last_page} "
+        f"found={pro_sellers_found} exhausted={exhausted}"
+    )
+
+
 # Export all activities for registration
 VINTED_ACTIVITIES = [
     fetch_and_sync_page,
@@ -1137,4 +1219,6 @@ VINTED_ACTIVITIES = [
     delete_vinted_listing,
     scan_pro_sellers_page,
     save_pro_sellers_batch,
+    get_keyword_scan_logs,
+    update_keyword_scan_log,
 ]

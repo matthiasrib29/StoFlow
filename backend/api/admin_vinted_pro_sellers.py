@@ -166,6 +166,34 @@ def delete_seller(
         return {"success": True, "message": f"Pro seller {seller_id} deleted"}
 
 
+# ===== Scan Logs =====
+
+@router.get("/scan/logs")
+def get_scan_logs(
+    marketplace: str = Query("vinted_fr"),
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """Get keyword scan history for a marketplace."""
+    from models.vinted.vinted_keyword_scan_log import VintedKeywordScanLog
+
+    with get_db_context() as db:
+        logs = db.query(VintedKeywordScanLog).filter(
+            VintedKeywordScanLog.marketplace == marketplace
+        ).all()
+
+        return {
+            "logs": {
+                log.keyword: {
+                    "last_page": log.last_page_scanned,
+                    "exhausted": log.exhausted,
+                    "total_found": log.total_pro_sellers_found,
+                    "last_scanned_at": log.last_scanned_at.isoformat() if log.last_scanned_at else None,
+                }
+                for log in logs
+            }
+        }
+
+
 # ===== Scan Workflow Routes =====
 
 @router.post("/scan/start", response_model=StartProSellerScanResponse)
@@ -176,8 +204,8 @@ async def start_scan(
     """
     Start a Temporal workflow to scan Vinted for pro sellers.
 
-    The workflow iterates through the search scope (A-Z by default),
-    fetches user search results via the plugin, filters for business=true,
+    The workflow iterates through search keywords (business terms, legal forms,
+    niches), fetches user search results via the plugin, filters for business=true,
     and stores them in the database with extracted contacts.
     """
     from temporal.client import get_temporal_client
@@ -198,7 +226,7 @@ async def start_scan(
     params = VintedProSellerScanParams(
         user_id=current_user.id,
         job_id=0,  # No MarketplaceJob tracking for now
-        search_scope=request.search_scope,
+        keywords=request.keywords,
         marketplace=request.marketplace,
         per_page=request.per_page,
     )

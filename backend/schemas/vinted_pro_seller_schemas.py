@@ -104,12 +104,24 @@ class VintedProSellerStatsResponse(BaseModel):
 
 # ===== Request Schemas =====
 
+# Predefined keywords effective for finding pro sellers on Vinted
+DEFAULT_PRO_SELLER_KEYWORDS: List[str] = [
+    # Business terms
+    "boutique", "shop", "friperie", "dépôt-vente", "grossiste",
+    "revendeur", "pro", "professionnel",
+    # Legal forms
+    "SARL", "SASU", "SAS", "EURL", "auto-entrepreneur",
+    # Niches
+    "vintage", "luxe", "streetwear", "sneakers", "designer",
+]
+
+
 class StartProSellerScanRequest(BaseModel):
     """Request to start a pro seller scan workflow."""
 
-    search_scope: List[str] = Field(
-        default_factory=lambda: list("abcdefghijklmnopqrstuvwxyz"),
-        description="List of search characters/texts to scan"
+    keywords: List[str] = Field(
+        default_factory=lambda: list(DEFAULT_PRO_SELLER_KEYWORDS),
+        description="List of search keywords to scan (business terms, legal forms, niches)"
     )
     marketplace: str = Field("vinted_fr", description="Marketplace identifier")
     per_page: int = Field(90, ge=1, le=100, description="Results per page")
@@ -127,13 +139,13 @@ class ProSellerScanProgressResponse(BaseModel):
     """Response for scan progress query."""
 
     status: str
-    current_letter: Optional[str] = None
+    current_keyword: Optional[str] = None
     current_page: int = 0
     total_saved: int = 0
     total_updated: int = 0
     total_errors: int = 0
-    letters_completed: int = 0
-    total_letters: int = 0
+    keywords_completed: int = 0
+    total_keywords: int = 0
 
 
 class VintedProSellerUpdateRequest(BaseModel):

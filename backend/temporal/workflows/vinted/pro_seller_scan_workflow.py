@@ -2,8 +2,9 @@
 Vinted Pro Seller Scan Workflow for Temporal.
 
 This workflow scans Vinted for professional (business) sellers by iterating
-through alphabet characters, fetching user search results via the plugin,
-filtering for business accounts, and storing them in the database.
+through a list of search keywords (business terms, legal forms, niches),
+fetching user search results via the plugin, filtering for business accounts,
+and storing them in the database.
 
 Features:
 - Durable execution (survives crashes)
@@ -29,6 +30,8 @@ from temporal.activities.vinted_activities import (
     scan_pro_sellers_page,
     save_pro_sellers_batch,
     check_plugin_connection,
+    get_keyword_scan_logs,
+    update_keyword_scan_log,
 )
 
 
@@ -40,12 +43,12 @@ class VintedProSellerScanParams:
     job_id: int  # Optional job tracking ID (0 if not used)
 
     # Search configuration
-    search_scope: List[str] = field(default_factory=lambda: list("abcdefghijklmnopqrstuvwxyz"))
+    keywords: List[str] = field(default_factory=list)
     marketplace: str = "vinted_fr"
     per_page: int = 90
 
     # Continue-as-new support
-    start_letter_index: int = 0
+    start_keyword_index: int = 0
     accumulated_saved: int = 0
     accumulated_updated: int = 0
     accumulated_errors: int = 0
@@ -56,13 +59,13 @@ class VintedProSellerScanProgress:
     """Progress tracking for the scan workflow."""
 
     status: str = "initializing"
-    current_letter: Optional[str] = None
+    current_keyword: Optional[str] = None
     current_page: int = 0
     total_saved: int = 0
     total_updated: int = 0
     total_errors: int = 0
-    letters_completed: int = 0
-    total_letters: int = 0
+    keywords_completed: int = 0
+    total_keywords: int = 0
     # Resilience
     paused_at: Optional[str] = None
     pause_reason: Optional[str] = None
@@ -74,9 +77,9 @@ class VintedProSellerScanWorkflow:
     """
     Temporal workflow that scans Vinted for professional sellers.
 
-    Iterates through search characters (A-Z by default), fetches pages
-    of user results via the browser plugin, filters business=true users,
-    and stores them with extracted contact information.
+    Iterates through a list of search keywords (business terms, legal forms,
+    niches), fetches pages of user results via the browser plugin, filters
+    business=true users, and stores them with extracted contact information.
 
     Signals: cancel_scan, pause_scan, resume_scan
     Query: get_progress
@@ -94,8 +97,8 @@ class VintedProSellerScanWorkflow:
         """Execute the pro seller scan workflow."""
         self._progress = VintedProSellerScanProgress(
             status="running",
-            total_letters=len(params.search_scope),
-            letters_completed=params.start_letter_index,
+            total_keywords=len(params.keywords),
+            keywords_completed=params.start_keyword_index,
             total_saved=params.accumulated_saved,
             total_updated=params.accumulated_updated,
             total_errors=params.accumulated_errors,
@@ -118,20 +121,42 @@ class VintedProSellerScanWorkflow:
         total_errors = params.accumulated_errors
 
         try:
-            # Iterate through each letter in search scope
-            for letter_idx in range(params.start_letter_index, len(params.search_scope)):
+            # Load scan history to know where to resume each keyword
+            scan_logs: dict = await workflow.execute_activity(
+                get_keyword_scan_logs,
+                args=[params.marketplace],
+                start_to_close_timeout=timedelta(seconds=30),
+            )
+
+            for kw_idx in range(params.start_keyword_index, len(params.keywords)):
                 if self._cancelled:
                     break
 
-                letter = params.search_scope[letter_idx]
-                self._progress.current_letter = letter
-                self._progress.letters_completed = letter_idx
+                keyword = params.keywords[kw_idx]
+                self._progress.current_keyword = keyword
+                self._progress.keywords_completed = kw_idx
+
+                # Check scan history for this keyword
+                kw_log = scan_logs.get(keyword)
+                if kw_log and kw_log.get("exhausted"):
+                    workflow.logger.info(
+                        f"Skipping '{keyword}' — already exhausted "
+                        f"({kw_log['total_found']} found previously)"
+                    )
+                    self._progress.keywords_completed = kw_idx + 1
+                    continue
+
+                # Resume from last scanned page + 1
+                start_page = (kw_log["last_page"] + 1) if kw_log else 1
 
                 workflow.logger.info(
-                    f"Scanning letter '{letter}' ({letter_idx + 1}/{len(params.search_scope)})"
+                    f"Scanning keyword '{keyword}' ({kw_idx + 1}/{len(params.keywords)}) "
+                    f"from page {start_page}"
                 )
 
-                page = 1
+                page = start_page
+                keyword_saved = 0
+                keyword_exhausted = False
 
                 while not self._cancelled:
                     # Check for pause
@@ -144,7 +169,7 @@ class VintedProSellerScanWorkflow:
                     # Fetch page
                     result = await workflow.execute_activity(
                         scan_pro_sellers_page,
-                        args=[params.user_id, letter, page, params.per_page],
+                        args=[params.user_id, keyword, page, params.per_page],
                         **activity_options,
                     )
 
@@ -153,7 +178,7 @@ class VintedProSellerScanWorkflow:
                         # Plugin disconnected or timeout -> wait for reconnection
                         if error in ("disconnected", "timeout"):
                             workflow.logger.warning(
-                                f"Plugin issue ({error}) at '{letter}' page {page}, waiting..."
+                                f"Plugin issue ({error}) at '{keyword}' page {page}, waiting..."
                             )
                             if await self._wait_for_reconnection(params, activity_options):
                                 continue  # Retry same page
@@ -195,9 +220,11 @@ class VintedProSellerScanWorkflow:
                             args=[pro_sellers, params.marketplace, params.user_id],
                             **activity_options,
                         )
-                        total_saved += save_result.get("saved", 0)
+                        batch_saved = save_result.get("saved", 0)
+                        total_saved += batch_saved
                         total_updated += save_result.get("updated", 0)
                         total_errors += save_result.get("errors", 0)
+                        keyword_saved += batch_saved
 
                     # Update progress
                     self._progress.total_saved = total_saved
@@ -206,8 +233,7 @@ class VintedProSellerScanWorkflow:
 
                     # Check if more pages
                     if page >= total_pages or not pro_sellers:
-                        # If we got 0 pro sellers AND < per_page total users,
-                        # the search is exhausted
+                        keyword_exhausted = True
                         break
 
                     page += 1
@@ -215,11 +241,19 @@ class VintedProSellerScanWorkflow:
                     # Small delay between pages to avoid rate limiting
                     await asyncio.sleep(2)
 
-                # Update letters completed
-                self._progress.letters_completed = letter_idx + 1
+                # Record scan progress for this keyword
+                if not self._cancelled:
+                    await workflow.execute_activity(
+                        update_keyword_scan_log,
+                        args=[keyword, params.marketplace, page, keyword_saved, keyword_exhausted],
+                        start_to_close_timeout=timedelta(seconds=30),
+                    )
 
-                # Small delay between letters
-                if not self._cancelled and letter_idx < len(params.search_scope) - 1:
+                # Update keywords completed
+                self._progress.keywords_completed = kw_idx + 1
+
+                # Small delay between keywords
+                if not self._cancelled and kw_idx < len(params.keywords) - 1:
                     await asyncio.sleep(3)
 
             # Done
@@ -248,8 +282,8 @@ class VintedProSellerScanWorkflow:
             "total_saved": saved,
             "total_updated": updated,
             "total_errors": errors,
-            "letters_completed": self._progress.letters_completed,
-            "total_letters": self._progress.total_letters,
+            "keywords_completed": self._progress.keywords_completed,
+            "total_keywords": self._progress.total_keywords,
         }
         if error:
             result["error"] = error
@@ -360,13 +394,13 @@ class VintedProSellerScanWorkflow:
         """Query current scan progress."""
         return {
             "status": self._progress.status,
-            "current_letter": self._progress.current_letter,
+            "current_keyword": self._progress.current_keyword,
             "current_page": self._progress.current_page,
             "total_saved": self._progress.total_saved,
             "total_updated": self._progress.total_updated,
             "total_errors": self._progress.total_errors,
-            "letters_completed": self._progress.letters_completed,
-            "total_letters": self._progress.total_letters,
+            "keywords_completed": self._progress.keywords_completed,
+            "total_keywords": self._progress.total_keywords,
             # Resilience
             "paused_at": self._progress.paused_at,
             "pause_reason": self._progress.pause_reason,

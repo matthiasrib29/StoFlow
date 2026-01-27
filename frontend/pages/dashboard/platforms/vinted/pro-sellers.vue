@@ -8,74 +8,16 @@
     <!-- Scan Control Card -->
     <Card class="shadow-sm mb-6 border border-gray-100">
       <template #content>
-        <div class="flex flex-wrap items-center gap-4">
+        <div class="flex items-center gap-4">
           <Button
-            v-if="!scanProgress || ['completed', 'failed', 'cancelled'].includes(scanProgress.status)"
             label="Lancer Scan"
             icon="pi pi-play"
             @click="showScanDialog = true"
           />
-
-          <template v-if="scanProgress && !['completed', 'failed', 'cancelled'].includes(scanProgress.status)">
-            <Button
-              v-if="scanProgress.status === 'running'"
-              label="Pause"
-              icon="pi pi-pause"
-              severity="warn"
-              @click="pauseScan"
-            />
-            <Button
-              v-if="scanProgress.status === 'paused'"
-              label="Reprendre"
-              icon="pi pi-play"
-              severity="success"
-              @click="resumeScan"
-            />
-            <Button
-              label="Annuler"
-              icon="pi pi-times"
-              severity="danger"
-              outlined
-              @click="cancelScan"
-            />
-          </template>
-
-          <!-- Progress info -->
-          <div v-if="scanProgress && !['completed', 'failed', 'cancelled'].includes(scanProgress.status)" class="flex-1 min-w-[300px]">
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-sm text-gray-600">
-                Lettre en cours : <strong>{{ scanProgress.current_letter || '...' }}</strong>
-                — Page {{ scanProgress.current_page }}
-              </span>
-              <span class="text-sm text-gray-500">
-                {{ scanProgress.letters_completed }}/{{ scanProgress.total_letters }} lettres
-              </span>
-            </div>
-            <ProgressBar
-              :value="scanProgressPercent"
-              :showValue="true"
-              style="height: 8px"
-            />
-            <div class="flex gap-4 mt-1 text-xs text-gray-500">
-              <span>{{ scanProgress.total_saved }} sauvegardés</span>
-              <span>{{ scanProgress.total_updated }} mis à jour</span>
-              <span v-if="scanProgress.total_errors" class="text-red-500">{{ scanProgress.total_errors }} erreurs</span>
-            </div>
-          </div>
-
-          <!-- Completed / Failed status -->
-          <div v-if="scanProgress?.status === 'completed'" class="flex items-center gap-2 text-green-600">
-            <i class="pi pi-check-circle" />
-            <span class="text-sm font-medium">Scan terminé — {{ scanProgress.total_saved }} sauvegardés</span>
-          </div>
-          <div v-if="scanProgress?.status === 'failed'" class="flex items-center gap-2 text-red-600">
-            <i class="pi pi-times-circle" />
-            <span class="text-sm font-medium">Scan échoué</span>
-          </div>
-          <div v-if="scanProgress?.status === 'cancelled'" class="flex items-center gap-2 text-gray-500">
-            <i class="pi pi-ban" />
-            <span class="text-sm font-medium">Scan annulé</span>
-          </div>
+          <span v-if="lastScanWorkflowId" class="text-sm text-gray-500">
+            <i class="pi pi-info-circle mr-1" />
+            Dernier scan lancé : <span class="font-mono text-xs">{{ lastScanWorkflowId }}</span>
+          </span>
         </div>
       </template>
     </Card>
@@ -414,18 +356,61 @@
     <Dialog
       v-model:visible="showScanDialog"
       header="Configurer le scan"
-      :style="{ width: '450px' }"
+      :style="{ width: '550px' }"
       modal
     >
       <div class="space-y-4">
+        <!-- Predefined keywords -->
         <div class="field">
-          <label class="block text-sm font-medium mb-2">Scope de recherche</label>
+          <label class="block text-sm font-medium mb-2">Mots-clés prédéfinis</label>
+          <div class="flex flex-wrap gap-2">
+            <span
+              v-for="kw in predefinedKeywords"
+              :key="kw"
+              class="relative"
+            >
+              <Tag
+                :value="keywordLabel(kw)"
+                :severity="keywordSeverity(kw)"
+                :class="[
+                  'cursor-pointer select-none',
+                  scanLogs[kw]?.exhausted ? 'line-through opacity-50' : '',
+                ]"
+                @click="toggleKeyword(kw)"
+              />
+              <span
+                v-if="scanLogs[kw] && !scanLogs[kw].exhausted"
+                class="absolute -top-1 -right-1 bg-blue-500 text-white text-[9px] rounded-full px-1 leading-tight"
+              >
+                p{{ scanLogs[kw].last_page }}
+              </span>
+              <span
+                v-if="scanLogs[kw]?.exhausted"
+                class="absolute -top-1 -right-1 bg-gray-400 text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center"
+              >
+                <i class="pi pi-check text-[8px]" />
+              </span>
+            </span>
+          </div>
+          <div class="flex gap-2 mt-2">
+            <Button label="Tout sélectionner" text size="small" @click="selectAllKeywords" />
+            <Button label="Tout désélectionner" text size="small" @click="deselectAllKeywords" />
+          </div>
+          <small class="text-gray-400 mt-1 block">
+            <i class="pi pi-check-circle text-xs mr-1" />Barrés = épuisés (aucune nouvelle page disponible).
+            Badge bleu = reprend à la page suivante.
+          </small>
+        </div>
+
+        <!-- Custom keywords -->
+        <div class="field">
+          <label class="block text-sm font-medium mb-2">Mots-clés personnalisés</label>
           <InputText
-            v-model="scanParams.search_scope_text"
+            v-model="scanParams.customKeywords"
             class="w-full"
-            placeholder="a,b,c,...,z (par défaut A-Z)"
+            placeholder="mot1, mot2, mot3..."
           />
-          <small class="text-gray-500">Lettres séparées par des virgules. Laisser vide pour A-Z complet.</small>
+          <small class="text-gray-500">Mots-clés supplémentaires séparés par des virgules.</small>
         </div>
 
         <div class="field">
@@ -449,6 +434,12 @@
           />
           <small class="text-gray-500">Nombre de résultats par page Vinted (max 100)</small>
         </div>
+
+        <!-- Summary -->
+        <div class="p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+          <i class="pi pi-info-circle mr-1" />
+          {{ computedKeywords.length }} mot(s)-clé(s) seront scannés
+        </div>
       </div>
 
       <template #footer>
@@ -457,6 +448,7 @@
           label="Lancer"
           icon="pi pi-play"
           :loading="isStartingScan"
+          :disabled="computedKeywords.length === 0"
           @click="startScan"
         />
       </template>
@@ -477,7 +469,6 @@ import Button from 'primevue/button'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
-import ProgressBar from 'primevue/progressbar'
 import StatCard from '~/components/admin/StatCard.vue'
 import { useAuthStore } from '~/stores/auth'
 import { adminLogger } from '~/utils/logger'
@@ -514,16 +505,39 @@ const filters = ref({
   search: '',
 })
 
+// Predefined keywords for pro seller search
+const predefinedKeywords = [
+  // Business terms
+  'boutique', 'shop', 'friperie', 'dépôt-vente', 'grossiste',
+  'revendeur', 'pro', 'professionnel',
+  // Legal forms
+  'SARL', 'SASU', 'SAS', 'EURL', 'auto-entrepreneur',
+  // Niches
+  'vintage', 'luxe', 'streetwear', 'sneakers', 'designer',
+]
+
 const scanParams = ref({
-  search_scope_text: '',
+  selectedKeywords: [...predefinedKeywords],
+  customKeywords: '',
   marketplace: 'vinted_fr',
   per_page: 90,
 })
 
-// Scan progress
-const scanWorkflowId = ref<string | null>(null)
-const scanProgress = ref<any>(null)
-let pollInterval: ReturnType<typeof setInterval> | null = null
+// Merge selected predefined + custom keywords (deduplicated)
+const computedKeywords = computed(() => {
+  const custom = scanParams.value.customKeywords
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+  const all = [...scanParams.value.selectedKeywords, ...custom]
+  return [...new Set(all)]
+})
+
+// Scan logs: tracks which keywords have been scanned and their status
+const scanLogs = ref<Record<string, { last_page: number; exhausted: boolean; total_found: number }>>({})
+
+// Last scan workflow ID (display only, no polling)
+const lastScanWorkflowId = ref<string | null>(null)
 
 // --- Options ---
 const countryOptions = [
@@ -648,6 +662,16 @@ async function fetchStats() {
   }
 }
 
+async function fetchScanLogs() {
+  try {
+    const mp = scanParams.value.marketplace || 'vinted_fr'
+    const data = await apiGet(`/api/admin/vinted-pro-sellers/scan/logs?marketplace=${mp}`)
+    scanLogs.value = data.logs || {}
+  } catch (e: any) {
+    adminLogger.error('Failed to fetch scan logs:', e)
+  }
+}
+
 // --- Filters ---
 const debouncedFetch = useDebounceFn(() => {
   skip.value = 0
@@ -712,101 +736,62 @@ async function applyBulkUpdate() {
   }
 }
 
-// --- Scan workflow ---
-const scanProgressPercent = computed(() => {
-  if (!scanProgress.value || !scanProgress.value.total_letters) return 0
-  return Math.round((scanProgress.value.letters_completed / scanProgress.value.total_letters) * 100)
-})
+// --- Scan keyword helpers ---
+function toggleKeyword(kw: string) {
+  const idx = scanParams.value.selectedKeywords.indexOf(kw)
+  if (idx >= 0) {
+    scanParams.value.selectedKeywords.splice(idx, 1)
+  } else {
+    scanParams.value.selectedKeywords.push(kw)
+  }
+}
 
+function selectAllKeywords() {
+  scanParams.value.selectedKeywords = [...predefinedKeywords]
+}
+
+function deselectAllKeywords() {
+  scanParams.value.selectedKeywords = []
+}
+
+function keywordLabel(kw: string): string {
+  const log = scanLogs.value[kw]
+  if (!log) return kw
+  if (log.exhausted) return `${kw} (${log.total_found})`
+  return `${kw} (p${log.last_page})`
+}
+
+function keywordSeverity(kw: string): string | undefined {
+  if (scanLogs.value[kw]?.exhausted) return 'secondary'
+  if (!scanParams.value.selectedKeywords.includes(kw)) return 'secondary'
+  if (scanLogs.value[kw]) return 'info'
+  return undefined
+}
+
+// --- Scan workflow ---
 async function startScan() {
   isStartingScan.value = true
   try {
-    // Parse search scope from comma-separated text
-    const scope = scanParams.value.search_scope_text
-      ? scanParams.value.search_scope_text.split(',').map(s => s.trim()).filter(Boolean)
-      : undefined // Let backend use default A-Z
+    const keywords = computedKeywords.value
+    if (keywords.length === 0) return
 
-    const body: any = {
+    const result = await apiPost('/api/admin/vinted-pro-sellers/scan/start', {
+      keywords,
       marketplace: scanParams.value.marketplace,
       per_page: scanParams.value.per_page,
-    }
-    if (scope) body.search_scope = scope
-
-    const result = await apiPost('/api/admin/vinted-pro-sellers/scan/start', body)
-    scanWorkflowId.value = result.workflow_id
+    })
+    lastScanWorkflowId.value = result.workflow_id
     showScanDialog.value = false
     toast.add({
       severity: 'success',
       summary: 'Scan lancé',
-      detail: `Workflow ${result.workflow_id}`,
-      life: 3000,
+      detail: `${keywords.length} mots-clés — Workflow ${result.workflow_id}`,
+      life: 5000,
     })
-    startPolling(result.workflow_id)
   } catch (e: any) {
     toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 })
   } finally {
     isStartingScan.value = false
-  }
-}
-
-function startPolling(workflowId: string) {
-  stopPolling()
-  scanWorkflowId.value = workflowId
-  // Fetch immediately then poll
-  pollScanProgress()
-  pollInterval = setInterval(pollScanProgress, 3000)
-}
-
-async function pollScanProgress() {
-  if (!scanWorkflowId.value) return
-  try {
-    scanProgress.value = await apiGet(`/api/admin/vinted-pro-sellers/scan/progress/${scanWorkflowId.value}`)
-    if (['completed', 'failed', 'cancelled'].includes(scanProgress.value.status)) {
-      stopPolling()
-      fetchSellers()
-      fetchStats()
-    }
-  } catch (e: any) {
-    adminLogger.error('Failed to poll scan progress:', e)
-  }
-}
-
-function stopPolling() {
-  if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
-  }
-}
-
-async function pauseScan() {
-  try {
-    await apiPost(`/api/admin/vinted-pro-sellers/scan/pause?workflow_id=${scanWorkflowId.value}`)
-    toast.add({ severity: 'info', summary: 'Scan en pause', life: 2000 })
-    pollScanProgress()
-  } catch (e: any) {
-    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 })
-  }
-}
-
-async function resumeScan() {
-  try {
-    await apiPost(`/api/admin/vinted-pro-sellers/scan/resume?workflow_id=${scanWorkflowId.value}`)
-    toast.add({ severity: 'info', summary: 'Scan repris', life: 2000 })
-    startPolling(scanWorkflowId.value!)
-  } catch (e: any) {
-    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 })
-  }
-}
-
-async function cancelScan() {
-  if (!confirm('Annuler le scan en cours ?')) return
-  try {
-    await apiPost(`/api/admin/vinted-pro-sellers/scan/cancel?workflow_id=${scanWorkflowId.value}`)
-    toast.add({ severity: 'warn', summary: 'Scan annulé', life: 2000 })
-    stopPolling()
-    scanProgress.value = { ...scanProgress.value, status: 'cancelled' }
-  } catch (e: any) {
-    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 })
   }
 }
 
@@ -820,14 +805,16 @@ function formatDate(dateStr: string): string {
   })
 }
 
+// --- Watchers ---
+watch(showScanDialog, (visible) => {
+  if (visible) fetchScanLogs()
+})
+
 // --- Lifecycle ---
 onMounted(() => {
   fetchSellers()
   fetchStats()
-})
-
-onUnmounted(() => {
-  stopPolling()
+  fetchScanLogs()
 })
 </script>
 
