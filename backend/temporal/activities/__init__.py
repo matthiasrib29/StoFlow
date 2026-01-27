@@ -22,6 +22,10 @@ from temporal.activities.vinted_activities import (
     fetch_and_sync_page as vinted_fetch_and_sync_page,
     get_vinted_ids_to_enrich,
     enrich_single_product as vinted_enrich_single_product,
+    scan_pro_sellers_page,
+    save_pro_sellers_batch,
+    get_keyword_scan_logs,
+    update_keyword_scan_log,
     VINTED_ACTIVITIES,
 )
 
@@ -67,4 +71,8 @@ __all__ = [
     "vinted_sync_sold_status",
     "detect_sold_with_active_listing",
     "delete_vinted_listing",
+    "scan_pro_sellers_page",
+    "save_pro_sellers_batch",
+    "get_keyword_scan_logs",
+    "update_keyword_scan_log",
 ]

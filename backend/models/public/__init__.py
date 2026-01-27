@@ -52,6 +52,7 @@ from models.public.trend import Trend
 from models.public.unique_feature import UniqueFeature
 # Vinted schema models (re-exported for compatibility)
 from models.vinted.vinted_action_type import VintedActionType
+from models.vinted.vinted_pro_seller import VintedProSeller
 from models.public.vinted_prospect import VintedProspect
 
 __all__ = [
@@ -78,6 +79,7 @@ __all__ = [
     # Vinted job system
     "VintedActionType",
     # Vinted prospection
+    "VintedProSeller",
     "VintedProspect",
     # Product attributes schema
     "Brand",

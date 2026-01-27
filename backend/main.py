@@ -15,7 +15,7 @@ import socketio
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.admin import router as admin_router
@@ -23,6 +23,7 @@ from api.admin_attributes import router as admin_attributes_router
 from api.admin_audit import router as admin_audit_router
 from api.admin_docs import router as admin_docs_router
 from api.admin_stats import router as admin_stats_router
+from api.admin_vinted_pro_sellers import router as admin_vinted_pro_sellers_router
 from api.admin_vinted_prospects import router as admin_vinted_prospects_router
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
@@ -52,7 +53,7 @@ from middleware.error_handler import (
     http_exception_handler,
     generic_exception_handler,
 )
-from middleware.rate_limit import rate_limit_middleware
+from middleware.rate_limit import RateLimitMiddleware
 from middleware.security_headers import SecurityHeadersMiddleware
 from services.r2_service import r2_service
 from services.datadome_scheduler import (
@@ -73,7 +74,7 @@ from worker.dispatcher_config import DispatcherConfig
 # Temporal Workflow Orchestration (2026-01-21)
 from temporal.config import get_temporal_config
 from temporal.worker import get_worker_manager
-from temporal.workflows import EbaySyncWorkflow, EbayCleanupWorkflow, VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow
+from temporal.workflows import EbaySyncWorkflow, EbayCleanupWorkflow, VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow
 from temporal.activities import EBAY_ACTIVITIES, VINTED_ACTIVITIES
 
 # Configuration du logging
@@ -209,7 +210,7 @@ async def lifespan(app: FastAPI):
             _vinted_worker = Worker(
                 vinted_client,
                 task_queue=temporal_config.temporal_vinted_task_queue,
-                workflows=[VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow],
+                workflows=[VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow],
                 activities=VINTED_ACTIVITIES,
                 activity_executor=_vinted_executor,
                 identity=f"{temporal_config.worker_identity}-vinted",
@@ -292,19 +293,22 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 # ===== SECURITY MIDDLEWARE (2025-12-05) =====
 
-# Proxy Headers Middleware (2025-12-23)
+# Proxy Headers Middleware (2025-12-23) - Pure ASGI
 # Fix for Railway/reverse proxy: ensures correct protocol in redirects
 # Without this, FastAPI's redirect_slashes uses HTTP instead of HTTPS
-class ProxyHeadersMiddleware(BaseHTTPMiddleware):
-    """Middleware to trust X-Forwarded-Proto header from reverse proxy."""
+class ProxyHeadersMiddleware:
+    """Pure ASGI middleware to trust X-Forwarded-Proto header from reverse proxy."""
 
-    async def dispatch(self, request: Request, call_next):
-        # Get the original protocol from proxy headers
-        forwarded_proto = request.headers.get("x-forwarded-proto")
-        if forwarded_proto:
-            # Update the scope to reflect the original protocol
-            request.scope["scheme"] = forwarded_proto
-        return await call_next(request)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            for header_name, header_value in scope.get("headers", []):
+                if header_name == b"x-forwarded-proto":
+                    scope["scheme"] = header_value.decode("latin-1")
+                    break
+        await self.app(scope, receive, send)
 
 app.add_middleware(ProxyHeadersMiddleware)
 
@@ -365,13 +369,14 @@ app.add_middleware(CSRFMiddleware)
 logger.info("🛡️ CSRF protection enabled (double-submit cookie pattern)")
 
 # Rate Limiting (protection bruteforce)
-app.middleware("http")(rate_limit_middleware)
+app.add_middleware(RateLimitMiddleware)
 
 # Enregistrement des routes
 app.include_router(admin_router, prefix="/api")
 app.include_router(admin_attributes_router, prefix="/api")
 app.include_router(admin_audit_router, prefix="/api")
 app.include_router(admin_stats_router, prefix="/api")
+app.include_router(admin_vinted_pro_sellers_router, prefix="/api")
 app.include_router(admin_vinted_prospects_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(batches_router, prefix="/api")  # Generic batch jobs (multi-marketplace)
