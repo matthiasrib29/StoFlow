@@ -235,6 +235,42 @@ def get_tenant_session(user_id: int) -> Session:
     return db
 
 
+def validate_tenant_isolation(db: Session, expected_user_id: int) -> bool:
+    """
+    Validate that the current DB session is isolated to the expected tenant.
+
+    Compares the session's schema_translate_map with the expected user schema.
+    Use this in sensitive operations (SOLD transitions, payments) to ensure
+    tenant isolation hasn't been compromised.
+
+    Issue #14 - Business Logic Audit.
+
+    Args:
+        db: SQLAlchemy session to validate.
+        expected_user_id: Expected user ID for the tenant.
+
+    Returns:
+        True if isolation is valid.
+
+    Raises:
+        ValueError: If tenant isolation is compromised.
+    """
+    expected_schema = f"user_{expected_user_id}"
+
+    # Check schema_translate_map
+    execution_options = db.get_bind().get_execution_options()
+    schema_map = execution_options.get("schema_translate_map", {})
+    actual_schema = schema_map.get("tenant")
+
+    if actual_schema != expected_schema:
+        raise ValueError(
+            f"Tenant isolation violation: expected schema '{expected_schema}' "
+            f"but session has '{actual_schema}'"
+        )
+
+    return True
+
+
 def check_database_connection() -> bool:
     """
     Vérifie la connexion à la base de données.
