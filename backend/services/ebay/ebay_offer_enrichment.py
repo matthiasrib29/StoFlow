@@ -280,7 +280,10 @@ class EbayOfferEnrichment:
                 self.db.refresh(self.job)
                 if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
                     logger.info(f"[EnrichOffers] Job cancelled at {i}/{len(products)}")
-                    self.db.commit()
+                    try:
+                        self.db.commit()
+                    except Exception:
+                        self.db.rollback()
                     return {**results, "status": "cancelled"}
 
             try:

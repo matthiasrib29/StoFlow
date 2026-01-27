@@ -380,7 +380,7 @@ class VintedOrderPersistence:
                 changed = True
 
             if changed:
-                db.commit()
+                db.flush()
 
             return changed
 

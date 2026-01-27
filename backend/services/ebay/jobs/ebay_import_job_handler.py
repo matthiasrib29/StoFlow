@@ -260,7 +260,11 @@ class EbayImportJobHandler(DirectAPIJobHandler):
                 enriched_count += 1
 
         # Commit all enrichments at once
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception as e:
+            logger.error(f"[EbayImportHandler] Error committing enrichments: {e}", exc_info=True)
+            self.db.rollback()
 
         return enriched_count
 

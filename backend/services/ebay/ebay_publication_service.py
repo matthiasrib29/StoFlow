@@ -233,7 +233,7 @@ class EbayPublicationService:
 
         # Update status
         ebay_product.status = "withdrawn"
-        self.db.commit()
+        self.db.flush()
 
         return {"status": "withdrawn", "sku_derived": sku_derived}
 
@@ -340,4 +340,4 @@ class EbayPublicationService:
         if status == "published":
             ebay_product.published_at = datetime.now(timezone.utc)
 
-        self.db.commit()
+        self.db.flush()

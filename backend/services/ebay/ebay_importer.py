@@ -91,7 +91,10 @@ class EbayImporter:
                 self.db.refresh(self.job)
                 if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
                     logger.info(f"Job #{self.job.id} cancelled, stopping import at offset {offset}")
-                    self.db.commit()  # Save partial progress
+                    try:
+                        self.db.commit()  # Save partial progress
+                    except Exception:
+                        self.db.rollback()
                     return all_items
 
             try:
@@ -179,7 +182,10 @@ class EbayImporter:
                 self.db.refresh(self.job)
                 if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
                     logger.info(f"Job #{self.job.id} cancelled, stopping import at item {i}/{len(inventory_items)}")
-                    self.db.commit()  # Save partial progress
+                    try:
+                        self.db.commit()  # Save partial progress
+                    except Exception:
+                        self.db.rollback()
                     return {
                         **results,
                         "status": "cancelled",
@@ -445,7 +451,7 @@ class EbayImporter:
                 if ebay_product:
                     # Enrich with offer data
                     self.enrichment.enrich_with_offers(ebay_product)
-                    self.db.commit()
+                    self.db.flush()
                     return ebay_product
 
         except Exception as e:
@@ -509,7 +515,10 @@ class EbayImporter:
                 self.db.refresh(self.job)
                 if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
                     logger.info(f"[SyncInventory] Job cancelled, stopping sync")
-                    self.db.commit()
+                    try:
+                        self.db.commit()
+                    except Exception:
+                        self.db.rollback()
                     return {**results, "status": "cancelled"}
 
             inventory_item = inventory_map.get(product.ebay_sku)

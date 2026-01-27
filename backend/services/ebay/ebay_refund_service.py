@@ -137,7 +137,7 @@ class EbayRefundService:
             )
 
             EbayRefundRepository.create(self.db, refund)
-            self.db.commit()
+            self.db.flush()
 
             logger.info(
                 f"[EbayRefundService] Refund issued successfully: "
@@ -212,7 +212,7 @@ class EbayRefundService:
                 else:
                     skipped += 1
 
-            self.db.commit()
+            self.db.flush()
 
             logger.info(
                 f"[EbayRefundService] Sync complete for order {order_id}: "
