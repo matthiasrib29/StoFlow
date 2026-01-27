@@ -5,11 +5,11 @@
   >
     <!-- Image with overlay actions -->
     <div class="relative aspect-square overflow-hidden">
-      <img
+      <NuxtImg
         :src="getProductImageUrl(product)"
         :alt="product.title"
         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-      >
+      />
       <!-- Status badge -->
       <div class="absolute top-2 right-2">
         <span
