@@ -103,16 +103,15 @@ export default defineNuxtConfig({
     hostname: 'https://www.stoflow.io',
     gzip: true,
     routes: async () => {
-      // Pages statiques publiques
       return [
-        '/',
-        '/login',
-        '/register',
-        '/legal/privacy',
-        '/legal/mentions',
-        '/legal/cgu',
-        '/legal/cgv',
-        '/docs',
+        { url: '/', changefreq: 'weekly', priority: 1.0 },
+        { url: '/login', changefreq: 'monthly', priority: 0.3 },
+        { url: '/register', changefreq: 'monthly', priority: 0.5 },
+        { url: '/legal/privacy', changefreq: 'yearly', priority: 0.2 },
+        { url: '/legal/mentions', changefreq: 'yearly', priority: 0.2 },
+        { url: '/legal/cgu', changefreq: 'yearly', priority: 0.2 },
+        { url: '/legal/cgv', changefreq: 'yearly', priority: 0.2 },
+        { url: '/docs', changefreq: 'monthly', priority: 0.6 },
       ]
     },
     exclude: [
