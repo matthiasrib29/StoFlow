@@ -121,6 +121,15 @@ async def lifespan(app: FastAPI):
 
     logger.info("✅ All required secrets configured")
 
+    # Check production-specific security requirements
+    prod_warnings = settings.validate_production_requirements()
+    for warning in prod_warnings:
+        if settings.is_production:
+            logger.error(f"PRODUCTION REQUIREMENT: {warning}")
+            raise ValueError(f"Production requirement not met: {warning}")
+        else:
+            logger.warning(f"DEV WARNING: {warning}")
+
     # ===== R2 STORAGE (2025-12-23) =====
     # R2 is REQUIRED for image storage (no local fallback)
     if r2_service.is_available:
