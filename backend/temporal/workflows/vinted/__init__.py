@@ -9,6 +9,11 @@ from temporal.workflows.vinted.cleanup_workflow import (
     VintedBatchCleanupWorkflow,
     VintedBatchCleanupParams,
 )
+from temporal.workflows.vinted.pro_seller_scan_workflow import (
+    VintedProSellerScanWorkflow,
+    VintedProSellerScanParams,
+    VintedProSellerScanProgress,
+)
 
 __all__ = [
     "VintedSyncWorkflow",
@@ -18,4 +23,7 @@ __all__ = [
     "VintedCleanupParams",
     "VintedBatchCleanupWorkflow",
     "VintedBatchCleanupParams",
+    "VintedProSellerScanWorkflow",
+    "VintedProSellerScanParams",
+    "VintedProSellerScanProgress",
 ]

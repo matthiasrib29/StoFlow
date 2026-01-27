@@ -23,6 +23,7 @@ from api.admin_attributes import router as admin_attributes_router
 from api.admin_audit import router as admin_audit_router
 from api.admin_docs import router as admin_docs_router
 from api.admin_stats import router as admin_stats_router
+from api.admin_vinted_pro_sellers import router as admin_vinted_pro_sellers_router
 from api.admin_vinted_prospects import router as admin_vinted_prospects_router
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
@@ -73,7 +74,7 @@ from worker.dispatcher_config import DispatcherConfig
 # Temporal Workflow Orchestration (2026-01-21)
 from temporal.config import get_temporal_config
 from temporal.worker import get_worker_manager
-from temporal.workflows import EbaySyncWorkflow, EbayCleanupWorkflow, VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow
+from temporal.workflows import EbaySyncWorkflow, EbayCleanupWorkflow, VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow
 from temporal.activities import EBAY_ACTIVITIES, VINTED_ACTIVITIES
 
 # Configuration du logging
@@ -200,7 +201,7 @@ async def lifespan(app: FastAPI):
             _vinted_worker = Worker(
                 vinted_client,
                 task_queue=temporal_config.temporal_vinted_task_queue,
-                workflows=[VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow],
+                workflows=[VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow],
                 activities=VINTED_ACTIVITIES,
                 activity_executor=_vinted_executor,
                 identity=f"{temporal_config.worker_identity}-vinted",
@@ -363,6 +364,7 @@ app.include_router(admin_router, prefix="/api")
 app.include_router(admin_attributes_router, prefix="/api")
 app.include_router(admin_audit_router, prefix="/api")
 app.include_router(admin_stats_router, prefix="/api")
+app.include_router(admin_vinted_pro_sellers_router, prefix="/api")
 app.include_router(admin_vinted_prospects_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(batches_router, prefix="/api")  # Generic batch jobs (multi-marketplace)

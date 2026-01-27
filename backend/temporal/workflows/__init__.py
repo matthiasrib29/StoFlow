@@ -11,6 +11,7 @@ from temporal.workflows.vinted.cleanup_workflow import (
     VintedBatchCleanupWorkflow,
     VintedBatchCleanupParams,
 )
+from temporal.workflows.vinted.pro_seller_scan_workflow import VintedProSellerScanWorkflow
 
 __all__ = [
     "EbaySyncWorkflow",
@@ -21,4 +22,5 @@ __all__ = [
     "VintedCleanupParams",
     "VintedBatchCleanupWorkflow",
     "VintedBatchCleanupParams",
+    "VintedProSellerScanWorkflow",
 ]
