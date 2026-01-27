@@ -24,7 +24,7 @@ class VintedProSeller(Base):
     Stores complete information about business=true Vinted sellers,
     including extracted contact info from their 'about' field.
 
-    Table: public.vinted_pro_sellers
+    Table: vinted.vinted_pro_sellers
     """
 
     __tablename__ = "vinted_pro_sellers"
@@ -35,6 +35,7 @@ class VintedProSeller(Base):
         Index("idx_vinted_pro_sellers_status", "status"),
         Index("idx_vinted_pro_sellers_item_count", "item_count"),
         Index("idx_vinted_pro_sellers_legal_code", "legal_code"),
+        {"schema": "vinted"},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

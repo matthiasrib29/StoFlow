@@ -14,7 +14,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from models.public.vinted_pro_seller import VintedProSeller
+from models.vinted.vinted_pro_seller import VintedProSeller
 from services.vinted.vinted_contact_extractor import VintedContactExtractor
 from shared.logging import get_logger
 

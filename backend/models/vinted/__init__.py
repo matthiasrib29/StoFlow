@@ -20,6 +20,7 @@ from models.vinted.vinted_category import VintedCategory
 from models.vinted.vinted_mapping import VintedMapping
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from models.vinted.vinted_deletion import VintedDeletion
+from models.vinted.vinted_pro_seller import VintedProSeller
 
 __all__ = [
     "VintedActionType",
@@ -28,4 +29,5 @@ __all__ = [
     "VintedOrder",
     "VintedOrderProduct",
     "VintedDeletion",
+    "VintedProSeller",
 ]
