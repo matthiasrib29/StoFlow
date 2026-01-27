@@ -219,6 +219,7 @@ def get_tenant_session(user_id: int) -> Session:
         Session configured with schema_translate_map for the tenant
     """
     schema_name = f"user_{user_id}"
+    validate_schema_name(schema_name)
 
     # Create an engine execution context with schema_translate_map
     # This ensures ALL queries through this session use the correct schema
