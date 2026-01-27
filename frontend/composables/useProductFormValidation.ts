@@ -58,10 +58,11 @@ export function useProductFormValidation() {
       'category',
       'brand',
       'condition',
-      'size_original',
+      'size_normalized',
       'color',
       'gender',
-      'material'
+      'material',
+      'location'
     ]
 
     if (requiredFields.includes(field)) {

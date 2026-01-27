@@ -15,6 +15,7 @@
         <ProductsFormsCharacteristicsCategoryWizard
           :categories="options.categories"
           :genders="options.genders"
+          :current-gender="currentGender"
           :model-value="category"
           @update:model-value="handleCategoryChange"
         />
@@ -63,29 +64,31 @@
 
     <!-- Second row: Size, Color, Material -->
     <UiFormSection :columns="3" variant="flat">
-      <!-- Size Original -->
+      <!-- Size Original (optional) -->
       <ProductsFormsCharacteristicsAttributeField
         type="text"
         label="Taille (étiquette)"
         :model-value="sizeOriginal"
         placeholder="Ex: W32/L34, 42 EUR, XL..."
-        :required="true"
-        :has-error="validation?.hasError('size_original')"
-        :error-message="validation?.getError('size_original')"
-        :is-valid="validation?.isFieldValid?.('size_original')"
         helper-text="Taille exacte sur l'étiquette du vêtement"
         @update:model-value="handleSizeOriginalChange"
-        @blur="validation?.touch('size_original')"
       />
 
-      <!-- Size Normalized -->
+      <!-- Size Normalized (required) -->
       <UiFormField
         label="Taille standardisée"
-        helper-text="Équivalent standard (S, M, L...)"
+        :required="true"
+        :has-error="validation?.hasError('size_normalized')"
+        :error-message="validation?.getError('size_normalized')"
+        :is-valid="validation?.isFieldValid?.('size_normalized')"
+        :helper-text="suggestedSize && !suggestedSizeMatch
+          ? `Taille suggérée (${suggestedSize}) non disponible dans les tailles standard`
+          : 'Équivalent standard (S, M, L...)'
+        "
       >
         <Select
           :model-value="sizeNormalized"
-          :options="options.sizes"
+          :options="sortedSizes"
           option-label="label"
           option-value="value"
           placeholder="Sélectionner..."
@@ -93,8 +96,20 @@
           :loading="loading.sizes"
           filter
           filter-placeholder="Rechercher..."
-          @update:model-value="$emit('update:sizeNormalized', $event)"
-        />
+          @update:model-value="handleSizeNormalizedChange"
+        >
+          <template #option="slotProps">
+            <div class="flex items-center gap-2">
+              <span>{{ slotProps.option.label }}</span>
+              <span
+                v-if="suggestedSize && slotProps.option.value.toLowerCase() === suggestedSize.toLowerCase()"
+                class="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium"
+              >
+                Suggérée
+              </span>
+            </div>
+          </template>
+        </Select>
       </UiFormField>
 
       <!-- Color (multiselect with max 2) -->
@@ -156,14 +171,16 @@ interface ValidationObject {
 interface Props {
   // Values
   category: string
+  currentGender?: string | null
   brand: string
   model: string | null
-  // gender is auto-extracted from category, no longer a prop
   condition: number | null
   sizeOriginal: string
   sizeNormalized: string | null
   color: string
   material: string
+  // Suggested size from measurements
+  suggestedSize?: string | null
   // Options
   options: {
     categories: CategoryOption[]
@@ -204,6 +221,89 @@ const emit = defineEmits<{
   'filterColors': [query: string]
   'filterMaterials': [query: string]
 }>()
+
+// --- Suggested size auto-fill logic ---
+
+// Track manual selection to prevent auto-fill override
+const userManuallySelectedSize = ref(false)
+
+// Check if suggested size exists in available options
+const suggestedSizeMatch = computed(() => {
+  if (!props.suggestedSize || !props.options.sizes?.length) return null
+  return props.options.sizes.find(
+    (s) => s.value.toLowerCase() === props.suggestedSize!.toLowerCase()
+  ) ?? null
+})
+
+// Size sort order: literal sizes first, then W sizes
+const LITERAL_SIZE_ORDER = [
+  'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL',
+  'one-size', 'TAILLE UNIQUE'
+]
+
+const sizeSortKey = (value: string): [number, number, number] => {
+  // Group 0: literal letter sizes (XXS, XS, S, M, L...)
+  const literalIndex = LITERAL_SIZE_ORDER.indexOf(value.toUpperCase())
+  if (literalIndex !== -1) return [0, literalIndex, 0]
+
+  // Group 1: numeric sizes (34, 36, 38...)
+  if (/^\d+$/.test(value)) return [1, parseInt(value), 0]
+
+  // Group 2: W sizes (W32, W32/L34...)
+  const wMatch = value.match(/^W(\d+)(?:\/L(\d+))?$/)
+  if (wMatch) {
+    const w = parseInt(wMatch[1])
+    const l = wMatch[2] ? parseInt(wMatch[2]) : 0
+    return [2, w, l]
+  }
+
+  // Group 3: everything else
+  return [3, 0, 0]
+}
+
+// Sorted sizes: suggested first, then literal, then W sizes
+const sortedSizes = computed(() => {
+  if (!props.options.sizes?.length) return props.options.sizes
+
+  const sorted = [...props.options.sizes].sort((a, b) => {
+    const keyA = sizeSortKey(a.value)
+    const keyB = sizeSortKey(b.value)
+    for (let i = 0; i < 3; i++) {
+      if (keyA[i] !== keyB[i]) return keyA[i] - keyB[i]
+    }
+    return 0
+  })
+
+  // Move suggested size to the top if it exists
+  if (suggestedSizeMatch.value) {
+    const matchValue = suggestedSizeMatch.value.value
+    const rest = sorted.filter((s) => s.value !== matchValue)
+    return [suggestedSizeMatch.value, ...rest]
+  }
+
+  return sorted
+})
+
+// Auto-fill when suggestedSize changes (only if user hasn't manually selected)
+watch(() => props.suggestedSize, (newSuggested) => {
+  if (userManuallySelectedSize.value || !newSuggested) return
+  if (suggestedSizeMatch.value) {
+    emit('update:sizeNormalized', suggestedSizeMatch.value.value)
+  }
+})
+
+// Handle manual selection
+const handleSizeNormalizedChange = (value: string | null) => {
+  userManuallySelectedSize.value = true
+  emit('update:sizeNormalized', value)
+}
+
+// Don't auto-fill over existing size on edit mode
+onMounted(() => {
+  if (props.sizeNormalized) {
+    userManuallySelectedSize.value = true
+  }
+})
 
 // Convert color string to array for multiselect
 // Backend stores as comma-separated string, frontend uses array

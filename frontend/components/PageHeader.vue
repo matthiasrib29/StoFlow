@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center justify-between mb-8">
+  <div class="flex items-center justify-between mb-4">
     <div>
       <div class="flex items-center gap-3 mb-1">
         <!-- Back button (optional) -->

@@ -32,6 +32,8 @@ CSRF_PROTECTED_METHODS: Set[str] = {"POST", "PUT", "PATCH", "DELETE"}
 CSRF_EXEMPT_PATHS: Set[str] = {
     "/api/auth/login",
     "/api/auth/register",
+    "/api/auth/refresh",    # Protected by httpOnly samesite=strict cookie
+    "/api/auth/logout",     # Logout should always work (clears cookies)
     "/api/auth/verify-email",
     "/api/auth/resend-verification",
     "/api/auth/forgot-password",

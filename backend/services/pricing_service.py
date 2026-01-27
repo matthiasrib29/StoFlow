@@ -27,16 +27,24 @@ from models.public.brand_group import BrandGroup
 from models.public.condition import Condition
 from models.public.decade import Decade
 from models.public.origin import Origin
+from models.public.fit import Fit
 from models.public.trend import Trend
 from models.public.unique_feature import UniqueFeature
 from models.product_attributes.model import Model
 from repositories.brand_group_repository import BrandGroupRepository
 from repositories.model_repository import ModelRepository
-from schemas.pricing import AdjustmentBreakdown, PriceInput, PriceOutput
+from schemas.pricing import (
+    AdjustmentBreakdown,
+    AdjustmentDetail,
+    ConditionDetail,
+    PriceInput,
+    PriceOutput,
+)
 from services.pricing.adjustment_calculators import (
     calculateConditionMultiplier,
     calculateDecadeAdjustment,
     calculateFeatureAdjustment,
+    calculateFitAdjustment,
     calculateModelCoefficient,
     calculateOriginAdjustment,
     calculateTrendAdjustment,
@@ -136,13 +144,20 @@ class PricingService:
             f.name_en: f.pricing_coefficient for f in features
         }
 
+        # Load fit coefficients
+        fits = self.db.execute(select(Fit)).scalars().all()
+        fit_coefficients = {
+            f.name_en: f.pricing_coefficient for f in fits
+        }
+
         logger.debug(
             f"[PricingService] Loaded pricing coefficients: "
             f"{len(condition_coefficients)} conditions, "
             f"{len(origin_coefficients)} origins, "
             f"{len(decade_coefficients)} decades, "
             f"{len(trend_coefficients)} trends, "
-            f"{len(feature_coefficients)} features"
+            f"{len(feature_coefficients)} features, "
+            f"{len(fit_coefficients)} fits"
         )
 
         return {
@@ -151,7 +166,77 @@ class PricingService:
             "decade_coefficients": decade_coefficients,
             "trend_coefficients": trend_coefficients,
             "feature_coefficients": feature_coefficients,
+            "fit_coefficients": fit_coefficients,
         }
+
+    @staticmethod
+    def _build_single_detail(
+        actual_value: Optional[str],
+        expected_values: list[str],
+        coefficients: dict[str, Decimal],
+    ) -> AdjustmentDetail:
+        """Build detail for single-value adjustments (origin, decade, fit)."""
+        actual_coef = Decimal("0.00")
+        if actual_value and actual_value.strip():
+            actual_coef = coefficients.get(actual_value, Decimal("0.00"))
+
+        expected_coef = Decimal("0.00")
+        expected_best = None
+        if expected_values:
+            best_coef = Decimal("-999")
+            for val in expected_values:
+                c = coefficients.get(val, Decimal("0.00"))
+                if c > best_coef:
+                    best_coef = c
+                    expected_best = val
+            expected_coef = best_coef if best_coef > Decimal("-999") else Decimal("0.00")
+
+        return AdjustmentDetail(
+            actual_value=actual_value if actual_value and actual_value.strip() else None,
+            actual_coef=actual_coef,
+            expected_values=expected_values,
+            expected_best=expected_best,
+            expected_coef=expected_coef,
+        )
+
+    @staticmethod
+    def _build_list_detail(
+        actual_values: list[str],
+        expected_values: list[str],
+        coefficients: dict[str, Decimal],
+    ) -> AdjustmentDetail:
+        """Build detail for list-value adjustments (trend, feature)."""
+        actual_coef = Decimal("0.00")
+        actual_best = None
+        if actual_values:
+            best_coef = Decimal("-999")
+            for val in actual_values:
+                if val in coefficients:
+                    c = coefficients[val]
+                    if c > best_coef:
+                        best_coef = c
+                        actual_best = val
+            actual_coef = best_coef if best_coef > Decimal("-999") else Decimal("0.00")
+
+        expected_coef = Decimal("0.00")
+        expected_best = None
+        if expected_values:
+            best_coef = Decimal("-999")
+            for val in expected_values:
+                if val in coefficients:
+                    c = coefficients[val]
+                    if c > best_coef:
+                        best_coef = c
+                        expected_best = val
+            expected_coef = best_coef if best_coef > Decimal("-999") else Decimal("0.00")
+
+        return AdjustmentDetail(
+            actual_value=actual_best,
+            actual_coef=actual_coef,
+            expected_values=expected_values,
+            expected_best=expected_best,
+            expected_coef=expected_coef,
+        )
 
     async def fetch_or_generate_pricing_data(
         self,
@@ -382,6 +467,13 @@ class PricingService:
                     expected_features,
                     coefficients["feature_coefficients"],
                 )
+
+                # Calculate fit adjustment
+                fit_adj = calculateFitAdjustment(
+                    input_data.actual_fit,
+                    input_data.expected_fits or [],
+                    coefficients["fit_coefficients"],
+                )
             except (ValueError, KeyError, InvalidOperation) as e:
                 logger.error(
                     f"[PricingService] Adjustment calculation failed: {e}",
@@ -397,7 +489,7 @@ class PricingService:
             # Step 5: Apply formula and calculate prices
             # PRICE = BASE_PRICE × MODEL_COEFF × CONDITION_MULT × (1 + ADJUSTMENTS)
             try:
-                total_adjustment = origin_adj + decade_adj + trend_adj + feature_adj
+                total_adjustment = origin_adj + decade_adj + trend_adj + feature_adj + fit_adj
                 adjusted_price = base_price * model_coeff * condition_mult * (1 + total_adjustment)
 
                 # Step 6: Calculate 3 price levels with quantization
@@ -424,10 +516,36 @@ class PricingService:
                 f"total_adj={total_adjustment}"
             )
 
-            # Step 7: Build output
-            # Note: condition is now a multiplier, we store it as (multiplier - 1) for consistency
+            # Step 7: Build detail objects for each adjustment
             condition_as_adjustment = condition_mult - Decimal("1.0")
 
+            origin_detail = self._build_single_detail(
+                input_data.actual_origin,
+                input_data.expected_origins or brand_group.expected_origins,
+                coefficients["origin_coefficients"],
+            )
+            decade_detail = self._build_single_detail(
+                input_data.actual_decade,
+                input_data.expected_decades or brand_group.expected_decades,
+                coefficients["decade_coefficients"],
+            )
+            trend_detail = self._build_list_detail(
+                input_data.actual_trends,
+                input_data.expected_trends or brand_group.expected_trends,
+                coefficients["trend_coefficients"],
+            )
+            feature_detail = self._build_list_detail(
+                input_data.actual_features,
+                expected_features,
+                coefficients["feature_coefficients"],
+            )
+            fit_detail = self._build_single_detail(
+                input_data.actual_fit,
+                input_data.expected_fits or [],
+                coefficients["fit_coefficients"],
+            )
+
+            # Step 8: Build output
             return PriceOutput(
                 # Price levels
                 quick_price=quick_price,
@@ -436,13 +554,25 @@ class PricingService:
                 # Breakdown
                 base_price=base_price,
                 model_coefficient=model_coeff,
+                condition_multiplier=condition_mult,
                 adjustments=AdjustmentBreakdown(
                     condition=condition_as_adjustment,
                     origin=origin_adj,
                     decade=decade_adj,
                     trend=trend_adj,
                     feature=feature_adj,
+                    fit=fit_adj,
                     total=condition_as_adjustment + total_adjustment,
+                    # Detailed calculation steps
+                    condition_detail=ConditionDetail(
+                        score=input_data.condition_score,
+                        multiplier=condition_mult,
+                    ),
+                    origin_detail=origin_detail,
+                    decade_detail=decade_detail,
+                    trend_detail=trend_detail,
+                    feature_detail=feature_detail,
+                    fit_detail=fit_detail,
                 ),
                 # Metadata
                 brand=input_data.brand,

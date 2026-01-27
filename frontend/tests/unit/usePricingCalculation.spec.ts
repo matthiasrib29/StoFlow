@@ -48,12 +48,14 @@ describe('usePricingCalculation', () => {
         premium_price: '130.00',
         base_price: '100.00',
         model_coefficient: 1.0,
+        condition_multiplier: 1.0,
         adjustments: {
           condition: 0.0,
           origin: 0.0,
           decade: 0.0,
           trend: 0.0,
           feature: 0.0,
+          fit: 0.0,
           total: 0.0
         },
         brand: 'Test Brand',
@@ -100,12 +102,14 @@ describe('usePricingCalculation', () => {
         premium_price: '130.00',
         base_price: '100.00',
         model_coefficient: 1.2,
+        condition_multiplier: 1.0,
         adjustments: {
           condition: 0.05,
           origin: 0.1,
           decade: -0.05,
           trend: 0.0,
           feature: 0.0,
+          fit: 0.0,
           total: 0.1
         },
         brand: 'Hermès',
@@ -319,12 +323,14 @@ describe('usePricingCalculation', () => {
         premium_price: '130.00',
         base_price: '100.00',
         model_coefficient: 1.0,
+        condition_multiplier: 1.0,
         adjustments: {
           condition: 0.0,
           origin: 0.0,
           decade: 0.0,
           trend: 0.0,
           feature: 0.0,
+          fit: 0.0,
           total: 0.0
         },
         brand: 'Test Brand',
@@ -372,12 +378,14 @@ describe('usePricingCalculation', () => {
         premium_price: '100.00',
         base_price: '75.00',
         model_coefficient: 1.0,
+        condition_multiplier: 1.0,
         adjustments: {
           condition: 0.0,
           origin: 0.0,
           decade: 0.0,
           trend: 0.0,
           feature: 0.0,
+          fit: 0.0,
           total: 0.0
         },
         brand: 'Brand A',
@@ -390,12 +398,14 @@ describe('usePricingCalculation', () => {
         premium_price: '250.00',
         base_price: '200.00',
         model_coefficient: 1.5,
+        condition_multiplier: 1.0,
         adjustments: {
           condition: 0.1,
           origin: 0.2,
           decade: 0.0,
           trend: 0.05,
           feature: 0.0,
+          fit: 0.0,
           total: 0.35
         },
         brand: 'Brand B',
@@ -466,12 +476,14 @@ describe('usePricingCalculation', () => {
         premium_price: '130.00',
         base_price: '100.00',
         model_coefficient: 1.0,
+        condition_multiplier: 1.0,
         adjustments: {
           condition: 0.0,
           origin: 0.0,
           decade: 0.0,
           trend: 0.0,
           feature: 0.0,
+          fit: 0.0,
           total: 0.0
         },
         brand: 'Test Brand',

@@ -31,6 +31,9 @@ export interface ProductAttributesState {
   origins: AttributeOption[]
   decades: AttributeOption[]
   trends: AttributeOption[]
+  // Details options
+  conditionSups: AttributeOption[]
+  uniqueFeatures: AttributeOption[]
   // Raw data for autocomplete/wizard
   categories: CategoryOption[]
   colors: AttributeOption[]
@@ -78,6 +81,8 @@ export const useProductAttributes = () => {
     origins: [],
     decades: [],
     trends: [],
+    conditionSups: [],
+    uniqueFeatures: [],
     categories: [],
     colors: [],
     materials: []
@@ -101,10 +106,11 @@ export const useProductAttributes = () => {
     const [
       genders, sizes, fits, seasons, sports, necklines, lengths,
       patterns, rises, closures, sleeves, stretches, linings,
-      origins, decades, trends, categories, colors, materials
+      origins, decades, trends, conditionSups, uniqueFeatures,
+      categories, colors, materials
     ] = await Promise.all([
       fetchAttribute('genders', lang),
-      fetchAttribute('sizes', lang),
+      fetchAttribute('sizes', lang, undefined, 500),
       fetchAttribute('fits', lang),
       fetchAttribute('seasons', lang),
       fetchAttribute('sports', lang),
@@ -119,6 +125,8 @@ export const useProductAttributes = () => {
       fetchAttribute('origins', lang),
       fetchAttribute('decades', lang),
       fetchAttribute('trends', lang),
+      fetchAttribute('condition_sups', lang),
+      fetchAttribute('unique_features', lang),
       fetchAttribute('categories', lang),
       fetchAttribute('colors', lang),
       fetchAttribute('materials', lang)
@@ -141,6 +149,8 @@ export const useProductAttributes = () => {
     options.origins = origins
     options.decades = decades
     options.trends = trends
+    options.conditionSups = conditionSups
+    options.uniqueFeatures = uniqueFeatures
     options.categories = categories
     options.colors = colors
     options.materials = materials

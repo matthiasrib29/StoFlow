@@ -1,34 +1,10 @@
 <template>
   <form class="form-section-spacing" @submit.prevent="handleSubmit">
-    <!-- ===== INDICATEUR AUTO-SAVE ===== -->
-    <div v-if="productId && autoSave" class="flex items-center gap-2 text-xs mb-2">
-      <i
-        v-if="autoSave.isSaving.value"
-        class="pi pi-spin pi-spinner text-primary-500"
-      />
-      <i
-        v-else-if="autoSave.saveError.value"
-        class="pi pi-exclamation-triangle text-error-500"
-      />
-      <i
-        v-else-if="autoSave.lastSaved.value"
-        class="pi pi-check-circle text-success-500"
-      />
-      <span
-        :class="{
-          'text-primary-600': autoSave.isSaving.value,
-          'text-error-600': autoSave.saveError.value,
-          'text-success-600': autoSave.lastSaved.value
-        }"
-      >
-        {{ autoSave.statusText.value }}
-      </span>
-    </div>
-
     <!-- ===== SECTION 1: CARACTÉRISTIQUES ===== -->
     <div id="section-characteristics">
       <ProductsFormsProductFormCharacteristics
         :category="modelValue.category"
+        :gender="modelValue.gender"
         :brand="modelValue.brand"
         :condition="modelValue.condition"
         :size-original="modelValue.size_original"
@@ -54,6 +30,7 @@
         :model="modelValue.model"
         :unique-feature="modelValue.unique_feature"
         :marking="modelValue.marking"
+        :suggested-size="suggestedSize"
         :validation="validation"
         @update:category="handleCategoryChange($event)"
         @update:brand="updateField('brand', $event)"
@@ -88,6 +65,7 @@
     <div id="section-measures">
       <ProductsFormsProductFormMeasures
         :category="modelValue.category"
+        :condition-sup="modelValue.condition_sup"
         :dim1="modelValue.dim1"
         :dim2="modelValue.dim2"
         :dim3="modelValue.dim3"
@@ -100,6 +78,8 @@
         @update:dim4="updateField('dim4', $event)"
         @update:dim5="updateField('dim5', $event)"
         @update:dim6="updateField('dim6', $event)"
+        @update:suggested-size="suggestedSize = $event"
+        @add:condition-sup="handleAddConditionSup"
       />
     </div>
 
@@ -181,11 +161,8 @@ const { post } = useApi()
 // Load product attributes to extract gender from category
 const { options: attributeOptions } = useProductAttributes()
 
-// Auto-save (uniquement en mode édition)
-const autoSave = props.productId ? useAutoSave({
-  productId: props.productId,
-  debounceMs: 2000
-}) : null
+// Suggested size from measurements (passed to characteristics for auto-fill)
+const suggestedSize = ref<string | null>(null)
 
 // Flash animation pour champs remplis par IA
 const aiModifiedFields = ref<Set<string>>(new Set())
@@ -220,13 +197,6 @@ watch(() => props.modelValue, (newVal) => {
   }
 }, { deep: true })
 
-// Trigger auto-save when form changes (only in edit mode)
-watch(() => props.modelValue, (newValue) => {
-  if (autoSave && props.productId) {
-    autoSave.triggerSave(newValue)
-  }
-}, { deep: true })
-
 // Mettre à jour un champ
 const updateField = <K extends keyof ProductFormData>(field: K, value: ProductFormData[K]) => {
   // Update local state first (synchronously)
@@ -249,21 +219,36 @@ const handleCategoryChange = (categoryValue: string) => {
   // Update category field
   updateField('category', categoryValue)
 
-  // Auto-extract gender from category
+  // Auto-extract gender from category (only if not already set or invalid for this category)
   if (categoryValue && attributeOptions.categories.length > 0) {
     const selectedCategory = attributeOptions.categories.find(c => c.value === categoryValue)
     if (selectedCategory && selectedCategory.genders && selectedCategory.genders.length > 0) {
-      // Get first gender from the category's genders array
-      const genderValue = selectedCategory.genders[0]
-      updateField('gender', genderValue)
+      const currentGender = localForm.value.gender
+      // Case-insensitive check (genders table uses "Women", categories table uses "women")
+      const isCurrentGenderValid = currentGender && selectedCategory.genders.some(
+        (g: string) => g.toLowerCase() === currentGender.toLowerCase()
+      )
+
+      // Keep existing gender if it's valid for this category, otherwise use first
+      if (!isCurrentGenderValid) {
+        updateField('gender', selectedCategory.genders[0])
+      }
     }
+  }
+}
+
+// Handle adding a condition_sup value (e.g. "Hemmed/shortened" from measures detection)
+const handleAddConditionSup = (value: string) => {
+  const current = localForm.value.condition_sup ?? []
+  if (!current.includes(value)) {
+    updateField('condition_sup', [...current, value])
   }
 }
 
 // Soumettre le formulaire
 const handleSubmit = () => {
   // Valider tous les champs obligatoires
-  const requiredFields = ['title', 'description', 'category', 'brand', 'condition', 'size_original', 'color', 'gender', 'material']
+  const requiredFields = ['title', 'description', 'category', 'brand', 'condition', 'size_normalized', 'color', 'gender', 'material', 'location']
   let isValid = true
 
   for (const field of requiredFields) {

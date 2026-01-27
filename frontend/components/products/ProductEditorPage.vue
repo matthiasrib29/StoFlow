@@ -20,6 +20,8 @@
       :photos="photos"
       :existing-images="existingImages"
       :compact="isScrolled"
+      :product-id="productId"
+      :can-toggle-label="canToggleLabel"
       @update:photos="$emit('update:photos', $event)"
       @update:existing-images="$emit('update:existingImages', $event)"
       @remove-existing="$emit('remove-existing', $event)"
@@ -96,6 +98,7 @@ interface ExistingImage {
   id: number
   url: string
   position: number
+  is_label?: boolean
 }
 
 interface FormSection {
@@ -145,6 +148,9 @@ interface Props {
   hasDraft?: boolean
   lastSaved?: Date | null
   formatLastSaved?: () => string
+
+  // Admin features
+  canToggleLabel?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -157,7 +163,8 @@ const props = withDefaults(defineProps<Props>(), {
   showDraft: false,
   hasDraft: false,
   lastSaved: null,
-  formatLastSaved: () => ''
+  formatLastSaved: () => '',
+  canToggleLabel: false
 })
 
 const emit = defineEmits<{

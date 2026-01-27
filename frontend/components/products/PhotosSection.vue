@@ -30,8 +30,11 @@
       v-model:existing-images="localExistingImages"
       :compact="compact"
       :max-photos="maxPhotos"
+      :product-id="productId"
+      :can-toggle-label="canToggleLabel"
       @remove-existing="$emit('remove-existing', $event)"
       @reorder="$emit('reorder', $event)"
+      @label-toggled="$emit('label-toggled', $event)"
     />
   </div>
 </template>
@@ -46,6 +49,7 @@ interface ExistingImage {
   id: number
   url: string
   position: number
+  is_label?: boolean
 }
 
 interface Props {
@@ -53,12 +57,18 @@ interface Props {
   existingImages?: ExistingImage[]
   compact?: boolean
   maxPhotos?: number
+  /** Product ID - required for admin label toggle feature */
+  productId?: number
+  /** Enable admin-only label toggle feature */
+  canToggleLabel?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   existingImages: () => [],
   compact: false,
-  maxPhotos: 20
+  maxPhotos: 20,
+  productId: undefined,
+  canToggleLabel: false
 })
 
 const emit = defineEmits<{
@@ -66,6 +76,7 @@ const emit = defineEmits<{
   'update:existingImages': [images: ExistingImage[]]
   'remove-existing': [imageId: number]
   'reorder': [order: { existingImages: ExistingImage[]; photos: Photo[] }]
+  'label-toggled': [imageId: number, isLabel: boolean]
   'add': []
 }>()
 

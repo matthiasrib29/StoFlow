@@ -31,10 +31,11 @@ const REQUIRED_FIELDS = [
   'category',
   'brand',
   'condition',
-  'size_original',
+  'size_normalized',
   'color',
   'gender',
-  'material'
+  'material',
+  'location'
 ] as const
 
 // Human-readable field names
@@ -44,10 +45,11 @@ const FIELD_LABELS: Record<string, string> = {
   category: 'Catégorie',
   brand: 'Marque',
   condition: 'État',
-  size_original: 'Taille',
+  size_normalized: 'Taille standardisée',
   color: 'Couleur',
   gender: 'Genre',
-  material: 'Matière'
+  material: 'Matière',
+  location: 'Emplacement'
 }
 
 /**
@@ -136,7 +138,7 @@ export function useProductEditor(options: UseProductEditorOptions) {
   // Form sections for progress bar
   const formSections = computed(() => {
     const infoFields = ['title', 'description', 'price'] as const
-    const charFields = ['category', 'brand', 'condition', 'size_original', 'color', 'gender', 'material'] as const
+    const charFields = ['category', 'brand', 'condition', 'size_normalized', 'color', 'gender', 'material'] as const
     const measuresFields = ['dim1', 'dim2', 'dim3'] as const
 
     return [
@@ -219,9 +221,9 @@ export function useProductEditor(options: UseProductEditorOptions) {
       condition: prod.condition ?? null,
       size_original: prod.size_original || '',
       size_normalized: prod.size_normalized || null,
-      color: prod.color || '',
+      color: prod.colors?.join(', ') || prod.color || '',
       gender: prod.gender || '',
-      material: prod.material || '',
+      material: prod.materials?.join(', ') || prod.material || '',
 
       fit: prod.fit || null,
       season: prod.season || null,
@@ -320,6 +322,15 @@ export function useProductEditor(options: UseProductEditorOptions) {
       }
 
       await pricing.calculatePrice(priceInput)
+
+      // Auto-select recommended (standard) price
+      if (pricing.priceResult.value?.standard_price) {
+        const standardPrice = typeof pricing.priceResult.value.standard_price === 'string'
+          ? parseFloat(pricing.priceResult.value.standard_price)
+          : pricing.priceResult.value.standard_price
+        form.value = { ...form.value, price: standardPrice }
+      }
+
       productLogger.debug('Pricing calculated', { result: pricing.priceResult.value })
     } catch (error: any) {
       productLogger.error('Pricing calculation error', { error: error.message })
@@ -401,7 +412,7 @@ export function useProductEditor(options: UseProductEditorOptions) {
     return {
       title: form.value.title,
       description: form.value.description,
-      price: form.value.price,
+      ...(form.value.price ? { price: form.value.price } : {}),
       status,
       category: form.value.category,
       condition: form.value.condition,
@@ -532,8 +543,8 @@ export function useProductEditor(options: UseProductEditorOptions) {
       }
     }
 
-    const titlePrefix = status === 'draft' ? 'Brouillon sauvegardé' : 'Produit modifié'
-    showSuccess(titlePrefix, `${form.value.title} a été ${status === 'draft' ? 'sauvegardé en brouillon' : 'mis à jour avec succès'}`, 3000)
+    const titlePrefix = status === 'draft' ? 'Brouillon sauvegardé' : 'Produit publié'
+    showSuccess(titlePrefix, `${form.value.title} a été ${status === 'draft' ? 'sauvegardé en brouillon' : 'publié avec succès'}`, 3000)
     return product.value
   }
 

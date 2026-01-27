@@ -17,28 +17,7 @@
         />
       </div>
     </div>
-
-    <!-- Section Navigation compacte -->
-    <div v-if="sections && sections.length > 0" class="flex items-center gap-1.5 mt-3">
-      <button
-        v-for="section in sections"
-        :key="section.id"
-        type="button"
-        class="section-nav-compact"
-        :class="{
-          'active': activeSection === section.id,
-          'complete': section.isComplete
-        }"
-        :title="`${section.label} (${section.filled}/${section.total})`"
-        @click="$emit('navigate', section.id)"
-      >
-        <span class="text-xs">{{ section.label }}</span>
-        <i
-          v-if="section.isComplete"
-          class="pi pi-check text-[10px] text-success-600"
-        />
-      </button>
-    </div>
+    <p class="text-[11px] text-gray-400 mt-1">Plus vous remplissez, meilleure sera la visibilité de votre annonce. Visez au moins 80%.</p>
   </div>
 </template>
 

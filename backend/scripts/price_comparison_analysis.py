@@ -8,12 +8,13 @@ Generates detailed reports showing discrepancies and analysis.
 Usage:
     cd backend
     source .venv/bin/activate
-    python scripts/price_comparison_analysis.py [--user USER_ID] [--output OUTPUT_FILE] [--threshold 0.30]
+    python scripts/price_comparison_analysis.py [--user USER_ID] [--output OUTPUT_FILE] [--threshold 0.30] [--exclude-unbranded]
 
 Formula: PRICE = BASE_PRICE × MODEL_COEFF × CONDITION_MULT × (1 + ADJUSTMENTS)
-Where ADJUSTMENTS = origin_adj + decade_adj + trend_adj + feature_adj
+Where ADJUSTMENTS = origin_adj + decade_adj + trend_adj + feature_adj + fit_adj
 
 Created: 2026-01-22
+Updated: 2026-01-22 - Added fit adjustment
 """
 
 import argparse
@@ -34,6 +35,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from models.public.brand_group import BrandGroup
 from models.public.condition import Condition
 from models.public.decade import Decade
+from models.public.fit import Fit
 from models.public.origin import Origin
 from models.public.trend import Trend
 from models.public.unique_feature import UniqueFeature
@@ -44,6 +46,7 @@ from services.pricing.adjustment_calculators import (
     calculateConditionMultiplier,
     calculateDecadeAdjustment,
     calculateFeatureAdjustment,
+    calculateFitAdjustment,
     calculateOriginAdjustment,
     calculateTrendAdjustment,
 )
@@ -62,6 +65,7 @@ class PriceCalculationResult:
     origin: Optional[str]
     decade: Optional[str]
     trend: Optional[str]
+    fit: Optional[str]
     unique_features: list[str]
     materials: list[str]
 
@@ -74,6 +78,7 @@ class PriceCalculationResult:
     decade_adj: Decimal
     trend_adj: Decimal
     feature_adj: Decimal
+    fit_adj: Decimal
     total_adjustment: Decimal
 
     # Prices
@@ -102,6 +107,7 @@ class PriceComparisonAnalyzer:
         self._decade_coeffs: dict[str, Decimal] = {}
         self._trend_coeffs: dict[str, Decimal] = {}
         self._feature_coeffs: dict[str, Decimal] = {}
+        self._fit_coeffs: dict[str, Decimal] = {}
 
     def _load_coefficients(self, db: Session) -> None:
         """Load all pricing coefficients from database."""
@@ -135,9 +141,16 @@ class PriceComparisonAnalyzer:
             f.name_en: f.pricing_coefficient for f in features
         }
 
+        # Fits (name_en -> pricing_coefficient)
+        fits = db.execute(select(Fit)).scalars().all()
+        self._fit_coeffs = {
+            f.name_en: f.pricing_coefficient for f in fits
+        }
+
         print(f"  Loaded coefficients: {len(self._condition_coeffs)} conditions, "
               f"{len(self._origin_coeffs)} origins, {len(self._decade_coeffs)} decades, "
-              f"{len(self._trend_coeffs)} trends, {len(self._feature_coeffs)} features")
+              f"{len(self._trend_coeffs)} trends, {len(self._feature_coeffs)} features, "
+              f"{len(self._fit_coeffs)} fits")
 
     def _get_user_schemas(self, db: Session) -> list[int]:
         """Get list of user IDs that have schemas."""
@@ -225,6 +238,7 @@ class PriceComparisonAnalyzer:
         origin = product.origin
         decade = product.decade
         trend = product.trend
+        fit = product.fit if hasattr(product, 'fit') else None
         unique_features = product.unique_feature or []
         materials = product.materials  # Property from M2M relationship
 
@@ -238,6 +252,7 @@ class PriceComparisonAnalyzer:
             origin=origin,
             decade=decade,
             trend=trend,
+            fit=fit,
             unique_features=unique_features,
             materials=materials,
             group=None,
@@ -248,6 +263,7 @@ class PriceComparisonAnalyzer:
             decade_adj=Decimal("0.0"),
             trend_adj=Decimal("0.0"),
             feature_adj=Decimal("0.0"),
+            fit_adj=Decimal("0.0"),
             total_adjustment=Decimal("0.0"),
             current_price=product.price,
             calculated_price=None,
@@ -326,12 +342,20 @@ class PriceComparisonAnalyzer:
                 self._feature_coeffs
             )
 
+            # Fit adjustment
+            result.fit_adj = calculateFitAdjustment(
+                fit,
+                [],  # No expected fits for now
+                self._fit_coeffs
+            )
+
             # Step 6: Calculate total adjustment and final price
             result.total_adjustment = (
                 result.origin_adj +
                 result.decade_adj +
                 result.trend_adj +
-                result.feature_adj
+                result.feature_adj +
+                result.fit_adj
             )
 
             # Formula: PRICE = BASE_PRICE × MODEL_COEFF × CONDITION_MULT × (1 + ADJUSTMENTS)
@@ -517,12 +541,14 @@ def generate_report(
         avg_decade = sum(r.decade_adj for r in discrepant) / len(discrepant)
         avg_trend = sum(r.trend_adj for r in discrepant) / len(discrepant)
         avg_feature = sum(r.feature_adj for r in discrepant) / len(discrepant)
+        avg_fit = sum(r.fit_adj for r in discrepant) / len(discrepant)
 
         print(f"  Average adjustments:")
         print(f"    Origin:  {avg_origin:+.3f}")
         print(f"    Decade:  {avg_decade:+.3f}")
         print(f"    Trend:   {avg_trend:+.3f}")
         print(f"    Feature: {avg_feature:+.3f}")
+        print(f"    Fit:     {avg_fit:+.3f}")
 
         # Count products with null origin
         null_origin = sum(1 for r in discrepant if not r.origin)
@@ -538,9 +564,9 @@ def generate_report(
             writer = csv.writer(f)
             writer.writerow([
                 'user_id', 'product_id', 'brand', 'category', 'model', 'condition',
-                'origin', 'decade', 'trend', 'features', 'materials',
+                'origin', 'decade', 'trend', 'fit', 'features', 'materials',
                 'group', 'base_price', 'model_coeff', 'condition_mult',
-                'origin_adj', 'decade_adj', 'trend_adj', 'feature_adj', 'total_adj',
+                'origin_adj', 'decade_adj', 'trend_adj', 'feature_adj', 'fit_adj', 'total_adj',
                 'current_price', 'calculated_price', 'difference', 'difference_pct',
                 'status', 'error_message'
             ])
@@ -549,10 +575,10 @@ def generate_report(
                 writer.writerow([
                     getattr(r, 'user_id', ''),
                     r.product_id, r.brand, r.category, r.model_name or '', r.condition or '',
-                    r.origin or '', r.decade or '', r.trend or '',
+                    r.origin or '', r.decade or '', r.trend or '', r.fit or '',
                     ','.join(r.unique_features), ','.join(r.materials),
                     r.group or '', r.base_price or '', r.model_coeff, r.condition_mult,
-                    r.origin_adj, r.decade_adj, r.trend_adj, r.feature_adj, r.total_adjustment,
+                    r.origin_adj, r.decade_adj, r.trend_adj, r.feature_adj, r.fit_adj, r.total_adjustment,
                     r.current_price, r.calculated_price or '', r.difference or '', r.difference_pct or '',
                     r.status, r.error_message or ''
                 ])
@@ -566,6 +592,7 @@ def main():
     parser.add_argument("--user", type=int, help="Specific user ID to analyze")
     parser.add_argument("--output", type=str, help="Output CSV file path")
     parser.add_argument("--threshold", type=float, default=30.0, help="Percentage threshold (default: 30)")
+    parser.add_argument("--exclude-unbranded", action="store_true", help="Exclude products with brand 'Unbranded'")
     args = parser.parse_args()
 
     # Get database URL
@@ -580,6 +607,16 @@ def main():
     else:
         print("Analyzing all users...")
         results = analyzer.analyze_all_users(args.threshold)
+
+    # Filter out Unbranded products if requested
+    if args.exclude_unbranded:
+        print("\n🚫 Excluding 'Unbranded' products from analysis...")
+        for user_id in results:
+            original_count = len(results[user_id])
+            results[user_id] = [r for r in results[user_id] if r.brand.lower() != "unbranded"]
+            excluded_count = original_count - len(results[user_id])
+            if excluded_count > 0:
+                print(f"  User {user_id}: excluded {excluded_count} Unbranded products")
 
     generate_report(results, args.threshold, args.output)
 

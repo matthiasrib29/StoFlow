@@ -9,6 +9,7 @@
  */
 
 import { useTokenValidator } from '~/composables/useTokenValidator'
+import { useAuthStore } from '~/stores/auth'
 import { apiLogger } from '~/utils/logger'
 
 interface ApiError {
@@ -19,20 +20,33 @@ interface ApiError {
 // HTTP methods that require CSRF protection
 const CSRF_PROTECTED_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
 
-/**
- * Get CSRF token from cookie (for double-submit pattern)
- */
-const getCsrfToken = (): string | null => {
-  if (!import.meta.client) return null
-
-  const match = document.cookie.match(/csrf_token=([^;]+)/)
-  return match ? decodeURIComponent(match[1]) : null
-}
-
 export const useApi = () => {
   const config = useRuntimeConfig()
   const baseURL = config.public.apiBaseUrl || 'http://localhost:8000/api'
   const { isValidToken, isTokenExpired, willExpireSoon } = useTokenValidator()
+
+  /**
+   * Get CSRF token from auth store or cookie fallback (for double-submit pattern)
+   *
+   * In cross-origin dev (frontend:3000, backend:8000), document.cookie
+   * cannot read cookies set by the backend. The store-based approach works
+   * because the backend returns csrf_token in the login/refresh response body.
+   */
+  const getCsrfToken = (): string | null => {
+    if (!import.meta.client) return null
+
+    // Primary: read from auth store (works cross-origin)
+    try {
+      const authStore = useAuthStore()
+      if (authStore.csrfToken) return authStore.csrfToken
+    } catch {
+      // Store not available yet (SSR or init phase)
+    }
+
+    // Fallback: read from cookie (same-origin only)
+    const match = document.cookie.match(/csrf_token=([^;]+)/)
+    return match ? decodeURIComponent(match[1]) : null
+  }
 
   /**
    * Récupère le token d'accès depuis localStorage avec validation
@@ -249,6 +263,16 @@ export const useApi = () => {
       // Store in localStorage for backward compatibility
       if (import.meta.client && data.access_token) {
         localStorage.setItem('token', data.access_token)
+      }
+
+      // Update CSRF token in auth store (returned by backend on refresh)
+      if (data.csrf_token) {
+        try {
+          const authStore = useAuthStore()
+          authStore.csrfToken = data.csrf_token
+        } catch {
+          // Store not available
+        }
       }
 
       return true

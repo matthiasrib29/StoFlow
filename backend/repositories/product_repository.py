@@ -17,7 +17,7 @@ Author: Claude
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from models.user.product import Product, ProductStatus
@@ -100,6 +100,7 @@ class ProductRepository:
         status: Optional[ProductStatus] = None,
         category: Optional[str] = None,
         brand: Optional[str] = None,
+        search: Optional[str] = None,
         include_deleted: bool = False,
     ) -> Tuple[List[Product], int]:
         """
@@ -112,6 +113,7 @@ class ProductRepository:
             status: Filtre par status (optionnel)
             category: Filtre par catégorie (optionnel)
             brand: Filtre par marque (optionnel)
+            search: Recherche par ID, titre ou marque (optionnel)
             include_deleted: Si True, inclut les produits soft-deleted
 
         Returns:
@@ -128,6 +130,16 @@ class ProductRepository:
             conditions.append(Product.category == category)
         if brand:
             conditions.append(Product.brand == brand)
+
+        if search:
+            search_term = search.strip()
+            search_conditions = [
+                Product.title.ilike(f"%{search_term}%"),
+                Product.brand.ilike(f"%{search_term}%"),
+            ]
+            if search_term.isdigit():
+                search_conditions.append(Product.id == int(search_term))
+            conditions.append(or_(*search_conditions))
 
         # Count total
         count_stmt = select(func.count(Product.id))

@@ -76,6 +76,41 @@ class PriceInput(BaseModel):
         description="Expected features for this product group"
     )
 
+    actual_fit: Optional[str] = Field(
+        None,
+        description="Actual product fit (e.g., 'Bootcut', 'Slim', 'Regular')"
+    )
+    expected_fits: list[str] = Field(
+        default_factory=list,
+        description="Expected fits for this product group"
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConditionDetail(BaseModel):
+    """Detail of condition multiplier calculation."""
+
+    score: int = Field(..., description="Condition score (0-10)")
+    multiplier: Decimal = Field(..., description="Raw condition multiplier from DB")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdjustmentDetail(BaseModel):
+    """
+    Detail of a single adjustment calculation.
+
+    Shows actual vs expected coefficients for full transparency.
+    Formula: result = actual_coef - expected_coef
+    """
+
+    actual_value: Optional[str] = Field(None, description="Actual value used (e.g., 'France', 'Techwear')")
+    actual_coef: Decimal = Field(..., description="Coefficient of the actual value")
+    expected_values: list[str] = Field(default_factory=list, description="Expected values for the group")
+    expected_best: Optional[str] = Field(None, description="Best expected value (highest coef)")
+    expected_coef: Decimal = Field(..., description="MAX coefficient among expected values")
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -92,7 +127,16 @@ class AdjustmentBreakdown(BaseModel):
     decade: Decimal = Field(..., description="Decade adjustment (0.00 to +0.20)")
     trend: Decimal = Field(..., description="Trend adjustment (0.00 to +0.20)")
     feature: Decimal = Field(..., description="Feature adjustment (0.00 to +0.30)")
+    fit: Decimal = Field(..., description="Fit adjustment (-0.20 to +0.20)")
     total: Decimal = Field(..., description="Sum of all adjustments")
+
+    # Detailed calculation steps
+    condition_detail: Optional[ConditionDetail] = Field(None, description="Condition calculation detail")
+    origin_detail: Optional[AdjustmentDetail] = Field(None, description="Origin calculation detail")
+    decade_detail: Optional[AdjustmentDetail] = Field(None, description="Decade calculation detail")
+    trend_detail: Optional[AdjustmentDetail] = Field(None, description="Trend calculation detail")
+    feature_detail: Optional[AdjustmentDetail] = Field(None, description="Feature calculation detail")
+    fit_detail: Optional[AdjustmentDetail] = Field(None, description="Fit calculation detail")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -112,6 +156,7 @@ class PriceOutput(BaseModel):
     # Calculation breakdown
     base_price: Decimal = Field(..., description="Base price from BrandGroup")
     model_coefficient: Decimal = Field(..., description="Model coefficient (0.5-3.0)")
+    condition_multiplier: Decimal = Field(Decimal("1.0"), description="Raw condition multiplier (0.2-1.15)")
     adjustments: AdjustmentBreakdown = Field(..., description="Detailed adjustment breakdown")
 
     # Metadata

@@ -1,7 +1,7 @@
 <template>
   <div
     class="bg-white rounded-lg relative transition-all duration-300"
-    :class="compact ? 'p-2' : 'p-3'"
+    :class="compact ? 'p-2' : ''"
     @dragover.prevent="handleDragOver"
     @dragleave.prevent="handleDragLeave"
     @drop.prevent="handleDrop"
@@ -22,11 +22,11 @@
     </transition>
 
     <!-- Photo Preview Horizontal Scroll with Drag & Drop Reorder -->
-    <div v-if="allImages.length > 0" class="relative" :class="compact ? 'mb-1' : 'mb-2'">
+    <div v-if="allImages.length > 0" class="flex items-stretch gap-2">
       <!-- Navigation Button Left -->
       <button
-        v-if="canScrollLeft"
-        class="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-primary-400 hover:bg-primary-500 text-secondary-900 rounded-full p-3 shadow-lg transition-all duration-300 hover:scale-110"
+        class="flex items-center justify-center w-8 flex-shrink-0 rounded-lg text-secondary-600 hover:text-secondary-900 hover:bg-gray-100 transition-all duration-200"
+        :class="canScrollLeft ? 'cursor-pointer' : 'opacity-30 cursor-default'"
         aria-label="Défiler à gauche"
         @click="scrollLeft"
       >
@@ -36,7 +36,7 @@
       <!-- Photos Container with Draggable -->
       <div
         ref="scrollContainer"
-        class="overflow-x-auto scroll-smooth pb-2 hide-scrollbar"
+        class="overflow-x-auto scroll-smooth pb-2 hide-scrollbar min-w-0 flex-1"
         @scroll="checkScrollPosition"
       >
         <draggable
@@ -70,6 +70,20 @@
                   <i class="pi pi-star text-lg"/>
                 </button>
 
+                <!-- Toggle label button (admin only, existing images only) -->
+                <button
+                  v-if="canToggleLabel && element.type === 'existing'"
+                  class="w-10 h-10 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110"
+                  :class="element.is_label ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-gray-500 hover:bg-gray-600 text-white'"
+                  :aria-label="element.is_label ? 'Retirer le label' : 'Marquer comme label'"
+                  :title="element.is_label ? 'Retirer le label' : 'Marquer comme label'"
+                  :disabled="isTogglingLabel"
+                  @click.stop="toggleLabel(element)"
+                >
+                  <i v-if="isTogglingLabel" class="pi pi-spin pi-spinner text-lg"/>
+                  <i v-else class="pi pi-tag text-lg"/>
+                </button>
+
                 <!-- Delete button -->
                 <button
                   class="w-10 h-10 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all duration-200 hover:scale-110"
@@ -87,6 +101,12 @@
                 Principale
               </div>
 
+              <!-- Label Badge - Top Right (for label images) -->
+              <div v-if="element.is_label" class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full z-20 flex items-center gap-1 shadow-md">
+                <i class="pi pi-tag text-xs"/>
+                Label
+              </div>
+
               <!-- Drag Handle Indicator -->
               <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded z-20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                 <i class="pi pi-arrows-alt text-xs"/>
@@ -99,8 +119,8 @@
 
       <!-- Navigation Button Right -->
       <button
-        v-if="canScrollRight"
-        class="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-primary-400 hover:bg-primary-500 text-secondary-900 rounded-full p-3 shadow-lg transition-all duration-300 hover:scale-110"
+        class="flex items-center justify-center w-8 flex-shrink-0 rounded-lg text-secondary-600 hover:text-secondary-900 hover:bg-gray-100 transition-all duration-200"
+        :class="canScrollRight ? 'cursor-pointer' : 'opacity-30 cursor-default'"
         aria-label="Défiler à droite"
         @click="scrollRight"
       >
@@ -211,6 +231,7 @@ interface ExistingImage {
   id: number
   url: string
   position: number
+  is_label?: boolean
 }
 
 // Unified image type for drag and drop
@@ -221,6 +242,7 @@ interface UnifiedImage {
   // For existing images
   id?: number
   originalPosition?: number
+  is_label?: boolean
   // For new photos
   file?: File
   photoIndex?: number
@@ -231,12 +253,18 @@ interface Props {
   existingImages?: ExistingImage[]
   maxPhotos?: number
   compact?: boolean
+  /** Product ID - required for admin label toggle feature */
+  productId?: number
+  /** Enable admin-only label toggle feature */
+  canToggleLabel?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   maxPhotos: 20,
   existingImages: () => [],
-  compact: false
+  compact: false,
+  productId: undefined,
+  canToggleLabel: false
 })
 
 const emit = defineEmits<{
@@ -244,6 +272,7 @@ const emit = defineEmits<{
   'update:existingImages': [images: ExistingImage[]]
   'remove-existing': [imageId: number]
   'reorder': [order: { existingImages: ExistingImage[], photos: Photo[] }]
+  'label-toggled': [imageId: number, isLabel: boolean]
 }>()
 
 const { showSuccess, showWarn } = useAppToast()
@@ -273,7 +302,8 @@ const allImages = computed({
         type: 'existing',
         preview: img.url,
         id: img.id,
-        originalPosition: img.position
+        originalPosition: img.position,
+        is_label: img.is_label
       })
     })
 
@@ -455,6 +485,50 @@ const setAsPrimary = (element: UnifiedImage, currentIndex: number) => {
   showSuccess('Photo principale', 'La photo a été définie comme principale', 2000)
 }
 
+// Toggle label status (admin only)
+const isTogglingLabel = ref(false)
+const toggleLabel = async (element: UnifiedImage) => {
+  if (!props.canToggleLabel || !props.productId || element.type !== 'existing' || element.id === undefined) {
+    return
+  }
+
+  const newIsLabel = !element.is_label
+  isTogglingLabel.value = true
+
+  try {
+    const { $api } = useNuxtApp()
+    await $api(`/products/${props.productId}/images/${element.id}/label?is_label=${newIsLabel}`, {
+      method: 'PUT'
+    })
+
+    // Update local state
+    const idx = allImages.value.findIndex(img => img.key === element.key)
+    if (idx !== -1) {
+      // If setting as label, unset other labels first
+      if (newIsLabel) {
+        allImages.value.forEach(img => {
+          if (img.type === 'existing') {
+            img.is_label = false
+          }
+        })
+      }
+      allImages.value[idx].is_label = newIsLabel
+    }
+
+    emit('label-toggled', element.id, newIsLabel)
+    showSuccess(
+      newIsLabel ? 'Marqué comme label' : 'Label retiré',
+      newIsLabel ? 'L\'image est maintenant un label interne' : 'L\'image est maintenant une photo produit',
+      2000
+    )
+  } catch (error) {
+    console.error('Failed to toggle label:', error)
+    showWarn('Erreur', 'Impossible de modifier le statut label')
+  } finally {
+    isTogglingLabel.value = false
+  }
+}
+
 // Expose method to open file selector from parent
 const openFileSelector = () => {
   if (fileInput.value) {
@@ -495,13 +569,13 @@ defineExpose({
 
 /* Photo sizes */
 .normal-size {
-  width: 280px;
-  height: 280px;
+  width: 350px;
+  height: 350px;
 }
 
 .compact-size {
-  width: 120px;
-  height: 120px;
+  width: 160px;
+  height: 160px;
 }
 
 .photo-item {

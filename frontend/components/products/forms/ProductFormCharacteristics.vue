@@ -8,6 +8,7 @@
     <!-- Required Fields Section -->
     <ProductsFormsCharacteristicsRequiredFieldsSection
       :category="category"
+      :current-gender="gender"
       :brand="brand"
       :model="model"
       :condition="condition"
@@ -15,6 +16,7 @@
       :size-normalized="sizeNormalized"
       :color="color"
       :material="material"
+      :suggested-size="suggestedSize"
       :options="{ categories: options.categories, genders: options.genders, sizes: options.sizes }"
       :filtered-options="filteredOptions"
       :loading="loading"
@@ -109,6 +111,7 @@
         :condition-sup="conditionSup"
         :unique-feature="uniqueFeature"
         :marking="marking"
+        :options="detailsOptions"
         @update:location="$emit('update:location', $event)"
         @update:condition-sup="$emit('update:conditionSup', $event)"
         @update:unique-feature="$emit('update:uniqueFeature', $event)"
@@ -130,12 +133,12 @@ interface ValidationObject {
 interface Props {
   // Required
   category: string
+  gender: string | null
   brand: string
   condition: number | null
   sizeOriginal: string
   sizeNormalized: string | null
   color: string
-  // gender removed - auto-extracted from category
   material: string
   // Clothing
   fit: string | null
@@ -159,6 +162,8 @@ interface Props {
   model: string | null
   uniqueFeature: string[] | null
   marking: string | null
+  // Suggested size from measurements
+  suggestedSize?: string | null
   // Validation
   validation?: ValidationObject
 }
@@ -244,6 +249,11 @@ const vintageOptions = computed(() => ({
   origins: options.origins,
   decades: options.decades,
   trends: options.trends
+}))
+
+const detailsOptions = computed(() => ({
+  conditionSups: options.conditionSups,
+  uniqueFeatures: options.uniqueFeatures
 }))
 
 // Computed: count filled clothing attributes

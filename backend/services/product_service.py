@@ -262,6 +262,7 @@ class ProductService:
         status: Optional[ProductStatus] = None,
         category: Optional[str] = None,
         brand: Optional[str] = None,
+        search: Optional[str] = None,
     ) -> tuple[list[Product], int]:
         """
         List products with filters and pagination.
@@ -278,6 +279,7 @@ class ProductService:
             status: Filter by status (optional)
             category: Filter by category (optional)
             brand: Filter by brand (optional)
+            search: Search by ID, title or brand (optional)
 
         Returns:
             Tuple (list of products, total count)
@@ -289,6 +291,7 @@ class ProductService:
             status=status,
             category=category,
             brand=brand,
+            search=search,
         )
 
     @staticmethod
@@ -333,6 +336,9 @@ class ProductService:
         # Partial validation: only modified attributes
         update_dict = product_data.model_dump(exclude_unset=True)
 
+        # ===== EXTRACT STATUS (handled separately via ProductStatusManager) =====
+        new_status_str = update_dict.pop('status', None)
+
         # ===== EXTRACT M2M FIELDS (Added 2026-01-07) =====
         # Extract M2M fields from update_dict (they need special handling)
         # Standardize: None and [] are equivalent for M2M fields (both mean "clear all")
@@ -366,16 +372,19 @@ class ProductService:
 
         # ===== AUTO-CREATE SIZE ORIGINAL IF MODIFIED (Business Rule 2026-01-06) =====
         if 'size_original' in update_dict:
-            size_original_value = ProductUtils.adjust_size(
-                update_dict.get('size_original'),
-                update_dict.get('dim1', product.dim1),
-                update_dict.get('dim6', product.dim6)
-            )
-
-            if size_original_value:
-                from repositories.size_original_repository import SizeOriginalRepository
-                SizeOriginalRepository.get_or_create(db, size_original_value)
-                update_dict['size_original'] = size_original_value
+            raw_value = update_dict.get('size_original')
+            if raw_value:
+                # User provided a value → adjust with dimensions
+                size_original_value = ProductUtils.adjust_size(
+                    raw_value,
+                    update_dict.get('dim1', product.dim1),
+                    update_dict.get('dim6', product.dim6)
+                )
+                if size_original_value:
+                    from repositories.size_original_repository import SizeOriginalRepository
+                    SizeOriginalRepository.get_or_create(db, size_original_value)
+                    update_dict['size_original'] = size_original_value
+            # else: user explicitly cleared → update_dict keeps None → DB will be set to NULL
 
         # ===== VALIDATE M2M ATTRIBUTES IF PROVIDED (Added 2026-01-07) =====
         validated_colors = None
@@ -443,6 +452,12 @@ class ProductService:
         # Refresh product to get M2M updates (no commit - handled by get_db())
         if any([validated_colors is not None, validated_materials is not None, validated_condition_sups is not None]):
             db.refresh(product)
+
+        # ===== STATUS CHANGE (after data update so validation uses fresh data) =====
+        if new_status_str:
+            new_status = ProductStatus(new_status_str)
+            if product.status != new_status:
+                product = ProductStatusManager.update_status(db, product_id, new_status)
 
         return product
 

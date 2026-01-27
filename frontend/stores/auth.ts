@@ -90,6 +90,7 @@ interface AuthResponse {
   user_id: number
   role: string
   subscription_tier: string
+  csrf_token?: string
 }
 
 /**
@@ -98,6 +99,7 @@ interface AuthResponse {
 interface RefreshResponse {
   access_token: string
   token_type: string
+  csrf_token?: string
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -105,6 +107,7 @@ export const useAuthStore = defineStore('auth', {
     user: null as User | null,
     token: null as string | null,
     refreshToken: null as string | null,
+    csrfToken: null as string | null,
     isAuthenticated: false,
     isLoading: false,
     error: null as string | null
@@ -259,6 +262,7 @@ export const useAuthStore = defineStore('auth', {
         // Tokens are now primarily in cookies, but keep in state for backward compat
         this.token = data.access_token
         this.refreshToken = data.refresh_token
+        this.csrfToken = data.csrf_token || null
         this.isAuthenticated = true
 
         // Store in secure storage for backward compatibility during migration
@@ -322,6 +326,7 @@ export const useAuthStore = defineStore('auth', {
       this.user = null
       this.token = null
       this.refreshToken = null
+      this.csrfToken = null
       this.isAuthenticated = false
       this.error = null
     },
@@ -436,8 +441,11 @@ export const useAuthStore = defineStore('auth', {
 
         const data: RefreshResponse = await response.json()
 
-        // Mettre à jour seulement l'access token
+        // Mettre à jour l'access token et le CSRF token
         this.token = data.access_token
+        if (data.csrf_token) {
+          this.csrfToken = data.csrf_token
+        }
 
         if (import.meta.client) {
           // Update access token in secure storage for backward compatibility
