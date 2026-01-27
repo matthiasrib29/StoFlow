@@ -29,6 +29,7 @@ from services.ebay.ebay_product_conversion_service import (
     EbayProductConversionService,
     ProductValidationError,
 )
+from shared.marketplace_validation import validate_product_for_marketplace
 
 
 class EbayPublicationError(Exception):
@@ -113,6 +114,13 @@ class EbayPublicationService:
         product = self.db.query(Product).filter(Product.id == product_id).first()
         if not product:
             raise EbayPublicationError(f"Product {product_id} introuvable")
+
+        # 1b. Marketplace-specific validation (Issue #4/#26 - Audit)
+        mktplace_errors = validate_product_for_marketplace(product, "ebay")
+        if mktplace_errors:
+            raise EbayPublicationError(
+                f"Marketplace validation failed: {'; '.join(mktplace_errors)}"
+            )
 
         # 2. Générer SKU dérivé
         marketplace_code = marketplace_id.split("_")[1]  # EBAY_FR → FR

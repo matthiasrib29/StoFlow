@@ -24,6 +24,11 @@ from sqlalchemy.orm import Session
 
 from models.user.product import Product, ProductStatus
 from models.user.vinted_product import VintedProduct
+from shared.marketplace_validation import (
+    validate_price_for_marketplace,
+    validate_title_for_marketplace,
+    validate_description_for_marketplace,
+)
 from services.vinted.vinted_mapping_service import VintedMappingService
 from services.vinted.vinted_pricing_service import VintedPricingService
 from services.vinted.vinted_product_validator import VintedProductValidator
@@ -142,6 +147,16 @@ class VintedPublicationService:
 
             self._current_step = self.STEP_GENERATE_DESCRIPTION
             description = self.description_service.generate_description(product)
+
+            # 6b. Marketplace-specific validation (Issue #4/#26 - Audit)
+            mktplace_errors = []
+            mktplace_errors.extend(validate_price_for_marketplace(float(prix_vinted), "vinted"))
+            mktplace_errors.extend(validate_title_for_marketplace(title, "vinted"))
+            mktplace_errors.extend(validate_description_for_marketplace(description, "vinted"))
+            if mktplace_errors:
+                raise ValueError(
+                    f"Marketplace validation failed: {'; '.join(mktplace_errors)}"
+                )
 
             # 7. Upload images
             self._current_step = self.STEP_UPLOAD_IMAGES
