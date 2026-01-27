@@ -114,6 +114,13 @@ import { useToast } from 'primevue/usetoast'
 import { usePlatformJobs, type PlatformCode } from '~/composables/usePlatformJobs'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
 
+// SEO: Prevent search engines from indexing private dashboard pages
+useHead({
+  meta: [
+    { name: 'robots', content: 'noindex, nofollow' }
+  ]
+})
+
 const authStore = useAuthStore()
 const router = useRouter()
 const toast = import.meta.client ? useToast() : null
