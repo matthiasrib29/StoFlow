@@ -23,20 +23,24 @@ export const useEbayPolicies = () => {
   const api = useApi()
 
   /**
-   * Fetch all policies from API
+   * Fetch all policies from API for a given marketplace
    */
-  const fetchPolicies = async (): Promise<{
+  const fetchPolicies = async (marketplaceId: string = 'EBAY_FR'): Promise<{
     shipping: EbayShippingPolicy[]
     returns: EbayReturnPolicy[]
     payment: EbayPaymentPolicy[]
   }> => {
-    const [shipping, returns, payment] = await Promise.all([
-      api.get<EbayShippingPolicy[]>('/ebay/policies/shipping'),
-      api.get<EbayReturnPolicy[]>('/ebay/policies/return'),
-      api.get<EbayPaymentPolicy[]>('/ebay/policies/payment')
-    ])
+    const response = await api.get<{
+      fulfillment_policies: EbayShippingPolicy[]
+      return_policies: EbayReturnPolicy[]
+      payment_policies: EbayPaymentPolicy[]
+    }>(`/ebay/policies?marketplace_id=${marketplaceId}`)
 
-    return { shipping, returns, payment }
+    return {
+      shipping: response.fulfillment_policies || [],
+      returns: response.return_policies || [],
+      payment: response.payment_policies || []
+    }
   }
 
   /**

@@ -19,6 +19,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from models.user.ebay_marketplace_settings import EbayMarketplaceSettings
 from models.user.ebay_product import EbayProduct
 from models.user.product import Product
 from services.ebay.ebay_account_client import EbayAccountClient
@@ -242,45 +243,54 @@ class EbayPublicationService:
         self, account_client: EbayAccountClient, marketplace_id: str
     ) -> Dict[str, str]:
         """
-        Récupère les business policies du user depuis platform_mappings.
+        Retrieve business policies and inventory location from ebay_marketplace_settings.
 
-        Si non configurées, lève une erreur avec instructions.
+        Raises EbayPublicationError when required fields are missing.
 
         Returns:
-            Dict avec payment_policy_id, fulfillment_policy_id, return_policy_id, inventory_location
+            Dict with payment_policy_id, fulfillment_policy_id, return_policy_id, inventory_location
         """
-        # Récupérer depuis platform_mapping (configuré dans migration)
-        pm = self.conversion_service.platform_mapping
+        settings = (
+            self.db.query(EbayMarketplaceSettings)
+            .filter(EbayMarketplaceSettings.marketplace_id == marketplace_id)
+            .first()
+        )
 
-        if not pm.ebay_payment_policy_id:
+        if not settings:
+            raise EbayPublicationError(
+                f"No eBay settings configured for {marketplace_id}. "
+                "Please configure via PUT /api/ebay/settings/{marketplace_id}"
+            )
+
+        if not settings.payment_policy_id:
             raise EbayPublicationError(
                 "Payment Policy non configurée. "
-                "Veuillez configurer les business policies via /api/ebay/policies"
+                f"Veuillez configurer via PUT /api/ebay/settings/{marketplace_id}"
             )
 
-        if not pm.ebay_fulfillment_policy_id:
+        if not settings.fulfillment_policy_id:
             raise EbayPublicationError(
                 "Fulfillment Policy non configurée. "
-                "Veuillez configurer les business policies via /api/ebay/policies"
+                f"Veuillez configurer via PUT /api/ebay/settings/{marketplace_id}"
             )
 
-        if not pm.ebay_return_policy_id:
+        if not settings.return_policy_id:
             raise EbayPublicationError(
                 "Return Policy non configurée. "
-                "Veuillez configurer les business policies via /api/ebay/policies"
+                f"Veuillez configurer via PUT /api/ebay/settings/{marketplace_id}"
             )
 
-        if not pm.ebay_inventory_location:
+        if not settings.inventory_location_key:
             raise EbayPublicationError(
                 "Inventory Location non configurée. "
-                "Veuillez configurer via /api/ebay/location"
+                f"Veuillez configurer via PUT /api/ebay/settings/{marketplace_id}"
             )
 
         return {
-            "payment_policy_id": str(pm.ebay_payment_policy_id),
-            "fulfillment_policy_id": str(pm.ebay_fulfillment_policy_id),
-            "return_policy_id": str(pm.ebay_return_policy_id),
-            "inventory_location": pm.ebay_inventory_location,
+            "payment_policy_id": settings.payment_policy_id,
+            "fulfillment_policy_id": settings.fulfillment_policy_id,
+            "return_policy_id": settings.return_policy_id,
+            "inventory_location": settings.inventory_location_key,
         }
 
     def _save_product_marketplace(

@@ -3,17 +3,12 @@ eBay Product Conversion Service (MVP).
 
 Convertit un Product Stoflow vers le format eBay (Inventory Item + Offer).
 
-Cette version MVP fournit les fonctionnalités essentielles:
+Fonctionnalites:
 - Conversion Product → eBay Inventory Item
-- Création Offer avec pricing basique
-- Aspects eBay basiques (Brand, Colour, Size, Condition)
+- Creation Offer avec pricing basique
+- Aspects eBay multilingues (Brand, Colour, Size, Condition, etc.)
 - Support multi-marketplace (pricing coefficient par marketplace)
-
-TODO (prochaines versions):
-- SEO multilingue (titres optimisés par marketplace)
-- Aspects avancés (Type, Style, Department, etc.)
-- Best Offer automatique
-- Promoted Listings
+- SEO multilingue (titres optimises par marketplace via EbaySeoTitleService)
 
 Author: Claude
 Date: 2025-12-10
@@ -28,12 +23,15 @@ from models.public.condition import Condition
 from models.public.ebay_aspect_mapping import AspectMapping
 from models.public.ebay_category_mapping import EbayCategoryMapping
 from models.public.ebay_marketplace_config import MarketplaceConfig
+from models.user.ebay_marketplace_settings import EbayMarketplaceSettings
 from models.user.product import Product
 from services.ebay.ebay_aspect_value_service import (
     EbayAspectValueService,
     get_aspect_value_service,
 )
+from services.ebay.ebay_description_service import EbayDescriptionService
 from services.ebay.ebay_mapper import EbayMapper
+from services.ebay.ebay_seo_title_service import EbaySeoTitleService
 from shared.exceptions import ProductValidationError
 from shared.logging import get_logger
 
@@ -73,11 +71,17 @@ class EbayProductConversionService:
         self.db = db
         self.user_id = user_id
 
-        # Load condition mapping from DB (condition_name → ebay_condition)
+        # Load condition mapping from DB (condition_note → ebay_condition)
         self._condition_map = self._load_condition_mapping()
 
         # Initialize aspect value service for multilingual translations
         self._aspect_value_service = get_aspect_value_service(db)
+
+        # Initialize SEO title service for multilingual titles
+        self._seo_title_service = EbaySeoTitleService(db)
+
+        # Initialize description service for multilingual HTML descriptions
+        self._description_service = EbayDescriptionService(db)
 
     def convert_to_inventory_item(
         self,
@@ -118,11 +122,11 @@ class EbayProductConversionService:
         if not marketplace:
             raise ValueError(f"Marketplace inconnue: {marketplace_id}")
 
-        # Construire title (simple pour MVP)
-        title = self._build_title(product)
+        # Construire title SEO multilingue
+        title = self._build_title(product, marketplace_id)
 
-        # Construire description (simple pour MVP)
-        description = self._build_description(product)
+        # Construire description HTML multilingue
+        description = self._build_description(product, marketplace_id)
 
         # Construire aspects eBay
         aspects = self._build_aspects(product, marketplace_id)
@@ -271,7 +275,7 @@ class EbayProductConversionService:
         if not product.price or float(product.price) <= 0:
             raise ProductValidationError(f"Prix invalide: {product.price}")
 
-        if not product.condition:
+        if product.condition is None:
             raise ProductValidationError("Product.condition est requis")
 
         # Validation images (eBay exige au moins 1 image)
@@ -282,44 +286,13 @@ class EbayProductConversionService:
                 "Veuillez ajouter des images à votre produit."
             )
 
-    def _build_title(self, product: Product) -> str:
-        """
-        Construit le titre eBay (80 caractères max).
+    def _build_title(self, product: Product, marketplace_id: str) -> str:
+        """Build SEO-optimized title translated per marketplace."""
+        return self._seo_title_service.generate_seo_title(product, marketplace_id)
 
-        MVP: Simple concatenation Brand + Title.
-        TODO: SEO multilingue via EbaySeoService.
-        """
-        parts = []
-
-        if product.brand:
-            parts.append(product.brand)
-
-        if product.title:
-            parts.append(product.title)
-
-        title = " ".join(parts)
-
-        # Limiter à 80 caractères
-        if len(title) > 80:
-            title = title[:77] + "..."
-
-        return title
-
-    def _build_description(self, product: Product) -> str:
-        """
-        Construit la description eBay (HTML).
-
-        MVP: Description simple en texte.
-        TODO: HTML formaté multilingue via generate_ebay_description_multilang.
-        """
-        description = f"<p>{product.description or 'No description'}</p>"
-
-        # Ajouter condition supplémentaire si présente (JSONB array)
-        if product.condition_sup:
-            condition_details = ", ".join(product.condition_sup) if isinstance(product.condition_sup, list) else str(product.condition_sup)
-            description += f"<p><strong>Condition:</strong> {condition_details}</p>"
-
-        return description
+    def _build_description(self, product: Product, marketplace_id: str) -> str:
+        """Build multilingual HTML description for eBay."""
+        return self._description_service.generate_description(product, marketplace_id)
 
     def _build_aspects(
         self, product: Product, marketplace_id: str
@@ -371,13 +344,16 @@ class EbayProductConversionService:
             brand_name = aspect_name_translations.get("Brand", "Brand")
             aspects[brand_name] = [product.brand]
 
-        # Colour - translate both name AND value
-        if product.color:
+        # Colour - translate both name AND value (M2M, multi-value)
+        if product.colors:
             colour_name = aspect_name_translations.get("Colour", "Colour")
-            translated_color = self._aspect_value_service.get_aspect_value(
-                product.color, "color", marketplace_id
-            )
-            aspects[colour_name] = [translated_color or product.color]
+            translated_colors = []
+            for color_name_en in product.colors:
+                translated = self._aspect_value_service.get_aspect_value(
+                    color_name_en, "color", marketplace_id
+                )
+                translated_colors.append(translated or color_name_en)
+            aspects[colour_name] = translated_colors
 
         # Size - translate both name AND value
         if product.size_original:
@@ -387,13 +363,16 @@ class EbayProductConversionService:
             )
             aspects[size_name] = [translated_size or product.size_original]
 
-        # Material - translate both name AND value
-        if product.material:
+        # Material - translate both name AND value (M2M, multi-value)
+        if product.materials:
             material_name = aspect_name_translations.get("Material", "Material")
-            translated_material = self._aspect_value_service.get_aspect_value(
-                product.material, "material", marketplace_id
-            )
-            aspects[material_name] = [translated_material or product.material]
+            translated_materials = []
+            for material_name_en in product.materials:
+                translated = self._aspect_value_service.get_aspect_value(
+                    material_name_en, "material", marketplace_id
+                )
+                translated_materials.append(translated or material_name_en)
+            aspects[material_name] = translated_materials
 
         # Department - translate via gender mapping then translate value
         if product.gender:
@@ -432,119 +411,96 @@ class EbayProductConversionService:
         }
         return mapping.get(gender.lower(), "Unisex Adults")
 
-    def _load_condition_mapping(self) -> dict[str, str]:
+    def _load_condition_mapping(self) -> dict[int, str]:
         """
-        Charge le mapping conditions depuis la table product_attributes.conditions.
+        Load condition mapping from product_attributes.conditions table.
 
         Returns:
-            dict: {condition_name.lower(): ebay_condition}
-
-        Examples:
-            >>> mapping = service._load_condition_mapping()
-            >>> mapping.get('new')
-            'NEW'
-            >>> mapping.get('excellent')
-            'PRE_OWNED_EXCELLENT'
+            dict: {condition_note (int): ebay_condition (str)}
         """
         conditions = self.db.query(Condition).all()
         mapping = {}
 
         for c in conditions:
-            if c.name and c.ebay_condition:
-                # Store with lowercase key for case-insensitive lookup
-                mapping[c.name.lower()] = c.ebay_condition
-
-                # Also add description variants for multi-language support
-                for lang in ['en', 'fr', 'de', 'it', 'es', 'nl', 'pl']:
-                    desc = getattr(c, f'description_{lang}', None)
-                    if desc:
-                        mapping[desc.lower()] = c.ebay_condition
+            if c.ebay_condition:
+                mapping[c.note] = c.ebay_condition
 
         logger.debug(f"Loaded {len(mapping)} condition mappings from DB")
         return mapping
 
-    def _map_condition(self, condition: str) -> str:
+    def _map_condition(self, condition: int | None) -> str:
         """
-        Mappe condition Stoflow → condition eBay via la table DB.
-
-        Uses the product_attributes.conditions table for mapping.
+        Map Stoflow condition note (0-10) to eBay condition code.
 
         Args:
-            condition: Condition name from Product (e.g., "Excellent", "New")
+            condition: Condition note (0-10 integer scale)
 
         Returns:
-            str: eBay condition code (e.g., "PRE_OWNED_EXCELLENT", "NEW")
-
-        eBay conditions:
-        - NEW, NEW_WITH_TAGS, NEW_WITHOUT_TAGS, NEW_WITH_DEFECTS
-        - PRE_OWNED_EXCELLENT, PRE_OWNED_GOOD, PRE_OWNED_FAIR
-        - USED_EXCELLENT, USED_VERY_GOOD, USED_GOOD, USED_ACCEPTABLE
+            str: eBay condition code (e.g., "PRE_OWNED_EXCELLENT")
         """
-        if not condition:
-            return "PRE_OWNED_EXCELLENT"  # Safe default
+        if condition is None:
+            return "PRE_OWNED_EXCELLENT"
 
-        condition_lower = condition.lower().strip()
-
-        # Lookup in DB mapping
-        ebay_condition = self._condition_map.get(condition_lower)
+        ebay_condition = self._condition_map.get(condition)
         if ebay_condition:
             return ebay_condition
 
-        # Fallback: log warning and return safe default
         logger.warning(
-            f"Unknown condition '{condition}' - not found in DB. "
+            f"Unknown condition note={condition} - not found in DB. "
             f"Using PRE_OWNED_EXCELLENT as fallback."
         )
         return "PRE_OWNED_EXCELLENT"
 
     def _get_image_urls(self, product: Product) -> List[str]:
         """
-        Récupère les URLs des images du produit.
+        Retrieve product image URLs for eBay listing.
 
-        Returns:
-            Liste de URLs publiques (12 max pour eBay)
+        Filters out label images (internal price labels) and limits to 12
+        (eBay maximum). Images ordered by 'order' field via relationship.
         """
-        # TODO: Récupérer depuis product_images table
-        # Pour MVP, parser le champ product.images si JSON
-        import json
+        if not product.product_images:
+            return []
 
-        if product.images:
-            try:
-                images = json.loads(product.images)
-                if isinstance(images, list):
-                    return images[:12]  # eBay limite à 12 images
-            except (json.JSONDecodeError, TypeError):
-                pass
+        urls = [
+            img.url
+            for img in product.product_images
+            if not img.is_label and img.url
+        ]
 
-        return []
+        return urls[:12]
 
     def _calculate_price(self, product: Product, marketplace_id: str) -> Decimal:
         """
-        Calcule le prix final avec coefficient + fees marketplace.
+        Calculate final price using per-marketplace coefficient and fee.
 
-        Formula: (base_price × coefficient) + fees
+        Formula: (base_price * coefficient) + fee
 
-        Note: Currently uses default coefficient (1.0) and no fees.
-        TODO: Add user-configurable pricing coefficients per marketplace.
+        Loads coefficient/fee from ebay_marketplace_settings.
+        Falls back to 1.00 / 0.00 when no settings exist.
 
         Args:
             product: Product Stoflow
-            marketplace_id: Marketplace (ex: "EBAY_FR")
+            marketplace_id: Marketplace (e.g. "EBAY_FR")
 
         Returns:
-            Decimal: Prix final arrondi à 0.90 (pricing psychologique)
+            Decimal: Final price rounded to x.90 (psychological pricing)
         """
         base_price = Decimal(str(product.price))
 
-        # Default pricing: coefficient 1.0, no fees
-        # TODO: Load from user settings when pricing configuration is implemented
-        coefficient = Decimal("1.00")
-        fee = Decimal("0.00")
+        # Load pricing from marketplace settings
+        settings = (
+            self.db.query(EbayMarketplaceSettings)
+            .filter(EbayMarketplaceSettings.marketplace_id == marketplace_id)
+            .first()
+        )
 
-        # Calculer prix
+        coefficient = Decimal(str(settings.price_coefficient)) if settings else Decimal("1.00")
+        fee = Decimal(str(settings.price_fee)) if settings else Decimal("0.00")
+
+        # Calculate price
         price = (base_price * coefficient) + fee
 
-        # Arrondir à x.90 (pricing psychologique)
+        # Round to x.90 (psychological pricing)
         price_rounded = int(price) + Decimal("0.90")
 
         return price_rounded

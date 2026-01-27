@@ -13,18 +13,23 @@ Author: Claude
 Date: 2025-12-10
 """
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from api.dependencies import get_current_user, get_db
+from api.dependencies import get_current_user, get_db, get_user_db
 from api.ebay import orders
 from api.ebay import jobs
 from models.public.ebay_marketplace_config import MarketplaceConfig
 from models.public.user import User
+from models.user.ebay_marketplace_settings import EbayMarketplaceSettings
 from models.user.ebay_product import EbayProduct
+from schemas.ebay_settings_schemas import (
+    EbayMarketplaceSettingsResponse,
+    EbayMarketplaceSettingsUpsert,
+)
 from services.ebay import (
     EbayAccountClient,
     EbayFulfillmentClient,
@@ -302,8 +307,7 @@ def get_product_status(
 @router.get("/policies", response_model=BusinessPoliciesResponse)
 def get_business_policies(
     marketplace_id: str = "EBAY_FR",
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db_user: Tuple[Session, User] = Depends(get_user_db),
 ):
     """
     Récupère les business policies eBay du user pour une marketplace.
@@ -316,6 +320,8 @@ def get_business_policies(
       -H "Authorization: Bearer YOUR_TOKEN"
     ```
     """
+    db, current_user = db_user
+
     try:
         client = EbayAccountClient(db, current_user.id, marketplace_id=marketplace_id)
 
@@ -342,3 +348,79 @@ def get_business_policies(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur récupération policies: {str(e)}",
         )
+
+
+# ========== MARKETPLACE SETTINGS ==========
+
+
+@router.get(
+    "/settings",
+    response_model=List[EbayMarketplaceSettingsResponse],
+    summary="List all marketplace settings",
+)
+def list_marketplace_settings(
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Return all per-marketplace eBay settings for the current user."""
+    db, current_user = db_user
+    return (
+        db.query(EbayMarketplaceSettings)
+        .order_by(EbayMarketplaceSettings.marketplace_id)
+        .all()
+    )
+
+
+@router.get(
+    "/settings/{marketplace_id}",
+    response_model=EbayMarketplaceSettingsResponse,
+    summary="Get settings for one marketplace",
+)
+def get_marketplace_settings(
+    marketplace_id: str,
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Return eBay settings for a specific marketplace."""
+    db, current_user = db_user
+    settings = (
+        db.query(EbayMarketplaceSettings)
+        .filter(EbayMarketplaceSettings.marketplace_id == marketplace_id)
+        .first()
+    )
+    if not settings:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No settings found for marketplace {marketplace_id}",
+        )
+    return settings
+
+
+@router.put(
+    "/settings/{marketplace_id}",
+    response_model=EbayMarketplaceSettingsResponse,
+    summary="Create or update marketplace settings",
+)
+def upsert_marketplace_settings(
+    marketplace_id: str,
+    body: EbayMarketplaceSettingsUpsert,
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Create or update eBay settings for a specific marketplace (upsert)."""
+    db, current_user = db_user
+    settings = (
+        db.query(EbayMarketplaceSettings)
+        .filter(EbayMarketplaceSettings.marketplace_id == marketplace_id)
+        .first()
+    )
+
+    if not settings:
+        settings = EbayMarketplaceSettings(marketplace_id=marketplace_id)
+        db.add(settings)
+
+    # Apply only provided fields
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(settings, field, value)
+
+    db.flush()
+    db.refresh(settings)
+    return settings

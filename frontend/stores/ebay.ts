@@ -222,12 +222,12 @@ export const useEbayStore = defineStore('ebay', {
 
     // ==================== Policies Actions ====================
 
-    async fetchPolicies() {
+    async fetchPolicies(marketplaceId: string = 'EBAY_FR') {
       this.isLoadingPolicies = true
 
       try {
         const { fetchPolicies } = useEbayPolicies()
-        const { shipping, returns, payment } = await fetchPolicies()
+        const { shipping, returns, payment } = await fetchPolicies(marketplaceId)
 
         this.shippingPolicies = shipping
         this.returnPolicies = returns
