@@ -126,7 +126,7 @@ class VintedApiSyncService:
                     db.commit()
                     db.expire(job)  # Force refresh from DB
                 except Exception as e:
-                    logger.warning(f"Failed to update progress: {e}")
+                    logger.warning(f"Failed to update progress: {e}", exc_info=True)
                     db.rollback()  # CRITICAL: Rollback to prevent idle transaction
 
         while True:
@@ -150,7 +150,7 @@ class VintedApiSyncService:
                     description=f"Sync products page {page}"
                 )
             except Exception as e:
-                logger.error(f"Erreur recuperation page {page}: {e}")
+                logger.error(f"Erreur recuperation page {page}: {e}", exc_info=True)
                 last_error = str(e)
                 break
 
@@ -188,7 +188,7 @@ class VintedApiSyncService:
                     update_progress()
 
                 except Exception as e:
-                    logger.error(f"Erreur sync produit {item.get('id')}: {e}")
+                    logger.error(f"Erreur sync produit {item.get('id')}: {e}", exc_info=True)
                     errors += 1
                     db.rollback()
 
@@ -575,5 +575,5 @@ class VintedApiSyncService:
                 description=f"Delete orphan {vinted_id}"
             )
         except Exception as e:
-            logger.error(f"Erreur suppression orphelin {vinted_id}: {e}")
+            logger.error(f"Erreur suppression orphelin {vinted_id}: {e}", exc_info=True)
 

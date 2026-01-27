@@ -319,7 +319,7 @@ class VintedImporter:
                 uploaded_urls.append(url)
 
             except Exception as e:
-                logger.warning(f"Failed to process image {url}: {e}")
+                logger.warning(f"Failed to process image {url}: {e}", exc_info=True)
                 # Continue avec les autres images
 
         return uploaded_urls

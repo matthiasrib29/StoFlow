@@ -17,6 +17,7 @@ from typing import Generator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from shared.database import validate_schema_name
 from shared.logging import get_logger
 
 logger = get_logger(__name__)
@@ -104,6 +105,7 @@ def managed_schema(db: Session, user_id: int) -> Generator[Session, None, None]:
         - Logs schema changes for debugging
     """
     schema_name = f"user_{user_id}"
+    validate_schema_name(schema_name)
 
     try:
         db.execute(text(f"SET search_path TO {schema_name}, public"))
@@ -129,6 +131,7 @@ def set_user_schema(db: Session, user_id: int) -> None:
         Remember to call reset_to_public_schema() when done!
     """
     schema_name = f"user_{user_id}"
+    validate_schema_name(schema_name)
     db.execute(text(f"SET search_path TO {schema_name}, public"))
     logger.debug(f"[set_user_schema] Set search_path to {schema_name}, public")
 

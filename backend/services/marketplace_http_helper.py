@@ -101,14 +101,15 @@ class MarketplaceHttpHelper:
                 error_detail = e.response.text
 
             logger.error(
-                f"[HTTP] {log_desc} failed: {e.response.status_code} - {error_detail}"
+                f"[HTTP] {log_desc} failed: {e.response.status_code} - {error_detail}",
+                exc_info=True,
             )
             raise
 
         except httpx.TimeoutException as e:
-            logger.error(f"[HTTP] {log_desc} timeout after {timeout}s")
+            logger.error(f"[HTTP] {log_desc} timeout after {timeout}s", exc_info=True)
             raise
 
         except httpx.RequestError as e:
-            logger.error(f"[HTTP] {log_desc} request error: {e}")
+            logger.error(f"[HTTP] {log_desc} request error: {e}", exc_info=True)
             raise

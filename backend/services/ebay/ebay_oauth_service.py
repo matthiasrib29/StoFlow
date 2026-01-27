@@ -188,7 +188,7 @@ def exchange_code_for_tokens(
         }
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Network error during token exchange: {e}")
+        logger.error(f"Network error during token exchange: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Network error during token exchange: {str(e)}",
@@ -281,7 +281,7 @@ def fetch_and_save_account_info(
             if identity_info:
                 seller_info.update(identity_info)
         except Exception as e:
-            logger.warning(f"Commerce Identity API failed: {type(e).__name__}: {e}")
+            logger.warning(f"Commerce Identity API failed: {type(e).__name__}: {e}", exc_info=True)
 
         # 2. Trading API
         try:
@@ -290,7 +290,7 @@ def fetch_and_save_account_info(
             if trading_info:
                 seller_info.update(trading_info)
         except Exception as e:
-            logger.warning(f"Trading API failed: {type(e).__name__}: {e}")
+            logger.warning(f"Trading API failed: {type(e).__name__}: {e}", exc_info=True)
 
         # 3. Update credentials
         if seller_info:
@@ -299,7 +299,7 @@ def fetch_and_save_account_info(
             logger.info(f"eBay account info saved for user {user_id}")
 
     except Exception as e:
-        logger.warning(f"Failed to fetch eBay account info: {type(e).__name__}: {e}")
+        logger.warning(f"Failed to fetch eBay account info: {type(e).__name__}: {e}", exc_info=True)
 
 
 # ========== MAIN OAUTH CALLBACK PROCESSING ==========

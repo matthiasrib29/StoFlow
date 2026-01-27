@@ -67,10 +67,18 @@ class AuthRateLimiter:
         Raises:
             HTTPException: 429 if rate limit exceeded
         """
-        # Bypass rate limiting in test mode
+        # Bypass rate limiting in test mode (never in production)
         if os.getenv("TESTING") == "1":
-            logger.debug(f"[AuthRateLimiter] Bypass active (TESTING=1) for {endpoint}")
-            return
+            app_env = os.getenv("APP_ENV", "development")
+            if app_env == "production":
+                logger.critical(
+                    "SECURITY: TESTING=1 detected in production. "
+                    "Auth rate limiter bypass IGNORED."
+                )
+                # Fall through to normal rate limiting (do NOT return)
+            else:
+                logger.debug(f"[AuthRateLimiter] Bypass active (TESTING=1) for {endpoint}")
+                return
 
         if endpoint not in self.LIMITS:
             # No limit configured for this endpoint

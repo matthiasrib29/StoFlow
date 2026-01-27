@@ -214,7 +214,7 @@ const handleCalculatePrice = async () => {
     materials: product.value.material ? [product.value.material] : [],
     model_name: product.value.model || undefined,
     condition_score: product.value.condition ? Math.round(product.value.condition / 2) : 3, // Convert 0-10 to 0-5
-    supplements: product.value.condition_sup ? [product.value.condition_sup] : [],
+    supplements: product.value.condition_sup || [],
     condition_sensitivity: 1.0,
     actual_origin: product.value.origin || 'Unknown',
     expected_origins: [], // TODO: determine from category/brand in future phase

@@ -38,6 +38,7 @@ logger = get_logger(__name__)
 # Using different namespaces to avoid conflicts
 WORK_LOCK_NS = 1      # Worker holds this while processing
 CANCEL_LOCK_NS = 2    # Cancel API acquires this to signal
+PRODUCT_SOLD_LOCK_NS = 3  # Serializes SOLD transitions per product
 
 
 class AdvisoryLockHelper:
@@ -226,3 +227,55 @@ class AdvisoryLockHelper:
         """
         AdvisoryLockHelper.release_work_lock(db, job_id)
         AdvisoryLockHelper.release_cancel_signal(db, job_id)
+
+
+# =============================================================================
+# Product SOLD advisory locks (Issue #1 - Business Logic Audit)
+# =============================================================================
+
+def try_acquire_product_sold_lock(db: Session, product_id: int) -> bool:
+    """
+    Try to acquire advisory lock for SOLD transition on a product.
+
+    Serializes concurrent SOLD transitions: if two marketplace syncs detect
+    a sale simultaneously, only one will proceed. The other will fail because
+    stock_quantity will already be 0.
+
+    Args:
+        db: SQLAlchemy session
+        product_id: Product ID to lock
+
+    Returns:
+        True if lock acquired, False if already held
+    """
+    try:
+        result = db.execute(
+            text("SELECT pg_try_advisory_lock(:ns, :id)"),
+            {"ns": PRODUCT_SOLD_LOCK_NS, "id": product_id}
+        ).scalar()
+        return bool(result)
+    except Exception as e:
+        logger.error(f"Error acquiring SOLD lock for product #{product_id}: {e}")
+        return False
+
+
+def release_product_sold_lock(db: Session, product_id: int) -> bool:
+    """
+    Release advisory lock for SOLD transition on a product.
+
+    Args:
+        db: SQLAlchemy session
+        product_id: Product ID to unlock
+
+    Returns:
+        True if released, False if not held
+    """
+    try:
+        result = db.execute(
+            text("SELECT pg_advisory_unlock(:ns, :id)"),
+            {"ns": PRODUCT_SOLD_LOCK_NS, "id": product_id}
+        ).scalar()
+        return bool(result)
+    except Exception as e:
+        logger.error(f"Error releasing SOLD lock for product #{product_id}: {e}")
+        return False

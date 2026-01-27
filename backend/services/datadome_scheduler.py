@@ -111,7 +111,7 @@ def get_connected_vinted_users(db: Session, schema: str) -> List[VintedConnectio
         return connections
 
     except Exception as e:
-        logger.error(f"Error getting connected users in {schema}: {e}")
+        logger.error(f"Error getting connected users in {schema}: {e}", exc_info=True)
         return []
 
 

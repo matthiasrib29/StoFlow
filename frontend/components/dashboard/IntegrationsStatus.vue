@@ -28,7 +28,7 @@
               'w-10 h-10 rounded-lg flex items-center justify-center',
               getPlatformBgColor(integration.platform)
             ]">
-              <img :src="getPlatformLogo(integration.platform)" :alt="integration.name" class="w-6 h-6 object-contain">
+              <NuxtImg :src="getPlatformLogo(integration.platform)" :alt="integration.name" class="w-6 h-6 object-contain" />
             </div>
 
             <div>

@@ -26,6 +26,7 @@ Date: 2025-12-10
 import hashlib
 import hmac
 import json
+import time as _time
 from datetime import datetime, timezone
 from typing import Any, Dict
 
@@ -38,6 +39,31 @@ from shared.logging import get_logger
 
 router = APIRouter(prefix="/ebay", tags=["eBay Webhooks"])
 logger = get_logger(__name__)
+
+# In-memory replay protection (for multi-server: use Redis)
+_processed_notifications: dict[str, float] = {}
+_NOTIFICATION_TTL_SECONDS = 600   # 10 minutes
+_MAX_WEBHOOK_AGE_SECONDS = 300    # Reject webhooks older than 5 minutes
+
+
+def _cleanup_old_notifications():
+    """Remove expired notification IDs."""
+    now = _time.time()
+    expired = [k for k, v in _processed_notifications.items()
+               if now - v > _NOTIFICATION_TTL_SECONDS]
+    for k in expired:
+        del _processed_notifications[k]
+
+
+def _check_duplicate(notification_id: str) -> bool:
+    """Return True if duplicate. Records the ID if new."""
+    if not notification_id:
+        return False
+    _cleanup_old_notifications()
+    if notification_id in _processed_notifications:
+        return True
+    _processed_notifications[notification_id] = _time.time()
+    return False
 
 
 # ========== PYDANTIC SCHEMAS ==========
@@ -300,6 +326,29 @@ async def ebay_webhook_handler(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid payload: {str(e)}",
         )
+
+    # Replay protection: extract notification ID
+    notification_id = payload_json.get("notificationId") or \
+        payload_json.get("notification", {}).get("notificationId")
+
+    if _check_duplicate(notification_id):
+        logger.warning(f"Duplicate webhook rejected: {notification_id}")
+        return {"status": "ok", "message": "duplicate"}
+
+    # Timestamp validation (reject old webhooks)
+    publish_date_str = payload_json.get("publishDate") or \
+        payload_json.get("metadata", {}).get("publishDate")
+    if publish_date_str:
+        try:
+            publish_date = datetime.fromisoformat(
+                publish_date_str.replace("Z", "+00:00")
+            )
+            age = (datetime.now(timezone.utc) - publish_date).total_seconds()
+            if age > _MAX_WEBHOOK_AGE_SECONDS:
+                logger.warning(f"Old webhook rejected: age={age:.0f}s, id={notification_id}")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Notification too old")
+        except (ValueError, TypeError):
+            pass  # Don't block on parsing issues
 
     # Log événement reçu
     topic = payload.metadata.topic

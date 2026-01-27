@@ -118,7 +118,7 @@ class EbayDashboardService:
                 "past_deadline": past_deadline,
             }
         except Exception as e:
-            logger.warning(f"Failed to get return statistics: {e}")
+            logger.warning(f"Failed to get return statistics: {e}", exc_info=True)
             return {"open": 0, "closed": 0, "needs_action": 0, "past_deadline": 0}
 
     def _get_cancellations_statistics(self) -> Dict[str, int]:
@@ -136,7 +136,7 @@ class EbayDashboardService:
                 "past_due": past_due,
             }
         except Exception as e:
-            logger.warning(f"Failed to get cancellation statistics: {e}")
+            logger.warning(f"Failed to get cancellation statistics: {e}", exc_info=True)
             return {"pending": 0, "closed": 0, "needs_action": 0, "past_due": 0}
 
     def _get_refunds_statistics(self) -> Dict[str, Any]:
@@ -154,7 +154,7 @@ class EbayDashboardService:
                 "total_refunded": total_refunded or 0.0,
             }
         except Exception as e:
-            logger.warning(f"Failed to get refund statistics: {e}")
+            logger.warning(f"Failed to get refund statistics: {e}", exc_info=True)
             return {"pending": 0, "completed": 0, "failed": 0, "total_refunded": 0.0}
 
     def _get_disputes_statistics(self) -> Dict[str, Any]:
@@ -174,7 +174,7 @@ class EbayDashboardService:
                 "total_disputed": total_disputed or 0.0,
             }
         except Exception as e:
-            logger.warning(f"Failed to get dispute statistics: {e}")
+            logger.warning(f"Failed to get dispute statistics: {e}", exc_info=True)
             return {"open": 0, "action_needed": 0, "closed": 0, "total_disputed": 0.0}
 
     def _get_inquiries_statistics(self) -> Dict[str, int]:
@@ -192,7 +192,7 @@ class EbayDashboardService:
                 "past_deadline": past_deadline,
             }
         except Exception as e:
-            logger.warning(f"Failed to get inquiry statistics: {e}")
+            logger.warning(f"Failed to get inquiry statistics: {e}", exc_info=True)
             return {"open": 0, "closed": 0, "needs_action": 0, "past_deadline": 0}
 
     # =========================================================================
@@ -264,7 +264,7 @@ class EbayDashboardService:
 
             return urgent[:limit]
         except Exception as e:
-            logger.warning(f"Failed to get urgent returns: {e}")
+            logger.warning(f"Failed to get urgent returns: {e}", exc_info=True)
             return []
 
     def _get_urgent_cancellations(self, limit: int) -> List[Dict[str, Any]]:
@@ -292,7 +292,7 @@ class EbayDashboardService:
 
             return urgent[:limit]
         except Exception as e:
-            logger.warning(f"Failed to get urgent cancellations: {e}")
+            logger.warning(f"Failed to get urgent cancellations: {e}", exc_info=True)
             return []
 
     def _get_urgent_disputes(self, limit: int) -> List[Dict[str, Any]]:
@@ -319,7 +319,7 @@ class EbayDashboardService:
 
             return urgent[:limit]
         except Exception as e:
-            logger.warning(f"Failed to get urgent disputes: {e}")
+            logger.warning(f"Failed to get urgent disputes: {e}", exc_info=True)
             return []
 
     def _get_urgent_inquiries(self, limit: int) -> List[Dict[str, Any]]:
@@ -355,7 +355,7 @@ class EbayDashboardService:
 
             return urgent[:limit]
         except Exception as e:
-            logger.warning(f"Failed to get urgent inquiries: {e}")
+            logger.warning(f"Failed to get urgent inquiries: {e}", exc_info=True)
             return []
 
     # =========================================================================
@@ -395,7 +395,7 @@ class EbayDashboardService:
                     "updated_at": ret.updated_at,
                 })
         except Exception as e:
-            logger.warning(f"Failed to get recent returns: {e}")
+            logger.warning(f"Failed to get recent returns: {e}", exc_info=True)
 
         # Get recent cancellations
         try:
@@ -416,7 +416,7 @@ class EbayDashboardService:
                     "updated_at": cancel.updated_at,
                 })
         except Exception as e:
-            logger.warning(f"Failed to get recent cancellations: {e}")
+            logger.warning(f"Failed to get recent cancellations: {e}", exc_info=True)
 
         # Get recent refunds
         try:
@@ -437,7 +437,7 @@ class EbayDashboardService:
                     "updated_at": refund.updated_at,
                 })
         except Exception as e:
-            logger.warning(f"Failed to get recent refunds: {e}")
+            logger.warning(f"Failed to get recent refunds: {e}", exc_info=True)
 
         # Get recent payment disputes
         try:
@@ -458,7 +458,7 @@ class EbayDashboardService:
                     "updated_at": dispute.updated_at,
                 })
         except Exception as e:
-            logger.warning(f"Failed to get recent disputes: {e}")
+            logger.warning(f"Failed to get recent disputes: {e}", exc_info=True)
 
         # Get recent inquiries
         try:
@@ -479,7 +479,7 @@ class EbayDashboardService:
                     "updated_at": inq.updated_at,
                 })
         except Exception as e:
-            logger.warning(f"Failed to get recent inquiries: {e}")
+            logger.warning(f"Failed to get recent inquiries: {e}", exc_info=True)
 
         # Sort by updated_at descending and limit
         activities.sort(key=lambda x: x.get("updated_at") or x.get("date"), reverse=True)

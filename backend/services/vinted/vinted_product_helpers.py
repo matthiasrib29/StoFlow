@@ -90,7 +90,7 @@ async def upload_product_images(
                 logger.debug(f"    Image {idx} -> id={photo_id}")
 
         except Exception as e:
-            logger.warning(f"    Erreur image {idx}: {e}")
+            logger.warning(f"    Erreur image {idx}: {e}", exc_info=True)
 
     return photo_ids
 

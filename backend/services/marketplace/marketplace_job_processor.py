@@ -4,9 +4,15 @@ Marketplace Job Processor - Unified orchestrator for all marketplaces
 Handles job execution for Vinted, eBay, and Etsy with priority management,
 retry logic, and marketplace-specific handler dispatch.
 
+Features (updated 2026-01-27 - Audit):
+- Circuit breaker per marketplace (#20)
+- Error classification for smart retries (#21)
+- Exponential backoff with jitter (#22)
+
 Author: Claude
 Date: 2026-01-09
 """
+import random
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -19,6 +25,8 @@ from services.vinted.jobs import HANDLERS as VINTED_HANDLERS
 from services.ebay.jobs import EBAY_HANDLERS
 from services.etsy.jobs import ETSY_HANDLERS
 from shared.advisory_locks import AdvisoryLockHelper
+from shared.circuit_breaker import get_circuit_breaker
+from shared.error_classification import is_retryable
 from shared.logging import get_logger
 
 logger = get_logger(__name__)
@@ -137,6 +145,10 @@ class MarketplaceJobProcessor:
         - Acquires work lock before processing (non-blocking)
         - Releases work lock after completion (success or failure)
 
+        Circuit breaker (Issue #20 - Audit):
+        - Checks marketplace circuit breaker before executing
+        - Records success/failure for circuit state transitions
+
         Args:
             job: The MarketplaceJob to execute
 
@@ -153,6 +165,22 @@ class MarketplaceJobProcessor:
 
         # Build full action code (e.g., "publish_vinted", "publish_ebay")
         full_action_code = f"{action_code}_{marketplace}"
+
+        # Circuit breaker check (Issue #20)
+        cb = get_circuit_breaker(marketplace)
+        if not cb.can_execute():
+            logger.warning(
+                f"[JobProcessor] Circuit breaker OPEN for {marketplace}, "
+                f"skipping job #{job_id}"
+            )
+            return {
+                "job_id": job_id,
+                "marketplace": marketplace,
+                "action": action_code,
+                "success": False,
+                "status": "circuit_breaker_open",
+                "reason": f"Circuit breaker open for {marketplace}",
+            }
 
         logger.info(
             f"[JobProcessor] Starting job #{job_id} "
@@ -210,6 +238,7 @@ class MarketplaceJobProcessor:
 
             # Check if operation succeeded
             if result.get("success", False):
+                cb.record_success()
                 self.job_service.complete_job(job_id)
                 elapsed = time.time() - start_time
                 logger.info(
@@ -226,6 +255,7 @@ class MarketplaceJobProcessor:
                 }
             else:
                 # Operation returned success=False
+                cb.record_failure()
                 error_msg = result.get("error", "Operation failed")
                 failed_step = result.get("failed_step")
                 return await self._handle_job_failure(
@@ -234,12 +264,18 @@ class MarketplaceJobProcessor:
                 )
 
         except Exception as e:
+            cb.record_failure()
             return await self._handle_job_failure(
-                job_id, marketplace, full_action_code, str(e), start_time
+                job_id, marketplace, full_action_code, str(e), start_time,
+                original_error=e,
             )
         finally:
             # Always release work lock
             AdvisoryLockHelper.release_work_lock(self.db, job_id)
+
+    # Exponential backoff constants (Issue #22)
+    BACKOFF_BASE = 1.0       # Base delay in seconds
+    BACKOFF_MAX = 300.0      # Max delay: 5 minutes
 
     async def _handle_job_failure(
         self,
@@ -248,10 +284,15 @@ class MarketplaceJobProcessor:
         action_code: str,
         error_msg: str,
         start_time: float,
-        failed_step: str | None = None
+        failed_step: str | None = None,
+        original_error: Exception | None = None,
     ) -> dict[str, Any]:
         """
-        Handle job failure with retry logic.
+        Handle job failure with smart retry logic.
+
+        Features (Issues #21, #22 - Audit):
+        - Skips retry for non-retryable errors (auth, validation)
+        - Exponential backoff with jitter between retries
 
         Args:
             job_id: The ID of the MarketplaceJob that failed
@@ -260,6 +301,7 @@ class MarketplaceJobProcessor:
             error_msg: Error message
             start_time: Job start timestamp
             failed_step: Step where the failure occurred (e.g., 'upload_images')
+            original_error: The original exception (for classification)
 
         Returns:
             dict: Failure result with retry information
@@ -273,17 +315,48 @@ class MarketplaceJobProcessor:
         except Exception:
             pass  # Ignore if no transaction active
 
+        # Error classification: skip retry for non-retryable errors (Issue #21)
+        if original_error and not is_retryable(original_error):
+            self.job_service.fail_job(
+                job_id, error_msg, failed_step=failed_step
+            )
+            step_info = f" at step '{failed_step}'" if failed_step else ""
+            logger.error(
+                f"[JobProcessor] Job #{job_id} failed permanently "
+                f"(non-retryable){step_info}: {error_msg}"
+            )
+            return {
+                "job_id": job_id,
+                "marketplace": marketplace,
+                "action": action_code,
+                "success": False,
+                "error": error_msg,
+                "will_retry": False,
+                "non_retryable": True,
+                "duration_ms": int(elapsed * 1000),
+            }
+
         # Check if we can retry
         updated_job, can_retry = self.job_service.increment_retry(job_id)
 
         if can_retry:
+            # Exponential backoff with jitter (Issue #22)
+            # delay = min(base * 2^retry_count + jitter, max_delay)
+            retry_count = updated_job.retry_count
+            delay = min(
+                self.BACKOFF_BASE * (2 ** retry_count) + random.uniform(0, self.BACKOFF_BASE),
+                self.BACKOFF_MAX,
+            )
+            next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
+            updated_job.updated_at = next_retry_at
+
             # Reset to pending for retry
             updated_job.status = JobStatus.PENDING
             self.db.commit()
 
             logger.warning(
                 f"[JobProcessor] Job #{job_id} failed, will retry "
-                f"(attempt {updated_job.retry_count}): {error_msg}"
+                f"(attempt {retry_count}, backoff {delay:.1f}s): {error_msg}"
             )
 
             return {
@@ -293,7 +366,8 @@ class MarketplaceJobProcessor:
                 "success": False,
                 "error": error_msg,
                 "will_retry": True,
-                "retry_count": updated_job.retry_count,
+                "retry_count": retry_count,
+                "backoff_seconds": round(delay, 1),
                 "duration_ms": int(elapsed * 1000),
             }
         else:

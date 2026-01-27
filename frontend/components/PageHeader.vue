@@ -10,7 +10,7 @@
         <!-- Title with optional icon/logo -->
         <div class="flex items-center gap-2">
           <slot name="icon">
-            <img v-if="logo" :src="logo" :alt="title" class="w-6 h-6 object-contain">
+            <NuxtImg v-if="logo" :src="logo" :alt="title" class="w-6 h-6 object-contain" />
           </slot>
           <h1 class="text-2xl font-bold text-secondary-900">{{ title }}</h1>
         </div>

@@ -146,7 +146,7 @@ class PricingGenerationService:
             )
 
         except genai.errors.ClientError as e:
-            logger.error(f"Gemini client error for {brand} + {group}: {e}")
+            logger.error(f"Gemini client error for {brand} + {group}: {e}", exc_info=True)
             logger.info(f"Using fallback values for {brand} + {group}")
             return GenerationResult(
                 brand_group=PricingGenerationService._get_fallback_brand_group(brand, group),
@@ -154,7 +154,7 @@ class PricingGenerationService:
             )
 
         except genai.errors.ServerError as e:
-            logger.error(f"Gemini server error for {brand} + {group}: {e}")
+            logger.error(f"Gemini server error for {brand} + {group}: {e}", exc_info=True)
             logger.info(f"Using fallback values for {brand} + {group}")
             return GenerationResult(
                 brand_group=PricingGenerationService._get_fallback_brand_group(brand, group),
@@ -162,7 +162,7 @@ class PricingGenerationService:
             )
 
         except genai.errors.APIError as e:
-            logger.error(f"Gemini API error for {brand} + {group}: {e}")
+            logger.error(f"Gemini API error for {brand} + {group}: {e}", exc_info=True)
             logger.info(f"Using fallback values for {brand} + {group}")
             return GenerationResult(
                 brand_group=PricingGenerationService._get_fallback_brand_group(brand, group),
@@ -437,17 +437,17 @@ Generate realistic secondhand pricing data:"""
             return model_obj
 
         except genai.errors.ClientError as e:
-            logger.error(f"Gemini client error for model {model}: {e}")
+            logger.error(f"Gemini client error for model {model}: {e}", exc_info=True)
             logger.info(f"Using fallback values for model {model}")
             return PricingGenerationService._get_fallback_model(brand, group, model)
 
         except genai.errors.ServerError as e:
-            logger.error(f"Gemini server error for model {model}: {e}")
+            logger.error(f"Gemini server error for model {model}: {e}", exc_info=True)
             logger.info(f"Using fallback values for model {model}")
             return PricingGenerationService._get_fallback_model(brand, group, model)
 
         except genai.errors.APIError as e:
-            logger.error(f"Gemini API error for model {model}: {e}")
+            logger.error(f"Gemini API error for model {model}: {e}", exc_info=True)
             logger.info(f"Using fallback values for model {model}")
             return PricingGenerationService._get_fallback_model(brand, group, model)
 

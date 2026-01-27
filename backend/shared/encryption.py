@@ -162,18 +162,31 @@ class EncryptionService:
 
     def encrypt_if_configured(self, plaintext: str) -> str:
         """
-        Encrypt if encryption is configured, otherwise return plaintext.
+        Encrypt if encryption is configured.
 
-        This is useful during migration when some data may not be encrypted yet.
+        In production, raises ValueError if not configured.
+        In development/test, falls back to plaintext with warning.
 
         Args:
             plaintext: String to encrypt
 
         Returns:
-            Encrypted string if configured, otherwise plaintext
+            Encrypted string if configured, otherwise plaintext (dev only)
+
+        Raises:
+            ValueError: If encryption not configured in production
         """
         if not self.is_configured:
-            logger.warning("Encryption not configured, storing plaintext")
+            import os
+            app_env = os.getenv("APP_ENV", "development")
+            if app_env == "production":
+                raise ValueError(
+                    "ENCRYPTION_KEY is required in production. "
+                    "OAuth tokens cannot be stored in plaintext. "
+                    "Generate with: python -c "
+                    "'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+                )
+            logger.warning("Encryption not configured, storing plaintext (development mode)")
             return plaintext
         return self.encrypt(plaintext)
 

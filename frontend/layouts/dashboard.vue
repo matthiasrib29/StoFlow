@@ -1,5 +1,13 @@
 <template>
   <div class="min-h-screen bg-white">
+    <!-- Skip to content (accessibility) -->
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary-500 focus:text-white focus:rounded-lg focus:shadow-lg"
+    >
+      Aller au contenu principal
+    </a>
+
     <!-- Mobile Menu Overlay -->
     <Transition
       enter-active-class="transition-opacity duration-300"
@@ -24,7 +32,7 @@
     />
 
     <!-- Main content -->
-    <div class="lg:ml-64 bg-white min-h-screen">
+    <div id="main-content" class="lg:ml-64 bg-white min-h-screen">
       <!-- Top Bar -->
       <div class="bg-white sticky top-0 z-30 border-b border-gray-100 lg:border-0">
         <div class="flex items-center justify-between px-3 lg:px-6 py-2">
@@ -113,6 +121,13 @@
 import { useToast } from 'primevue/usetoast'
 import { usePlatformJobs, type PlatformCode } from '~/composables/usePlatformJobs'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
+
+// SEO: Prevent search engines from indexing private dashboard pages
+useHead({
+  meta: [
+    { name: 'robots', content: 'noindex, nofollow' }
+  ]
+})
 
 const authStore = useAuthStore()
 const router = useRouter()

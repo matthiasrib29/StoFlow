@@ -8,7 +8,7 @@
   >
     <!-- eBay Product Info -->
     <div class="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-      <img
+      <NuxtImg
         v-if="ebayProduct?.image_url"
         :src="ebayProduct.image_url"
         :alt="ebayProduct.title"
@@ -65,7 +65,7 @@
                 ]"
                 @click="selectedProductId = product.id"
               >
-                <img
+                <NuxtImg
                   v-if="product.image_url"
                   :src="product.image_url"
                   :alt="product.title"

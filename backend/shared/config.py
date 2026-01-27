@@ -250,6 +250,15 @@ class Settings(BaseSettings):
         """Check if running in production mode."""
         return self.app_env == "production"
 
+    def validate_production_requirements(self) -> list[str]:
+        """Validate production-specific security requirements."""
+        warnings = []
+        if not self.encryption_key:
+            warnings.append(
+                "ENCRYPTION_KEY not set. OAuth tokens will be stored in plaintext."
+            )
+        return warnings
+
 
 @lru_cache()
 def get_settings() -> Settings:

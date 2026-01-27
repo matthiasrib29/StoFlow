@@ -112,21 +112,21 @@ class UserSchemaService:
 
         except ProgrammingError as e:
             db.rollback()
-            logger.error(f"SQL syntax error creating schema {schema_name}: {e}")
+            logger.error(f"SQL syntax error creating schema {schema_name}: {e}", exc_info=True)
             raise SchemaCreationError(
                 f"Erreur SQL lors de la création du schema {schema_name}",
                 details={"schema": schema_name, "error": str(e)}
             )
         except OperationalError as e:
             db.rollback()
-            logger.error(f"Database connection error creating schema {schema_name}: {e}")
+            logger.error(f"Database connection error creating schema {schema_name}: {e}", exc_info=True)
             raise DatabaseError(
                 f"Erreur de connexion DB lors de la création du schema {schema_name}",
                 details={"schema": schema_name, "error": str(e)}
             )
         except SQLAlchemyError as e:
             db.rollback()
-            logger.error(f"Database error creating schema {schema_name}: {e}")
+            logger.error(f"Database error creating schema {schema_name}: {e}", exc_info=True)
             raise SchemaCreationError(
                 f"Erreur DB lors de la création du schema {schema_name}",
                 details={"schema": schema_name, "error": str(e)}
@@ -152,14 +152,14 @@ class UserSchemaService:
 
         except OperationalError as e:
             db.rollback()
-            logger.error(f"Database connection error deleting schema {schema_name}: {e}")
+            logger.error(f"Database connection error deleting schema {schema_name}: {e}", exc_info=True)
             raise DatabaseError(
                 f"Erreur de connexion DB lors de la suppression du schema {schema_name}",
                 details={"schema": schema_name, "error": str(e)}
             )
         except SQLAlchemyError as e:
             db.rollback()
-            logger.error(f"Database error deleting schema {schema_name}: {e}")
+            logger.error(f"Database error deleting schema {schema_name}: {e}", exc_info=True)
             raise DatabaseError(
                 f"Erreur DB lors de la suppression du schema {schema_name}",
                 details={"schema": schema_name, "error": str(e)}

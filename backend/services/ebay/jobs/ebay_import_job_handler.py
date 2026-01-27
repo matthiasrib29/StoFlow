@@ -118,7 +118,7 @@ class EbayImportJobHandler(DirectAPIJobHandler):
                                 page_products.append(product)
 
                     except Exception as e:
-                        logger.error(f"[EbayImportHandler] Failed to import SKU={sku}: {e}")
+                        logger.error(f"[EbayImportHandler] Failed to import SKU={sku}: {e}", exc_info=True)
                         self.db.rollback()
                         configure_schema_translate_map(self.db, schema_name)
                         self.db.execute(text(f"SET search_path TO {schema_name}, public"))
@@ -223,7 +223,7 @@ class EbayImportJobHandler(DirectAPIJobHandler):
         try:
             _ = importer.offer_client.get_access_token()
         except Exception as e:
-            logger.warning(f"[EbayImportHandler] Token pre-fetch failed: {e}")
+            logger.warning(f"[EbayImportHandler] Token pre-fetch failed: {e}", exc_info=True)
 
         # Build SKU to product mapping
         sku_to_product = {p.ebay_sku: p for p in products}
@@ -235,7 +235,7 @@ class EbayImportJobHandler(DirectAPIJobHandler):
                 offers = importer.fetch_offers_for_sku(sku)
                 return (sku, offers)
             except Exception as e:
-                logger.warning(f"Failed to fetch offer for SKU {sku}: {e}")
+                logger.warning(f"Failed to fetch offer for SKU {sku}: {e}", exc_info=True)
                 return (sku, None)
 
         # Collect results from parallel API calls
@@ -249,7 +249,7 @@ class EbayImportJobHandler(DirectAPIJobHandler):
                     if offers:
                         results.append((sku, offers))
                 except Exception as e:
-                    logger.warning(f"Error fetching offer: {e}")
+                    logger.warning(f"Error fetching offer: {e}", exc_info=True)
 
         # Apply results in main thread (thread-safe DB access)
         enriched_count = 0
@@ -260,7 +260,11 @@ class EbayImportJobHandler(DirectAPIJobHandler):
                 enriched_count += 1
 
         # Commit all enrichments at once
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception as e:
+            logger.error(f"[EbayImportHandler] Error committing enrichments: {e}", exc_info=True)
+            self.db.rollback()
 
         return enriched_count
 

@@ -101,7 +101,7 @@ class EbayBackgroundImportService:
             )
 
         except Exception as e:
-            logger.error(f"[Background Import] eBay import failed for user {self.user_id}: {e}")
+            logger.error(f"[Background Import] eBay import failed for user {self.user_id}: {e}", exc_info=True)
             self._mark_job_failed(db, job_id, str(e))
 
         finally:
@@ -126,7 +126,7 @@ class EbayBackgroundImportService:
             )
 
             # Enrich all products without price
-            result = importer.enrich_products_batch(limit=50000, only_without_price=True)
+            result = importer.enrichment.enrich_products_batch(limit=50000, only_without_price=True)
 
             logger.info(
                 f"[Background Enrich] eBay enrichment for user {self.user_id}: "
@@ -135,7 +135,7 @@ class EbayBackgroundImportService:
             )
 
         except Exception as e:
-            logger.error(f"[Background Enrich] eBay enrichment failed for user {self.user_id}: {e}")
+            logger.error(f"[Background Enrich] eBay enrichment failed for user {self.user_id}: {e}", exc_info=True)
 
         finally:
             db.close()
@@ -258,7 +258,7 @@ class EbayBackgroundImportService:
             _ = importer.offer_client.get_access_token()
             logger.debug("[Enrich Parallel] Token pre-fetched")
         except Exception as e:
-            logger.warning(f"[Enrich Parallel] Token pre-fetch failed: {e}")
+            logger.warning(f"[Enrich Parallel] Token pre-fetch failed: {e}", exc_info=True)
 
         # Build SKU to product mapping
         sku_to_product = {p.ebay_sku: p for p in products}
@@ -270,7 +270,7 @@ class EbayBackgroundImportService:
                 offers = importer.fetch_offers_for_sku(sku)
                 return (sku, offers)
             except Exception as e:
-                logger.warning(f"Failed to fetch offer for SKU {sku}: {e}")
+                logger.warning(f"Failed to fetch offer for SKU {sku}: {e}", exc_info=True)
                 return (sku, None)
 
         # Collect results from parallel API calls
@@ -284,7 +284,7 @@ class EbayBackgroundImportService:
                     if offers:
                         results.append((sku, offers))
                 except Exception as e:
-                    logger.warning(f"Error fetching offer: {e}")
+                    logger.warning(f"Error fetching offer: {e}", exc_info=True)
 
         # Apply results in main thread (thread-safe DB access)
         enriched_count = 0

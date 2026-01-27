@@ -146,7 +146,7 @@ def fetch_and_sync_page(
                 synced += 1
 
             except Exception as e:
-                activity.logger.warning(f"Error syncing SKU={item.get('sku')}: {e}")
+                activity.logger.warning(f"Error syncing SKU={item.get('sku')}: {e}", exc_info=True)
                 errors += 1
                 db.rollback()
                 _configure_session(db, user_id)
@@ -414,7 +414,7 @@ def delete_single_product(
             client.delete_inventory_item(sku)
         except Exception as e:
             # Log but continue - product might already be gone from eBay
-            activity.logger.warning(f"eBay API delete failed for SKU={sku}: {e}")
+            activity.logger.warning(f"eBay API delete failed for SKU={sku}: {e}", exc_info=True)
 
         # Step 2: Delete from local DB (always, even if eBay API failed)
         db.delete(product)
@@ -424,7 +424,7 @@ def delete_single_product(
         return {"success": True, "sku": sku}
 
     except Exception as e:
-        activity.logger.error(f"Failed to delete SKU={sku}: {e}")
+        activity.logger.error(f"Failed to delete SKU={sku}: {e}", exc_info=True)
         return {"success": False, "sku": sku, "error": str(e)[:100]}
 
     finally:
@@ -781,7 +781,7 @@ def delete_ebay_listing(user_id: int, product_id: int, marketplace_id: str = "EB
         try:
             client.delete_inventory_item(sku)
         except Exception as e:
-            activity.logger.warning(f"eBay API delete failed for SKU={sku}: {e}")
+            activity.logger.warning(f"eBay API delete failed for SKU={sku}: {e}", exc_info=True)
 
         # Delete from local DB (always, even if eBay API failed)
         db.delete(ebay_product)
@@ -791,7 +791,7 @@ def delete_ebay_listing(user_id: int, product_id: int, marketplace_id: str = "EB
         return {"success": True, "product_id": product_id}
 
     except Exception as e:
-        activity.logger.error(f"Failed to delete eBay listing for product #{product_id}: {e}")
+        activity.logger.error(f"Failed to delete eBay listing for product #{product_id}: {e}", exc_info=True)
         return {"success": False, "product_id": product_id, "error": str(e)[:100]}
 
     finally:

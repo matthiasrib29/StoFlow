@@ -12,12 +12,13 @@ Date: 2026-01-14
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import (
+    DECIMAL,
     JSON,
     DateTime,
-    Float,
     Integer,
     String,
     Text,
@@ -89,7 +90,7 @@ class EbayPaymentDispute(Base):
     )  # Seller note (max 1000 chars)
 
     # Amount
-    dispute_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    dispute_amount: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 2), nullable=True)
     dispute_currency: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
     # Buyer info

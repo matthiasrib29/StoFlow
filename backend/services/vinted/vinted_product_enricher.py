@@ -103,7 +103,7 @@ class VintedProductEnricher:
                 return AdvisoryLockHelper.is_cancel_signaled(db, job_id)
             except Exception:
                 pass
-            logger.warning(f"Error checking job cancellation: {e}")
+            logger.warning(f"Error checking job cancellation: {e}", exc_info=True)
             return False
 
     async def enrich_products_without_description(
@@ -186,7 +186,7 @@ class VintedProductEnricher:
                     db.commit()
                     db.expire(job)  # Force refresh from DB
                 except Exception as e:
-                    logger.warning(f"Failed to update enrichment progress: {e}")
+                    logger.warning(f"Failed to update enrichment progress: {e}", exc_info=True)
                     db.rollback()  # CRITICAL: Rollback to prevent idle transaction
 
         for i, product in enumerate(products_to_enrich):
@@ -355,7 +355,7 @@ class VintedProductEnricher:
                 return PLUGIN_UNAUTHORIZED
 
             # Other HTTP errors - use the generic result code from exception
-            logger.error(f"HTTP error for {product.vinted_id}: {e}")
+            logger.error(f"HTTP error for {product.vinted_id}: {e}", exc_info=True)
             return e.get_result_code()
 
         except TimeoutError:

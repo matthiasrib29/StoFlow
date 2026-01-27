@@ -36,12 +36,12 @@
       >
         <!-- Product image -->
         <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-          <img
+          <NuxtImg
             v-if="action.product?.image_url"
             :src="action.product.image_url"
             :alt="action.product?.title"
             class="w-full h-full object-cover"
-          >
+          />
           <div v-else class="w-full h-full flex items-center justify-center">
             <i class="pi pi-image text-gray-400"/>
           </div>
