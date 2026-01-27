@@ -54,6 +54,7 @@ class ProductStatus(str, Enum):
     - SCHEDULED: Publication programmée
     - SUSPENDED: Suspendu (modération)
     - FLAGGED: Signalé (modération)
+    - PENDING_DELETION: En attente de confirmation de suppression/vente (2026-01-22)
     """
 
     DRAFT = "draft"
@@ -66,6 +67,7 @@ class ProductStatus(str, Enum):
     FLAGGED = "flagged"
     SOLD = "sold"
     ARCHIVED = "archived"
+    PENDING_DELETION = "pending_deletion"
 
 
 class Product(Base):
@@ -463,6 +465,14 @@ class Product(Base):
         lazy="selectin"
     )
 
+    # ===== PENDING ACTIONS (2026-01-22) =====
+    pending_actions: Mapped[list["PendingAction"]] = relationship(
+        "PendingAction",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="raise"
+    )
+
     # ===== ONE-TO-MANY RELATIONSHIP - PRODUCT IMAGES (NEW - 2026-01-15) =====
     product_images: Mapped[list["ProductImage"]] = relationship(
         "ProductImage",
@@ -500,6 +510,14 @@ class Product(Base):
     def condition_sups(self) -> list[str]:
         """Return all condition_sups as a list."""
         return [pcs.condition_sup for pcs in self.product_condition_sups]
+
+    @property
+    def image_url(self) -> str | None:
+        """Return the URL of the first image (for thumbnails)."""
+        if self.product_images:
+            sorted_imgs = sorted(self.product_images, key=lambda i: i.order or 0)
+            return sorted_imgs[0].url if sorted_imgs else None
+        return None
 
     @property
     def images(self) -> list[dict]:

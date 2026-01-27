@@ -185,7 +185,7 @@ class PluginWebSocketHelper:
             RuntimeError: On non-HTTP errors
         """
         # Apply rate limiting before calling plugin (anti-ban protection)
-        delay = await VintedRateLimiter.wait_before_request(path, http_method)
+        delay = await VintedRateLimiter.for_user(user_id).wait_before_request(path, http_method)
         if delay > 0:
             logger.debug(f"[PluginWS] Rate limit: {delay:.2f}s for {http_method} {path[:50]}")
 

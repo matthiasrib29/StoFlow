@@ -130,18 +130,19 @@ class VintedDeletion(Base):
 
         # Calculate days_active
         days_active = None
-        if vinted_product.date:
-            delta = date.today() - vinted_product.date
+        pub_date = vinted_product.published_at.date() if vinted_product.published_at else None
+        if pub_date:
+            delta = date.today() - pub_date
             days_active = delta.days
 
         return cls(
             id_vinted=vinted_product.vinted_id,
             id_site=vinted_product.product_id,
             price=vinted_product.price,
-            date_published=vinted_product.date,
+            date_published=pub_date,
             date_deleted=date.today(),
             view_count=vinted_product.view_count or 0,
             favourite_count=vinted_product.favourite_count or 0,
-            conversations=vinted_product.conversations or 0,
+            conversations=0,
             days_active=days_active
         )

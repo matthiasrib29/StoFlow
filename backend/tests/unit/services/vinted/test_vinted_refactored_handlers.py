@@ -15,7 +15,6 @@ from models.user.marketplace_job import MarketplaceJob
 from services.vinted.jobs.publish_job_handler import PublishJobHandler
 from services.vinted.jobs.update_job_handler import UpdateJobHandler
 from services.vinted.jobs.delete_job_handler import DeleteJobHandler
-from services.vinted.jobs.sync_job_handler import SyncJobHandler
 from services.vinted.jobs.link_product_job_handler import LinkProductJobHandler
 from services.vinted.jobs.message_job_handler import MessageJobHandler
 from services.vinted.jobs.orders_job_handler import OrdersJobHandler
@@ -244,73 +243,7 @@ class TestDeleteJobHandler:
 # TESTS FOR REMAINING HANDLERS (Phase 07-03)
 # ============================================================================
 
-
-class TestSyncJobHandler:
-    """Tests for SyncJobHandler."""
-
-    @pytest.fixture
-    def db_session(self):
-        """Mock database session."""
-        return Mock()
-
-    @pytest.fixture
-    def handler(self, db_session):
-        """Create handler instance."""
-        return SyncJobHandler(db_session, shop_id=1, job_id=1)
-
-    @pytest.fixture
-    def job(self):
-        """Create test job."""
-        job = Mock(spec=MarketplaceJob)
-        job.product_id = None  # Not used for sync
-        return job
-
-    def test_get_service(self, handler):
-        """Test get_service returns VintedSyncService."""
-        service = handler.get_service()
-        assert service is not None
-        assert service.__class__.__name__ == "VintedSyncService"
-
-    def test_create_tasks(self, handler, job):
-        """Test create_tasks returns task list."""
-        tasks = handler.create_tasks(job)
-        assert isinstance(tasks, list)
-        assert len(tasks) > 0
-        assert "Fetch" in tasks[0]
-
-    @pytest.mark.asyncio
-    async def test_execute_success(self, handler, job):
-        """Test execute delegates to service successfully."""
-        mock_service = Mock()
-        mock_service.sync_products = AsyncMock(return_value={
-            "success": True,
-            "products_synced": 15,
-            "imported": 10,
-            "updated": 5,
-            "errors": 0
-        })
-
-        with patch.object(handler, 'get_service', return_value=mock_service):
-            result = await handler.execute(job)
-
-        assert result["success"] is True
-        assert result["products_synced"] == 15
-        mock_service.sync_products.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_execute_failure(self, handler, job):
-        """Test execute handles service failure."""
-        mock_service = Mock()
-        mock_service.sync_products = AsyncMock(return_value={
-            "success": False,
-            "error": "API error"
-        })
-
-        with patch.object(handler, 'get_service', return_value=mock_service):
-            result = await handler.execute(job)
-
-        assert result["success"] is False
-        assert "error" in result
+# Note: TestSyncJobHandler removed - sync now uses Temporal workflow (2026-01-22)
 
 
 class TestLinkProductJobHandler:

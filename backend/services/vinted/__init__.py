@@ -8,7 +8,6 @@ Architecture:
 
 Services disponibles:
 - VintedJobService: Gestion des jobs (creation, status, priorite, stats)
-- VintedJobProcessor: [DEPRECATED] Use MarketplaceJobProcessor instead
 - VintedSyncService: Operations Vinted (publish, update, delete)
 - VintedApiSyncService: Synchronisation produits depuis API Vinted
 - VintedOrderSyncService: Synchronisation commandes Vinted
@@ -32,7 +31,6 @@ Updated: 2026-01-05 - Added VintedItemUploadParser, updated VintedProductEnriche
 
 from .vinted_job_service import VintedJobService
 from .vinted_link_service import VintedLinkService
-from .vinted_job_processor import VintedJobProcessor
 from .vinted_sync_service import VintedSyncService
 from .vinted_api_sync import VintedApiSyncService
 from .vinted_order_sync import VintedOrderSyncService
@@ -56,7 +54,6 @@ from .vinted_bordereau_service import VintedBordereauService
 
 __all__ = [
     'VintedJobService',
-    'VintedJobProcessor',
     'VintedLinkService',
     'VintedSyncService',
     'VintedApiSyncService',

@@ -4,6 +4,8 @@ eBay schema models.
 All eBay-related tables are stored in the 'ebay' PostgreSQL schema.
 """
 
+from models.ebay.ebay_category import EbayCategory
+from models.ebay.ebay_mapping import EbayMapping
 from models.ebay.aspect_value import (
     AspectColour,
     AspectSize,
@@ -26,6 +28,8 @@ from models.ebay.aspect_value import (
 )
 
 __all__ = [
+    'EbayCategory',
+    'EbayMapping',
     'AspectColour',
     'AspectSize',
     'AspectMaterial',

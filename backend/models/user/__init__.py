@@ -7,6 +7,7 @@ Ces tables sont isolees par utilisateur et contiennent les donnees specifiques a
 
 from models.user.ai_generation_log import AIGenerationLog
 from models.user.ebay_credentials import EbayCredentials
+from models.user.ebay_marketplace_settings import EbayMarketplaceSettings
 from models.user.ebay_order import EbayOrder, EbayOrderProduct
 from models.user.ebay_inquiry import EbayInquiry
 from models.user.etsy_credentials import EtsyCredentials
@@ -27,6 +28,7 @@ from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from models.vinted.vinted_deletion import VintedDeletion
 from models.user.marketplace_batch import MarketplaceBatch, MarketplaceBatchStatus, BatchJob, BatchJobStatus
 from models.user.marketplace_job import MarketplaceJob, JobStatus
+from models.user.pending_action import PendingAction, PendingActionType
 # MarketplaceJobStats removed (2026-01-20): Not used
 
 __all__ = [
@@ -41,6 +43,7 @@ __all__ = [
     "VintedConversation",
     "VintedMessage",
     "EbayCredentials",
+    "EbayMarketplaceSettings",
     "EtsyCredentials",
     "EbayProduct",
     # "PublicationHistory",  # Removed (2026-01-21): Obsolete, replaced by MarketplaceJob
@@ -64,4 +67,7 @@ __all__ = [
     "MarketplaceJob",
     "JobStatus",
     # "MarketplaceJobStats",  # Removed (2026-01-20): Not used
+    # Pending Actions
+    "PendingAction",
+    "PendingActionType",
 ]

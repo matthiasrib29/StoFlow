@@ -26,102 +26,120 @@ class VintedRateLimiter:
     """
     Rate limiter avec délais aléatoires pour éviter la détection bot.
 
-    Configuration simplifiée:
-    - Délais uniformes par type de requête HTTP (GET, POST, PUT, DELETE)
-    - Minimum 1 seconde pour toutes les requêtes
-    - Randomisation pour simuler comportement humain
+    Multi-tenant: une instance par user_id (chaque user a son propre
+    compteur de requêtes et seuil de pause périodique).
+
+    Usage:
+        limiter = VintedRateLimiter.for_user(user_id)
+        delay = await limiter.wait_before_request(path, http_method)
     """
 
     # Configuration des délais par méthode HTTP (min_delay, max_delay en secondes)
-    # Minimum 1 seconde pour tout
+    # Protection renforcée contre détection bot (2026-01-22)
     METHOD_DELAYS = {
-        "GET": (1.0, 2.5),      # Lecture
-        "POST": (2.0, 4.0),     # Création
-        "PUT": (2.0, 4.0),      # Modification
-        "DELETE": (3.0, 5.0),   # Suppression
+        "GET": (3.0, 8.0),       # Lecture
+        "POST": (5.0, 12.0),     # Création
+        "PUT": (5.0, 12.0),      # Modification
+        "DELETE": (6.0, 15.0),   # Suppression
     }
 
     # Espacement minimum entre requêtes (en secondes)
-    MIN_SPACING = 1.0
+    MIN_SPACING = 3.0
 
     # Pause périodique (simule pause humaine)
-    PAUSE_INTERVAL_MIN = 8   # Pause après 8-14 requêtes (aléatoire)
-    PAUSE_INTERVAL_MAX = 14
-    PAUSE_DURATION_MIN = 5.0   # Durée de la pause: 5-15 secondes
-    PAUSE_DURATION_MAX = 15.0
+    PAUSE_INTERVAL_MIN = 10   # Pause après 10-15 requêtes (aléatoire)
+    PAUSE_INTERVAL_MAX = 15
+    PAUSE_DURATION_MIN = 15.0   # Durée de la pause: 15-30 secondes
+    PAUSE_DURATION_MAX = 30.0
 
-    _last_request_time: float = 0
-    _request_count: int = 0
-    _next_pause_at: int = 0  # Prochain seuil pour pause (0 = non initialisé)
+    # Registry: one instance per user_id
+    _instances: dict[int, "VintedRateLimiter"] = {}
+
+    def __init__(self, user_id: int):
+        self.user_id = user_id
+        self._last_request_time: float = 0
+        self._request_count: int = 0
+        self._next_pause_at: int = 0
 
     @classmethod
-    def _get_delay_for_method(cls, http_method: str) -> tuple[float, float]:
+    def for_user(cls, user_id: int) -> "VintedRateLimiter":
+        """Get or create a rate limiter instance for the given user."""
+        if user_id not in cls._instances:
+            cls._instances[user_id] = cls(user_id)
+        return cls._instances[user_id]
+
+    def _get_delay_for_method(self, http_method: str) -> tuple[float, float]:
         """Retourne (min_delay, max_delay) pour une méthode HTTP."""
-        return cls.METHOD_DELAYS.get(http_method.upper(), cls.METHOD_DELAYS["GET"])
+        return self.METHOD_DELAYS.get(http_method.upper(), self.METHOD_DELAYS["GET"])
 
-    @classmethod
-    async def wait_before_request(cls, path: str, http_method: str = "GET") -> float:
+    async def wait_before_request(self, path: str, http_method: str = "GET") -> float:
         """
         Attend un délai aléatoire avant d'exécuter une requête.
 
         Args:
-            path: URL de la requête (unused, kept for compatibility)
+            path: URL de la requête (pour logs)
             http_method: GET, POST, PUT, DELETE
 
         Returns:
             float: Délai effectif appliqué en secondes
         """
-        min_delay, max_delay = cls._get_delay_for_method(http_method)
+        min_delay, max_delay = self._get_delay_for_method(http_method)
 
         # Calculer délai aléatoire
         delay = random.uniform(min_delay, max_delay)
 
         # Assurer espacement minimum depuis la dernière requête
-        time_since_last = time.time() - cls._last_request_time
-        if time_since_last < cls.MIN_SPACING:
-            extra_wait = cls.MIN_SPACING - time_since_last
+        time_since_last = time.time() - self._last_request_time
+        if time_since_last < self.MIN_SPACING:
+            extra_wait = self.MIN_SPACING - time_since_last
             delay = max(delay, extra_wait)
 
         # Pause périodique aléatoire (simule une pause humaine)
-        cls._request_count += 1
+        self._request_count += 1
 
         # Initialiser le prochain seuil de pause si nécessaire
-        if cls._next_pause_at == 0:
-            cls._next_pause_at = random.randint(
-                cls.PAUSE_INTERVAL_MIN, cls.PAUSE_INTERVAL_MAX
+        if self._next_pause_at == 0:
+            self._next_pause_at = random.randint(
+                self.PAUSE_INTERVAL_MIN, self.PAUSE_INTERVAL_MAX
             )
 
         # Déclencher la pause si on atteint le seuil
-        if cls._request_count >= cls._next_pause_at:
+        if self._request_count >= self._next_pause_at:
             pause_duration = random.uniform(
-                cls.PAUSE_DURATION_MIN, cls.PAUSE_DURATION_MAX
+                self.PAUSE_DURATION_MIN, self.PAUSE_DURATION_MAX
             )
             delay += pause_duration
             logger.info(
-                f"[RateLimiter] Pause périodique de {pause_duration:.1f}s "
-                f"(après {cls._request_count} requêtes)"
+                f"[RateLimiter] user={self.user_id} Pause périodique de "
+                f"{pause_duration:.1f}s (après {self._request_count} requêtes)"
             )
             # Réinitialiser le compteur et définir le prochain seuil
-            cls._request_count = 0
-            cls._next_pause_at = random.randint(
-                cls.PAUSE_INTERVAL_MIN, cls.PAUSE_INTERVAL_MAX
+            self._request_count = 0
+            self._next_pause_at = random.randint(
+                self.PAUSE_INTERVAL_MIN, self.PAUSE_INTERVAL_MAX
             )
 
         if delay > 0:
             logger.debug(
-                f"[RateLimiter] Attente {delay:.2f}s avant {http_method} {path[:50]}..."
+                f"[RateLimiter] user={self.user_id} Attente {delay:.2f}s "
+                f"avant {http_method} {path[:50]}..."
             )
             await asyncio.sleep(delay)
 
-        cls._last_request_time = time.time()
+        self._last_request_time = time.time()
         return delay
 
     @classmethod
-    def reset(cls):
-        """Reset le compteur (utile pour les tests)."""
-        cls._last_request_time = 0
-        cls._request_count = 0
-        cls._next_pause_at = 0
+    def reset(cls, user_id: int | None = None):
+        """Reset rate limiter state (useful for tests).
+
+        Args:
+            user_id: Reset a specific user's limiter. If None, reset all.
+        """
+        if user_id is not None:
+            cls._instances.pop(user_id, None)
+        else:
+            cls._instances.clear()
 
 
 __all__ = ["VintedRateLimiter"]

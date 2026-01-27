@@ -135,13 +135,12 @@ def main():
         "services/ebay/jobs/ebay_publish_job_handler.py",
         "services/ebay/jobs/ebay_update_job_handler.py",
         "services/ebay/jobs/ebay_delete_job_handler.py",
-        "services/ebay/jobs/ebay_sync_job_handler.py",
+        "services/ebay/jobs/ebay_orders_sync_job_handler.py",
+        "services/ebay/jobs/ebay_import_job_handler.py",
         # Etsy
         "services/etsy/jobs/etsy_publish_job_handler.py",
         "services/etsy/jobs/etsy_update_job_handler.py",
         "services/etsy/jobs/etsy_delete_job_handler.py",
-        "services/etsy/jobs/etsy_sync_job_handler.py",
-        "services/etsy/jobs/etsy_orders_sync_job_handler.py",
         # Marketplace
         "services/marketplace/marketplace_job_processor.py",
         "services/marketplace/marketplace_job_service.py",

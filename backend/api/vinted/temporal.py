@@ -5,6 +5,8 @@ Endpoints for Vinted product sync via Temporal workflows:
 - Start sync workflow
 - Get workflow progress
 - Cancel running workflow
+- Pause running workflow
+- Resume paused workflow
 - Health check for Temporal connection
 - List recent workflows
 
@@ -13,6 +15,8 @@ These routes use Temporal for durable execution:
 - Automatic retries with backoff
 - Real-time progress tracking
 - Cancellation support
+- Pause/Resume support
+- Automatic reconnection waiting on plugin disconnect
 
 Author: Claude
 Date: 2026-01-22
@@ -68,6 +72,12 @@ class SyncProgressResponse(BaseModel):
     total: int = Field(0, description="Total products (if known)")
     label: str = Field("", description="Progress label")
     error: Optional[str] = Field(None, description="Error message if failed")
+    # Resilience fields
+    paused_at: Optional[str] = Field(None, description="ISO timestamp when paused")
+    pause_reason: Optional[str] = Field(None, description="Reason for pause")
+    reconnection_attempts: int = Field(0, description="Number of reconnection attempts")
+    can_pause: bool = Field(False, description="Whether workflow can be paused")
+    can_resume: bool = Field(False, description="Whether workflow can be resumed")
 
 
 class CancelSyncRequest(BaseModel):
@@ -81,6 +91,34 @@ class CancelSyncResponse(BaseModel):
 
     workflow_id: str = Field(..., description="Temporal workflow ID")
     cancelled: bool = Field(..., description="Whether cancellation was successful")
+    message: str = Field(..., description="Status message")
+
+
+class PauseSyncRequest(BaseModel):
+    """Request to pause a sync workflow."""
+
+    workflow_id: str = Field(..., description="Temporal workflow ID to pause")
+
+
+class PauseSyncResponse(BaseModel):
+    """Response from pausing sync workflow."""
+
+    workflow_id: str = Field(..., description="Temporal workflow ID")
+    paused: bool = Field(..., description="Whether pause signal was sent successfully")
+    message: str = Field(..., description="Status message")
+
+
+class ResumeSyncRequest(BaseModel):
+    """Request to resume a paused sync workflow."""
+
+    workflow_id: str = Field(..., description="Temporal workflow ID to resume")
+
+
+class ResumeSyncResponse(BaseModel):
+    """Response from resuming sync workflow."""
+
+    workflow_id: str = Field(..., description="Temporal workflow ID")
+    resumed: bool = Field(..., description="Whether resume signal was sent successfully")
     message: str = Field(..., description="Status message")
 
 
@@ -149,6 +187,21 @@ async def start_sync(
         shop_id = connection.vinted_user_id
 
     try:
+        # Check if a Vinted sync workflow is already running for this user
+        client = await get_temporal_client()
+        query = f'WorkflowType = "VintedSyncWorkflow" AND ExecutionStatus = "Running" AND WorkflowId STARTS_WITH "vinted-sync-user-{current_user.id}"'
+
+        async for workflow in client.list_workflows(query=query):
+            # Found a running workflow - reject new sync
+            logger.warning(
+                f"Rejected sync request: workflow {workflow.id} already running for user {current_user.id}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Un sync Vinted est déjà en cours (workflow: {workflow.id}). "
+                       f"Attendez qu'il se termine ou annulez-le.",
+            )
+
         # Create a job record for tracking in DB
         job_service = MarketplaceJobService(db)
         job = job_service.create_job(
@@ -163,9 +216,7 @@ async def start_sync(
         job.status = JobStatus.RUNNING
         db.commit()
 
-        # Start Temporal workflow
-        client = await get_temporal_client()
-
+        # Start Temporal workflow (client already obtained above)
         workflow_id = f"vinted-sync-user-{current_user.id}-job-{job.id}"
 
         params = VintedSyncParams(
@@ -178,7 +229,7 @@ async def start_sync(
             VintedSyncWorkflow.run,
             params,
             id=workflow_id,
-            task_queue=config.temporal_task_queue,
+            task_queue=config.temporal_vinted_task_queue,
         )
 
         # Update job with workflow_id for cancellation support
@@ -307,6 +358,114 @@ async def cancel_sync(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to cancel workflow: {str(e)}",
+        )
+
+
+@router.post("/sync/pause", response_model=PauseSyncResponse)
+async def pause_sync(
+    request: PauseSyncRequest,
+    user_db: tuple = Depends(get_user_db),
+):
+    """
+    Pause a running sync workflow.
+
+    Sends a pause signal to the Temporal workflow.
+    The workflow will pause after completing current activity.
+    Use /sync/resume to continue.
+    """
+    from temporal.client import get_temporal_client
+    from temporal.config import get_temporal_config
+
+    db, current_user = user_db
+    config = get_temporal_config()
+
+    if not config.temporal_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Temporal is disabled",
+        )
+
+    # Verify workflow belongs to this user
+    if f"user-{current_user.id}" not in request.workflow_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to pause this workflow",
+        )
+
+    try:
+        client = await get_temporal_client()
+        handle = client.get_workflow_handle(request.workflow_id)
+
+        # Send pause signal
+        await handle.signal("pause_sync")
+
+        logger.info(f"Sent pause signal to workflow {request.workflow_id}")
+
+        return PauseSyncResponse(
+            workflow_id=request.workflow_id,
+            paused=True,
+            message="Pause signal sent. Workflow will pause after current activity.",
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to pause workflow {request.workflow_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to pause workflow: {str(e)}",
+        )
+
+
+@router.post("/sync/resume", response_model=ResumeSyncResponse)
+async def resume_sync(
+    request: ResumeSyncRequest,
+    user_db: tuple = Depends(get_user_db),
+):
+    """
+    Resume a paused sync workflow.
+
+    Sends a resume signal to the Temporal workflow.
+    The workflow will continue from where it was paused.
+    Also works for workflows waiting for plugin reconnection.
+    """
+    from temporal.client import get_temporal_client
+    from temporal.config import get_temporal_config
+
+    db, current_user = user_db
+    config = get_temporal_config()
+
+    if not config.temporal_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Temporal is disabled",
+        )
+
+    # Verify workflow belongs to this user
+    if f"user-{current_user.id}" not in request.workflow_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to resume this workflow",
+        )
+
+    try:
+        client = await get_temporal_client()
+        handle = client.get_workflow_handle(request.workflow_id)
+
+        # Send resume signal
+        await handle.signal("resume_sync")
+
+        logger.info(f"Sent resume signal to workflow {request.workflow_id}")
+
+        return ResumeSyncResponse(
+            workflow_id=request.workflow_id,
+            resumed=True,
+            message="Resume signal sent. Workflow will continue from where it was paused.",
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to resume workflow {request.workflow_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to resume workflow: {str(e)}",
         )
 
 

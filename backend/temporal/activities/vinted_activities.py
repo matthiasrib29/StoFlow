@@ -21,7 +21,7 @@ Key differences from eBay:
 - Uses WebSocket plugin for API calls (not direct HTTP)
 - Sequential fetching (DataDome protection)
 - Mark as "sold" instead of delete for missing products
-- Enrichment in small batches (15) with longer pauses (20-30s)
+- Sequential enrichment (one product at a time)
 
 Author: Claude
 Date: 2026-01-22
@@ -53,6 +53,94 @@ def _configure_session(db, user_id: int) -> None:
     schema_name = _get_schema_name(user_id)
     configure_schema_translate_map(db, schema_name)
     db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+
+async def _call_vinted_api(
+    db,
+    user_id: int,
+    http_method: str,
+    path: str,
+    timeout: int,
+    description: str,
+    body: Optional[dict] = None,
+) -> dict:
+    """
+    Universal wrapper for Vinted API calls via plugin.
+
+    Handles all error types consistently:
+    - 401 Unauthorized → error: "unauthorized"
+    - 403 Forbidden → error: "forbidden" (DataDome block)
+    - 404 Not Found → error: "not_found"
+    - 429 Rate Limited → error: "rate_limited"
+    - 5xx Server Error → error: "server_error"
+    - Timeout → error: "timeout"
+    - Disconnected → error: "disconnected"
+
+    Args:
+        db: Database session
+        user_id: User ID for WebSocket room
+        http_method: HTTP method (GET, POST, etc.)
+        path: API path
+        timeout: Request timeout in seconds
+        description: Description for logging
+        body: Optional request body
+
+    Returns:
+        Dict with either:
+        - {"success": True, "data": <response_data>}
+        - {"success": False, "error": "<error_code>", "message": "<details>"}
+    """
+    from services.plugin_websocket_helper import PluginWebSocketHelper, PluginHTTPError
+
+    try:
+        result = await PluginWebSocketHelper.call_plugin_http(
+            db=db,
+            user_id=user_id,
+            http_method=http_method,
+            path=path,
+            payload=body,
+            timeout=timeout,
+            description=description,
+        )
+        return {"success": True, "data": result}
+
+    except PluginHTTPError as e:
+        error_code = e.get_result_code()
+        activity.logger.warning(f"Vinted API error [{e.status}] for {description}: {e.message}")
+
+        return {
+            "success": False,
+            "error": error_code,
+            "status": e.status,
+            "message": e.message,
+        }
+
+    except TimeoutError:
+        activity.logger.warning(f"Timeout for {description}")
+        return {
+            "success": False,
+            "error": "timeout",
+            "message": f"Request timeout for {description}",
+        }
+
+    except RuntimeError as e:
+        error_msg = str(e).lower()
+        if any(pattern in error_msg for pattern in (
+            "not connected", "disconnected", "receiving end does not exist",
+            "could not establish connection", "no plugin",
+        )):
+            activity.logger.warning(f"Plugin disconnected for {description}: {e}")
+            return {
+                "success": False,
+                "error": "disconnected",
+                "message": str(e),
+            }
+        # Unknown RuntimeError - re-raise for Temporal retry
+        raise
+
+    except Exception as e:
+        activity.logger.error(f"Unexpected error for {description}: {e}")
+        raise
 
 
 @activity.defn(name="vinted_fetch_and_sync_page")
@@ -91,7 +179,6 @@ async def fetch_and_sync_page(
 
         # Import here to avoid circular imports
         from models.user.vinted_product import VintedProduct
-        from services.plugin_websocket_helper import PluginWebSocketHelper
         from services.vinted.vinted_data_extractor import VintedDataExtractor
         from shared.vinted import VintedProductAPI
         from shared.config import settings
@@ -99,16 +186,27 @@ async def fetch_and_sync_page(
         # Parse sync_start_time
         sync_time = datetime.fromisoformat(sync_start_time.replace("Z", "+00:00"))
 
-        # Fetch page from Vinted via plugin
-        result = await PluginWebSocketHelper.call_plugin_http(
+        # Fetch page from Vinted via plugin (using centralized error handling)
+        api_result = await _call_vinted_api(
             db=db,
             user_id=user_id,
             http_method="GET",
             path=VintedProductAPI.get_shop_items(shop_id, page=page),
             timeout=settings.plugin_timeout_sync,
-            description=f"Sync products page {page}"
+            description=f"Sync products page {page}",
         )
 
+        # Handle API errors
+        if not api_result["success"]:
+            return {
+                "synced": 0,
+                "errors": 0,
+                "total_pages": 0,
+                "vinted_ids": [],
+                "error": api_result["error"],
+            }
+
+        result = api_result["data"]
         items = result.get("items", [])
         pagination = result.get("pagination", {})
         total_pages = pagination.get("total_pages", 1)
@@ -214,11 +312,7 @@ def _extract_product_data(api_product: dict, extractor) -> dict:
     is_closed = api_product.get("is_closed", False)
     is_reserved = api_product.get("is_reserved", False)
     is_hidden = api_product.get("is_hidden", False)
-    status = extractor.map_api_status(
-        is_draft=is_draft,
-        is_closed=is_closed,
-        closing_action=api_product.get("item_closing_action")
-    )
+    status = extractor.map_api_status(is_draft=is_draft, is_closed=is_closed)
 
     # Seller info
     user = api_product.get("user") or {}
@@ -278,11 +372,9 @@ def _extract_product_data(api_product: dict, extractor) -> dict:
 async def get_vinted_ids_to_enrich(
     user_id: int,
     sync_start_time: str,
-    limit: int = 15,
-    offset: int = 0,
 ) -> list[int]:
     """
-    Get a batch of vinted_ids to enrich from the current sync session.
+    Get all vinted_ids to enrich from the current sync session.
 
     Filters products that:
     - Were synced in this session (last_synced_at >= sync_start_time)
@@ -292,8 +384,6 @@ async def get_vinted_ids_to_enrich(
     Args:
         user_id: User ID for schema isolation
         sync_start_time: ISO timestamp - only products synced at/after this time
-        limit: Max vinted_ids to return (default 15 for DataDome protection)
-        offset: Pagination offset
 
     Returns:
         List of vinted_ids to enrich
@@ -307,19 +397,17 @@ async def get_vinted_ids_to_enrich(
         # Parse sync_start_time
         sync_time = datetime.fromisoformat(sync_start_time.replace("Z", "+00:00"))
 
-        # Get products synced in this session without description
+        # Get all products synced in this session without description
         products = (
             db.query(VintedProduct.vinted_id)
             .filter(
-                VintedProduct.last_synced_at >= sync_time,
+                VintedProduct.updated_at >= sync_time,
                 (VintedProduct.description.is_(None)) | (VintedProduct.description == ""),
                 VintedProduct.status.notin_(["sold", "deleted"]),
                 VintedProduct.is_closed == False,
                 VintedProduct.is_hidden == False,
             )
-            .order_by(VintedProduct.id)
-            .offset(offset)
-            .limit(limit)
+            .order_by(VintedProduct.vinted_id)
             .all()
         )
 
@@ -355,15 +443,6 @@ async def enrich_single_product(
         _configure_session(db, user_id)
 
         from models.user.vinted_product import VintedProduct
-        from services.plugin_websocket_helper import (
-            PluginWebSocketHelper,
-            PluginHTTPError,
-            PLUGIN_SUCCESS,
-            PLUGIN_NOT_FOUND,
-            PLUGIN_FORBIDDEN,
-            PLUGIN_UNAUTHORIZED,
-            PLUGIN_ERROR,
-        )
         from services.vinted.vinted_item_upload_parser import VintedItemUploadParser
         from shared.config import settings
 
@@ -374,56 +453,44 @@ async def enrich_single_product(
         if not product:
             return {"success": False, "vinted_id": vinted_id, "error": "not_found_db"}
 
-        try:
-            # Fetch item_upload data via plugin
-            api_path = f"/api/v2/item_upload/items/{vinted_id}"
-            result = await PluginWebSocketHelper.call_plugin_http(
-                db=db,
-                user_id=user_id,
-                http_method="GET",
-                path=api_path,
-                timeout=settings.plugin_timeout_sync,
-                description=f"Get item_upload for {vinted_id}"
-            )
+        # Fetch item_upload data via plugin (using centralized error handling)
+        api_path = f"/api/v2/item_upload/items/{vinted_id}"
+        api_result = await _call_vinted_api(
+            db=db,
+            user_id=user_id,
+            http_method="GET",
+            path=api_path,
+            timeout=settings.plugin_timeout_sync,
+            description=f"Get item_upload for {vinted_id}",
+        )
 
-            if not result or not isinstance(result, dict):
-                return {"success": False, "vinted_id": vinted_id, "error": "invalid_response"}
+        # Handle API errors
+        if not api_result["success"]:
+            error = api_result["error"]
 
-            # Parse the API response
-            extracted = VintedItemUploadParser.parse_item_response(result)
-
-            if not extracted:
-                return {"success": False, "vinted_id": vinted_id, "error": "parse_failed"}
-
-            # Update product with extracted data
-            _update_product_from_extracted(product, extracted)
-            db.commit()
-
-            return {"success": True, "vinted_id": vinted_id}
-
-        except PluginHTTPError as e:
-            if e.is_not_found():
-                # Mark as closed if 404 (sold/deleted on Vinted)
+            # Special case: 404 means product sold/deleted on Vinted
+            if error == "not_found":
                 product.is_closed = True
                 db.commit()
                 return {"success": False, "vinted_id": vinted_id, "error": "not_found_vinted"}
 
-            if e.is_forbidden():
-                return {"success": False, "vinted_id": vinted_id, "error": "forbidden"}
+            return {"success": False, "vinted_id": vinted_id, "error": error}
 
-            if e.is_unauthorized():
-                return {"success": False, "vinted_id": vinted_id, "error": "unauthorized"}
+        result = api_result["data"]
+        if not result or not isinstance(result, dict):
+            return {"success": False, "vinted_id": vinted_id, "error": "invalid_response"}
 
-            return {"success": False, "vinted_id": vinted_id, "error": str(e)[:100]}
+        # Parse the API response
+        extracted = VintedItemUploadParser.parse_item_response(result)
 
-        except TimeoutError:
-            return {"success": False, "vinted_id": vinted_id, "error": "timeout"}
+        if not extracted:
+            return {"success": False, "vinted_id": vinted_id, "error": "parse_failed"}
 
-        except RuntimeError as e:
-            error_msg = str(e).lower()
-            if "not connected" in error_msg or "disconnected" in error_msg:
-                return {"success": False, "vinted_id": vinted_id, "error": "disconnected"}
-            return {"success": False, "vinted_id": vinted_id, "error": str(e)[:100]}
+        # Update product with extracted data
+        _update_product_from_extracted(product, extracted)
+        db.commit()
+
+        return {"success": True, "vinted_id": vinted_id}
 
     finally:
         db.close()
@@ -617,6 +684,280 @@ async def mark_job_failed(
         db.close()
 
 
+@activity.defn(name="vinted_check_plugin_connection")
+async def check_plugin_connection(user_id: int) -> bool:
+    """
+    Check if the plugin is connected via WebSocket.
+
+    This activity checks if there is an active WebSocket connection
+    for the user's plugin room. Used to detect disconnection during sync.
+
+    Args:
+        user_id: User ID to check connection for
+
+    Returns:
+        True if plugin is connected, False otherwise
+    """
+    try:
+        from services.websocket_service import sio
+
+        room = f"user_{user_id}"
+        # Access the rooms dict to check for connected clients
+        rooms = sio.manager.rooms.get("/", {})
+        room_sids = rooms.get(room, set())
+
+        is_connected = len(room_sids) > 0
+        activity.logger.debug(
+            f"Plugin connection check for user {user_id}: "
+            f"{'connected' if is_connected else 'disconnected'} ({len(room_sids)} clients)"
+        )
+        return is_connected
+
+    except Exception as e:
+        activity.logger.warning(f"Error checking plugin connection for user {user_id}: {e}")
+        return False
+
+
+@activity.defn(name="vinted_mark_job_paused")
+async def mark_job_paused(
+    user_id: int,
+    job_id: int,
+    reason: str,
+) -> None:
+    """
+    Mark job as paused in the database.
+
+    Updates the job status to 'paused' and stores the reason.
+    Used when waiting for plugin reconnection or user pause.
+
+    Args:
+        user_id: User ID for schema isolation
+        job_id: MarketplaceJob ID
+        reason: Reason for pausing (e.g., 'waiting_reconnection', 'user_pause')
+    """
+    db = SessionLocal()
+    try:
+        schema_name = _get_schema_name(user_id)
+        db.execute(text(f"SET search_path TO {schema_name}, public"))
+
+        data = json.dumps({"paused_reason": reason})
+
+        db.execute(
+            text(
+                "UPDATE marketplace_jobs SET status = 'paused', result_data = :data "
+                "WHERE id = :job_id"
+            ),
+            {"data": data, "job_id": job_id},
+        )
+        db.commit()
+
+        activity.logger.info(f"Job #{job_id} paused: {reason}")
+
+    finally:
+        db.close()
+
+
+@activity.defn(name="vinted_sync_sold_status")
+async def sync_sold_status(user_id: int) -> dict:
+    """
+    Sync sold status from Vinted to StoFlow products.
+
+    Creates pending actions for products detected as sold/closed on Vinted.
+    Products are set to PENDING_DELETION status and require user confirmation
+    before being marked as SOLD.
+
+    This ensures consistency between Vinted and StoFlow:
+    - If a product is sold on Vinted (is_closed=true or status='sold')
+    - And it's linked to a StoFlow product (product_id IS NOT NULL)
+    - And the StoFlow product is not already SOLD or PENDING_DELETION
+    - Then create a pending action for user confirmation
+
+    Args:
+        user_id: User ID for schema isolation
+
+    Returns:
+        Dict with 'pending_count' and 'product_ids' affected
+    """
+    db = SessionLocal()
+    try:
+        _configure_session(db, user_id)
+
+        from services.pending_action_service import PendingActionService
+        from models.user.pending_action import PendingActionType
+
+        # Find Vinted products that are closed/sold but linked StoFlow product
+        # is not already SOLD or PENDING_DELETION
+        result = db.execute(
+            text("""
+                SELECT vp.vinted_id, vp.product_id, vp.title, vp.price,
+                       p.status as stoflow_status
+                FROM vinted_products vp
+                JOIN products p ON p.id = vp.product_id
+                WHERE (vp.is_closed = true OR vp.status = 'sold')
+                  AND vp.product_id IS NOT NULL
+                  AND p.status NOT IN ('SOLD', 'PENDING_DELETION')
+            """)
+        ).fetchall()
+
+        if not result:
+            activity.logger.info("No products to update - all sold statuses are in sync")
+            return {"pending_count": 0, "product_ids": []}
+
+        # Create pending actions for each product
+        service = PendingActionService(db)
+        product_ids = []
+
+        for vinted_id, product_id, title, price, stoflow_status in result:
+            action = service.create_pending_action(
+                product_id=product_id,
+                action_type=PendingActionType.MARK_SOLD,
+                marketplace="vinted",
+                reason=f"Produit vendu/fermé sur Vinted (#{vinted_id})",
+                context_data={
+                    "vinted_id": vinted_id,
+                    "title": title,
+                    "price": float(price) if price else None,
+                    "previous_status": stoflow_status,
+                },
+            )
+            if action:
+                product_ids.append(product_id)
+                activity.logger.info(
+                    f"Created pending action for StoFlow #{product_id} "
+                    f"(Vinted #{vinted_id} is closed, was {stoflow_status})"
+                )
+
+        db.commit()
+
+        activity.logger.info(
+            f"Created {len(product_ids)} pending actions for sold Vinted products"
+        )
+
+        return {
+            "pending_count": len(product_ids),
+            "product_ids": product_ids,
+        }
+
+    finally:
+        db.close()
+
+
+@activity.defn(name="vinted_detect_sold_with_active_listing")
+async def detect_sold_with_active_listing(user_id: int) -> dict:
+    """
+    Detect products SOLD on StoFlow but still active on Vinted.
+
+    Creates PendingAction (DELETE_VINTED_LISTING) for each product found,
+    so the user can confirm or reject the Vinted listing deletion.
+
+    Args:
+        user_id: User ID for schema isolation
+
+    Returns:
+        Dict with 'pending_count' and 'product_ids'
+    """
+    db = SessionLocal()
+    try:
+        _configure_session(db, user_id)
+
+        from services.pending_action_service import PendingActionService
+        from models.user.pending_action import PendingActionType
+
+        # Find products SOLD on StoFlow but still active on Vinted
+        result = db.execute(
+            text("""
+                SELECT vp.vinted_id, vp.product_id, vp.title, vp.price,
+                       p.status as stoflow_status
+                FROM vinted_products vp
+                JOIN products p ON p.id = vp.product_id
+                WHERE p.status::text = 'SOLD'
+                  AND vp.is_closed = false
+                  AND vp.status != 'sold'
+                  AND vp.product_id IS NOT NULL
+            """)
+        ).fetchall()
+
+        if not result:
+            activity.logger.info(
+                "No products to clean up - all SOLD products have inactive Vinted listings"
+            )
+            return {"pending_count": 0, "product_ids": []}
+
+        service = PendingActionService(db)
+        product_ids = []
+
+        for vinted_id, product_id, title, price, stoflow_status in result:
+            action = service.create_pending_action(
+                product_id=product_id,
+                action_type=PendingActionType.DELETE_VINTED_LISTING,
+                marketplace="vinted",
+                reason=f"Produit vendu sur StoFlow mais annonce Vinted #{vinted_id} encore active",
+                context_data={
+                    "vinted_id": vinted_id,
+                    "title": title,
+                    "price": float(price) if price else None,
+                },
+            )
+            if action:
+                product_ids.append(product_id)
+                activity.logger.info(
+                    f"Created DELETE_VINTED_LISTING pending action for product #{product_id} "
+                    f"(Vinted #{vinted_id} still active)"
+                )
+
+        db.commit()
+
+        activity.logger.info(
+            f"Created {len(product_ids)} pending actions for SOLD products "
+            f"with active Vinted listings"
+        )
+
+        return {
+            "pending_count": len(product_ids),
+            "product_ids": product_ids,
+        }
+
+    finally:
+        db.close()
+
+
+@activity.defn(name="delete_vinted_listing")
+async def delete_vinted_listing(user_id: int, product_id: int) -> dict:
+    """
+    Delete a Vinted listing for a product marked as SOLD.
+
+    Uses VintedDeletionService with check_conditions=False since the user
+    explicitly chose to mark the product as SOLD.
+
+    Args:
+        user_id: User ID for schema isolation and plugin communication
+        product_id: StoFlow product ID
+
+    Returns:
+        Dict with 'success', 'product_id', and optionally 'vinted_id' or 'error'
+    """
+    db = SessionLocal()
+    try:
+        _configure_session(db, user_id)
+
+        from services.vinted.vinted_deletion_service import VintedDeletionService
+
+        service = VintedDeletionService(db)
+        result = await service.delete_product(
+            product_id=product_id,
+            user_id=user_id,
+            check_conditions=False,
+        )
+        return result
+
+    except Exception as e:
+        activity.logger.error(f"Vinted deletion failed for product #{product_id}: {e}")
+        return {"success": False, "product_id": product_id, "error": str(e)}
+
+    finally:
+        db.close()
+
+
 # Export all activities for registration
 VINTED_ACTIVITIES = [
     fetch_and_sync_page,
@@ -625,4 +966,9 @@ VINTED_ACTIVITIES = [
     update_job_progress,
     mark_job_completed,
     mark_job_failed,
+    check_plugin_connection,
+    mark_job_paused,
+    sync_sold_status,
+    detect_sold_with_active_listing,
+    delete_vinted_listing,
 ]

@@ -4,6 +4,7 @@ Stoflow Backend - Application FastAPI
 Point d'entree principal de l'application FastAPI.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
@@ -26,6 +27,7 @@ from api.admin_vinted_prospects import router as admin_vinted_prospects_router
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
 from api.batches import router as batches_router
+from api.pending_actions import router as pending_actions_router
 from api.docs import router as docs_router
 # eBay routers (re-enabled 2026-01-03)
 from api.ebay import router as ebay_router, products_router as ebay_products_router, returns_router as ebay_returns_router, cancellations_router as ebay_cancellations_router, refunds_router as ebay_refunds_router, payment_disputes_router as ebay_payment_disputes_router, inquiries_router as ebay_inquiries_router, dashboard_router as ebay_dashboard_router, temporal_router as ebay_temporal_router
@@ -71,7 +73,7 @@ from worker.dispatcher_config import DispatcherConfig
 # Temporal Workflow Orchestration (2026-01-21)
 from temporal.config import get_temporal_config
 from temporal.worker import get_worker_manager
-from temporal.workflows import EbaySyncWorkflow, VintedSyncWorkflow
+from temporal.workflows import EbaySyncWorkflow, EbayCleanupWorkflow, VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow
 from temporal.activities import EBAY_ACTIVITIES, VINTED_ACTIVITIES
 
 # Configuration du logging
@@ -164,46 +166,80 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("🔧 Job dispatcher DISABLED (dispatcher_enabled=false)")
 
-    # ===== TEMPORAL WORKER (2026-01-21) =====
+    # ===== TEMPORAL WORKERS (2026-01-21) =====
     # Workflow orchestration for durable import operations
     temporal_config = get_temporal_config()
+    _cleanup_worker_task = None
 
     if temporal_config.temporal_enabled:
         try:
+            # --- Main worker: eBay only (high concurrency) ---
             worker_manager = get_worker_manager()
 
-            # Register workflows and activities
             worker_manager.register_workflow(EbaySyncWorkflow)
+            worker_manager.register_workflow(EbayCleanupWorkflow)
             worker_manager.register_activities(EBAY_ACTIVITIES)
-            worker_manager.register_workflow(VintedSyncWorkflow)
-            worker_manager.register_activities(VINTED_ACTIVITIES)
 
-            # Start worker
             await worker_manager.start()
             logger.info(
-                f"⏱️ Temporal worker started "
-                f"(namespace={temporal_config.temporal_namespace}, "
-                f"queue={temporal_config.temporal_task_queue})"
+                f"⏱️ Temporal main worker started "
+                f"(queue={temporal_config.temporal_task_queue}, "
+                f"max_activities={temporal_config.temporal_max_concurrent_activities})"
+            )
+
+            # --- Vinted worker: ALL Vinted workflows (sequential, max=1) ---
+            from concurrent.futures import ThreadPoolExecutor
+            from temporalio.worker import Worker, UnsandboxedWorkflowRunner
+            from temporal.client import get_temporal_client
+
+            _vinted_executor = ThreadPoolExecutor(
+                max_workers=1,
+                thread_name_prefix="temporal-vinted-",
+            )
+            vinted_client = await get_temporal_client()
+            _vinted_worker = Worker(
+                vinted_client,
+                task_queue=temporal_config.temporal_vinted_task_queue,
+                workflows=[VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow],
+                activities=VINTED_ACTIVITIES,
+                activity_executor=_vinted_executor,
+                identity=f"{temporal_config.worker_identity}-vinted",
+                max_concurrent_workflow_tasks=5,
+                max_concurrent_activities=1,
+                workflow_runner=UnsandboxedWorkflowRunner(),
+            )
+            _cleanup_worker_task = asyncio.create_task(_vinted_worker.run())
+            logger.info(
+                f"⏱️ Temporal Vinted worker started "
+                f"(queue={temporal_config.temporal_vinted_task_queue}, "
+                f"max_activities=1)"
             )
         except Exception as e:
-            logger.exception(f"❌ Failed to start Temporal worker: {e}")
-            # Don't fail startup - Temporal is optional, jobs can use fallback
+            logger.exception(f"❌ Failed to start Temporal workers: {e}")
     else:
-        logger.info("⏱️ Temporal worker DISABLED (temporal_enabled=false)")
+        logger.info("⏱️ Temporal workers DISABLED (temporal_enabled=false)")
 
     yield  # Application runs here
 
     # ===== SHUTDOWN =====
     logger.info("🛑 Shutting down StoFlow backend...")
 
-    # Stop Temporal worker
+    # Stop Temporal workers
     if temporal_config.temporal_enabled:
         try:
             worker_manager = get_worker_manager()
             await worker_manager.stop()
-            logger.info("⏱️ Temporal worker stopped")
+            logger.info("⏱️ Temporal main worker stopped")
         except Exception as e:
-            logger.exception(f"Error stopping Temporal worker: {e}")
+            logger.exception(f"Error stopping Temporal main worker: {e}")
+
+        if _cleanup_worker_task:
+            _cleanup_worker_task.cancel()
+            try:
+                await _cleanup_worker_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("⏱️ Temporal Vinted worker stopped")
 
     # Stop job dispatcher
     if _dispatcher:
@@ -330,6 +366,7 @@ app.include_router(admin_stats_router, prefix="/api")
 app.include_router(admin_vinted_prospects_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(batches_router, prefix="/api")  # Generic batch jobs (multi-marketplace)
+app.include_router(pending_actions_router, prefix="/api")  # Pending actions confirmation queue
 app.include_router(docs_router, prefix="/api")  # Public documentation (no auth required)
 app.include_router(admin_docs_router, prefix="/api")  # Admin documentation CRUD (admin only)
 app.include_router(attributes_router, prefix="/api")

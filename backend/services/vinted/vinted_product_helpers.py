@@ -10,7 +10,7 @@ Author: Claude
 Date: 2025-12-17
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -120,7 +120,7 @@ def save_new_vinted_product(
         product_id=product_id,
         vinted_id=item_data.get('id'),
         status='published',
-        date=date.today(),
+        published_at=datetime.now(timezone.utc),
         view_count=0,
         favourite_count=0,
         price=Decimal(str(prix_vinted)),
@@ -150,10 +150,10 @@ def should_delete_product(
     Returns:
         True si eligible a la suppression
     """
-    if not vinted_product.date:
+    if not vinted_product.published_at:
         return False
 
-    days_active = (date.today() - vinted_product.date).days
+    days_active = (datetime.now(timezone.utc) - vinted_product.published_at).days
 
     # Si 0 favoris, seuil reduit
     if vinted_product.favourite_count == 0:

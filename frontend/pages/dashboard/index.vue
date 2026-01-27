@@ -37,6 +37,11 @@
         </div>
       </div>
 
+      <!-- Pending Actions Widget -->
+      <div class="mb-6 lg:mb-8">
+        <DashboardPendingActionsWidget />
+      </div>
+
       <!-- Quick Action - Simplified -->
       <div class="mb-6 lg:mb-8">
         <NuxtLink to="/dashboard/products/create">

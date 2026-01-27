@@ -47,6 +47,7 @@ class UserSchemaService:
         "ebay_products",
         "ebay_orders",
         "ebay_orders_products",
+        "ebay_marketplace_settings",
         # "ebay_promoted_listings",  # Removed (2026-01-20): Merged into ebay_products
         "vinted_orders",           # VintedOrder (migrated from vinted schema 2026-01-20)
         "vinted_order_products",   # VintedOrderProduct (migrated from vinted schema 2026-01-20)

@@ -346,7 +346,13 @@ class VintedJobService:
         # If job is RUNNING, signal via advisory lock AND mark as cancelled
         if job.status == JobStatus.RUNNING:
             try:
-                # Signal cancellation via advisory lock (for active workers)
+                # Check if this is a Temporal workflow job
+                workflow_id = job.input_data.get("workflow_id") if job.input_data else None
+
+                # NOTE: If workflow_id exists, Temporal cancellation is handled by the API endpoint
+                # (see api/vinted/jobs.py cancel_jobs) since we're in sync context here
+
+                # Signal cancellation via advisory lock (for legacy workers)
                 AdvisoryLockHelper.signal_cancel(self.db, job_id)
 
                 # Mark job as CANCELLED immediately
