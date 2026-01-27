@@ -112,95 +112,148 @@
           </template>
         </Card>
 
-        <!-- Shipping Policies -->
-        <Card class="shadow-sm modern-rounded border border-gray-100">
+        <!-- Business Policies (Tabbed) -->
+        <Card class="shadow-sm modern-rounded border border-gray-100 lg:col-span-2">
           <template #content>
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-lg font-bold text-secondary-900">
-                <i class="pi pi-truck mr-2"/>
-                Politiques d'expedition
+                <i class="pi pi-briefcase mr-2"/>
+                Business Policies
               </h3>
-              <Button
-                icon="pi pi-refresh"
-                class="p-button-sm p-button-text"
-                :loading="loadingPolicies"
-                @click="loadPolicies"
-              />
-            </div>
-
-            <div v-if="ebayStore.shippingPolicies.length === 0" class="text-center py-6">
-              <i class="pi pi-inbox text-gray-300 text-3xl mb-2"/>
-              <p class="text-gray-500">Aucune politique configuree</p>
-            </div>
-
-            <div v-else class="space-y-3">
-              <div
-                v-for="policy in ebayStore.shippingPolicies"
-                :key="policy.id"
-                class="p-3 bg-gray-50 rounded-lg"
-              >
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="font-semibold text-secondary-900">{{ policy.name }}</p>
-                    <p class="text-sm text-gray-500">{{ getShippingTypeLabel(policy) }}</p>
-                  </div>
-                  <Tag v-if="policy.isDefault" severity="success" value="Par defaut" />
-                </div>
+              <div class="flex items-center gap-2">
+                <Select
+                  v-model="selectedMarketplace"
+                  :options="ebayMarketplaces"
+                  optionLabel="label"
+                  optionValue="value"
+                  class="w-48"
+                  @change="onMarketplaceChange"
+                />
+                <Button
+                  icon="pi pi-refresh"
+                  class="p-button-sm p-button-text"
+                  :loading="loadingPolicies"
+                  @click="loadPolicies"
+                />
               </div>
             </div>
 
-            <div class="mt-4">
-              <Button
-                label="Gerer sur eBay"
-                icon="pi pi-external-link"
-                class="w-full btn-secondary"
-                @click="openEbaySettings('shipping')"
-              />
-            </div>
-          </template>
-        </Card>
+            <Tabs value="shipping">
+              <TabList>
+                <Tab value="shipping">
+                  <i class="pi pi-truck mr-1"/>
+                  Expedition ({{ ebayStore.shippingPolicies.length }})
+                </Tab>
+                <Tab value="return">
+                  <i class="pi pi-replay mr-1"/>
+                  Retour ({{ ebayStore.returnPolicies.length }})
+                </Tab>
+                <Tab value="payment">
+                  <i class="pi pi-credit-card mr-1"/>
+                  Paiement ({{ ebayStore.paymentPolicies.length }})
+                </Tab>
+              </TabList>
 
-        <!-- Return Policies -->
-        <Card class="shadow-sm modern-rounded border border-gray-100">
-          <template #content>
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-lg font-bold text-secondary-900">
-                <i class="pi pi-replay mr-2"/>
-                Politiques de retour
-              </h3>
-            </div>
-
-            <div v-if="ebayStore.returnPolicies.length === 0" class="text-center py-6">
-              <i class="pi pi-inbox text-gray-300 text-3xl mb-2"/>
-              <p class="text-gray-500">Aucune politique configuree</p>
-            </div>
-
-            <div v-else class="space-y-3">
-              <div
-                v-for="policy in ebayStore.returnPolicies"
-                :key="policy.id"
-                class="p-3 bg-gray-50 rounded-lg"
-              >
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="font-semibold text-secondary-900">{{ policy.name }}</p>
-                    <p class="text-sm text-gray-500">
-                      {{ policy.returnsAccepted ? `Retours sous ${policy.returnPeriod || 30} jours` : 'Pas de retours' }}
-                    </p>
+              <TabPanels>
+                <!-- Shipping Policies -->
+                <TabPanel value="shipping">
+                  <div v-if="ebayStore.shippingPolicies.length === 0" class="text-center py-6">
+                    <i class="pi pi-inbox text-gray-300 text-3xl mb-2"/>
+                    <p class="text-gray-500">Aucune politique d'expedition</p>
                   </div>
-                  <Tag v-if="policy.isDefault" severity="success" value="Par defaut" />
-                </div>
-              </div>
-            </div>
+                  <div v-else class="space-y-3">
+                    <div
+                      v-for="policy in ebayStore.shippingPolicies"
+                      :key="policy.id"
+                      class="p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div class="flex items-center justify-between">
+                        <div>
+                          <p class="font-semibold text-secondary-900">{{ policy.name }}</p>
+                          <p class="text-sm text-gray-500">{{ getShippingTypeLabel(policy) }}</p>
+                        </div>
+                        <Tag v-if="policy.isDefault" severity="success" value="Par defaut" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-4">
+                    <Button
+                      label="Gerer sur eBay"
+                      icon="pi pi-external-link"
+                      class="w-full btn-secondary"
+                      @click="openEbaySettings('shipping')"
+                    />
+                  </div>
+                </TabPanel>
 
-            <div class="mt-4">
-              <Button
-                label="Gerer sur eBay"
-                icon="pi pi-external-link"
-                class="w-full btn-secondary"
-                @click="openEbaySettings('return')"
-              />
-            </div>
+                <!-- Return Policies -->
+                <TabPanel value="return">
+                  <div v-if="ebayStore.returnPolicies.length === 0" class="text-center py-6">
+                    <i class="pi pi-inbox text-gray-300 text-3xl mb-2"/>
+                    <p class="text-gray-500">Aucune politique de retour</p>
+                  </div>
+                  <div v-else class="space-y-3">
+                    <div
+                      v-for="policy in ebayStore.returnPolicies"
+                      :key="policy.id"
+                      class="p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div class="flex items-center justify-between">
+                        <div>
+                          <p class="font-semibold text-secondary-900">{{ policy.name }}</p>
+                          <p class="text-sm text-gray-500">
+                            {{ policy.returnsAccepted ? `Retours sous ${policy.returnPeriod || 30} jours` : 'Pas de retours' }}
+                          </p>
+                        </div>
+                        <Tag v-if="policy.isDefault" severity="success" value="Par defaut" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-4">
+                    <Button
+                      label="Gerer sur eBay"
+                      icon="pi pi-external-link"
+                      class="w-full btn-secondary"
+                      @click="openEbaySettings('return')"
+                    />
+                  </div>
+                </TabPanel>
+
+                <!-- Payment Policies -->
+                <TabPanel value="payment">
+                  <div v-if="ebayStore.paymentPolicies.length === 0" class="text-center py-6">
+                    <i class="pi pi-inbox text-gray-300 text-3xl mb-2"/>
+                    <p class="text-gray-500">Aucune politique de paiement</p>
+                  </div>
+                  <div v-else class="space-y-3">
+                    <div
+                      v-for="policy in ebayStore.paymentPolicies"
+                      :key="policy.id"
+                      class="p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div class="flex items-center justify-between">
+                        <div>
+                          <p class="font-semibold text-secondary-900">{{ policy.name }}</p>
+                          <p class="text-sm text-gray-500">
+                            {{ formatPaymentMethods(policy.paymentMethods) }}
+                            {{ policy.immediatePay ? ' - Paiement immediat' : '' }}
+                          </p>
+                        </div>
+                        <Tag v-if="policy.isDefault" severity="success" value="Par defaut" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-4">
+                    <Button
+                      label="Gerer sur eBay"
+                      icon="pi pi-external-link"
+                      class="w-full btn-secondary"
+                      @click="openEbaySettings('payment')"
+                    />
+                  </div>
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
           </template>
         </Card>
     </template>
@@ -228,6 +281,18 @@ const { showSuccess, showError } = useAppToast()
 // State
 const saving = ref(false)
 const loadingPolicies = ref(false)
+const selectedMarketplace = ref('EBAY_FR')
+
+const ebayMarketplaces = [
+  { label: 'France', value: 'EBAY_FR' },
+  { label: 'Allemagne', value: 'EBAY_DE' },
+  { label: 'Royaume-Uni', value: 'EBAY_GB' },
+  { label: 'Italie', value: 'EBAY_IT' },
+  { label: 'Espagne', value: 'EBAY_ES' },
+  { label: 'Pays-Bas', value: 'EBAY_NL' },
+  { label: 'Belgique', value: 'EBAY_BE' },
+  { label: 'Autriche', value: 'EBAY_AT' },
+]
 
 const syncSettings = reactive({
   autoSync: true,
@@ -245,13 +310,15 @@ const syncIntervals = [
 
 // Methods
 const loadPolicies = async () => {
-  ebayLogger.info('Loading eBay policies')
+  ebayLogger.info('Loading eBay policies', { marketplace: selectedMarketplace.value })
   loadingPolicies.value = true
   try {
-    await ebayStore.fetchPolicies()
+    await ebayStore.fetchPolicies(selectedMarketplace.value)
     ebayLogger.info('eBay policies loaded successfully', {
+      marketplace: selectedMarketplace.value,
       shippingPoliciesCount: ebayStore.shippingPolicies.length,
-      returnPoliciesCount: ebayStore.returnPolicies.length
+      returnPoliciesCount: ebayStore.returnPolicies.length,
+      paymentPoliciesCount: ebayStore.paymentPolicies.length
     })
   } catch (e: any) {
     ebayLogger.error('Failed to load eBay policies', {
@@ -262,6 +329,10 @@ const loadPolicies = async () => {
   } finally {
     loadingPolicies.value = false
   }
+}
+
+const onMarketplaceChange = () => {
+  loadPolicies()
 }
 
 const saveSettings = async () => {
@@ -317,9 +388,19 @@ const openEbaySettings = (type: string) => {
   if (!import.meta.client) return
   const urls: Record<string, string> = {
     shipping: 'https://www.ebay.fr/sh/settings/shipping-preferences',
-    return: 'https://www.ebay.fr/sh/settings/return-preferences'
+    return: 'https://www.ebay.fr/sh/settings/return-preferences',
+    payment: 'https://www.ebay.fr/sh/settings/payment-preferences'
   }
   window.open(urls[type] || 'https://www.ebay.fr/sh/ovw', '_blank')
+}
+
+const formatPaymentMethods = (methods: string[]): string => {
+  const labels: Record<string, string> = {
+    paypal: 'PayPal',
+    credit_card: 'Carte bancaire',
+    bank_transfer: 'Virement'
+  }
+  return methods.map(m => labels[m] || m).join(', ')
 }
 
 const getSellerLevelSeverity = () => {

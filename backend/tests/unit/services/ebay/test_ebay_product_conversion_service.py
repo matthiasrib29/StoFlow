@@ -10,7 +10,20 @@ import pytest
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
+from models.user.ebay_marketplace_settings import EbayMarketplaceSettings
 from shared.exceptions import ProductValidationError
+
+
+def _make_query_side_effect(marketplace_config):
+    """Build a side_effect for db.query that returns different chains per model."""
+    def _side_effect(model_class):
+        chain = MagicMock()
+        if model_class is EbayMarketplaceSettings:
+            chain.filter.return_value.first.return_value = None
+        else:
+            chain.filter.return_value.first.return_value = marketplace_config
+        return chain
+    return _side_effect
 
 
 class TestEbayProductConversionServiceCategoryResolution:
@@ -24,17 +37,37 @@ class TestEbayProductConversionServiceCategoryResolution:
         product.title = "Test Product"
         product.description = "Test description"
         product.price = Decimal("50.00")
-        product.condition = 8  # 8 = Excellent
+        product.condition = 3  # note 0-10
         product.stock_quantity = 1
         product.brand = "TestBrand"
-        product.color = "Blue"
         product.size_original = "M"
-        product.material = "Cotton"
         product.gender = "men"
         product.fit = None
-        product.condition_sup = None
         product.category = "jeans"
-        product.images = '["https://example.com/img1.jpg"]'
+        product.model = "501"
+        product.decade = "1990s"
+        product.location = "Paris"
+
+        # Colors (M2M)
+        product.colors = ["Blue"]
+        product.product_colors = [MagicMock(color="Blue", is_primary=True)]
+        product.primary_color = "Blue"
+
+        # Materials (M2M)
+        product.materials = ["Cotton"]
+        product.product_materials = [MagicMock(material="Cotton", percentage=100)]
+
+        # Condition sups (M2M)
+        product.condition_sups = []
+        product.product_condition_sups = []
+
+        # Images (relationship)
+        mock_image = MagicMock()
+        mock_image.url = "https://example.com/img1.jpg"
+        mock_image.is_label = False
+        mock_image.order = 0
+        product.product_images = [mock_image]
+
         return product
 
     @pytest.fixture
@@ -53,7 +86,11 @@ class TestEbayProductConversionServiceCategoryResolution:
             service.platform_mapping = MagicMock()
             service.platform_mapping.ebay_price_coefficient_fr = Decimal("1.2")
             service.platform_mapping.ebay_price_fee_fr = Decimal("2.00")
-            service._condition_map = {"excellent": "PRE_OWNED_EXCELLENT"}
+            service._condition_map = {3: "PRE_OWNED_EXCELLENT"}
+            service._seo_title_service = MagicMock()
+            service._seo_title_service.generate_seo_title.return_value = "TestBrand 501 SEO Title"
+            service._description_service = MagicMock()
+            service._description_service.generate_description.return_value = "<div>Test description</div>"
             return service
 
     @pytest.fixture
@@ -68,10 +105,8 @@ class TestEbayProductConversionServiceCategoryResolution:
         self, mock_service, mock_product, mock_marketplace_config
     ):
         """Test that category_id is auto-resolved when not provided."""
-        # Setup mock queries
-        mock_service.db.query.return_value.filter.return_value.first.return_value = (
-            mock_marketplace_config
-        )
+        # Setup mock queries (differentiate EbayMarketplaceSettings from others)
+        mock_service.db.query.side_effect = _make_query_side_effect(mock_marketplace_config)
 
         with patch(
             "services.ebay.ebay_product_conversion_service.EbayMapper.resolve_ebay_category_id",
@@ -98,9 +133,7 @@ class TestEbayProductConversionServiceCategoryResolution:
         self, mock_service, mock_product, mock_marketplace_config
     ):
         """Test that provided category_id is used when given."""
-        mock_service.db.query.return_value.filter.return_value.first.return_value = (
-            mock_marketplace_config
-        )
+        mock_service.db.query.side_effect = _make_query_side_effect(mock_marketplace_config)
 
         with patch(
             "services.ebay.ebay_product_conversion_service.EbayMapper.resolve_ebay_category_id"
@@ -126,9 +159,7 @@ class TestEbayProductConversionServiceCategoryResolution:
         """Test that error is raised when category cannot be resolved."""
         mock_product.category = "unknown_category"
 
-        mock_service.db.query.return_value.filter.return_value.first.return_value = (
-            mock_marketplace_config
-        )
+        mock_service.db.query.side_effect = _make_query_side_effect(mock_marketplace_config)
 
         with patch(
             "services.ebay.ebay_product_conversion_service.EbayMapper.resolve_ebay_category_id",
@@ -156,9 +187,7 @@ class TestEbayProductConversionServiceCategoryResolution:
         mock_product.category = None
         mock_product.gender = None
 
-        mock_service.db.query.return_value.filter.return_value.first.return_value = (
-            mock_marketplace_config
-        )
+        mock_service.db.query.side_effect = _make_query_side_effect(mock_marketplace_config)
 
         with pytest.raises(ProductValidationError) as exc_info:
             mock_service.create_offer_data(
@@ -178,9 +207,7 @@ class TestEbayProductConversionServiceCategoryResolution:
         self, mock_service, mock_product, mock_marketplace_config
     ):
         """Test that auto-resolution is logged."""
-        mock_service.db.query.return_value.filter.return_value.first.return_value = (
-            mock_marketplace_config
-        )
+        mock_service.db.query.side_effect = _make_query_side_effect(mock_marketplace_config)
 
         with patch(
             "services.ebay.ebay_product_conversion_service.EbayMapper.resolve_ebay_category_id",
