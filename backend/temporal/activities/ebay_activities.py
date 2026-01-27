@@ -748,6 +748,81 @@ def detect_ebay_sold_elsewhere(user_id: int) -> dict:
         db.close()
 
 
+# Read-only fields returned by eBay that must not be sent back on update
+_OFFER_READONLY_FIELDS = {"offerId", "status", "listing", "errors", "warnings"}
+
+
+@activity.defn
+def apply_policy_to_single_offer(
+    user_id: int,
+    offer_id: str,
+    marketplace_id: str,
+    policy_field: str,
+    policy_id: str,
+) -> dict:
+    """
+    Fetch one eBay offer, update its policy, PUT back.
+
+    Args:
+        user_id: User ID for schema isolation
+        offer_id: eBay offer ID
+        marketplace_id: eBay marketplace (EBAY_FR, etc.)
+        policy_field: Policy field name (paymentPolicyId, fulfillmentPolicyId, returnPolicyId)
+        policy_id: New policy ID to apply
+
+    Returns:
+        Dict with 'success', 'offer_id', optional 'skipped', optional 'error'
+    """
+    db = SessionLocal()
+    try:
+        _configure_session(db, user_id)
+
+        from services.ebay.ebay_offer_client import EbayOfferClient
+
+        client = EbayOfferClient(db, user_id, marketplace_id)
+
+        # Fetch full offer from eBay
+        offer = client.get_offer(offer_id)
+
+        # Check if policy already matches
+        current_policies = offer.get("listingPolicies", {})
+        if current_policies.get(policy_field) == policy_id:
+            return {"success": True, "offer_id": offer_id, "skipped": True}
+
+        # Build update body: strip read-only fields
+        update_data = {
+            k: v for k, v in offer.items() if k not in _OFFER_READONLY_FIELDS
+        }
+        if "listingPolicies" not in update_data:
+            update_data["listingPolicies"] = current_policies
+        update_data["listingPolicies"][policy_field] = policy_id
+
+        client.update_offer(offer_id, update_data)
+
+        activity.logger.debug(f"Applied {policy_field}={policy_id} to offer {offer_id}")
+        return {"success": True, "offer_id": offer_id, "skipped": False}
+
+    except Exception as e:
+        error_detail = str(e)[:200]
+        # Extract eBay response body for detailed error info
+        response_body = getattr(e, "response_body", None)
+        if response_body:
+            errors = response_body.get("errors", [])
+            if errors:
+                error_detail = "; ".join(
+                    err.get("message", str(err)) for err in errors[:3]
+                )
+            activity.logger.warning(
+                f"Failed to apply policy to offer {offer_id}: {error_detail}"
+            )
+        else:
+            activity.logger.warning(f"Failed to apply policy to offer {offer_id}: {e}")
+        return {"success": False, "offer_id": offer_id, "error": error_detail}
+
+    finally:
+        db.close()
+
+
 @activity.defn
 def delete_ebay_listing(user_id: int, product_id: int, marketplace_id: str = "EBAY_FR") -> dict:
     """
@@ -812,4 +887,5 @@ EBAY_ACTIVITIES = [
     get_skus_to_enrich,
     detect_ebay_sold_elsewhere,
     delete_ebay_listing,
+    apply_policy_to_single_offer,
 ]

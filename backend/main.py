@@ -74,7 +74,7 @@ from worker.dispatcher_config import DispatcherConfig
 # Temporal Workflow Orchestration (2026-01-21)
 from temporal.config import get_temporal_config
 from temporal.worker import get_worker_manager
-from temporal.workflows import EbaySyncWorkflow, EbayCleanupWorkflow, VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow
+from temporal.workflows import EbaySyncWorkflow, EbayCleanupWorkflow, EbayApplyPolicyWorkflow, VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow
 from temporal.activities import EBAY_ACTIVITIES, VINTED_ACTIVITIES
 
 # Configuration du logging
@@ -188,6 +188,7 @@ async def lifespan(app: FastAPI):
 
             worker_manager.register_workflow(EbaySyncWorkflow)
             worker_manager.register_workflow(EbayCleanupWorkflow)
+            worker_manager.register_workflow(EbayApplyPolicyWorkflow)
             worker_manager.register_activities(EBAY_ACTIVITIES)
 
             await worker_manager.start()

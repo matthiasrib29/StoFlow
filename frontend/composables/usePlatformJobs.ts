@@ -359,6 +359,7 @@ export const usePlatformJobs = (platformCode: PlatformCode) => {
       message: 'Messages',
       import: 'Import',
       export: 'Export',
+      apply_policy: 'Application politique',
     }
     return labels[actionCode] || actionCode
   }

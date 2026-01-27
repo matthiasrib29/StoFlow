@@ -44,44 +44,118 @@ export const useEbayPolicies = () => {
   }
 
   /**
-   * Create a shipping policy
+   * Create a payment policy via API
    */
-  const createShippingPolicy = async (
-    policy: Omit<EbayShippingPolicy, 'id'>
-  ): Promise<EbayShippingPolicy> => {
-    // TODO: Replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    return {
-      ...policy,
-      id: `ship_${Date.now()}`
-    }
+  const createPaymentPolicy = async (data: {
+    name: string
+    marketplace_id: string
+    immediate_pay?: boolean
+  }): Promise<any> => {
+    return api.post('/ebay/policies/payment', data)
   }
 
   /**
-   * Create a return policy
+   * Create a fulfillment (shipping) policy via API
    */
-  const createReturnPolicy = async (
-    policy: Omit<EbayReturnPolicy, 'id'>
-  ): Promise<EbayReturnPolicy> => {
-    // TODO: Replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    return {
-      ...policy,
-      id: `ret_${Date.now()}`
-    }
+  const createFulfillmentPolicy = async (data: {
+    name: string
+    marketplace_id: string
+    handling_time_value?: number
+    shipping_services: Array<{
+      shipping_carrier_code: string
+      shipping_service_code: string
+      shipping_cost: number
+      currency?: string
+      free_shipping?: boolean
+      additional_cost?: number
+    }>
+  }): Promise<any> => {
+    return api.post('/ebay/policies/fulfillment', data)
   }
 
   /**
-   * Delete a policy
+   * Create a return policy via API
+   */
+  const createReturnPolicy = async (data: {
+    name: string
+    marketplace_id: string
+    returns_accepted?: boolean
+    return_period_value?: number
+    refund_method?: string
+    return_shipping_cost_payer?: string
+  }): Promise<any> => {
+    return api.post('/ebay/policies/return', data)
+  }
+
+  /**
+   * Update a payment policy via API
+   */
+  const updatePaymentPolicy = async (policyId: string, data: {
+    name: string
+    marketplace_id: string
+    immediate_pay?: boolean
+  }): Promise<any> => {
+    return api.put(`/ebay/policies/payment/${policyId}`, data)
+  }
+
+  /**
+   * Update a fulfillment (shipping) policy via API
+   */
+  const updateFulfillmentPolicy = async (policyId: string, data: {
+    name: string
+    marketplace_id: string
+    handling_time_value?: number
+    shipping_services: Array<{
+      shipping_carrier_code: string
+      shipping_service_code: string
+      shipping_cost: number
+      currency?: string
+      free_shipping?: boolean
+      additional_cost?: number
+    }>
+  }): Promise<any> => {
+    return api.put(`/ebay/policies/fulfillment/${policyId}`, data)
+  }
+
+  /**
+   * Update a return policy via API
+   */
+  const updateReturnPolicy = async (policyId: string, data: {
+    name: string
+    marketplace_id: string
+    returns_accepted?: boolean
+    return_period_value?: number
+    refund_method?: string
+    return_shipping_cost_payer?: string
+  }): Promise<any> => {
+    return api.put(`/ebay/policies/return/${policyId}`, data)
+  }
+
+  /**
+   * Delete a policy via API
    */
   const deletePolicy = async (
     type: 'shipping' | 'return' | 'payment',
-    policyId: string
+    policyId: string,
+    marketplaceId: string = 'EBAY_FR'
   ): Promise<void> => {
-    // TODO: Replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 300))
+    const typeMap: Record<string, string> = {
+      shipping: 'fulfillment',
+      return: 'return',
+      payment: 'payment'
+    }
+    await api.del(`/ebay/policies/${typeMap[type]}/${policyId}?marketplace_id=${marketplaceId}`)
+  }
+
+  /**
+   * Apply a policy to all existing eBay offers for a marketplace
+   */
+  const applyPolicyToOffers = async (data: {
+    policy_type: 'payment' | 'fulfillment' | 'return'
+    policy_id: string
+    marketplace_id: string
+  }): Promise<{ updated: number; skipped: number; errors: any[]; settings_updated: boolean }> => {
+    return api.post('/ebay/policies/apply-to-offers', data)
   }
 
   /**
@@ -264,9 +338,14 @@ export const useEbayPolicies = () => {
 
   return {
     fetchPolicies,
-    createShippingPolicy,
+    createPaymentPolicy,
+    createFulfillmentPolicy,
     createReturnPolicy,
+    updatePaymentPolicy,
+    updateFulfillmentPolicy,
+    updateReturnPolicy,
     deletePolicy,
+    applyPolicyToOffers,
     fetchPoliciesMock,
     fetchCategoriesMock
   }
