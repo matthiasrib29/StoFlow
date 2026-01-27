@@ -333,127 +333,69 @@ class ProductService:
                 "Contact support if price/data correction needed."
             )
 
-        # Partial validation: only modified attributes
         update_dict = product_data.model_dump(exclude_unset=True)
 
-        # ===== EXTRACT STATUS (handled separately via ProductStatusManager) =====
+        # Extract status (handled separately via ProductStatusManager)
         new_status_str = update_dict.pop('status', None)
 
-        # ===== EXTRACT M2M FIELDS (Added 2026-01-07) =====
-        # Extract M2M fields from update_dict (they need special handling)
-        # Standardize: None and [] are equivalent for M2M fields (both mean "clear all")
-        colors_provided = 'colors' in update_dict or 'color' in update_dict
-        materials_provided = 'materials' in update_dict or 'material' in update_dict
-        condition_sups_provided = 'condition_sups' in update_dict or 'condition_sup' in update_dict
+        # Extract M2M fields (they need special handling, pops from update_dict)
+        m2m = ProductService._extract_m2m_fields(update_dict)
 
-        # Prefer new M2M fields over deprecated fields
-        colors_to_update = None
-        if 'colors' in update_dict:
-            colors_to_update = update_dict.pop('colors') or []  # Normalize: None → []
-        elif 'color' in update_dict:
-            color_value = update_dict.pop('color')
-            colors_to_update = [color_value] if color_value else []
-
-        materials_to_update = None
-        material_details_to_update = None
-        if 'materials' in update_dict:
-            materials_to_update = update_dict.pop('materials') or []  # Normalize: None → []
-        if 'material_details' in update_dict:
-            material_details_to_update = update_dict.pop('material_details')
-        if materials_to_update is None and 'material' in update_dict:
-            material_value = update_dict.pop('material')
-            materials_to_update = [material_value] if material_value else []
-
-        condition_sups_to_update = None
-        if 'condition_sups' in update_dict:
-            condition_sups_to_update = update_dict.pop('condition_sups') or []  # Normalize: None → []
-        elif 'condition_sup' in update_dict:
-            condition_sups_to_update = update_dict.pop('condition_sup') or []  # Normalize: None → []
-
-        # ===== AUTO-CREATE SIZE ORIGINAL IF MODIFIED (Business Rule 2026-01-06) =====
+        # Auto-create size_original if modified (Business Rule 2026-01-06)
         if 'size_original' in update_dict:
             raw_value = update_dict.get('size_original')
             if raw_value:
-                # User provided a value → adjust with dimensions
                 size_original_value = ProductUtils.adjust_size(
                     raw_value,
                     update_dict.get('dim1', product.dim1),
-                    update_dict.get('dim6', product.dim6)
+                    update_dict.get('dim6', product.dim6),
                 )
                 if size_original_value:
                     from repositories.size_original_repository import SizeOriginalRepository
                     SizeOriginalRepository.get_or_create(db, size_original_value)
                     update_dict['size_original'] = size_original_value
-            # else: user explicitly cleared → update_dict keeps None → DB will be set to NULL
 
-        # ===== VALIDATE M2M ATTRIBUTES IF PROVIDED (Added 2026-01-07) =====
+        # Validate M2M attributes
         validated_colors = None
         validated_materials = None
         material_percentages = {}
+        validated_condition_sups = None
 
-        if colors_to_update is not None:
-            validated_colors = AttributeValidator.validate_colors(db, colors_to_update)
+        if m2m['colors'] is not None:
+            validated_colors = AttributeValidator.validate_colors(db, m2m['colors'])
 
-        if materials_to_update is not None:
+        if m2m['materials'] is not None:
             validated_materials, material_percentages = AttributeValidator.validate_materials(
                 db,
-                materials_to_update,
-                [md.model_dump() for md in material_details_to_update] if material_details_to_update else None
+                m2m['materials'],
+                [md.model_dump() for md in m2m['material_details']] if m2m['material_details'] else None,
             )
 
-        validated_condition_sups = None
-        if condition_sups_to_update is not None:
-            validated_condition_sups = AttributeValidator.validate_condition_sups(db, condition_sups_to_update)
-            # ✂️ REMOVED: condition_sup column (M2M table only)
+        if m2m['condition_sups'] is not None:
+            validated_condition_sups = AttributeValidator.validate_condition_sups(
+                db, m2m['condition_sups']
+            )
 
-        # ✂️ 2026-01-07: STOPPED updating deprecated color/material/condition_sup columns (Phase 1)
-        # Previously: if validated_colors is not None: update_dict['color'] = ...
-        # Previously: if validated_materials is not None: update_dict['material'] = ...
-        # Now: M2M tables only
-
+        # Validate FK attributes
         AttributeValidator.validate_product_attributes(db, update_dict, partial=True)
 
-        # Apply modifications with optimistic locking (version check)
+        # Apply scalar updates with optimistic locking
         if update_dict:
-            set_values = {**update_dict, "version_number": Product.version_number + 1}
-
-            result = db.execute(
-                update(Product)
-                .where(
-                    Product.id == product_id,
-                    Product.version_number == product.version_number
-                )
-                .values(**set_values)
-                .execution_options(synchronize_session="fetch")
+            ProductService._apply_optimistic_update(
+                db, product_id, product.version_number, update_dict
             )
-
-            if result.rowcount == 0:
-                raise ConcurrentModificationError(
-                    f"Product {product_id} was modified by another user. Please refresh and try again.",
-                    details={
-                        "product_id": product_id,
-                        "expected_version": product.version_number
-                    }
-                )
-
             db.refresh(product)
 
-        # ===== UPDATE M2M ENTRIES (Added 2026-01-07) =====
-        # REPLACE strategy: if M2M field provided, replace all entries
-        if validated_colors is not None:
-            ProductService._replace_product_colors(db, product.id, validated_colors)
-
-        if validated_materials is not None:
-            ProductService._replace_product_materials(db, product.id, validated_materials, material_percentages)
-
-        if validated_condition_sups is not None:
-            ProductService._replace_product_condition_sups(db, product.id, validated_condition_sups)
-
-        # Refresh product to get M2M updates (no commit - handled by get_db())
-        if any([validated_colors is not None, validated_materials is not None, validated_condition_sups is not None]):
+        # Apply M2M relation updates
+        m2m_updated = ProductService._apply_m2m_updates(
+            db, product_id,
+            validated_colors, validated_materials,
+            material_percentages, validated_condition_sups,
+        )
+        if m2m_updated:
             db.refresh(product)
 
-        # ===== STATUS CHANGE (after data update so validation uses fresh data) =====
+        # Status change (after data update so validation uses fresh data)
         if new_status_str:
             new_status = ProductStatus(new_status_str)
             if product.status != new_status:
@@ -672,6 +614,112 @@ class ProductService:
             db.add(product_condition_sup)
 
         logger.debug(f"[ProductService] Created {len(condition_sups)} condition_sup entries for product_id={product_id}")
+
+    @staticmethod
+    def _extract_m2m_fields(update_dict: dict) -> dict:
+        """
+        Extract M2M fields from update_dict (pops them in place).
+
+        Handles backward compatibility with deprecated singular fields
+        (color, material, condition_sup).
+
+        Returns:
+            Dict with 'colors', 'materials', 'material_details', 'condition_sups'
+            (each is list or None)
+        """
+        colors = None
+        if 'colors' in update_dict:
+            colors = update_dict.pop('colors') or []
+        elif 'color' in update_dict:
+            color_value = update_dict.pop('color')
+            colors = [color_value] if color_value else []
+
+        materials = None
+        material_details = None
+        if 'materials' in update_dict:
+            materials = update_dict.pop('materials') or []
+        if 'material_details' in update_dict:
+            material_details = update_dict.pop('material_details')
+        if materials is None and 'material' in update_dict:
+            material_value = update_dict.pop('material')
+            materials = [material_value] if material_value else []
+
+        condition_sups = None
+        if 'condition_sups' in update_dict:
+            condition_sups = update_dict.pop('condition_sups') or []
+        elif 'condition_sup' in update_dict:
+            condition_sups = update_dict.pop('condition_sup') or []
+
+        return {
+            'colors': colors,
+            'materials': materials,
+            'material_details': material_details,
+            'condition_sups': condition_sups,
+        }
+
+    @staticmethod
+    def _apply_optimistic_update(
+        db: Session, product_id: int, current_version: int, update_dict: dict
+    ) -> None:
+        """
+        Apply update with optimistic locking (version check).
+
+        Raises:
+            ConcurrentModificationError: If product was modified by another user
+        """
+        set_values = {**update_dict, "version_number": Product.version_number + 1}
+
+        result = db.execute(
+            update(Product)
+            .where(
+                Product.id == product_id,
+                Product.version_number == current_version,
+            )
+            .values(**set_values)
+            .execution_options(synchronize_session="fetch")
+        )
+
+        if result.rowcount == 0:
+            raise ConcurrentModificationError(
+                f"Product {product_id} was modified by another user. Please refresh and try again.",
+                details={
+                    "product_id": product_id,
+                    "expected_version": current_version,
+                },
+            )
+
+    @staticmethod
+    def _apply_m2m_updates(
+        db: Session,
+        product_id: int,
+        validated_colors: Optional[list],
+        validated_materials: Optional[list],
+        material_percentages: dict,
+        validated_condition_sups: Optional[list],
+    ) -> bool:
+        """
+        Apply M2M relation updates (REPLACE strategy).
+
+        Returns:
+            True if any M2M update was applied
+        """
+        updated = False
+
+        if validated_colors is not None:
+            ProductService._replace_product_colors(db, product_id, validated_colors)
+            updated = True
+
+        if validated_materials is not None:
+            ProductService._replace_product_materials(
+                db, product_id, validated_materials, material_percentages
+            )
+            updated = True
+
+        if validated_condition_sups is not None:
+            ProductService._replace_product_condition_sups(db, product_id, validated_condition_sups)
+            updated = True
+
+        return updated
 
     @staticmethod
     def _replace_product_colors(
