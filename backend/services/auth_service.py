@@ -465,7 +465,7 @@ class AuthService:
             return True
 
         except Exception as e:
-            logger.error(f"Error revoking token: {e}")
+            logger.error(f"Error revoking token: {e}", exc_info=True)
             db.rollback()
             return False
 

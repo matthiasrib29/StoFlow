@@ -279,6 +279,7 @@ class PricingService:
         except ValueError as e:
             logger.error(
                 f"[PricingService] Group determination failed: {e}",
+                exc_info=True,
                 extra={
                     "category": category,
                     "materials": materials

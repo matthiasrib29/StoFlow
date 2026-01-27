@@ -543,15 +543,15 @@ Analyze ALL provided images."""
             return extracted_attributes, total_tokens, cost, images_analyzed
 
         except genai.errors.ClientError as e:
-            logger.error(f"[AIVisionService] Gemini client error: {e}")
+            logger.error(f"[AIVisionService] Gemini client error: {e}", exc_info=True)
             raise AIGenerationError("Clé API Gemini invalide ou erreur client")
         except genai.errors.ServerError as e:
-            logger.error(f"[AIVisionService] Gemini server error: {e}")
+            logger.error(f"[AIVisionService] Gemini server error: {e}", exc_info=True)
             raise AIGenerationError(
                 "Erreur serveur Gemini. Réessayez dans quelques minutes."
             )
         except genai.errors.APIError as e:
-            logger.error(f"[AIVisionService] Gemini API error: {e}")
+            logger.error(f"[AIVisionService] Gemini API error: {e}", exc_info=True)
             raise AIGenerationError(f"Erreur API Gemini: {str(e)}")
         except Exception as e:
             logger.error(

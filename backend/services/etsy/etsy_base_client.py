@@ -203,7 +203,7 @@ class EtsyBaseClient:
             return new_access_token
 
         except Exception as e:
-            logger.error(f"Error refreshing Etsy token: {e}")
+            logger.error(f"Error refreshing Etsy token: {e}", exc_info=True)
             raise RuntimeError(f"Failed to refresh Etsy access token: {str(e)}")
 
     def _update_tokens_in_db(

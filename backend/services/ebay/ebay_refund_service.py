@@ -379,7 +379,8 @@ class EbayRefundService:
                     total_skipped += result.get("skipped", 0)
                 except Exception as e:
                     logger.error(
-                        f"[EbayRefundService] Error syncing order {order_id}: {e}"
+                        f"[EbayRefundService] Error syncing order {order_id}: {e}",
+                        exc_info=True,
                     )
                     total_errors += 1
 

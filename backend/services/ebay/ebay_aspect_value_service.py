@@ -258,7 +258,8 @@ class EbayAspectValueService:
         except Exception as e:
             logger.error(
                 f"Error getting aspect value ({field_value}, {aspect_key}, "
-                f"{marketplace_id}): {e}"
+                f"{marketplace_id}): {e}",
+                exc_info=True,
             )
             return None
 

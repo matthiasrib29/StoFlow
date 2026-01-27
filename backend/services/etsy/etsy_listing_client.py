@@ -380,7 +380,7 @@ class EtsyListingClient(EtsyBaseClient):
             image_bytes = img_response.content
             logger.info(f"Image downloaded: {len(image_bytes)} bytes")
         except Exception as e:
-            logger.error(f"Failed to download image from {image_url}: {e}")
+            logger.error(f"Failed to download image from {image_url}: {e}", exc_info=True)
             raise
 
         # 2. Upload to Etsy (multipart/form-data)
