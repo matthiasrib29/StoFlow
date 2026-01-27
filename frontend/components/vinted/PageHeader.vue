@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-4">
         <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm border border-gray-100 p-2">
-          <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-full h-full object-contain">
+          <NuxtImg src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-full h-full object-contain" />
         </div>
         <div>
           <h1 class="text-2xl font-bold text-secondary-900 mb-0.5">{{ title }}</h1>

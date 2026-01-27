@@ -3,7 +3,7 @@
     <!-- Platform Logo + Title -->
     <div class="flex items-center gap-2">
       <div class="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm border border-gray-100 p-1">
-        <img :src="logoSrc" :alt="platformName" class="w-full h-full object-contain">
+        <NuxtImg :src="logoSrc" :alt="platformName" class="w-full h-full object-contain" />
       </div>
       <span class="font-semibold text-secondary-900">{{ platformName }}</span>
     </div>
