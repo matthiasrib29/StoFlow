@@ -1,3 +1,4 @@
+import { refDebounced } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import type { Product } from '~/stores/products'
 import { productLogger } from '~/utils/logger'
@@ -19,6 +20,7 @@ export function useProductsPage() {
 
   // Filters
   const searchQuery = ref('')
+  const debouncedSearch = refDebounced(searchQuery, 300)
   const selectedCategory = ref<string | null>(null)
   const selectedStatus = ref<string | null>(null)
 
@@ -31,29 +33,8 @@ export function useProductsPage() {
   const productToDelete = ref<Product | null>(null)
   const isDeleting = ref(false)
 
-  // Computed - Filtered products
-  const filteredProducts = computed(() => {
-    let products = productsStore.products
-
-    if (searchQuery.value) {
-      const query = searchQuery.value.toLowerCase()
-      products = products.filter(p =>
-        p.title.toLowerCase().includes(query) ||
-        p.brand.toLowerCase().includes(query) ||
-        p.id.toString().includes(query)
-      )
-    }
-
-    if (selectedCategory.value) {
-      products = products.filter(p => p.category === selectedCategory.value)
-    }
-
-    if (selectedStatus.value) {
-      products = products.filter(p => p.status === selectedStatus.value)
-    }
-
-    return products
-  })
+  // Computed - Products from store (filtering is done server-side)
+  const filteredProducts = computed(() => productsStore.products)
 
   // Load products with current pagination
   const loadProducts = async () => {
@@ -62,7 +43,8 @@ export function useProductsPage() {
         page: currentPage.value,
         limit: rowsPerPage.value,
         status: selectedStatus.value || undefined,
-        category: selectedCategory.value || undefined
+        category: selectedCategory.value || undefined,
+        search: debouncedSearch.value || undefined
       })
     } catch (error) {
       showError('Erreur', 'Impossible de charger les produits', 5000)
@@ -180,8 +162,8 @@ export function useProductsPage() {
     }
   }
 
-  // Watch filters to reload products
-  watch([selectedStatus, selectedCategory], async () => {
+  // Watch filters to reload products (debouncedSearch triggers server-side search)
+  watch([selectedStatus, selectedCategory, debouncedSearch], async () => {
     currentPage.value = 1
     await loadProducts()
   })

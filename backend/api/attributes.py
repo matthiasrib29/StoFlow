@@ -36,6 +36,8 @@ from models.public.sleeve_length import SleeveLength
 from models.public.sport import Sport
 from models.public.stretch import Stretch
 from models.public.trend import Trend
+from models.public.condition_sup import ConditionSup
+from models.public.unique_feature import UniqueFeature
 from shared.database import get_db
 
 router = APIRouter(prefix="/attributes", tags=["Attributes"])
@@ -65,6 +67,9 @@ ATTRIBUTE_MODELS = {
     "decades": Decade,
     "trends": Trend,
     "stretches": Stretch,
+    # Details attributes
+    "condition_sups": ConditionSup,
+    "unique_features": UniqueFeature,
 }
 
 # Configuration pour chaque type d'attribut
@@ -177,6 +182,17 @@ ATTRIBUTE_CONFIG = {
         "supports_search": False,
     },
     "stretches": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    # Details attributes
+    "condition_sups": {
+        "value_field": "name_en",
+        "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
+        "supports_search": False,
+    },
+    "unique_features": {
         "value_field": "name_en",
         "label_fields": ["name_en", "name_fr", "name_de", "name_it", "name_es", "name_nl", "name_pl"],
         "supports_search": False,

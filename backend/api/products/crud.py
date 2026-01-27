@@ -184,6 +184,7 @@ def list_products(
     status_filter: ProductStatus | None = Query(None, alias="status", description="Filtre par status"),
     category: str | None = Query(None, description="Filtre par catégorie"),
     brand: str | None = Query(None, description="Filtre par marque"),
+    search: str | None = Query(None, description="Recherche par ID, titre ou marque"),
     user_db: tuple = Depends(get_user_db),
 ) -> ProductListResponse:
     """
@@ -213,7 +214,7 @@ def list_products(
     # Note: Le filtrage par user est géré automatiquement via le search_path (schema user_X)
     # Pas besoin de passer user_id explicitement
     products, total = ProductService.list_products(
-        db, skip=skip, limit=limit, status=status_filter, category=category, brand=brand
+        db, skip=skip, limit=limit, status=status_filter, category=category, brand=brand, search=search
     )
 
     # Calculer pagination

@@ -17,6 +17,8 @@ export interface Product {
   brand: string
   label_size: string  // Renamed from 'size' to match API
   color: string
+  colors?: string[]
+  primary_color?: string | null
 
   // Size fields
   size_original?: string | null
@@ -24,6 +26,7 @@ export interface Product {
 
   // Attributs optionnels avec FK
   material?: string | null
+  materials?: string[]
   fit?: string | null
   gender?: string | null
   season?: string | null
@@ -167,6 +170,7 @@ export const useProductsStore = defineStore('products', {
       status?: string
       category?: string
       brand?: string
+      search?: string
     }) {
       this.isLoading = true
       this.error = null
@@ -181,6 +185,7 @@ export const useProductsStore = defineStore('products', {
         if (options?.status) params.append('status', options.status)
         if (options?.category) params.append('category', options.category)
         if (options?.brand) params.append('brand', options.brand)
+        if (options?.search) params.append('search', options.search)
 
         const queryString = params.toString()
         const endpoint = `/products/?${queryString}`
@@ -262,7 +267,7 @@ export const useProductsStore = defineStore('products', {
 
       try {
         const api = useApi()
-        const updatedProduct = await api.patch<Product>(`/products/${id}`, productData)
+        const updatedProduct = await api.put<Product>(`/products/${id}`, productData)
 
         // Mettre à jour dans la liste locale
         const index = this.products.findIndex(p => p.id === id)

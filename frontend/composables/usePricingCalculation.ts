@@ -27,13 +27,34 @@ export interface PriceInput {
   expected_features: string[]
 }
 
+export interface ConditionDetail {
+  score: number
+  multiplier: number
+}
+
+export interface AdjustmentDetail {
+  actual_value: string | null
+  actual_coef: number
+  expected_values: string[]
+  expected_best: string | null
+  expected_coef: number
+}
+
 export interface AdjustmentBreakdown {
   condition: number
   origin: number
   decade: number
   trend: number
   feature: number
+  fit: number
   total: number
+  // Detailed calculation steps
+  condition_detail?: ConditionDetail
+  origin_detail?: AdjustmentDetail
+  decade_detail?: AdjustmentDetail
+  trend_detail?: AdjustmentDetail
+  feature_detail?: AdjustmentDetail
+  fit_detail?: AdjustmentDetail
 }
 
 export interface PriceOutput {
@@ -42,6 +63,7 @@ export interface PriceOutput {
   premium_price: string
   base_price: string
   model_coefficient: number
+  condition_multiplier: number
   adjustments: AdjustmentBreakdown
   brand: string
   group: string

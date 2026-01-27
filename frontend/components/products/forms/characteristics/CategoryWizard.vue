@@ -92,10 +92,12 @@ interface Props {
   categories: CategoryOption[]
   modelValue: string | null
   genders?: { value: string; label: string }[]
+  currentGender?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  genders: () => []
+  genders: () => [],
+  currentGender: null
 })
 
 const emit = defineEmits<{
@@ -205,10 +207,10 @@ const getCategoryPath = (categoryValue: string): string => {
     current = props.categories.find(c => c.value === current!.parent_category)
   }
 
-  // Prepend gender label at the beginning
-  if (category.genders && category.genders.length > 0) {
-    const genderValue = category.genders[0]
-    const genderOption = props.genders.find(g => g.value === genderValue)
+  // Prepend gender label at the beginning (use selectedGender or category.genders[0])
+  const genderValue = selectedGender.value || (category.genders && category.genders.length > 0 ? category.genders[0] : null)
+  if (genderValue) {
+    const genderOption = props.genders.find(g => g.value.toLowerCase() === genderValue.toLowerCase())
     if (genderOption) {
       trail.unshift(genderOption.label)
     }
@@ -303,9 +305,6 @@ const initializeFromValue = () => {
     return
   }
 
-  // Set display value to full path
-  displayValue.value = getCategoryPath(props.modelValue)
-
   // Navigate to parent of selected category
   const selectedCategory = props.categories.find(c => c.value === props.modelValue)
   if (selectedCategory) {
@@ -313,17 +312,29 @@ const initializeFromValue = () => {
       ? null
       : selectedCategory.parent_category
 
-    // Set gender from the selected category to preserve navigation context
-    if (selectedCategory.genders && selectedCategory.genders.length > 0) {
+    // Set gender BEFORE computing display path (getCategoryPath uses selectedGender)
+    if (props.currentGender) {
+      selectedGender.value = props.currentGender
+    } else if (selectedCategory.genders && selectedCategory.genders.length > 0) {
       selectedGender.value = selectedCategory.genders[0]
     }
   }
+
+  // Set display value AFTER gender is set
+  displayValue.value = getCategoryPath(props.modelValue)
 }
 
 // Watch for external value changes
 watch(() => props.modelValue, () => {
   initializeFromValue()
 }, { immediate: true })
+
+// Watch for gender changes (e.g., AI sets gender independently)
+watch(() => props.currentGender, () => {
+  if (props.modelValue) {
+    initializeFromValue()
+  }
+})
 
 // Watch categories loading
 watch(() => props.categories, () => {

@@ -21,7 +21,6 @@
   <ProductsProductEditorPage
       v-else
       :title="mode === 'create' ? 'Créer un produit' : 'Modifier le produit'"
-      :subtitle="mode === 'edit' ? editor.product.value?.title : undefined"
       :submit-label="mode === 'create' ? 'Créer le produit' : 'Enregistrer les modifications'"
       :show-progress-bar="true"
       :show-draft="mode === 'create'"
@@ -44,6 +43,7 @@
       :form-sections="editor.formSections.value"
       :is-scrolled="editor.isScrolled.value"
       :is-submitting="editor.isSubmitting.value"
+      :can-toggle-label="isAdmin && mode === 'edit'"
       @update:form="editor.handleFormUpdate"
       @update:photos="handlePhotosUpdate"
       @update:existing-images="handleExistingImagesUpdate"
@@ -106,6 +106,8 @@
             <ProductsPricingDisplay
               v-if="editor.pricing.priceResult.value"
               :pricing="editor.pricing.priceResult.value"
+              :selected-price="editor.form.value.price"
+              @select-price="editor.handleFormUpdate({ ...editor.form.value, price: $event })"
             />
 
             <!-- No pricing yet -->
@@ -133,6 +135,7 @@
 <script setup lang="ts">
 import { useProductEditor } from '~/composables/useProductEditor'
 import type { Photo, ExistingImage } from '~/composables/useProductImages'
+import { useAuthStore } from '~/stores/auth'
 
 interface Props {
   mode: 'create' | 'edit'
@@ -147,6 +150,10 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
+const authStore = useAuthStore()
+
+// Admin can toggle label on images
+const isAdmin = computed(() => authStore.currentUser?.role === 'admin')
 
 // Initialize the product editor based on mode
 const editor = useProductEditor({

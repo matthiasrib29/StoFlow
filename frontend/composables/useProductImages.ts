@@ -20,6 +20,7 @@ export interface UnifiedImage {
   // For existing images
   id?: number
   originalPosition?: number
+  is_label?: boolean
   // For new photos
   file?: File
 }
@@ -35,6 +36,7 @@ export interface ExistingImage {
   id: number
   url: string
   position: number
+  is_label?: boolean
 }
 
 // Image changes for API submission
@@ -116,7 +118,8 @@ export function useProductImages(options: UseProductImagesOptions = {}) {
       .map(img => ({
         id: img.id!,
         url: img.preview,
-        position: img.position
+        position: img.position,
+        is_label: img.is_label
       })),
     set: (newExisting: ExistingImage[]) => {
       // Remove all existing images
@@ -128,7 +131,8 @@ export function useProductImages(options: UseProductImagesOptions = {}) {
         preview: img.url,
         id: img.id,
         originalPosition: originalOrder.value.get(img.id) ?? img.position,
-        position: idx
+        position: idx,
+        is_label: img.is_label
       }))
       images.value = [...existingUnified, ...images.value]
       updatePositions()
@@ -138,7 +142,7 @@ export function useProductImages(options: UseProductImagesOptions = {}) {
   /**
    * Initialize with existing images (for edit mode)
    */
-  const initFromExisting = (dbImages: Array<{ url: string; order: number }> | undefined) => {
+  const initFromExisting = (dbImages: Array<{ url: string; order: number; is_label?: boolean }> | undefined) => {
     if (!dbImages || dbImages.length === 0) {
       images.value = []
       originalOrder.value.clear()
@@ -154,7 +158,8 @@ export function useProductImages(options: UseProductImagesOptions = {}) {
       preview: img.url,
       id: index, // Use index as ID since JSONB doesn't have IDs
       originalPosition: img.order,
-      position: index
+      position: index,
+      is_label: img.is_label ?? false
     }))
 
     // Store original order for change detection

@@ -158,7 +158,7 @@ export type CategoryType = 'tops' | 'bottoms' | 'dresses' | 'shoes' | 'accessori
  */
 export const categoryDimensions: Record<CategoryType, (keyof ProductFormData)[]> = {
   tops: ['dim1', 'dim2', 'dim3'],           // Poitrine, Longueur, Manches
-  bottoms: ['dim4', 'dim5', 'dim6'],        // Taille, Hanches, Entrejambe
+  bottoms: ['dim1', 'dim4', 'dim5', 'dim6'], // Taille, Tour taille, Hanches, Entrejambe
   dresses: ['dim1', 'dim2', 'dim3', 'dim4', 'dim5', 'dim6'],  // Toutes
   shoes: [],                                 // Aucune
   accessories: [],                           // Aucune
@@ -169,12 +169,12 @@ export const categoryDimensions: Record<CategoryType, (keyof ProductFormData)[]>
  * Dimension field labels and descriptions.
  */
 export const dimensionLabels: Record<string, { label: string; placeholder: string }> = {
-  dim1: { label: 'Tour de poitrine', placeholder: 'cm' },
-  dim2: { label: 'Longueur totale', placeholder: 'cm' },
-  dim3: { label: 'Longueur manches', placeholder: 'cm' },
-  dim4: { label: 'Tour de taille', placeholder: 'cm' },
-  dim5: { label: 'Tour de hanches', placeholder: 'cm' },
-  dim6: { label: 'Entrejambe', placeholder: 'cm' }
+  dim1: { label: 'Dim 1', placeholder: 'cm' },
+  dim2: { label: 'Dim 2', placeholder: 'cm' },
+  dim3: { label: 'Dim 3', placeholder: 'cm' },
+  dim4: { label: 'Dim 4', placeholder: 'cm' },
+  dim5: { label: 'Dim 5', placeholder: 'cm' },
+  dim6: { label: 'Dim 6', placeholder: 'cm' }
 }
 
 /**

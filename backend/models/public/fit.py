@@ -3,11 +3,14 @@ Fit Model
 
 Table pour les coupes de produits (schema product_attributes, multilingue).
 
-Business Rules (Updated: 2025-12-22):
+Business Rules (Updated: 2026-01-22):
 - 7 langues supportées: EN, FR, DE, IT, ES, NL, PL
+- pricing_coefficient: Coefficient pour l'ajustement de prix (-0.20 à +0.20)
 """
 
-from sqlalchemy import String
+from decimal import Decimal
+
+from sqlalchemy import Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.database import Base
@@ -47,6 +50,14 @@ class Fit(Base):
     )
     name_pl: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Nom de la coupe (PL)"
+    )
+
+    # ===== PRICING =====
+    pricing_coefficient: Mapped[Decimal] = mapped_column(
+        Numeric(4, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        comment="Coefficient pour l'ajustement de prix (-0.20 à +0.20)"
     )
 
     @property

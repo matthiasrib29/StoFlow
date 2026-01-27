@@ -10,18 +10,10 @@
       <h4 class="text-xs font-semibold text-gray-600 uppercase flex items-center gap-2">
         <i class="pi pi-rulers text-xs" />
         Dimensions (en cm)
-        <span v-if="categoryType !== 'other'" class="text-gray-400 font-normal">
-          - {{ categoryTypeLabel }}
-        </span>
       </h4>
 
-      <!-- Message si pas de dimensions pour cette catégorie -->
-      <div v-if="visibleDimensions.length === 0" class="text-sm text-gray-500 italic">
-        Pas de dimensions nécessaires pour cette catégorie.
-      </div>
-
       <!-- Grille de dimensions -->
-      <div v-else class="grid grid-cols-2 md:grid-cols-3 form-grid-spacing">
+      <div class="grid grid-cols-2 md:grid-cols-3 form-grid-spacing">
         <!-- Dim1: Poitrine -->
         <div v-if="visibleDimensions.includes('dim1')">
           <label class="block text-xs font-semibold mb-1 text-secondary-900">
@@ -126,12 +118,33 @@
           Taille suggérée : <strong>{{ suggestedSize }}</strong>
         </span>
       </div>
+
+      <!-- Shortened detection alert -->
+      <div v-if="isLikelyShortened" class="flex items-center gap-2 p-2 bg-amber-50 rounded-md">
+        <i class="pi pi-exclamation-triangle text-amber-600" />
+        <span class="text-sm text-amber-700">
+          Entrejambe court ({{ dim6 }} cm) — potentiellement raccourci
+        </span>
+        <button
+          type="button"
+          class="ml-auto text-xs font-medium px-2.5 py-1 rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
+          @click="emit('add:conditionSup', 'Hemmed/shortened')"
+        >
+          + Ajouter raccourci
+        </button>
+      </div>
+
+      <!-- Confirmation after adding -->
+      <div v-else-if="alreadyMarkedShortened && isFullLengthBottoms && dim6 && dim6 < SHORTENED_THRESHOLD_CM" class="flex items-center gap-2 p-2 bg-green-50 rounded-md">
+        <i class="pi pi-check-circle text-green-600" />
+        <span class="text-sm text-green-700">Marqué comme raccourci</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import {
   type CategoryType,
   categoryDimensions,
@@ -142,6 +155,8 @@ import {
 interface Props {
   // Catégorie (pour dimensions dynamiques)
   category: string
+  // Condition supplémentaire (pour détection raccourci)
+  conditionSup: string[] | null
   // Dimensions
   dim1: number | null
   dim2: number | null
@@ -153,13 +168,15 @@ interface Props {
 
 const props = defineProps<Props>()
 
-defineEmits<{
+const emit = defineEmits<{
   'update:dim1': [value: number | null]
   'update:dim2': [value: number | null]
   'update:dim3': [value: number | null]
   'update:dim4': [value: number | null]
   'update:dim5': [value: number | null]
   'update:dim6': [value: number | null]
+  'update:suggestedSize': [value: string | null]
+  'add:conditionSup': [value: string]
 }>()
 
 // Détecter le type de catégorie
@@ -181,9 +198,9 @@ const categoryTypeLabel = computed(() => {
   return labels[categoryType.value]
 })
 
-// Dimensions visibles selon la catégorie
+// Toujours afficher les 6 dimensions
 const visibleDimensions = computed(() => {
-  return categoryDimensions[categoryType.value] as string[]
+  return ['dim1', 'dim2', 'dim3', 'dim4', 'dim5', 'dim6']
 })
 
 // Calcul de la taille suggérée basée sur les dimensions
@@ -198,18 +215,20 @@ const suggestedSize = computed(() => {
     return 'XXL'
   }
 
-  // Pour les bas: basé sur dim4 (taille) et dim6 (entrejambe)
+  // Pour les bas: basé sur dim1 (taille à plat + 1cm marge, × 2) et dim6 (entrejambe)
+  // W arrondi à l'inférieur, L arrondi au supérieur (mieux trop grand que trop petit)
   if (categoryType.value === 'bottoms') {
-    if (props.dim4 && props.dim6) {
-      const waist = Math.round(props.dim4 / 2.54) // Convertir en inches
-      return `W${waist}/L${Math.round(props.dim6 / 2.54)}`
+    const fullWaist = props.dim1 ? (props.dim1 + 1) * 2 : null
+    if (fullWaist && props.dim6) {
+      const waist = Math.floor(fullWaist / 2.54)
+      return `W${waist}/L${Math.ceil(props.dim6 / 2.54)}`
     }
-    if (props.dim4) {
-      if (props.dim4 < 68) return 'XS'
-      if (props.dim4 < 76) return 'S'
-      if (props.dim4 < 84) return 'M'
-      if (props.dim4 < 92) return 'L'
-      if (props.dim4 < 100) return 'XL'
+    if (fullWaist) {
+      if (fullWaist < 68) return 'XS'
+      if (fullWaist < 76) return 'S'
+      if (fullWaist < 84) return 'M'
+      if (fullWaist < 92) return 'L'
+      if (fullWaist < 100) return 'XL'
       return 'XXL'
     }
   }
@@ -226,4 +245,30 @@ const suggestedSize = computed(() => {
 
   return null
 })
+
+// Shortened detection for full-length bottoms
+const FULL_LENGTH_KEYWORDS = ['jean', 'jeans', 'pantalon', 'pants', 'trousers', 'jogger']
+const SHORTENED_THRESHOLD_CM = 70
+
+const isFullLengthBottoms = computed(() => {
+  if (categoryType.value !== 'bottoms' || !props.category) return false
+  const lower = props.category.toLowerCase()
+  return FULL_LENGTH_KEYWORDS.some(kw => lower.includes(kw))
+})
+
+const isLikelyShortened = computed(() => {
+  if (!isFullLengthBottoms.value || !props.dim6) return false
+  if (props.dim6 >= SHORTENED_THRESHOLD_CM) return false
+  if (props.conditionSup?.includes('Hemmed/shortened')) return false
+  return true
+})
+
+const alreadyMarkedShortened = computed(() => {
+  return props.conditionSup?.includes('Hemmed/shortened') ?? false
+})
+
+// Emit suggestedSize to parent whenever it changes
+watch(suggestedSize, (newVal) => {
+  emit('update:suggestedSize', newVal)
+}, { immediate: true })
 </script>

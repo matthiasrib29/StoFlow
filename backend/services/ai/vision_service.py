@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from models.public.user import User
 from models.user.ai_generation_log import AIGenerationLog
-from schemas.ai_schemas import GeminiVisionSchema, VisionExtractedAttributes
+from schemas.ai_schemas import VisionExtractedAttributes
 from shared.config import settings
 from shared.exceptions import AIGenerationError, AIQuotaExceededError
 from shared.logging import get_logger
@@ -30,6 +30,72 @@ if TYPE_CHECKING:
     from models.user.product import Product
 
 logger = get_logger(__name__)
+
+# Mapping: DB attribute key -> (schema field name, prompt label)
+ATTR_DB_TO_SCHEMA: dict[str, tuple[str, str]] = {
+    "categories": ("category", "Categories"),
+    "colors": ("color", "Colors"),
+    "materials": ("material", "Materials"),
+    "fits": ("fit", "Fits"),
+    "genders": ("gender", "Genders"),
+    "seasons": ("season", "Seasons"),
+    "patterns": ("pattern", "Patterns"),
+    "lengths": ("length", "Lengths"),
+    "necklines": ("neckline", "Necklines"),
+    "sports": ("sport", "Sports"),
+    "closures": ("closure", "Closures"),
+    "rises": ("rise", "Rises"),
+    "sleeve_lengths": ("sleeve_length", "Sleeve Lengths"),
+    "stretches": ("stretch", "Stretches"),
+    "linings": ("lining", "Linings"),
+    "decades": ("decade", "Decades"),
+    "origins": ("origin", "Origins"),
+    "trends": ("trend", "Trends"),
+    "condition_sups": ("condition_sup", "Condition Details"),
+    "unique_features": ("unique_feature", "Unique Features"),
+}
+
+# Attributes with fewer values than this threshold use schema enum (not prompt list)
+ENUM_THRESHOLD = 16
+
+# Fields that accept multiple comma-separated values (field_name -> max count or None)
+MULTI_VALUE_FIELDS: dict[str, int | None] = {
+    "color": 2,
+    "material": None,
+    "condition_sup": None,
+    "unique_feature": None,
+    "marking": None,
+}
+
+# Description of each attribute: what it is and what to extract
+ATTR_DESCRIPTIONS: dict[str, str] = {
+    "category": "Product category — determine from full garment shape across all images + label text",
+    "brand": "Brand name — exact text as seen on logo, label, or tag",
+    "condition": "Overall condition — be realistic and fair. 10=new with tags still attached, 9=new without tags (perfect, never worn), 8=like new (worn a few times, no notable defects visible), 7=very good (light signs of wear, no stains/holes), 6=good (minor pilling or light wear marks), 5=fair (small stain, minor fading, or visible pilling), 4=worn (clear signs of use, multiple minor defects), 3=very worn (multiple defects, fading, stains), 2=poor (heavy wear, holes, tears), 1=damaged. Only clear, visible defects should lower the score — do not penalize for normal light wear on used items",
+    "label_size": "Size — exact text as shown on the size tag/label",
+    "color": "Main colors visible on the product",
+    "material": "Fabric/material composition — from label or visual texture",
+    "fit": "Fit/cut type (e.g. slim, regular, oversized)",
+    "gender": "Target gender for this product",
+    "season": "Most appropriate season to wear this item",
+    "sport": "Associated sport, if applicable",
+    "neckline": "Neckline type (e.g. crew neck, V-neck, collar)",
+    "length": "Garment length (e.g. short, midi, long)",
+    "pattern": "Pattern/print type (e.g. solid, striped, checkered)",
+    "condition_sup": "Specific condition details (e.g. pilling, stains, fading)",
+    "rise": "Waist rise for pants/shorts (low, mid, high)",
+    "closure": "Closure type (e.g. zipper, buttons, snap)",
+    "sleeve_length": "Sleeve length (e.g. short, long, sleeveless)",
+    "stretch": "Stretch/elasticity level of the fabric",
+    "lining": "Lining type (lined, unlined, partial)",
+    "origin": "Country of manufacture if visible on label",
+    "decade": "Decade/era if vintage item",
+    "trend": "Fashion trend this item belongs to",
+    "model": "Model reference — exact text if visible on label",
+    "unique_feature": "Distinctive characteristics (e.g. embroidery, distressed, rhinestones)",
+    "marking": "Other visible texts/markings (dates, codes, inscriptions)",
+    "confidence": "Your global confidence in this analysis — 0.0 to 1.0",
+}
 
 
 class AIVisionService:
@@ -40,8 +106,25 @@ class AIVisionService:
         "gemini-2.5-flash": {"input": 0.075, "output": 0.30},
         "gemini-2.5-pro": {"input": 1.25, "output": 5.00},
         "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
-        "gemini-3-flash-preview": {"input": 0.075, "output": 0.30},  # Preview model (pricing assumed)
+        "gemini-3-flash-preview": {"input": 0.50, "output": 3.00},
+        "gemini-3-pro-preview": {"input": 2.00, "output": 12.00},
     }
+
+    SYSTEM_INSTRUCTION = """ROLE: Elite Fashion Archivist & Product Authenticator.
+
+PRIME DIRECTIVE (EVIDENCE HIERARCHY):
+1. LABEL TEXT (OCR) IS AUTHORITY: Text read on tags (Brand, Size, Material, "Jeans", "Slim") overrides ANY visual ambiguity.
+   - Example: If a garment is folded and looks short, but the label says "Straight Leg Jeans", categorize as JEANS, not Shorts.
+   - Example: If visual texture looks like polyester but label says "100% Silk", output SILK.
+2. CONTRADICTION RESOLUTION: If visual shape conflicts with label text, the label text wins.
+
+OPERATIONAL RULES:
+- ACCURACY OVER GUESSING: If a specific attribute (like material composition) is not clearly readable or visible, return null. DO NOT hallucinate percentages.
+- CATEGORY MAPPING: You must map the item to the most specific matching path from the provided Reference Taxonomy.
+- CONDITION GRADING: Be realistic and fair. Examine images carefully for stains, pilling, fading, holes, loose threads, discoloration. 10/10 is ONLY for items with visible tags still attached. 8 is appropriate for items worn a few times with no notable defects. Reserve 7 and below for items with clearly visible defects.
+
+OUTPUT GOAL:
+Generate a precise JSON object adhering strictly to the provided schema."""
 
     @staticmethod
     async def analyze_images(
@@ -82,7 +165,12 @@ class AIVisionService:
         AIVisionService._check_credits(db, user_id, monthly_credits)
 
         # 3. Récupérer les images (max selon abonnement)
-        images_to_analyze = product.images[:max_images]
+        # Exclure les images label (is_label=True) - ne garder que les photos produit
+        product_photos = [img for img in product.images if not img.get("is_label", False)]
+        if not product_photos:
+            raise AIGenerationError("Le produit n'a pas de photos à analyser (uniquement des labels).")
+
+        images_to_analyze = product_photos[:max_images]
         images_analyzed = len(images_to_analyze)
 
         logger.info(
@@ -96,119 +184,10 @@ class AIVisionService:
         if not image_parts:
             raise AIGenerationError("Impossible de télécharger les images du produit.")
 
-        # 5. Fetch product attributes from database
-        attributes = AIVisionService._fetch_product_attributes(db)
-
-        # 6. Construire le prompt
-        prompt = AIVisionService._build_prompt(attributes)
-
-        # 7. Appeler Gemini Vision API
-        try:
-            # Configure Gemini client with timeout (HttpOptions expects milliseconds)
-            client = genai.Client(
-                api_key=settings.gemini_api_key,
-                http_options=types.HttpOptions(timeout=settings.gemini_timeout_seconds * 1000),
-            )
-
-            # Construire le contenu multimodal
-            contents = [prompt] + image_parts
-
-            # Appeler avec structured output (using GeminiVisionSchema without defaults)
-            response = client.models.generate_content(
-                model=settings.gemini_model,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=GeminiVisionSchema,
-                    temperature=0.0,  # Deterministic for accurate analysis
-                    mediaResolution=types.MediaResolution.MEDIA_RESOLUTION_HIGH,  # Better detail recognition (1120 tokens/image)
-                ),
-            )
-
-            # Parser la réponse
-            import json
-
-            # Check for empty response (can happen with safety filters or model issues)
-            if not response.text:
-                logger.warning(
-                    f"[AIVisionService] Empty response from Gemini. "
-                    f"Candidates: {response.candidates if hasattr(response, 'candidates') else 'N/A'}"
-                )
-                raise AIGenerationError(
-                    "L'IA n'a pas pu analyser les images. Réessayez ou vérifiez les images."
-                )
-
-            response_data = json.loads(response.text)
-
-            # Clean AI response: extract first value if multiple were returned
-            response_data = AIVisionService._clean_ai_response(response_data)
-
-            # Post-process brand: match existing or create new
-            response_data = AIVisionService._process_brand(db, response_data)
-
-            # Convert to VisionExtractedAttributes (with defaults for missing fields)
-            extracted_attributes = VisionExtractedAttributes(**response_data)
-
-            # 8. Calculer les métriques
-            input_tokens = response.usage_metadata.prompt_token_count
-            output_tokens = response.usage_metadata.candidates_token_count
-            total_tokens = input_tokens + output_tokens
-
-            # 9. Calculer le coût
-            pricing = AIVisionService.MODEL_PRICING.get(
-                settings.gemini_model, {"input": 0.075, "output": 0.30}
-            )
-            cost = Decimal(
-                str(
-                    (input_tokens * pricing["input"] / 1_000_000)
-                    + (output_tokens * pricing["output"] / 1_000_000)
-                )
-            )
-
-            generation_time_ms = int((time.time() - start_time) * 1000)
-
-            # 10. Logger la génération
-            log = AIGenerationLog(
-                product_id=product_id,
-                model=settings.gemini_model,
-                prompt_tokens=input_tokens,
-                completion_tokens=output_tokens,
-                total_tokens=total_tokens,
-                total_cost=cost,
-                cached=False,
-                generation_time_ms=generation_time_ms,
-                response_data=response_data,  # Store raw AI response
-            )
-            db.add(log)
-
-            # 11. Incrémenter les crédits utilisés
-            AIVisionService._consume_credit(db, user_id)
-
-            db.commit()
-
-            logger.info(
-                f"[AIVisionService] Analyzed images: product_id={product_id}, "
-                f"images={images_analyzed}, tokens={total_tokens}, "
-                f"cost=${cost:.6f}, time={generation_time_ms}ms, "
-                f"confidence={extracted_attributes.confidence:.2f}"
-            )
-
-            return extracted_attributes, total_tokens, cost, images_analyzed
-
-        except genai.errors.ClientError as e:
-            logger.error(f"[AIVisionService] Gemini client error: {e}")
-            raise AIGenerationError("Clé API Gemini invalide ou erreur client")
-        except genai.errors.ServerError as e:
-            logger.error(f"[AIVisionService] Gemini server error: {e}")
-            raise AIGenerationError(
-                "Erreur serveur Gemini. Réessayez dans quelques minutes."
-            )
-        except genai.errors.APIError as e:
-            logger.error(f"[AIVisionService] Gemini API error: {e}")
-            raise AIGenerationError(f"Erreur API Gemini: {str(e)}")
-        except Exception as e:
-            logger.error(f"[AIVisionService] Unexpected error: {e}", exc_info=True)
-            raise AIGenerationError(f"Erreur inattendue: {str(e)}")
+        # 5. Call Gemini and process response
+        return AIVisionService._call_gemini_and_process(
+            db, image_parts, user_id, product_id, images_analyzed, start_time
+        )
 
     @staticmethod
     def _check_credits(db: Session, user_id: int, monthly_credits: int) -> None:
@@ -249,7 +228,7 @@ class AIVisionService:
         image_parts = []
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for img in images:
+            for idx, img in enumerate(images):
                 try:
                     image_url = img.get("url", "")
                     if not image_url:
@@ -354,80 +333,231 @@ class AIVisionService:
         return attributes
 
     @staticmethod
+    def _build_response_schema(attributes: dict[str, list[str]]) -> dict:
+        """
+        Build dynamic JSON schema with enum constraints for attributes with < ENUM_THRESHOLD values.
+        Attributes with >= ENUM_THRESHOLD values are listed in the prompt text instead.
+        """
+        # Fields that MUST have a value (Gemini cannot return null)
+        non_nullable = {"category", "gender", "condition", "confidence", "color"}
+
+        properties = {
+            # Fixed fields (not from DB attribute lists)
+            "brand": {"type": "STRING", "nullable": True},
+            "condition": {"type": "INTEGER"},
+            "label_size": {"type": "STRING", "nullable": True},
+            "model": {"type": "STRING", "nullable": True},
+            "marking": {"type": "STRING", "nullable": True},
+            "confidence": {"type": "NUMBER"},
+        }
+
+        enum_attrs = []
+        for db_key, (field_name, _) in ATTR_DB_TO_SCHEMA.items():
+            values = attributes.get(db_key, [])
+            nullable = field_name not in non_nullable
+            prop: dict = {"type": "STRING"}
+            if nullable:
+                prop["nullable"] = True
+            if 0 < len(values) < ENUM_THRESHOLD:
+                prop["enum"] = values
+                enum_attrs.append(f"{field_name}({len(values)})")
+            properties[field_name] = prop
+
+        if enum_attrs:
+            logger.info(
+                f"[AIVisionService] Schema enums: {', '.join(enum_attrs)}"
+            )
+
+        return {
+            "type": "OBJECT",
+            "properties": properties,
+            "required": list(properties.keys()),
+        }
+
+    @staticmethod
     def _build_prompt(attributes: dict[str, list[str]]) -> str:
         """
         Build the analysis prompt for Gemini Vision with database attributes.
+        Only lists attributes with >= ENUM_THRESHOLD values in the prompt.
+        Attributes with fewer values are enforced via schema enum constraints.
 
         Args:
             attributes: Dictionary of valid attribute values from database
         """
-        return f"""You are an expert in analyzing product images for online sales (clothing and accessories).
+        # Build valid values section (only attributes with >= ENUM_THRESHOLD values)
+        valid_values_lines = []
+        for db_key, (_, label) in ATTR_DB_TO_SCHEMA.items():
+            values = attributes.get(db_key, [])
+            if len(values) >= ENUM_THRESHOLD:
+                valid_values_lines.append(f"**{label}:** {', '.join(values)}")
 
-Analyze the following product images and extract ALL visible attributes.
+        # Always include conditions (reference for 0-10 scale, not a schema enum)
+        conditions = attributes.get("conditions", [])
+        if conditions:
+            valid_values_lines.append(f"**Conditions:** {', '.join(conditions)}")
 
-CRITICAL RULES:
+        valid_values_section = "\n".join(valid_values_lines)
+
+        # Build multi-value fields rule dynamically
+        multi_parts = []
+        for field, max_count in MULTI_VALUE_FIELDS.items():
+            if max_count:
+                multi_parts.append(f"{field} (max {max_count})")
+            else:
+                multi_parts.append(field)
+        multi_value_rule = ", ".join(multi_parts)
+
+        # Build attribute descriptions dynamically
+        attr_desc_lines = "\n".join(
+            f"- {field}: {desc}" for field, desc in ATTR_DESCRIPTIONS.items()
+        )
+
+        return f"""Analyze the following product images and extract ALL visible attributes.
+
+RULES:
 - Return null for any attribute NOT VISIBLE or UNCERTAIN
-- DO NOT GUESS - only analyze what is clearly visible
-- condition: Rating from 0 to 10 (10=new with tags, 8=excellent, 5=good, 2=worn)
-- confidence: Your GLOBAL confidence in the analysis (0.0 to 1.0)
-- For attributes with predefined values, ONLY use values from the provided lists
-- If visible value is not in the list, use the closest match or null
-- IMPORTANT: For each attribute, return ONLY ONE value (not multiple values separated by commas)
-  - Exceptions that CAN have multiple comma-separated values: color, material, unique_feature, marking
-- If multiple values could apply (e.g., "Regular" and "Straight" for fit), choose the MOST PROMINENT one
-
-VALID ATTRIBUTE VALUES (MUST USE THESE):
-
-**Categories:** {', '.join(attributes.get('categories', []))}
-**Colors:** {', '.join(attributes.get('colors', []))}
-**Conditions:** {', '.join(attributes.get('conditions', []))}
-**Materials:** {', '.join(attributes.get('materials', []))}
-**Fits:** {', '.join(attributes.get('fits', []))}
-**Genders:** {', '.join(attributes.get('genders', []))}
-**Seasons:** {', '.join(attributes.get('seasons', []))}
-**Patterns:** {', '.join(attributes.get('patterns', []))}
-**Lengths:** {', '.join(attributes.get('lengths', []))}
-**Necklines:** {', '.join(attributes.get('necklines', []))}
-**Sports:** {', '.join(attributes.get('sports', []))}
-**Closures:** {', '.join(attributes.get('closures', []))}
-**Rises:** {', '.join(attributes.get('rises', []))}
-**Sleeve Lengths:** {', '.join(attributes.get('sleeve_lengths', []))}
-**Stretches:** {', '.join(attributes.get('stretches', []))}
-**Linings:** {', '.join(attributes.get('linings', []))}
-**Decades:** {', '.join(attributes.get('decades', []))}
-**Origins:** {', '.join(attributes.get('origins', []))}
-**Trends:** {', '.join(attributes.get('trends', []))}
-**Condition Details:** {', '.join(attributes.get('condition_sups', []))}
-**Unique Features:** {', '.join(attributes.get('unique_features', []))}
+- ONLY use valid values (from the reference lists below or enforced by the response schema)
+- If visible value is not valid, use the closest match or null
+- SINGLE VALUE per attribute, except: {multi_value_rule} (comma-separated if multiple)
+- If multiple values could apply, choose the MOST PROMINENT one
 
 ATTRIBUTES TO EXTRACT:
-- category: Product category (use exact name from list above)
-- brand: Visible brand name (logo, label, tag) - return exact brand name as seen
-- condition: Product condition (0-10 scale)
-- label_size: Size label text (exact as shown on tag)
-- color: Colors visible (use exact names from list, MAX 2 colors, comma-separated if multiple)
-- material: Materials visible or estimated (use exact names from list, comma-separated if multiple)
-- fit: Fit type (use exact name from list above)
-- gender: Gender (use exact name from list above)
-- season: Appropriate season (use exact name from list above)
-- sport: Associated sport if applicable (use exact name from list above)
-- neckline: Neckline type (use exact name from list above)
-- length: Length (use exact name from list above)
-- pattern: Pattern type (use exact name from list above)
-- condition_sup: Condition details (use exact names from Condition Details list, comma-separated if multiple)
-- rise: Waist height for pants (use exact name from list above)
-- closure: Closure type (use exact name from list above)
-- sleeve_length: Sleeve length (use exact name from list above)
-- stretch: Stretch/elasticity level (use exact name from list above)
-- lining: Lining type (use exact name from list above)
-- origin: Origin/country of manufacture (use exact name from list above)
-- decade: Decade/era if vintage (use exact name from list above)
-- trend: Fashion trend (use exact name from list above)
-- model: Model reference if visible
-- unique_feature: Unique characteristics (use exact names from Unique Features list, comma-separated if multiple)
-- marking: Visible texts/markings (dates, codes, inscriptions...)
+{attr_desc_lines}
 
-Analyze ALL provided images for complete extraction."""
+REFERENCE VALUES (use exact names):
+{valid_values_section}
+
+Analyze ALL provided images."""
+
+    @staticmethod
+    def _call_gemini_and_process(
+        db: Session,
+        image_parts: list,
+        user_id: int,
+        product_id: int | None,
+        images_analyzed: int,
+        start_time: float,
+    ) -> tuple[VisionExtractedAttributes, int, Decimal, int]:
+        """
+        Common Gemini API call: build prompt/schema, call API, parse response,
+        calculate metrics, log generation, consume credit.
+
+        Args:
+            db: SQLAlchemy session
+            image_parts: List of Gemini Part objects (images)
+            user_id: User ID for credit tracking
+            product_id: Product ID (None for direct upload analysis)
+            images_analyzed: Number of images being analyzed
+            start_time: time.time() at the start of the analysis
+
+        Returns:
+            tuple: (attributes, tokens_used, cost, images_analyzed)
+        """
+        import json
+
+        attributes = AIVisionService._fetch_product_attributes(db)
+        prompt = AIVisionService._build_prompt(attributes)
+        response_schema = AIVisionService._build_response_schema(attributes)
+
+        try:
+            client = genai.Client(
+                api_key=settings.gemini_api_key,
+                http_options=types.HttpOptions(
+                    timeout=settings.gemini_timeout_seconds * 1000
+                ),
+            )
+
+            contents = image_parts + [prompt]
+
+            response = client.models.generate_content(
+                model=settings.gemini_model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=AIVisionService.SYSTEM_INSTRUCTION,
+                    response_mime_type="application/json",
+                    response_schema=response_schema,
+                    temperature=0.1,
+                    media_resolution=types.MediaResolution.MEDIA_RESOLUTION_HIGH,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level="MEDIUM",
+                    ),
+                ),
+            )
+
+            # Check for empty response
+            if not response.text:
+                logger.warning(
+                    f"[AIVisionService] Empty response from Gemini. "
+                    f"Candidates: {response.candidates if hasattr(response, 'candidates') else 'N/A'}"
+                )
+                raise AIGenerationError(
+                    "L'IA n'a pas pu analyser les images. Réessayez ou vérifiez les images."
+                )
+
+            response_data = json.loads(response.text)
+            response_data = AIVisionService._clean_ai_response(response_data)
+            response_data = AIVisionService._process_brand(db, response_data)
+            extracted_attributes = VisionExtractedAttributes(**response_data)
+
+            # Calculate metrics
+            input_tokens = response.usage_metadata.prompt_token_count
+            output_tokens = response.usage_metadata.candidates_token_count
+            total_tokens = input_tokens + output_tokens
+
+            pricing = AIVisionService.MODEL_PRICING.get(
+                settings.gemini_model, {"input": 0.075, "output": 0.30}
+            )
+            cost = Decimal(
+                str(
+                    (input_tokens * pricing["input"] / 1_000_000)
+                    + (output_tokens * pricing["output"] / 1_000_000)
+                )
+            )
+
+            generation_time_ms = int((time.time() - start_time) * 1000)
+
+            # Log generation
+            log = AIGenerationLog(
+                product_id=product_id,
+                model=settings.gemini_model,
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=total_tokens,
+                total_cost=cost,
+                cached=False,
+                generation_time_ms=generation_time_ms,
+                response_data=response_data,
+            )
+            db.add(log)
+
+            AIVisionService._consume_credit(db, user_id)
+            db.commit()
+
+            logger.info(
+                f"[AIVisionService] Analysis complete: product_id={product_id}, "
+                f"images={images_analyzed}, tokens={total_tokens}, "
+                f"cost=${cost:.6f}, time={generation_time_ms}ms, "
+                f"confidence={extracted_attributes.confidence:.2f}"
+            )
+
+            return extracted_attributes, total_tokens, cost, images_analyzed
+
+        except genai.errors.ClientError as e:
+            logger.error(f"[AIVisionService] Gemini client error: {e}")
+            raise AIGenerationError("Clé API Gemini invalide ou erreur client")
+        except genai.errors.ServerError as e:
+            logger.error(f"[AIVisionService] Gemini server error: {e}")
+            raise AIGenerationError(
+                "Erreur serveur Gemini. Réessayez dans quelques minutes."
+            )
+        except genai.errors.APIError as e:
+            logger.error(f"[AIVisionService] Gemini API error: {e}")
+            raise AIGenerationError(f"Erreur API Gemini: {str(e)}")
+        except Exception as e:
+            logger.error(
+                f"[AIVisionService] Unexpected error: {e}", exc_info=True
+            )
+            raise AIGenerationError(f"Erreur inattendue: {str(e)}")
 
     @staticmethod
     def _clean_ai_response(data: dict) -> dict:
@@ -585,116 +715,7 @@ Analyze ALL provided images for complete extraction."""
         if not image_parts:
             raise AIGenerationError("Impossible de traiter les images.")
 
-        # 5. Fetch product attributes from database
-        attributes = AIVisionService._fetch_product_attributes(db)
-
-        # 6. Construire le prompt
-        prompt = AIVisionService._build_prompt(attributes)
-
-        # 7. Appeler Gemini Vision API
-        try:
-            # Configure Gemini client with timeout (HttpOptions expects milliseconds)
-            client = genai.Client(
-                api_key=settings.gemini_api_key,
-                http_options=types.HttpOptions(timeout=settings.gemini_timeout_seconds * 1000),
-            )
-
-            # Construire le contenu multimodal
-            contents = [prompt] + image_parts
-
-            # Appeler avec structured output (using GeminiVisionSchema without defaults)
-            response = client.models.generate_content(
-                model=settings.gemini_model,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=GeminiVisionSchema,
-                    temperature=0.0,  # Deterministic for accurate analysis
-                    mediaResolution=types.MediaResolution.MEDIA_RESOLUTION_HIGH,  # Better detail recognition (1120 tokens/image)
-                ),
-            )
-
-            # Parser la réponse
-            import json
-
-            # Check for empty response (can happen with safety filters or model issues)
-            if not response.text:
-                logger.warning(
-                    f"[AIVisionService] Empty response from Gemini. "
-                    f"Candidates: {response.candidates if hasattr(response, 'candidates') else 'N/A'}"
-                )
-                raise AIGenerationError(
-                    "L'IA n'a pas pu analyser les images. Réessayez ou vérifiez les images."
-                )
-
-            response_data = json.loads(response.text)
-
-            # Clean AI response: extract first value if multiple were returned
-            response_data = AIVisionService._clean_ai_response(response_data)
-
-            # Post-process brand: match existing or create new
-            response_data = AIVisionService._process_brand(db, response_data)
-
-            # Convert to VisionExtractedAttributes (with defaults for missing fields)
-            extracted_attributes = VisionExtractedAttributes(**response_data)
-
-            # 8. Calculer les métriques
-            input_tokens = response.usage_metadata.prompt_token_count
-            output_tokens = response.usage_metadata.candidates_token_count
-            total_tokens = input_tokens + output_tokens
-
-            # 9. Calculer le coût
-            pricing = AIVisionService.MODEL_PRICING.get(
-                settings.gemini_model, {"input": 0.075, "output": 0.30}
-            )
-            cost = Decimal(
-                str(
-                    (input_tokens * pricing["input"] / 1_000_000)
-                    + (output_tokens * pricing["output"] / 1_000_000)
-                )
-            )
-
-            generation_time_ms = int((time.time() - start_time) * 1000)
-
-            # 10. Logger la génération (sans product_id)
-            log = AIGenerationLog(
-                product_id=None,  # Pas de produit associé
-                model=settings.gemini_model,
-                prompt_tokens=input_tokens,
-                completion_tokens=output_tokens,
-                total_tokens=total_tokens,
-                total_cost=cost,
-                cached=False,
-                generation_time_ms=generation_time_ms,
-                response_data=response_data,  # Store raw AI response
-            )
-            db.add(log)
-
-            # 11. Incrémenter les crédits utilisés
-            AIVisionService._consume_credit(db, user_id)
-
-            db.commit()
-
-            logger.info(
-                f"[AIVisionService] Analyzed images direct: user_id={user_id}, "
-                f"images={images_analyzed}, tokens={total_tokens}, "
-                f"cost=${cost:.6f}, time={generation_time_ms}ms, "
-                f"confidence={extracted_attributes.confidence:.2f}"
-            )
-
-            return extracted_attributes, total_tokens, cost, images_analyzed
-
-        except genai.errors.ClientError as e:
-            logger.error(f"[AIVisionService] Gemini client error: {e}")
-            raise AIGenerationError("Clé API Gemini invalide ou erreur client")
-        except genai.errors.ServerError as e:
-            logger.error(f"[AIVisionService] Gemini server error: {e}")
-            raise AIGenerationError(
-                "Erreur serveur Gemini. Réessayez dans quelques minutes."
-            )
-        except genai.errors.APIError as e:
-            logger.error(f"[AIVisionService] Gemini API error: {e}")
-            raise AIGenerationError(f"Erreur API Gemini: {str(e)}")
-        except Exception as e:
-            logger.error(f"[AIVisionService] Unexpected error: {e}", exc_info=True)
-            raise AIGenerationError(f"Erreur inattendue: {str(e)}")
+        # 5. Call Gemini and process response
+        return AIVisionService._call_gemini_and_process(
+            db, image_parts, user_id, None, images_analyzed, start_time
+        )

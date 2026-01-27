@@ -142,7 +142,7 @@ class ProductCreate(BaseModel):
     trend: str | None = Field(None, max_length=100, description="Tendance")
     stretch: str | None = Field(None, max_length=100, description="Stretch/Elasticity level (FK product_attributes.stretches)")
     lining: str | None = Field(None, max_length=100, description="Lining type (FK product_attributes.linings)")
-    location: str | None = Field(None, max_length=100, description="Emplacement physique")
+    location: str = Field(..., max_length=100, description="Emplacement physique (obligatoire)")
     model: str | None = Field(None, max_length=100, description="Référence modèle")
 
     # Features descriptifs (JSONB arrays)
@@ -360,6 +360,9 @@ class ProductUpdate(BaseModel):
     dim6: int | None = Field(None, ge=0)
 
     stock_quantity: int | None = Field(None, ge=0)
+
+    # Status (handled via ProductStatusManager after data update)
+    status: str | None = Field(None, pattern=r'^(draft|published|sold|archived)$')
 
     # ===== SECURITY VALIDATION (2025-12-05): XSS Protection =====
     @field_validator('description', 'title')

@@ -289,3 +289,50 @@ def calculateFeatureAdjustment(
         return MAX_FEATURE_ADJUSTMENT
 
     return adjustment
+
+
+def calculateFitAdjustment(
+    actual_fit: Optional[str],
+    expected_fits: list[str],
+    fit_coefficients: dict[str, Decimal],
+) -> Decimal:
+    """
+    Calculate fit-based price adjustment using difference logic.
+
+    Formula: Adjustment = actual_coefficient - MAX(expected_coefficients)
+
+    Logic:
+    - Get coefficient for actual fit from DB
+    - Get MAX coefficient from expected fits
+    - Return the difference (can be negative = malus)
+
+    Args:
+        actual_fit: The actual product fit (e.g., "Bootcut", "Slim"). Can be None/empty.
+        expected_fits: List of expected fits for the product group.
+        fit_coefficients: Dict mapping fit names to their pricing coefficients.
+
+    Returns:
+        Adjustment as Decimal (can be negative).
+
+    Examples:
+        actual=Bootcut(+0.15), expected=[Slim(0.00)] → +0.15 - 0.00 = +0.15
+        actual=Skinny(-0.10), expected=[Bootcut(+0.15)] → -0.10 - 0.15 = -0.25
+        actual=Regular(0.00), expected=[Regular(0.00)] → 0.00 - 0.00 = 0.00
+    """
+    # Get actual coefficient (default 0.00 if unknown or empty)
+    if not actual_fit or (isinstance(actual_fit, str) and not actual_fit.strip()):
+        actual_coef = Decimal("0.00")
+    else:
+        actual_coef = fit_coefficients.get(actual_fit, Decimal("0.00"))
+
+    # Get MAX expected coefficient (default 0.00 if no expected)
+    if not expected_fits:
+        expected_coef = Decimal("0.00")
+    else:
+        expected_coef = max(
+            fit_coefficients.get(fit, Decimal("0.00"))
+            for fit in expected_fits
+        )
+
+    # Return difference
+    return actual_coef - expected_coef

@@ -116,8 +116,9 @@ async def login(
         user_id=user.id,
     )
 
-    # Build response with user info (no tokens in body)
-    response_data = {
+    # Build response with user info
+    # Set auth cookies first to get CSRF token
+    response_data_base = {
         "user_id": user.id,
         "role": user.role.value,
         "subscription_tier": user.subscription_tier.value,
@@ -128,10 +129,14 @@ async def login(
         "refresh_token": refresh_token,
     }
 
-    response = JSONResponse(content=response_data)
+    response = JSONResponse(content=response_data_base)
 
     # Set auth cookies (httpOnly for tokens, JS-readable for CSRF)
     csrf_token = set_auth_cookies(response, access_token, refresh_token)
+
+    # Include CSRF token in response body (cross-origin can't read cookies via JS)
+    response_data_base["csrf_token"] = csrf_token
+    response.body = JSONResponse(content=response_data_base).body
 
     logger.info(f"Login successful: user_id={user.id}, source={source}, token_source=cookie")
 
@@ -206,6 +211,11 @@ async def refresh_token(
 
     # Set new access token cookie
     set_access_token_cookie(response, result["access_token"])
+
+    # Re-set CSRF token cookie and include in body (cross-origin can't read cookies via JS)
+    csrf_token = set_csrf_token_cookie(response)
+    response_data["csrf_token"] = csrf_token
+    response.body = JSONResponse(content=response_data).body
 
     return response
 

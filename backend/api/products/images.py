@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_user_db
+from models.public.user import UserRole
 from schemas.product_schemas import ProductImageItem
 from services.file_service import FileService
 from services.product_service import ProductService
@@ -254,8 +255,12 @@ def set_image_label_flag(
     """
     db, current_user = user_db  # search_path already set by get_user_db
 
-    # SUPPORT ne peut pas modifier les images (lecture seule)
-    ensure_can_modify(current_user, "produit")
+    # Admin-only: seul un admin peut marquer/démarquer une image comme label
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seuls les administrateurs peuvent modifier le statut label d'une image"
+        )
 
     # Vérifier que le produit existe
     product = ProductService.get_product_by_id(db, product_id)

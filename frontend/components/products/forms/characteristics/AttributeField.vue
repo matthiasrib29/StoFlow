@@ -92,6 +92,7 @@
       :filter="filterMode !== 'none'"
       :filter-placeholder="filterPlaceholder"
       :selection-limit="maxSelection"
+      :show-toggle-all="false"
       display="chip"
       @update:model-value="handleMultiSelectChange"
       @filter="handleFilter"

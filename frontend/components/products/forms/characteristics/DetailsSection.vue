@@ -6,25 +6,31 @@
       label="Emplacement"
       :model-value="location"
       placeholder="Ex: Étagère A3, Carton 5..."
+      required
       @update:model-value="$emit('update:location', $event)"
     />
 
     <!-- Condition Details -->
     <ProductsFormsCharacteristicsAttributeField
-      type="chips"
+      type="multiselect"
       label="Détails état"
-      :model-value="conditionSup"
-      placeholder="Ex: Tache légère, Bouton manquant... (Entrée pour ajouter)"
-      helper-text="Appuyez sur Entrée pour ajouter un détail"
+      :model-value="filteredConditionSup"
+      :options="options.conditionSups"
+      placeholder="Sélectionner les détails d'état"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:conditionSup', $event)"
     />
 
     <!-- Unique Features -->
     <ProductsFormsCharacteristicsAttributeField
-      type="chips"
-      label="Features uniques"
-      :model-value="uniqueFeature"
-      placeholder="Ex: Vintage, Logo brodé, Pièce rare... (Entrée pour ajouter)"
+      type="multiselect"
+      label="Caractéristiques uniques"
+      :model-value="filteredUniqueFeature"
+      :options="options.uniqueFeatures"
+      placeholder="Sélectionner les caractéristiques"
+      filter-mode="local"
+      filter-placeholder="Rechercher..."
       @update:model-value="$emit('update:uniqueFeature', $event)"
     />
 
@@ -41,21 +47,38 @@
 </template>
 
 <script setup lang="ts">
+import type { AttributeOption } from '~/composables/useAttributes'
+
 interface Props {
   location: string | null
-  // model removed - moved to required section
   conditionSup: string[] | null
   uniqueFeature: string[] | null
   marking: string | null
+  options: {
+    conditionSups: AttributeOption[]
+    uniqueFeatures: AttributeOption[]
+  }
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 defineEmits<{
   'update:location': [value: string | null]
-  // 'update:model' removed - moved to required section
   'update:conditionSup': [value: string[] | null]
   'update:uniqueFeature': [value: string[] | null]
   'update:marking': [value: string | null]
 }>()
+
+// Filter out old free-text values that don't match any predefined option
+const filteredConditionSup = computed(() => {
+  if (!props.conditionSup || props.options.conditionSups.length === 0) return props.conditionSup
+  const validValues = new Set(props.options.conditionSups.map(o => o.value))
+  return props.conditionSup.filter(v => validValues.has(v))
+})
+
+const filteredUniqueFeature = computed(() => {
+  if (!props.uniqueFeature || props.options.uniqueFeatures.length === 0) return props.uniqueFeature
+  const validValues = new Set(props.options.uniqueFeatures.map(o => o.value))
+  return props.uniqueFeature.filter(v => validValues.has(v))
+})
 </script>
