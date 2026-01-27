@@ -25,7 +25,7 @@ describe('usePricingCalculation', () => {
     mockApiPost = vi.fn()
 
     // Mock useApi to return our mock post function
-    vi.mocked(globalThis.useApi).mockReturnValue({
+    vi.mocked((globalThis as Record<string, unknown>).useApi as ReturnType<typeof vi.fn>).mockReturnValue({
       post: mockApiPost
     } as any)
   })

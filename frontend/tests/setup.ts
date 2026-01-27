@@ -8,33 +8,24 @@
 import { vi } from 'vitest'
 import { ref, readonly, computed } from 'vue'
 
-// Extend globalThis to include Nuxt auto-imports
-declare global {
-  var ref: typeof ref
-  var readonly: typeof readonly
-  var computed: typeof computed
-  var useApi: ReturnType<typeof vi.fn>
-  var useRouter: ReturnType<typeof vi.fn>
-  var useRoute: ReturnType<typeof vi.fn>
-  var navigateTo: ReturnType<typeof vi.fn>
-  var useState: ReturnType<typeof vi.fn>
-  var useFetch: ReturnType<typeof vi.fn>
-  var useAsyncData: ReturnType<typeof vi.fn>
-}
+// Nuxt auto-generates global type declarations for all auto-imports
+// (ref, computed, useRouter, useApi, etc.) in .nuxt/imports.d.ts.
+// We only need to provide runtime values here — no `declare global` needed.
 
-// Mock Nuxt auto-imports by making them globally available
+const g = globalThis as Record<string, unknown>
+
 // Re-export Vue's reactivity functions
-globalThis.ref = ref
-globalThis.readonly = readonly
-globalThis.computed = computed
+g.ref = ref
+g.readonly = readonly
+g.computed = computed
 
 // Mock useApi composable (will be overridden in tests)
-globalThis.useApi = vi.fn()
+g.useApi = vi.fn()
 
 // Mock other commonly used Nuxt composables as needed
-globalThis.useRouter = vi.fn()
-globalThis.useRoute = vi.fn()
-globalThis.navigateTo = vi.fn()
-globalThis.useState = vi.fn()
-globalThis.useFetch = vi.fn()
-globalThis.useAsyncData = vi.fn()
+g.useRouter = vi.fn()
+g.useRoute = vi.fn()
+g.navigateTo = vi.fn()
+g.useState = vi.fn()
+g.useFetch = vi.fn()
+g.useAsyncData = vi.fn()

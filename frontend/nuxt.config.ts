@@ -13,6 +13,11 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
 
+  // Site URL (used by @nuxtjs/sitemap and other modules)
+  site: {
+    url: 'https://www.stoflow.io'
+  },
+
   // SEO Meta Tags
   app: {
     // Disable all transitions to prevent white flash
@@ -100,20 +105,16 @@ export default defineNuxtConfig({
 
   // SEO - Sitemap configuration
   sitemap: {
-    hostname: 'https://www.stoflow.io',
-    gzip: true,
-    routes: async () => {
-      return [
-        { url: '/', changefreq: 'weekly', priority: 1.0 },
-        { url: '/login', changefreq: 'monthly', priority: 0.3 },
-        { url: '/register', changefreq: 'monthly', priority: 0.5 },
-        { url: '/legal/privacy', changefreq: 'yearly', priority: 0.2 },
-        { url: '/legal/mentions', changefreq: 'yearly', priority: 0.2 },
-        { url: '/legal/cgu', changefreq: 'yearly', priority: 0.2 },
-        { url: '/legal/cgv', changefreq: 'yearly', priority: 0.2 },
-        { url: '/docs', changefreq: 'monthly', priority: 0.6 },
-      ]
-    },
+    urls: [
+      { loc: '/', changefreq: 'weekly', priority: 1.0 },
+      { loc: '/login', changefreq: 'monthly', priority: 0.3 },
+      { loc: '/register', changefreq: 'monthly', priority: 0.5 },
+      { loc: '/legal/privacy', changefreq: 'yearly', priority: 0.2 },
+      { loc: '/legal/mentions', changefreq: 'yearly', priority: 0.2 },
+      { loc: '/legal/cgu', changefreq: 'yearly', priority: 0.2 },
+      { loc: '/legal/cgv', changefreq: 'yearly', priority: 0.2 },
+      { loc: '/docs', changefreq: 'monthly', priority: 0.6 },
+    ],
     exclude: [
       '/dashboard/**',      // Pages privées
       '/auth/**',           // Auth flows
@@ -124,7 +125,7 @@ export default defineNuxtConfig({
   // Image optimization
   image: {
     quality: 80,
-    formats: ['webp', 'jpeg', 'png'],
+    format: ['webp', 'jpeg', 'png'],
     screens: {
       xs: 320,
       sm: 640,
@@ -133,10 +134,6 @@ export default defineNuxtConfig({
       xl: 1280,
       '2xl': 1536,
     },
-    // Enable lazy loading by default
-    loading: 'lazy',
-    // Preload critical images
-    preload: true
   },
 
   build: {

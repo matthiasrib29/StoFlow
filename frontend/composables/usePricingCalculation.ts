@@ -35,7 +35,7 @@ export interface ConditionDetail {
 export interface AdjustmentDetail {
   actual_value: string | null
   actual_coef: number
-  expected_values: string[]
+  expected_values: readonly string[]
   expected_best: string | null
   expected_coef: number
 }
