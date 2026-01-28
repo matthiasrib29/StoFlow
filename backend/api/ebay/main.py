@@ -25,7 +25,6 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user, get_db, get_user_db
 from api.ebay import orders
-from api.ebay import jobs
 from models.public.ebay_marketplace_config import MarketplaceConfig
 from models.public.user import User
 from models.user.ebay_marketplace_settings import EbayMarketplaceSettings
@@ -52,7 +51,6 @@ router = APIRouter(prefix="/ebay", tags=["eBay"])
 
 # Include sub-routers
 router.include_router(orders.router, tags=["eBay Orders"])
-router.include_router(jobs.router, tags=["eBay Jobs"])
 
 
 # ========== PYDANTIC SCHEMAS ==========
@@ -794,26 +792,9 @@ async def apply_policy_to_offers(
                 "total_offers": 0,
             }
 
-        # 3. Create MarketplaceJob for tracking
-        from models.user.marketplace_job import JobStatus
-        from services.marketplace.marketplace_job_service import MarketplaceJobService
-
-        job_service = MarketplaceJobService(db)
-        job = job_service.create_job(
-            marketplace="ebay",
-            action_code="apply_policy",
-            input_data={
-                "marketplace_id": body.marketplace_id,
-                "policy_type": body.policy_type,
-                "policy_id": body.policy_id,
-                "total_offers": len(offer_ids),
-                "via_temporal": True,
-            },
-        )
-        job.status = JobStatus.RUNNING
         db.commit()
 
-        # 4. Start Temporal workflow
+        # 3. Start Temporal workflow
         from temporal.client import get_temporal_client
         from temporal.config import get_temporal_config
         from temporal.workflows.ebay.apply_policy_workflow import (
@@ -830,11 +811,11 @@ async def apply_policy_to_offers(
             )
 
         client = await get_temporal_client()
-        workflow_id = f"ebay-apply-policy-user-{current_user.id}-job-{job.id}"
+        import time
+        workflow_id = f"ebay-apply-policy-user-{current_user.id}-{int(time.time() * 1000)}"
 
         params = ApplyPolicyParams(
             user_id=current_user.id,
-            job_id=job.id,
             marketplace_id=body.marketplace_id,
             policy_type=body.policy_type,
             policy_id=body.policy_id,
@@ -849,14 +830,6 @@ async def apply_policy_to_offers(
             task_queue=config.temporal_task_queue,
         )
 
-        # Update job with workflow_id
-        job.input_data = {
-            **job.input_data,
-            "workflow_id": workflow_id,
-            "run_id": handle.result_run_id,
-        }
-        db.commit()
-
         logger.info(
             "Started apply_policy workflow: %s (user=%s, offers=%d)",
             workflow_id,
@@ -867,7 +840,6 @@ async def apply_policy_to_offers(
         return {
             "status": "started",
             "workflow_id": workflow_id,
-            "job_id": job.id,
             "total_offers": len(offer_ids),
             "settings_updated": True,
         }

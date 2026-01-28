@@ -39,9 +39,13 @@ from shared.database import SessionLocal
 from shared.logging import get_logger
 from temporal.activities.job_state_activities import (
     configure_activity_session,
+    check_plugin_connection,
     JOB_STATE_ACTIVITIES,
 )
 from temporal.activities.vinted_sync_reconciliation_activities import (
+    sync_sold_status,
+    detect_sold_with_active_listing,
+    delete_vinted_listing,
     VINTED_RECONCILIATION_ACTIVITIES,
 )
 

@@ -7,22 +7,17 @@ to all existing eBay offers for a marketplace.
 Offers are dispatched in batches of 500 to Temporal. The worker's
 ThreadPoolExecutor (30 threads) processes them as a sliding window:
 as soon as one thread finishes, it picks up the next activity.
-Progress is updated in the DB after each dispatch batch.
+Progress is tracked via Temporal query (get_progress).
 """
 
 import asyncio
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Optional
-
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 from temporal.activities.ebay_activities import (
     apply_policy_to_single_offer,
-    update_job_progress,
-    mark_job_completed,
-    mark_job_failed,
 )
 
 
@@ -31,7 +26,6 @@ class ApplyPolicyParams:
     """Parameters for the apply policy workflow."""
 
     user_id: int
-    job_id: int
     marketplace_id: str
     policy_type: str  # "payment" | "fulfillment" | "return"
     policy_id: str
@@ -60,9 +54,8 @@ class EbayApplyPolicyWorkflow:
     Features:
     - Dispatch batches of 500 activities to Temporal
     - Sliding window: 30 concurrent threads, each picks up next on completion
-    - Progress tracking via queries
+    - Progress tracking via Temporal queries
     - Cancellation support via signal
-    - DB progress updates after each dispatch batch
     """
 
     def __init__(self):
@@ -75,7 +68,7 @@ class EbayApplyPolicyWorkflow:
         Execute the apply policy workflow.
 
         Args:
-            params: Workflow parameters (user_id, job_id, offer_ids, etc.)
+            params: Workflow parameters (user_id, offer_ids, policy, etc.)
 
         Returns:
             Dict with results (updated, skipped, errors)
@@ -98,24 +91,12 @@ class EbayApplyPolicyWorkflow:
             "retry_policy": retry_policy,
         }
 
-        progress_activity_options = {
-            "start_to_close_timeout": timedelta(seconds=10),
-            "retry_policy": RetryPolicy(maximum_attempts=2),
-        }
-
         # Dispatch batch size: send 500 activities at once to Temporal.
         # The worker's ThreadPoolExecutor (30 threads) processes them with
         # a sliding window: as soon as one finishes, the next starts.
         dispatch_batch = 500
 
         try:
-            # Initial progress update
-            await workflow.execute_activity(
-                update_job_progress,
-                args=[params.user_id, params.job_id, 0, "application en cours..."],
-                **progress_activity_options,
-            )
-
             # Process offers in dispatch batches (500 at a time)
             for i in range(0, len(params.offer_ids), dispatch_batch):
                 if self._cancelled:
@@ -159,39 +140,15 @@ class EbayApplyPolicyWorkflow:
                     f"{self._progress.current}/{self._progress.total} offres traitées"
                 )
 
-                # Update DB progress after each dispatch batch
-                await workflow.execute_activity(
-                    update_job_progress,
-                    args=[
-                        params.user_id,
-                        params.job_id,
-                        self._progress.current,
-                        self._progress.label,
-                    ],
-                    **progress_activity_options,
-                )
-
             # Handle cancellation
             if self._cancelled:
                 self._progress.status = "cancelled"
-                await workflow.execute_activity(
-                    mark_job_failed,
-                    args=[params.user_id, params.job_id, "Annulé par l'utilisateur"],
-                    **progress_activity_options,
-                )
                 return {
                     "status": "cancelled",
                     "updated": self._progress.updated,
                     "skipped": self._progress.skipped,
                     "errors": self._progress.errors,
                 }
-
-            # Mark completed
-            await workflow.execute_activity(
-                mark_job_completed,
-                args=[params.user_id, params.job_id, self._progress.updated],
-                **progress_activity_options,
-            )
 
             self._progress.status = "completed"
             self._progress.label = (
@@ -210,16 +167,6 @@ class EbayApplyPolicyWorkflow:
 
         except Exception as e:
             self._progress.status = "failed"
-
-            try:
-                await workflow.execute_activity(
-                    mark_job_failed,
-                    args=[params.user_id, params.job_id, str(e)],
-                    start_to_close_timeout=timedelta(seconds=10),
-                )
-            except Exception:
-                pass  # Best effort
-
             raise
 
     @workflow.signal

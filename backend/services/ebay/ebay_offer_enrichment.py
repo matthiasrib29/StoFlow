@@ -19,7 +19,6 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from models.user.ebay_product import EbayProduct
-from models.user.marketplace_job import JobStatus, MarketplaceJob
 from shared.datetime_utils import utc_now
 from shared.logging import get_logger
 
@@ -34,19 +33,16 @@ class EbayOfferEnrichment:
         db: Session,
         offer_client,
         aspect_reverse_map: dict,
-        job: Optional[MarketplaceJob] = None,
     ):
         """
         Args:
             db: SQLAlchemy session
             offer_client: EbayOfferClient instance
             aspect_reverse_map: Reverse mapping from aspect names to aspect keys
-            job: Optional MarketplaceJob for cooperative cancellation
         """
         self.db = db
         self.offer_client = offer_client
         self._aspect_reverse_map = aspect_reverse_map
-        self.job = job
 
     def _fetch_offers(self, sku: str) -> list[dict]:
         """Fetch offers for a SKU from eBay Offer API."""
@@ -276,16 +272,6 @@ class EbayOfferEnrichment:
         logger.info(f"[EnrichOffers] Starting enrichment for {len(products)} products")
 
         for i, product in enumerate(products):
-            if self.job:
-                self.db.refresh(self.job)
-                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
-                    logger.info(f"[EnrichOffers] Job cancelled at {i}/{len(products)}")
-                    try:
-                        self.db.commit()
-                    except Exception:
-                        self.db.rollback()
-                    return {**results, "status": "cancelled"}
-
             try:
                 self.enrich_with_offers(product)
                 results["enriched"] += 1
