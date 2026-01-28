@@ -2,6 +2,7 @@
   <UiFormSection :columns="4" variant="flat" spacing="tight">
     <!-- Fit -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('fit')"
       type="select"
       label="Coupe"
       :model-value="fit"
@@ -13,6 +14,7 @@
 
     <!-- Season -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('season')"
       type="select"
       label="Saison"
       :model-value="season"
@@ -24,6 +26,7 @@
 
     <!-- Sport -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('sport')"
       type="select"
       label="Sport"
       :model-value="sport"
@@ -35,6 +38,7 @@
 
     <!-- Neckline -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('neckline')"
       type="select"
       label="Encolure"
       :model-value="neckline"
@@ -46,6 +50,7 @@
 
     <!-- Length -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('length')"
       type="select"
       label="Longueur"
       :model-value="length"
@@ -57,6 +62,7 @@
 
     <!-- Pattern -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('pattern')"
       type="select"
       label="Motif"
       :model-value="pattern"
@@ -68,6 +74,7 @@
 
     <!-- Rise -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('rise')"
       type="select"
       label="Hauteur taille"
       :model-value="rise"
@@ -79,6 +86,7 @@
 
     <!-- Closure -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('closure')"
       type="select"
       label="Fermeture"
       :model-value="closure"
@@ -90,6 +98,7 @@
 
     <!-- Sleeve Length -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('sleeve_length')"
       type="select"
       label="Manches"
       :model-value="sleeveLength"
@@ -101,6 +110,7 @@
 
     <!-- Stretch -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('stretch')"
       type="select"
       label="Élasticité"
       :model-value="stretch"
@@ -112,6 +122,7 @@
 
     <!-- Lining -->
     <ProductsFormsCharacteristicsAttributeField
+      v-if="isVisible('lining')"
       type="select"
       label="Doublure"
       :model-value="lining"
@@ -126,6 +137,11 @@
 <script setup lang="ts">
 import type { AttributeOption } from '~/composables/useAttributes'
 
+const ALL_CLOTHING_ATTRS = [
+  'fit', 'season', 'sport', 'neckline', 'length',
+  'pattern', 'rise', 'closure', 'sleeve_length', 'stretch', 'lining'
+]
+
 interface Props {
   fit: string | null
   season: string | null
@@ -138,6 +154,7 @@ interface Props {
   sleeveLength: string | null
   stretch: string | null
   lining: string | null
+  visibleAttributes?: string[]
   options: {
     fits: AttributeOption[]
     seasons: AttributeOption[]
@@ -153,7 +170,13 @@ interface Props {
   }
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  visibleAttributes: () => ALL_CLOTHING_ATTRS
+})
+
+const isVisible = (attr: string): boolean => {
+  return props.visibleAttributes.includes(attr)
+}
 
 defineEmits<{
   'update:fit': [value: string | string[] | null]

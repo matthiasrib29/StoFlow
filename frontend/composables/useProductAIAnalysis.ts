@@ -213,15 +213,15 @@ export function useProductAIAnalysis() {
       }
     }
 
-    // Handle color (backend returns array, form expects first value as string)
+    // Handle color (backend returns array, form expects comma-separated string)
     if (attrs.color && Array.isArray(attrs.color) && attrs.color.length > 0) {
-      form.value.color = attrs.color[0]
+      form.value.color = attrs.color.join(', ')
       fieldsUpdated++
     }
 
-    // Handle material (backend returns array, form expects first value as string)
+    // Handle material (backend returns array, form expects comma-separated string)
     if (attrs.material && Array.isArray(attrs.material) && attrs.material.length > 0) {
-      form.value.material = attrs.material[0]
+      form.value.material = attrs.material.join(', ')
       fieldsUpdated++
     }
 

@@ -38,6 +38,7 @@ from models.public.stretch import Stretch
 from models.public.trend import Trend
 from models.public.condition_sup import ConditionSup
 from models.public.unique_feature import UniqueFeature
+from shared.clothing_visibility_config import ALL_CLOTHING_ATTRIBUTES, CLOTHING_VISIBILITY_CONFIG
 from shared.database import get_db
 
 router = APIRouter(prefix="/attributes", tags=["Attributes"])
@@ -243,6 +244,20 @@ def _get_label_for_item(item, config: dict, lang: str) -> str:
 
     # Dernier recours: utiliser le value_field
     return str(getattr(item, config["value_field"], ""))
+
+
+@router.get("/config/clothing-visibility")
+def get_clothing_visibility_config():
+    """
+    Returns the clothing attributes visibility configuration.
+
+    Used by the frontend to conditionally show/hide clothing attribute fields
+    based on the selected product category's parent group.
+    """
+    return {
+        "config": CLOTHING_VISIBILITY_CONFIG,
+        "all_attributes": ALL_CLOTHING_ATTRIBUTES
+    }
 
 
 @router.get("/{attribute_type}")

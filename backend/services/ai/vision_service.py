@@ -22,6 +22,11 @@ from sqlalchemy.orm import Session
 from models.public.user import User
 from models.user.ai_generation_log import AIGenerationLog
 from schemas.ai_schemas import VisionExtractedAttributes
+from shared.clothing_visibility_config import (
+    ALWAYS_INCLUDED_DB_KEYS,
+    CLOTHING_ATTR_TO_DB_KEY,
+    CLOTHING_VISIBILITY_CONFIG,
+)
 from shared.config import settings
 from shared.exceptions import AIGenerationError, AIQuotaExceededError
 from shared.logging import get_logger
@@ -57,6 +62,12 @@ ATTR_DB_TO_SCHEMA: dict[str, tuple[str, str]] = {
 
 # Attributes with fewer values than this threshold use schema enum (not prompt list)
 ENUM_THRESHOLD = 16
+
+# Minimum confidence threshold for the router step (below this, fallback to full pipeline)
+ROUTER_CONFIDENCE_THRESHOLD = 0.3
+
+# Fixed fields always included in the Expert prompt/schema (not from DB attribute lists)
+PIPELINE_FIXED_FIELDS = {"brand", "condition", "label_size", "confidence"}
 
 # Fields that accept multiple comma-separated values (field_name -> max count or None)
 MULTI_VALUE_FIELDS: dict[str, int | None] = {
@@ -333,27 +344,179 @@ Generate a precise JSON object adhering strictly to the provided schema."""
         return attributes
 
     @staticmethod
+    def _call_router(
+        client,
+        router_images: list,
+        leaf_categories: list[str],
+    ) -> tuple[str, float, int, int] | None:
+        """
+        Pipeline Step 1 — Router: identify the clothing category from first images.
+
+        Args:
+            client: Gemini client instance
+            router_images: First 2 image Parts (face + back)
+            leaf_categories: List of valid leaf category names (enum)
+
+        Returns:
+            (category_name, confidence, input_tokens, output_tokens) or None on failure
+        """
+        import json
+
+        router_schema = {
+            "type": "OBJECT",
+            "properties": {
+                "category": {"type": "STRING", "enum": leaf_categories},
+                "confidence": {"type": "NUMBER"},
+            },
+            "required": ["category", "confidence"],
+        }
+
+        router_prompt = (
+            "Identify the exact clothing category of this item. "
+            "Choose the most specific matching category from the schema enum. "
+            "Read any visible label text to help determine the category."
+        )
+
+        try:
+            contents = router_images + [router_prompt]
+
+            response = client.models.generate_content(
+                model=settings.gemini_model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=(
+                        "You are a clothing category classifier. "
+                        "Identify the exact product category from the images. "
+                        "Label text overrides visual ambiguity."
+                    ),
+                    response_mime_type="application/json",
+                    response_schema=router_schema,
+                    temperature=0.0,
+                    media_resolution=types.MediaResolution.MEDIA_RESOLUTION_MEDIUM,
+                ),
+            )
+
+            if not response.text:
+                logger.warning("[AIVisionService] Router: empty response")
+                return None
+
+            result = json.loads(response.text)
+            category = result.get("category")
+            confidence = result.get("confidence", 0.0)
+            input_tokens = response.usage_metadata.prompt_token_count
+            output_tokens = response.usage_metadata.candidates_token_count
+
+            if not category or confidence < ROUTER_CONFIDENCE_THRESHOLD:
+                logger.info(
+                    f"[AIVisionService] Router: low confidence ({confidence:.2f}) "
+                    f"or no category, falling back to full pipeline"
+                )
+                return None
+
+            logger.info(
+                f"[AIVisionService] Router: category={category}, "
+                f"confidence={confidence:.2f}, "
+                f"tokens={input_tokens + output_tokens}"
+            )
+            return (category, confidence, input_tokens, output_tokens)
+
+        except Exception as e:
+            logger.warning(f"[AIVisionService] Router failed: {e}")
+            return None
+
+    @staticmethod
+    def _resolve_parent_group(db: Session, category_name_en: str) -> str | None:
+        """
+        Pipeline Step 2a — Resolve the parent category group for a leaf category.
+
+        Args:
+            db: SQLAlchemy session
+            category_name_en: English name of the detected leaf category
+
+        Returns:
+            Parent category name_en (lowercase) or None if not found
+        """
+        from models.public.category import Category
+
+        category = (
+            db.query(Category.parent_category)
+            .filter(Category.name_en == category_name_en)
+            .first()
+        )
+
+        if not category or not category.parent_category:
+            logger.debug(
+                f"[AIVisionService] No parent group for category '{category_name_en}'"
+            )
+            return None
+
+        parent_group = category.parent_category.lower()
+        logger.debug(
+            f"[AIVisionService] Resolved parent group: "
+            f"'{category_name_en}' -> '{parent_group}'"
+        )
+        return parent_group
+
+    @staticmethod
+    def _get_filtered_db_keys(parent_group: str | None) -> set[str]:
+        """
+        Pipeline Step 2b — Determine which DB attribute keys to send to the Expert.
+
+        Args:
+            parent_group: Parent category group (e.g. "tops", "bottoms") or None
+
+        Returns:
+            Set of DB table keys to include in the Expert call
+        """
+        filtered = set(ALWAYS_INCLUDED_DB_KEYS)
+
+        if parent_group and parent_group in CLOTHING_VISIBILITY_CONFIG:
+            # Add only the clothing attributes visible for this category group
+            visible_attrs = CLOTHING_VISIBILITY_CONFIG[parent_group]
+            for attr in visible_attrs:
+                db_key = CLOTHING_ATTR_TO_DB_KEY.get(attr)
+                if db_key:
+                    filtered.add(db_key)
+            logger.info(
+                f"[AIVisionService] Filtered attributes for '{parent_group}': "
+                f"{sorted(filtered)}"
+            )
+        else:
+            # Unknown group: include ALL clothing attribute DB keys (safe fallback)
+            for db_key in CLOTHING_ATTR_TO_DB_KEY.values():
+                filtered.add(db_key)
+            logger.info(
+                f"[AIVisionService] Unknown parent group '{parent_group}', "
+                f"using all clothing attributes"
+            )
+
+        return filtered
+
+    @staticmethod
     def _build_response_schema(attributes: dict[str, list[str]]) -> dict:
         """
         Build dynamic JSON schema with enum constraints for attributes with < ENUM_THRESHOLD values.
         Attributes with >= ENUM_THRESHOLD values are listed in the prompt text instead.
+
+        Only includes properties for DB keys present in the `attributes` dict.
+        Fixed fields (brand, condition, label_size, confidence) are always included.
         """
         # Fields that MUST have a value (Gemini cannot return null)
         non_nullable = {"category", "gender", "condition", "confidence", "color"}
 
         properties = {
-            # Fixed fields (not from DB attribute lists)
+            # Fixed fields (always included, not from DB attribute lists)
             "brand": {"type": "STRING", "nullable": True},
             "condition": {"type": "INTEGER"},
             "label_size": {"type": "STRING", "nullable": True},
-            "model": {"type": "STRING", "nullable": True},
-            "marking": {"type": "STRING", "nullable": True},
             "confidence": {"type": "NUMBER"},
         }
 
         enum_attrs = []
         for db_key, (field_name, _) in ATTR_DB_TO_SCHEMA.items():
-            values = attributes.get(db_key, [])
+            if db_key not in attributes:
+                continue  # Skip attributes not in the filtered set
+            values = attributes[db_key]
             nullable = field_name not in non_nullable
             prop: dict = {"type": "STRING"}
             if nullable:
@@ -381,13 +544,25 @@ Generate a precise JSON object adhering strictly to the provided schema."""
         Only lists attributes with >= ENUM_THRESHOLD values in the prompt.
         Attributes with fewer values are enforced via schema enum constraints.
 
+        Only includes descriptions and values for attributes present in the
+        `attributes` dict, plus fixed fields (brand, condition, label_size, confidence).
+
         Args:
             attributes: Dictionary of valid attribute values from database
         """
+        # Compute set of field names to include in the prompt
+        included_fields = set(PIPELINE_FIXED_FIELDS)
+        for db_key in attributes:
+            mapping = ATTR_DB_TO_SCHEMA.get(db_key)
+            if mapping:
+                included_fields.add(mapping[0])  # field_name
+
         # Build valid values section (only attributes with >= ENUM_THRESHOLD values)
         valid_values_lines = []
         for db_key, (_, label) in ATTR_DB_TO_SCHEMA.items():
-            values = attributes.get(db_key, [])
+            if db_key not in attributes:
+                continue
+            values = attributes[db_key]
             if len(values) >= ENUM_THRESHOLD:
                 valid_values_lines.append(f"**{label}:** {', '.join(values)}")
 
@@ -398,18 +573,22 @@ Generate a precise JSON object adhering strictly to the provided schema."""
 
         valid_values_section = "\n".join(valid_values_lines)
 
-        # Build multi-value fields rule dynamically
+        # Build multi-value fields rule (only for included fields)
         multi_parts = []
         for field, max_count in MULTI_VALUE_FIELDS.items():
+            if field not in included_fields:
+                continue
             if max_count:
                 multi_parts.append(f"{field} (max {max_count})")
             else:
                 multi_parts.append(field)
-        multi_value_rule = ", ".join(multi_parts)
+        multi_value_rule = ", ".join(multi_parts) if multi_parts else "none"
 
-        # Build attribute descriptions dynamically
+        # Build attribute descriptions (only for included fields)
         attr_desc_lines = "\n".join(
-            f"- {field}: {desc}" for field, desc in ATTR_DESCRIPTIONS.items()
+            f"- {field}: {desc}"
+            for field, desc in ATTR_DESCRIPTIONS.items()
+            if field in included_fields
         )
 
         return f"""Analyze the following product images and extract ALL visible attributes.
@@ -439,8 +618,13 @@ Analyze ALL provided images."""
         start_time: float,
     ) -> tuple[VisionExtractedAttributes, int, Decimal, int]:
         """
-        Common Gemini API call: build prompt/schema, call API, parse response,
-        calculate metrics, log generation, consume credit.
+        2-step AI pipeline: Router (category detection) + Expert (full extraction).
+
+        Step 1 — Router: Send first 2 images to detect the clothing category.
+        Step 2 — Backend filter: Resolve parent group and filter attributes.
+        Step 3 — Expert: Send ALL images with filtered attributes for full extraction.
+
+        Falls back to single-call behavior (all attributes) if the router fails.
 
         Args:
             db: SQLAlchemy session
@@ -455,18 +639,64 @@ Analyze ALL provided images."""
         """
         import json
 
-        attributes = AIVisionService._fetch_product_attributes(db)
-        prompt = AIVisionService._build_prompt(attributes)
-        response_schema = AIVisionService._build_response_schema(attributes)
+        # 1. Create Gemini client
+        client = genai.Client(
+            api_key=settings.gemini_api_key,
+            http_options=types.HttpOptions(
+                timeout=settings.gemini_timeout_seconds * 1000
+            ),
+        )
 
-        try:
-            client = genai.Client(
-                api_key=settings.gemini_api_key,
-                http_options=types.HttpOptions(
-                    timeout=settings.gemini_timeout_seconds * 1000
-                ),
+        # 2. Fetch ALL product attributes from DB
+        all_attributes = AIVisionService._fetch_product_attributes(db)
+
+        # 3. STEP 1 — Router: send first 2 images to detect category
+        router_images = image_parts[:2]
+        router_result = AIVisionService._call_router(
+            client, router_images, all_attributes["categories"]
+        )
+
+        total_input_tokens = 0
+        total_output_tokens = 0
+        pipeline_version = 2
+        router_data = None
+        fallback_reason = None
+
+        if router_result:
+            detected_category, router_confidence, r_in, r_out = router_result
+            total_input_tokens += r_in
+            total_output_tokens += r_out
+            router_data = {
+                "category": detected_category,
+                "confidence": round(router_confidence, 3),
+                "input_tokens": r_in,
+                "output_tokens": r_out,
+            }
+
+            # 4. STEP 2 — Backend filter: resolve parent group and filter attributes
+            parent_group = AIVisionService._resolve_parent_group(
+                db, detected_category
+            )
+            filtered_db_keys = AIVisionService._get_filtered_db_keys(parent_group)
+            filtered_attributes = {
+                k: v for k, v in all_attributes.items() if k in filtered_db_keys
+            }
+        else:
+            # Fallback: use ALL attributes (legacy single-call behavior)
+            pipeline_version = 1
+            fallback_reason = "router_failed"
+            filtered_attributes = all_attributes
+            logger.info(
+                "[AIVisionService] Router fallback: using all attributes"
             )
 
+        # 5. STEP 3 — Expert: send ALL images + filtered attributes
+        prompt = AIVisionService._build_prompt(filtered_attributes)
+        response_schema = AIVisionService._build_response_schema(
+            filtered_attributes
+        )
+
+        try:
             contents = image_parts + [prompt]
 
             response = client.models.generate_content(
@@ -499,34 +729,49 @@ Analyze ALL provided images."""
             response_data = AIVisionService._process_brand(db, response_data)
             extracted_attributes = VisionExtractedAttributes(**response_data)
 
-            # Calculate metrics
-            input_tokens = response.usage_metadata.prompt_token_count
-            output_tokens = response.usage_metadata.candidates_token_count
-            total_tokens = input_tokens + output_tokens
+            # 6. Combined metrics (router + expert)
+            expert_input = response.usage_metadata.prompt_token_count
+            expert_output = response.usage_metadata.candidates_token_count
+            total_input_tokens += expert_input
+            total_output_tokens += expert_output
+            total_tokens = total_input_tokens + total_output_tokens
 
             pricing = AIVisionService.MODEL_PRICING.get(
                 settings.gemini_model, {"input": 0.075, "output": 0.30}
             )
             cost = Decimal(
                 str(
-                    (input_tokens * pricing["input"] / 1_000_000)
-                    + (output_tokens * pricing["output"] / 1_000_000)
+                    (total_input_tokens * pricing["input"] / 1_000_000)
+                    + (total_output_tokens * pricing["output"] / 1_000_000)
                 )
             )
 
             generation_time_ms = int((time.time() - start_time) * 1000)
 
-            # Log generation
+            # 7. Build log data with pipeline info
+            if pipeline_version == 2:
+                log_response_data = {
+                    "pipeline_version": 2,
+                    "router": router_data,
+                    "expert": response_data,
+                }
+            else:
+                log_response_data = {
+                    "pipeline_version": 1,
+                    "fallback_reason": fallback_reason,
+                    **response_data,
+                }
+
             log = AIGenerationLog(
                 product_id=product_id,
                 model=settings.gemini_model,
-                prompt_tokens=input_tokens,
-                completion_tokens=output_tokens,
+                prompt_tokens=total_input_tokens,
+                completion_tokens=total_output_tokens,
                 total_tokens=total_tokens,
                 total_cost=cost,
                 cached=False,
                 generation_time_ms=generation_time_ms,
-                response_data=response_data,
+                response_data=log_response_data,
             )
             db.add(log)
 
@@ -535,6 +780,7 @@ Analyze ALL provided images."""
 
             logger.info(
                 f"[AIVisionService] Analysis complete: product_id={product_id}, "
+                f"pipeline_v={pipeline_version}, "
                 f"images={images_analyzed}, tokens={total_tokens}, "
                 f"cost=${cost:.6f}, time={generation_time_ms}ms, "
                 f"confidence={extracted_attributes.confidence:.2f}"

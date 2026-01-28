@@ -1,0 +1,146 @@
+================================================================================
+               StoFlow - Product Attributes Reference (from DB)
+================================================================================
+Generated: 2026-01-28 11:10
+Source: product_attributes schema (PostgreSQL)
+Excludes: brands, sizes, dim*, models
+
+
+=== CATEGORIES (64 total) ===
+
+  clothing (root)
+    bottoms (parent) [11 children]
+      bermuda, cargo-pants, chinos, culottes, dress-pants, jeans,
+      joggers, leggings, pants, shorts, skirt
+    formalwear (parent) [3 children]
+      suit, tuxedo, waistcoat
+    outerwear (parent) [14 children]
+      blazer, bomber, cape, coat, half-zip, jacket, kimono, parka,
+      poncho, puffer, raincoat, trench, vest, windbreaker
+    sportswear (parent) [8 children]
+      bikini, sports-bra, sports-jersey, sports-leggings, sports-
+      shorts, sports-top, swim suit, track suit
+    tops (parent) [17 children]
+      blouse, body suit, bustier, camisole, cardigan, corset, crop-
+      top, fleece jacket, hoodie, overshirt, polo, shirt,
+      sweater, sweatshirt, t-shirt, tank-top, top
+  dress (root)
+  jump suit (root)
+  other (root)
+  overalls (root)
+  romper (root)
+
+=== CLOSURES (12 values) ===
+Button fly, Buttons, Drawstring, Elastic, Hook and eye, Laces, Pull-on,
+Snap buttons, Toggle, Velcro, Zip fly, Zipper
+
+=== COLORS (67 values) ===
+Beige, Black, Blue, Blush, Bronze, Brown, Burgundy, Burnt orange, Butter
+yellow, Camel, Charcoal, Cherry red, Chocolate, Cinnamon, Cobalt,
+Cognac, Coral, Cream, Dusty pink, Eggplant, Emerald, Espresso, Forest
+green, Fuchsia, Gold, Gray, Green, Hot pink, Indigo, Ivory, Khaki, Klein
+blue, Lavender, Light-blue, Lilac, Mauve, Metallic, Mint, Mocha,
+Multicolor, Mustard, Navy, Nude, Off-white, Olive, Orange, Peach, Pink,
+Plum, Powder blue, Purple, Red, Rose gold, Rust, Sage, Sand, Silver,
+Slate, Tan, Taupe, Teal, Terracotta, Turquoise, Vanilla yellow, White,
+Wine, Yellow
+
+=== CONDITION_SUPS (37 values) ===
+Color bleeding, Damaged button, Damaged patch, Deadstock (NOS), Elastic
+worn, Faded, Frayed hems, General wear, Hem undone, Hemmed/shortened,
+Knee wear, Light discoloration, Lining damaged, Marked discoloration,
+Missing button, Missing patch, Moth holes, Multiple holes, Multiple
+stains, New With Tags (NWT), New Without Tags (NWOT), Odor, Pilling,
+Resewn, Seam to fix, Single stain, Small hole, Snag, Stretched, Sun
+fading, Tapered, Torn, Vintage patina, Vintage wear, Waist altered,
+Worn, Zipper to replace
+
+=== CONDITIONS (11 values) ===
+Acceptable, Excellent, For parts only, Good, Like new, Major defects,
+New, Poor, Shows wear, Very good, Very poor
+
+=== DECADES (8 values) ===
+2000s, 2010s, 2020s, 50s, 60s, 70s, 80s, 90s
+
+=== FITS (13 values) ===
+Athletic, Baggy, Balloon, Bootcut, Flare, Loose, Oversized, Regular,
+Relaxed, Skinny, Slim, Straight, Tight
+
+=== GENDERS (5 values) ===
+Boys, Girls, Men, Unisex, Women
+
+=== LENGTHS (12 values) ===
+Ankle, Capri, Cropped, Extra long, Floor length, Knee length, Long,
+Maxi, Midi, Mini, Regular, Short
+
+=== LININGS (4 values) ===
+Fleece lined, Fully lined, Partially lined, Unlined
+
+=== MATERIALS (27 values) ===
+Acrylic, Cashmere, Corduroy, Cotton, Crochet, Denim, Elastane, Flannel,
+Fleece, Hemp, Lace, Leather, Linen, Lyocell, Modal, Nylon, Polyester,
+Rayon, Satin, Silk, Spandex, Suede, Technical fabric, Tweed, Velvet,
+Viscose, Wool
+
+=== NECKLINES (20 values) ===
+Boat neck, Collared, Cowl neck, Crew neck, Funnel neck, Halter, Henley,
+Hood, Mandarin collar, Mock neck, Notch lapel, Off-shoulder, Peak lapel,
+Polo collar, Round neck, Scoop neck, Shawl collar, Square neck,
+Turtleneck, V-neck
+
+=== ORIGINS (48 values) ===
+Australia, Bahrain, Bangladesh, Belgium, Brazil, Brunei, Cambodia,
+Canada, China, Colombia, Costa rica, Dominican republic, Egypt, El
+salvador, France, Germany, Guatemala, Haiti, Honduras, Hong kong, India,
+Indonesia, Italy, Japan, Jordan, Kenya, Malaysia, Malta, Mauritius,
+Mexico, Morocco, Netherlands, Nicaragua, Norway, Pakistan, Philippines,
+Poland, Portugal, Slovakia, South korea, Spain, Taiwan, Tunisia, Turkey,
+Turkmenistan, United kingdom, Usa, Vietnam
+
+=== PATTERNS (18 values) ===
+Abstract, Animal print, Camouflage, Checkered, Color block, Floral,
+Geometric, Graphic, Herringbone, Houndstooth, Ombre, Paisley, Plaid,
+Polka dot, Solid, Striped, Tie-dye, Tropical
+
+=== RISES (6 values) ===
+High-rise, Low-rise, Mid-rise, Regular rise, Super low-rise, Ultra high-
+rise
+
+=== SEASONS (5 values) ===
+All seasons, Autumn, Spring, Summer, Winter
+
+=== SLEEVE_LENGTHS (4 values) ===
+3/4 sleeve, Long sleeve, Short sleeve, Sleeveless
+
+=== SPORTS (28 values) ===
+American football, Baseball, Basketball, Boxing, Climbing, Crossfit,
+Cycling, Dance, Equestrian, Fitness, Football/soccer, Golf, Gymnastics,
+Hiking, Hockey, Martial arts, Motorsport, Pilates, Rugby, Running,
+Skateboarding, Ski, Snowboard, Surfing, Swimming, Tennis, Volleyball,
+Yoga
+
+=== STRETCHES (4 values) ===
+Moderate stretch, No stretch, Slight stretch, Super stretch
+
+=== TRENDS (41 values) ===
+Athleisure, Balletcore, Bohemian, Boho revival, Clean girl, Coquette,
+Cottagecore, Dark academia, Downtown girl, Eclectic grandpa, Geek chic,
+Glamoratti, Gorpcore, Gothic, Grunge, Indie sleaze, Japanese streetwear,
+Khaki coded, Light academia, Minimalist, Mob wife, Modern, Neo deco,
+Normcore, Office siren, Old money, Poetcore, Preppy, Punk, Quiet luxury,
+Retro, Skater, Sportswear, Streetwear, Techwear, Vamp romance, Vintage,
+Western, Wilderkind, Workwear, Y2k
+
+=== UNIQUE_FEATURES (65 values) ===
+Acid wash, Appliqué, Bar tacks, Beaded, Belt loops, Bleached, Brass
+rivets, Button detail, Chain detail, Chain stitching, Coin pocket,
+Contrast stitching, Copper rivets, Cuffed, Custom design, Cutouts,
+Darted, Deadstock fabric, Decorative pockets, Distressed, Double stitch,
+Embossed buttons, Embroidered, Fading, Flat felled seams, Frayed,
+Fringe, Garment dyed, Gradient, Hand embroidered, Hand painted, Hidden
+rivets, Jacron patch, Lace detail, Leather label, Leather patch, Lined,
+Original buttons, Padded, Painted, Paneled, Paper patch, Patchwork,
+Pleated, Printed, Raw denim, Raw hem, Reinforced seams, Ripped, Rope
+dyed, Sanforized, Selvedge, Sequined, Shuttle loom, Single stitch, Stone
+washed, Studded, Tiered, Triple stitch, Unsanforized, Vintage hardware,
+Vintage wash, Whiskering, Woven label, Zipper detail

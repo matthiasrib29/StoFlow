@@ -11,6 +11,11 @@ import type { AttributeOption, CategoryOption } from '~/composables/useAttribute
 import { useLocaleStore } from '~/stores/locale'
 import { attributeLogger } from '~/utils/logger'
 
+interface ClothingVisibilityResponse {
+  config: Record<string, string[]>
+  all_attributes: string[]
+}
+
 export interface ProductAttributesState {
   // Required field options
   genders: AttributeOption[]
@@ -88,6 +93,10 @@ export const useProductAttributes = () => {
     materials: []
   })
 
+  // Clothing visibility config
+  const clothingVisibilityConfig = ref<Record<string, string[]>>({})
+  const allClothingAttributes = ref<string[]>([])
+
   // Filtered options for searchable select
   const filteredOptions = reactive({
     categories: [] as CategoryOption[],
@@ -95,6 +104,78 @@ export const useProductAttributes = () => {
     colors: [] as AttributeOption[],
     materials: [] as AttributeOption[]
   })
+
+  /**
+   * Load clothing visibility config from API
+   */
+  const loadClothingVisibilityConfig = async () => {
+    try {
+      const config = useRuntimeConfig()
+      const apiBaseUrl = config.public.apiBaseUrl || 'http://localhost:8000/api'
+      const response = await $fetch<ClothingVisibilityResponse>(
+        `${apiBaseUrl}/attributes/config/clothing-visibility`
+      )
+      clothingVisibilityConfig.value = response.config
+      allClothingAttributes.value = response.all_attributes
+    } catch (error) {
+      attributeLogger.error('Failed to load clothing visibility config', error)
+      // Fallback: all attributes visible
+      allClothingAttributes.value = [
+        'fit', 'season', 'sport', 'neckline', 'length',
+        'pattern', 'rise', 'closure', 'sleeve_length', 'stretch', 'lining'
+      ]
+    }
+  }
+
+  /**
+   * Resolve a leaf category value to its parent category group.
+   * Walks up the category tree to find a group matching a key in the visibility config.
+   */
+  const resolveParentCategoryGroup = (categoryValue: string): string | null => {
+    if (!categoryValue || options.categories.length === 0) return null
+
+    const categoriesMap = new Map(
+      options.categories.map(c => [c.value, c])
+    )
+    const configKeys = Object.keys(clothingVisibilityConfig.value)
+
+    // Check if the category itself is a config key
+    if (configKeys.includes(categoryValue)) return categoryValue
+
+    // Walk up the tree
+    let current = categoriesMap.get(categoryValue)
+    const visited = new Set<string>()
+    const maxDepth = 10
+
+    while (current?.parent_category && visited.size < maxDepth) {
+      const parent = current.parent_category
+      if (visited.has(parent)) break
+      visited.add(parent)
+
+      if (configKeys.includes(parent)) return parent
+
+      current = categoriesMap.get(parent)
+    }
+
+    return null
+  }
+
+  /**
+   * Get the list of visible clothing attributes for a given category value.
+   * Returns all attributes if no category selected or category not found in config.
+   */
+  const getVisibleClothingAttributes = (categoryValue: string): string[] => {
+    const fallback = allClothingAttributes.value.length > 0
+      ? allClothingAttributes.value
+      : ['fit', 'season', 'sport', 'neckline', 'length', 'pattern', 'rise', 'closure', 'sleeve_length', 'stretch', 'lining']
+
+    if (!categoryValue) return fallback
+
+    const group = resolveParentCategoryGroup(categoryValue)
+    if (!group) return fallback
+
+    return clothingVisibilityConfig.value[group] || fallback
+  }
 
   /**
    * Load all attributes from API
@@ -167,6 +248,9 @@ export const useProductAttributes = () => {
       attributeLogger.error('Failed to load popular brands', error)
       filteredOptions.brands = []
     }
+
+    // Load clothing visibility config (needs categories loaded first)
+    await loadClothingVisibilityConfig()
 
     loading.sizes = false
   }
@@ -301,6 +385,8 @@ export const useProductAttributes = () => {
     // Ensure functions for edit mode
     ensureBrandInOptions,
     ensureColorInOptions,
-    ensureMaterialInOptions
+    ensureMaterialInOptions,
+    // Clothing visibility
+    getVisibleClothingAttributes
   }
 }
