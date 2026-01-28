@@ -23,6 +23,8 @@ interface SeoHeadOptions {
   ogType?: string
   /** Empêcher l'indexation (pour pages privées) */
   noindex?: boolean
+  /** Override canonical URL path (defaults to current route) */
+  canonicalPath?: string
 }
 
 export const useSeoHead = (options: SeoHeadOptions) => {
@@ -31,13 +33,19 @@ export const useSeoHead = (options: SeoHeadOptions) => {
     description,
     ogImage = '/images/og-stoflow.jpg',
     ogType = 'website',
-    noindex = false
+    noindex = false,
+    canonicalPath
   } = options
 
+  const route = useRoute()
   const fullTitle = `${title} - Stoflow`
+  const canonicalUrl = `https://www.stoflow.io${canonicalPath || route.path}`
 
   useHead({
     title: fullTitle,
+    link: [
+      { rel: 'canonical', href: canonicalUrl }
+    ],
     meta: [
       // Meta description
       { name: 'description', content: description },
@@ -47,6 +55,7 @@ export const useSeoHead = (options: SeoHeadOptions) => {
       { property: 'og:description', content: description },
       { property: 'og:type', content: ogType },
       { property: 'og:image', content: ogImage },
+      { property: 'og:url', content: canonicalUrl },
 
       // Twitter Card
       { name: 'twitter:title', content: fullTitle },

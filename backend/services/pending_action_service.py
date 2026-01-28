@@ -5,12 +5,16 @@ Service for managing pending actions (confirmation queue).
 When sync detects a product sold/deleted on marketplace, it creates
 a pending action instead of immediately changing the product status.
 
-Business Rules (2026-01-22):
+Business Rules (2026-01-22, updated 2026-01-27):
 - create_pending_action: Sets product to PENDING_DELETION, creates PendingAction record
 - confirm_action: Applies the action (SOLD/ARCHIVED), sets confirmed_at
 - reject_action: Restores product to previous status (PUBLISHED)
 - Bulk operations supported for mass confirm/reject
+- TTL: pending actions expire after 7 days (Issue #3 - Audit)
+- Auto-delist: cross-marketplace delist on SOLD confirmation (Issue #12 - Audit)
 """
+
+from datetime import timedelta
 
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session, joinedload, subqueryload
@@ -96,6 +100,7 @@ class PendingActionService:
             reason=reason,
             context_data=context_data,
             previous_status=previous_status,
+            expires_at=utc_now() + timedelta(days=7),
         )
         self.db.add(pending_action)
 
@@ -154,6 +159,9 @@ class PendingActionService:
         """
         Confirm a pending action (apply the status change).
 
+        Also creates cross-marketplace delist actions when confirming MARK_SOLD
+        (Issue #12 - Business Logic Audit).
+
         Args:
             action_id: The pending action ID.
             confirmed_by: Who confirmed (user_id or 'auto').
@@ -183,6 +191,10 @@ class PendingActionService:
         action.is_confirmed = True
 
         self.db.flush()
+
+        # Auto-delist on other marketplaces when confirming SOLD (Issue #12)
+        if action.action_type == PendingActionType.MARK_SOLD:
+            self._create_cross_marketplace_delist_actions(product, action.marketplace)
 
         logger.info(
             f"Confirmed pending action {action_id}: product {product.id} -> {target_status.value}",
@@ -269,3 +281,93 @@ class PendingActionService:
             if result:
                 count += 1
         return count
+
+    def expire_stale_actions(self) -> int:
+        """
+        Auto-reject pending actions that have exceeded their TTL.
+
+        Queries unconfirmed actions where expires_at < now() and rejects them.
+        Called periodically (e.g., by a cron/scheduler or at sync time).
+
+        Issue #3 - Business Logic Audit.
+
+        Returns:
+            Number of expired actions rejected.
+        """
+        now = utc_now()
+        expired_actions = self.db.execute(
+            select(PendingAction).where(
+                PendingAction.confirmed_at.is_(None),
+                PendingAction.expires_at.isnot(None),
+                PendingAction.expires_at < now,
+            )
+        ).scalars().all()
+
+        count = 0
+        for action in expired_actions:
+            result = self.reject_action(action.id, restored_by="auto_expire")
+            if result:
+                count += 1
+
+        if count > 0:
+            logger.info(f"Expired {count} stale pending actions")
+
+        return count
+
+    def _create_cross_marketplace_delist_actions(
+        self, product: Product, source_marketplace: str
+    ) -> None:
+        """
+        Create delist actions for other marketplaces when a product is sold.
+
+        If sold on Vinted and eBay listing is active, create DELETE_EBAY_LISTING.
+        If sold on eBay and Vinted listing is active, create DELETE_VINTED_LISTING.
+
+        Issue #12 - Business Logic Audit.
+
+        Args:
+            product: The product that was just confirmed as SOLD.
+            source_marketplace: The marketplace where the sale was detected.
+        """
+        from sqlalchemy.orm import joinedload as jl
+
+        # Reload product with marketplace relations
+        product_with_rels = self.db.get(
+            Product,
+            product.id,
+            options=[jl(Product.vinted_product), jl(Product.ebay_product)],
+        )
+        if not product_with_rels:
+            return
+
+        # Sold on Vinted → delist from eBay
+        if source_marketplace == "vinted" and product_with_rels.ebay_product:
+            ebay = product_with_rels.ebay_product
+            if getattr(ebay, 'status', None) in ('active', 'published'):
+                self.create_pending_action(
+                    product_id=product.id,
+                    action_type=PendingActionType.DELETE_EBAY_LISTING,
+                    marketplace="ebay",
+                    reason=f"Product sold on Vinted, delist from eBay",
+                    context_data={"source_sale": "vinted"},
+                )
+                logger.info(
+                    f"Created DELETE_EBAY_LISTING for product {product.id} "
+                    f"(sold on Vinted)"
+                )
+
+        # Sold on eBay → delist from Vinted
+        if source_marketplace == "ebay" and product_with_rels.vinted_product:
+            vinted = product_with_rels.vinted_product
+            if getattr(vinted, 'status', None) in ('active', 'published'):
+                self.create_pending_action(
+                    product_id=product.id,
+                    action_type=PendingActionType.DELETE_VINTED_LISTING,
+                    marketplace="vinted",
+                    reason=f"Product sold on eBay, delist from Vinted",
+                    context_data={"source_sale": "ebay"},
+                )
+                logger.info(
+                    f"Created DELETE_VINTED_LISTING for product {product.id} "
+                    f"(sold on eBay)"
+                )

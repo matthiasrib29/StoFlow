@@ -206,7 +206,7 @@ async def enrich_ebay_products(
 
     try:
         importer = EbayImporter(db=db, user_id=current_user.id)
-        result = importer.enrich_products_batch(
+        result = importer.enrichment.enrich_products_batch(
             limit=request.batch_size,
             only_without_price=request.only_without_price,
         )
@@ -236,7 +236,7 @@ async def refresh_ebay_aspects(
 
     try:
         importer = EbayImporter(db=db, user_id=current_user.id)
-        result = importer.refresh_aspects_batch(limit=batch_size)
+        result = importer.enrichment.refresh_aspects_batch(limit=batch_size)
 
         logger.info(
             f"eBay aspects refresh for user {current_user.id}: "

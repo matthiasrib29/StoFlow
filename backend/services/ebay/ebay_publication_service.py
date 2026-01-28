@@ -29,6 +29,7 @@ from services.ebay.ebay_product_conversion_service import (
     EbayProductConversionService,
     ProductValidationError,
 )
+from shared.marketplace_validation import validate_product_for_marketplace
 
 
 class EbayPublicationError(Exception):
@@ -106,10 +107,20 @@ class EbayPublicationService:
             >>> result = service.publish_product(12345, "EBAY_FR", category_id="11450")
             >>> print(f"Publié sur eBay: {result['listing_id']}")
         """
+        # 0. Check not already published (Issue #30 - Audit)
+        self._check_not_already_published(product_id)
+
         # 1. Load Product
         product = self.db.query(Product).filter(Product.id == product_id).first()
         if not product:
             raise EbayPublicationError(f"Product {product_id} introuvable")
+
+        # 1b. Marketplace-specific validation (Issue #4/#26 - Audit)
+        mktplace_errors = validate_product_for_marketplace(product, "ebay")
+        if mktplace_errors:
+            raise EbayPublicationError(
+                f"Marketplace validation failed: {'; '.join(mktplace_errors)}"
+            )
 
         # 2. Générer SKU dérivé
         marketplace_code = marketplace_id.split("_")[1]  # EBAY_FR → FR
@@ -233,7 +244,7 @@ class EbayPublicationService:
 
         # Update status
         ebay_product.status = "withdrawn"
-        self.db.commit()
+        self.db.flush()
 
         return {"status": "withdrawn", "sku_derived": sku_derived}
 
@@ -340,4 +351,30 @@ class EbayPublicationService:
         if status == "published":
             ebay_product.published_at = datetime.now(timezone.utc)
 
-        self.db.commit()
+        self.db.flush()
+
+    def _check_not_already_published(self, product_id: int) -> None:
+        """
+        Check that the product is not already published on eBay.
+
+        Prevents duplicate listings. Issue #30 - Business Logic Audit.
+
+        Args:
+            product_id: Product ID to check.
+
+        Raises:
+            EbayPublicationError: If product already has active/published listing.
+        """
+        existing = (
+            self.db.query(EbayProduct)
+            .filter(
+                EbayProduct.product_id == product_id,
+                EbayProduct.status.in_(("active", "published")),
+            )
+            .first()
+        )
+        if existing:
+            raise EbayPublicationError(
+                f"Product {product_id} is already published on eBay "
+                f"(ebay_product_id={existing.id}, status={existing.status})"
+            )

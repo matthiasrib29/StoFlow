@@ -16,6 +16,10 @@ Date: 2025-12-10
 from typing import List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+from shared.logging import get_logger
+
+logger = get_logger("api.ebay")
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -27,16 +31,22 @@ from models.public.user import User
 from models.user.ebay_marketplace_settings import EbayMarketplaceSettings
 from models.user.ebay_product import EbayProduct
 from schemas.ebay_settings_schemas import (
+    ApplyPolicyToOffersRequest,
+    CreateFulfillmentPolicyRequest,
+    CreatePaymentPolicyRequest,
+    CreateReturnPolicyRequest,
     EbayMarketplaceSettingsResponse,
     EbayMarketplaceSettingsUpsert,
 )
 from services.ebay import (
     EbayAccountClient,
     EbayFulfillmentClient,
+    EbayOfferClient,
     EbayPublicationError,
     EbayPublicationService,
     ProductValidationError,
 )
+from shared.exceptions import EbayAPIError
 
 router = APIRouter(prefix="/ebay", tags=["eBay"])
 
@@ -347,6 +357,530 @@ def get_business_policies(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur récupération policies: {str(e)}",
+        )
+
+
+# ========== CREATE POLICIES ==========
+
+
+@router.post("/policies/payment", status_code=status.HTTP_201_CREATED)
+def create_payment_policy(
+    body: CreatePaymentPolicyRequest,
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Create a new eBay payment policy."""
+    db, current_user = db_user
+
+    try:
+        client = EbayAccountClient(db, current_user.id, marketplace_id=body.marketplace_id)
+        policy_data = {
+            "name": body.name,
+            "marketplaceId": body.marketplace_id,
+            "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+            "immediatePay": body.immediate_pay,
+        }
+        return client.create_payment_policy(policy_data)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur création payment policy: {str(e)}",
+        )
+
+
+@router.post("/policies/fulfillment", status_code=status.HTTP_201_CREATED)
+def create_fulfillment_policy(
+    body: CreateFulfillmentPolicyRequest,
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Create a new eBay fulfillment (shipping) policy."""
+    db, current_user = db_user
+
+    try:
+        client = EbayAccountClient(db, current_user.id, marketplace_id=body.marketplace_id)
+
+        shipping_options = []
+        for svc in body.shipping_services:
+            shipping_service = {
+                "shippingCarrierCode": svc.shipping_carrier_code,
+                "shippingServiceCode": svc.shipping_service_code,
+                "freeShipping": svc.free_shipping,
+                "shippingCost": {
+                    "value": str(svc.shipping_cost),
+                    "currency": svc.currency,
+                },
+            }
+            if svc.additional_cost is not None:
+                shipping_service["additionalCost"] = {
+                    "value": str(svc.additional_cost),
+                    "currency": svc.currency,
+                }
+            shipping_options.append(
+                {
+                    "optionType": "DOMESTIC",
+                    "shippingServices": [shipping_service],
+                }
+            )
+
+        policy_data = {
+            "name": body.name,
+            "marketplaceId": body.marketplace_id,
+            "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+            "handlingTime": {"value": body.handling_time_value, "unit": "DAY"},
+            "shippingOptions": shipping_options,
+        }
+        return client.create_fulfillment_policy(policy_data)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur création fulfillment policy: {str(e)}",
+        )
+
+
+@router.post("/policies/return", status_code=status.HTTP_201_CREATED)
+def create_return_policy(
+    body: CreateReturnPolicyRequest,
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Create a new eBay return policy."""
+    db, current_user = db_user
+
+    try:
+        client = EbayAccountClient(db, current_user.id, marketplace_id=body.marketplace_id)
+        policy_data = {
+            "name": body.name,
+            "marketplaceId": body.marketplace_id,
+            "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+            "returnsAccepted": body.returns_accepted,
+            "returnPeriod": {"value": body.return_period_value, "unit": "DAY"},
+            "refundMethod": body.refund_method,
+            "returnShippingCostPayer": body.return_shipping_cost_payer,
+        }
+        return client.create_return_policy(policy_data)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur création return policy: {str(e)}",
+        )
+
+
+def _extract_ebay_error_detail(e: EbayAPIError, context: str) -> str:
+    """Extract detailed error message from EbayAPIError response_body."""
+    if e.response_body:
+        errors = e.response_body.get("errors", [])
+        if errors:
+            parts = []
+            for err in errors:
+                msg = err.get("longMessage") or err.get("message", str(err))
+                params = err.get("parameters")
+                if params:
+                    param_details = ", ".join(
+                        f"{p.get('name', '?')}={p.get('value', '?')}" for p in params
+                    )
+                    msg = f"{msg} ({param_details})"
+                parts.append(msg)
+            return f"Erreur {context}: {'; '.join(parts)}"
+    return f"Erreur {context}: {str(e)}"
+
+
+# ========== DELETE POLICIES ==========
+
+
+@router.delete("/policies/payment/{policy_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_payment_policy(
+    policy_id: str,
+    marketplace_id: str = "EBAY_FR",
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Delete an eBay payment policy."""
+    db, current_user = db_user
+
+    try:
+        client = EbayAccountClient(db, current_user.id, marketplace_id=marketplace_id)
+        client.delete_payment_policy(policy_id)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except EbayAPIError as e:
+        detail = _extract_ebay_error_detail(e, "suppression payment policy")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur suppression payment policy: {str(e)}",
+        )
+
+
+@router.delete("/policies/fulfillment/{policy_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_fulfillment_policy(
+    policy_id: str,
+    marketplace_id: str = "EBAY_FR",
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Delete an eBay fulfillment (shipping) policy."""
+    db, current_user = db_user
+
+    try:
+        client = EbayAccountClient(db, current_user.id, marketplace_id=marketplace_id)
+        client.delete_fulfillment_policy(policy_id)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except EbayAPIError as e:
+        detail = _extract_ebay_error_detail(e, "suppression fulfillment policy")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur suppression fulfillment policy: {str(e)}",
+        )
+
+
+@router.delete("/policies/return/{policy_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_return_policy(
+    policy_id: str,
+    marketplace_id: str = "EBAY_FR",
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Delete an eBay return policy."""
+    db, current_user = db_user
+
+    try:
+        client = EbayAccountClient(db, current_user.id, marketplace_id=marketplace_id)
+        client.delete_return_policy(policy_id)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except EbayAPIError as e:
+        detail = _extract_ebay_error_detail(e, "suppression return policy")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur suppression return policy: {str(e)}",
+        )
+
+
+# ========== UPDATE POLICIES ==========
+
+# Fields from GET response that must not be sent back on PUT
+_POLICY_READONLY_FIELDS = {
+    "warnings", "errors",
+}
+
+
+def _prepare_policy_for_update(existing: dict, overrides: dict) -> dict:
+    """Merge overrides into existing policy and strip read-only fields.
+
+    Keeps all other fields (including categoryTypes) exactly as returned
+    by the GET response to preserve eBay's expected format.
+    """
+    merged = {**existing, **overrides}
+    for field in _POLICY_READONLY_FIELDS:
+        merged.pop(field, None)
+    return merged
+
+
+@router.put("/policies/payment/{policy_id}")
+def update_payment_policy(
+    policy_id: str,
+    body: CreatePaymentPolicyRequest,
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Update an existing eBay payment policy."""
+    db, current_user = db_user
+
+    try:
+        client = EbayAccountClient(db, current_user.id, marketplace_id=body.marketplace_id)
+
+        # GET existing then re-submit full object with overrides (eBay recommended approach)
+        existing = client.get_payment_policy(policy_id)
+        overrides = {
+            "name": body.name,
+            "immediatePay": body.immediate_pay,
+        }
+        policy_data = _prepare_policy_for_update(existing, overrides)
+        return client.update_payment_policy(policy_id, policy_data)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except EbayAPIError as e:
+        logger.error("eBay update payment policy error: %s", e.response_body)
+        detail = _extract_ebay_error_detail(e, "modification payment policy")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur modification payment policy: {str(e)}",
+        )
+
+
+@router.put("/policies/fulfillment/{policy_id}")
+def update_fulfillment_policy(
+    policy_id: str,
+    body: CreateFulfillmentPolicyRequest,
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Update an existing eBay fulfillment (shipping) policy."""
+    db, current_user = db_user
+
+    try:
+        client = EbayAccountClient(db, current_user.id, marketplace_id=body.marketplace_id)
+
+        shipping_options = []
+        for svc in body.shipping_services:
+            shipping_service = {
+                "shippingCarrierCode": svc.shipping_carrier_code,
+                "shippingServiceCode": svc.shipping_service_code,
+                "freeShipping": svc.free_shipping,
+                "shippingCost": {
+                    "value": str(svc.shipping_cost),
+                    "currency": svc.currency,
+                },
+            }
+            if svc.additional_cost is not None:
+                shipping_service["additionalCost"] = {
+                    "value": str(svc.additional_cost),
+                    "currency": svc.currency,
+                }
+            shipping_options.append(
+                {
+                    "optionType": "DOMESTIC",
+                    "shippingServices": [shipping_service],
+                }
+            )
+
+        # Fetch existing policy, then override only user-editable fields
+        existing = client.get_fulfillment_policy(policy_id)
+        overrides = {
+            "name": body.name,
+            "handlingTime": {"value": body.handling_time_value, "unit": "DAY"},
+            "shippingOptions": shipping_options,
+        }
+        policy_data = _prepare_policy_for_update(existing, overrides)
+        return client.update_fulfillment_policy(policy_id, policy_data)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except EbayAPIError as e:
+        logger.error("eBay update fulfillment policy error: %s", e.response_body)
+        detail = _extract_ebay_error_detail(e, "modification fulfillment policy")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur modification fulfillment policy: {str(e)}",
+        )
+
+
+@router.put("/policies/return/{policy_id}")
+def update_return_policy(
+    policy_id: str,
+    body: CreateReturnPolicyRequest,
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """Update an existing eBay return policy."""
+    db, current_user = db_user
+
+    try:
+        client = EbayAccountClient(db, current_user.id, marketplace_id=body.marketplace_id)
+
+        # Fetch existing policy, then override only user-editable fields
+        existing = client.get_return_policy(policy_id)
+        overrides = {
+            "name": body.name,
+            "returnsAccepted": body.returns_accepted,
+            "returnPeriod": {"value": body.return_period_value, "unit": "DAY"},
+            "refundMethod": body.refund_method,
+            "returnShippingCostPayer": body.return_shipping_cost_payer,
+        }
+        policy_data = _prepare_policy_for_update(existing, overrides)
+        return client.update_return_policy(policy_id, policy_data)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except EbayAPIError as e:
+        logger.error("eBay update return policy error: %s", e.response_body)
+        detail = _extract_ebay_error_detail(e, "modification return policy")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur modification return policy: {str(e)}",
+        )
+
+
+# ========== APPLY POLICY TO OFFERS ==========
+
+
+# Read-only fields returned by eBay that must not be sent back on update
+OFFER_READONLY_FIELDS = {"offerId", "status", "listing", "errors", "warnings"}
+
+POLICY_TYPE_TO_FIELD = {
+    "payment": "paymentPolicyId",
+    "fulfillment": "fulfillmentPolicyId",
+    "return": "returnPolicyId",
+}
+
+POLICY_TYPE_TO_SETTINGS_FIELD = {
+    "payment": "payment_policy_id",
+    "fulfillment": "fulfillment_policy_id",
+    "return": "return_policy_id",
+}
+
+
+@router.post("/policies/apply-to-offers")
+async def apply_policy_to_offers(
+    body: ApplyPolicyToOffersRequest,
+    db_user: Tuple[Session, User] = Depends(get_user_db),
+):
+    """
+    Apply a policy to ALL existing eBay offers for a marketplace.
+
+    Updates marketplace settings in DB synchronously, then launches a
+    Temporal workflow to apply the policy to each offer asynchronously.
+    Returns immediately with workflow/job info for progress tracking.
+    """
+    db, current_user = db_user
+
+    if body.policy_type not in POLICY_TYPE_TO_FIELD:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"policy_type must be one of: {list(POLICY_TYPE_TO_FIELD.keys())}",
+        )
+
+    policy_field = POLICY_TYPE_TO_FIELD[body.policy_type]
+    settings_field = POLICY_TYPE_TO_SETTINGS_FIELD[body.policy_type]
+
+    try:
+        # 1. Update marketplace settings in DB (synchronous, fast)
+        settings = (
+            db.query(EbayMarketplaceSettings)
+            .filter(EbayMarketplaceSettings.marketplace_id == body.marketplace_id)
+            .first()
+        )
+        if not settings:
+            settings = EbayMarketplaceSettings(marketplace_id=body.marketplace_id)
+            db.add(settings)
+        setattr(settings, settings_field, body.policy_id)
+        db.flush()
+
+        # 2. Get all offer IDs from our DB (products with an ebay_offer_id)
+        ebay_products = (
+            db.query(EbayProduct)
+            .filter(
+                EbayProduct.marketplace_id == body.marketplace_id,
+                EbayProduct.ebay_offer_id.isnot(None),
+                EbayProduct.status == "active",
+            )
+            .all()
+        )
+
+        offer_ids = [str(p.ebay_offer_id) for p in ebay_products]
+
+        if not offer_ids:
+            return {
+                "status": "no_offers",
+                "message": "Aucune annonce active trouvée pour cette marketplace",
+                "settings_updated": True,
+                "total_offers": 0,
+            }
+
+        # 3. Create MarketplaceJob for tracking
+        from models.user.marketplace_job import JobStatus
+        from services.marketplace.marketplace_job_service import MarketplaceJobService
+
+        job_service = MarketplaceJobService(db)
+        job = job_service.create_job(
+            marketplace="ebay",
+            action_code="apply_policy",
+            input_data={
+                "marketplace_id": body.marketplace_id,
+                "policy_type": body.policy_type,
+                "policy_id": body.policy_id,
+                "total_offers": len(offer_ids),
+                "via_temporal": True,
+            },
+        )
+        job.status = JobStatus.RUNNING
+        db.commit()
+
+        # 4. Start Temporal workflow
+        from temporal.client import get_temporal_client
+        from temporal.config import get_temporal_config
+        from temporal.workflows.ebay.apply_policy_workflow import (
+            ApplyPolicyParams,
+            EbayApplyPolicyWorkflow,
+        )
+
+        config = get_temporal_config()
+
+        if not config.temporal_enabled:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Temporal is disabled",
+            )
+
+        client = await get_temporal_client()
+        workflow_id = f"ebay-apply-policy-user-{current_user.id}-job-{job.id}"
+
+        params = ApplyPolicyParams(
+            user_id=current_user.id,
+            job_id=job.id,
+            marketplace_id=body.marketplace_id,
+            policy_type=body.policy_type,
+            policy_id=body.policy_id,
+            policy_field=policy_field,
+            offer_ids=offer_ids,
+        )
+
+        handle = await client.start_workflow(
+            EbayApplyPolicyWorkflow.run,
+            params,
+            id=workflow_id,
+            task_queue=config.temporal_task_queue,
+        )
+
+        # Update job with workflow_id
+        job.input_data = {
+            **job.input_data,
+            "workflow_id": workflow_id,
+            "run_id": handle.result_run_id,
+        }
+        db.commit()
+
+        logger.info(
+            "Started apply_policy workflow: %s (user=%s, offers=%d)",
+            workflow_id,
+            current_user.id,
+            len(offer_ids),
+        )
+
+        return {
+            "status": "started",
+            "workflow_id": workflow_id,
+            "job_id": job.id,
+            "total_offers": len(offer_ids),
+            "settings_updated": True,
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error("Failed to start apply_policy workflow: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur application policy: {str(e)}",
         )
 
 

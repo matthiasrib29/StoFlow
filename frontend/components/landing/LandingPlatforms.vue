@@ -8,7 +8,7 @@
           :key="platform.name"
           class="flex items-center gap-4 opacity-70 hover:opacity-100 transition-all hover:scale-105 cursor-pointer"
         >
-          <img :src="platform.logo" :alt="platform.name" class="h-10 w-auto" />
+          <NuxtImg :src="platform.logo" :alt="platform.name" class="h-10 w-auto" />
         </div>
         <div class="flex items-center gap-3 text-secondary-400">
           <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300">

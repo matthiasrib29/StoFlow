@@ -315,9 +315,9 @@ const fetchOrders = async () => {
   vintedLogger.debug('[Sales] Fetching orders...')
 
   try {
-    const response = await api.get('/vinted/orders')
+    const response = await api.get<{ orders: any[] }>('/vinted/orders')
 
-    orders.value = response.orders || []
+    orders.value = response?.orders || []
     vintedLogger.info(`[Sales] Fetched ${orders.value.length} orders`)
 
     // Calculate stats
@@ -343,7 +343,7 @@ const syncOrders = async () => {
   error.value = null
   vintedLogger.info('[Sales] Starting orders sync (fire-and-forget mode)...')
 
-  showSuccess('Synchronisation lancée en arrière-plan')
+  showSuccess('Sync', 'Synchronisation lancée en arrière-plan')
 
   // Start polling immediately to show updates as they come in
   startPolling()
@@ -355,14 +355,14 @@ const syncOrders = async () => {
       stopPolling()
       syncing.value = false
       fetchOrders() // Final refresh
-      showSuccess('Synchronisation terminée')
+      showSuccess('Sync', 'Synchronisation terminée')
     })
     .catch((e: any) => {
       vintedLogger.error('[Sales] Sync failed:', e)
       stopPolling()
       syncing.value = false
       error.value = e.message || 'Erreur lors de la synchronisation'
-      showError('Erreur de synchronisation')
+      showError('Erreur', 'Erreur de synchronisation')
     })
 }
 

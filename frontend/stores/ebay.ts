@@ -254,60 +254,106 @@ export const useEbayStore = defineStore('ebay', {
       }
     },
 
-    async createShippingPolicy(policy: Omit<EbayShippingPolicy, 'id'>) {
+    async createPaymentPolicy(data: { name: string; marketplace_id: string; immediate_pay?: boolean }) {
       this.isLoading = true
 
       try {
-        const { createShippingPolicy } = useEbayPolicies()
-        const newPolicy = await createShippingPolicy(policy)
-
-        if (policy.isDefault) {
-          this.shippingPolicies.forEach(p => p.isDefault = false)
-        }
-
-        this.shippingPolicies.push(newPolicy)
-        return newPolicy
+        const { createPaymentPolicy } = useEbayPolicies()
+        await createPaymentPolicy(data)
+        await this.fetchPolicies(data.marketplace_id)
       } finally {
         this.isLoading = false
       }
     },
 
-    async createReturnPolicy(policy: Omit<EbayReturnPolicy, 'id'>) {
+    async createFulfillmentPolicy(data: {
+      name: string
+      marketplace_id: string
+      handling_time_value?: number
+      shipping_services: Array<{
+        shipping_carrier_code: string
+        shipping_service_code: string
+        shipping_cost: number
+        currency?: string
+        free_shipping?: boolean
+      }>
+    }) {
+      this.isLoading = true
+
+      try {
+        const { createFulfillmentPolicy } = useEbayPolicies()
+        await createFulfillmentPolicy(data)
+        await this.fetchPolicies(data.marketplace_id)
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async createReturnPolicy(data: {
+      name: string
+      marketplace_id: string
+      returns_accepted?: boolean
+      return_period_value?: number
+      refund_method?: string
+      return_shipping_cost_payer?: string
+    }) {
       this.isLoading = true
 
       try {
         const { createReturnPolicy } = useEbayPolicies()
-        const newPolicy = await createReturnPolicy(policy)
-
-        if (policy.isDefault) {
-          this.returnPolicies.forEach(p => p.isDefault = false)
-        }
-
-        this.returnPolicies.push(newPolicy)
-        return newPolicy
+        await createReturnPolicy(data)
+        await this.fetchPolicies(data.marketplace_id)
       } finally {
         this.isLoading = false
       }
     },
 
-    async deletePolicy(type: 'shipping' | 'return' | 'payment', policyId: string) {
+    async deletePolicy(type: 'shipping' | 'return' | 'payment', policyId: string, marketplaceId: string = 'EBAY_FR') {
       this.isLoading = true
 
       try {
         const { deletePolicy } = useEbayPolicies()
-        await deletePolicy(type, policyId)
+        await deletePolicy(type, policyId, marketplaceId)
+        await this.fetchPolicies(marketplaceId)
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async updatePolicy(type: 'shipping' | 'return' | 'payment', policyId: string, data: any, marketplaceId: string = 'EBAY_FR') {
+      this.isLoading = true
+
+      try {
+        const { updatePaymentPolicy, updateFulfillmentPolicy, updateReturnPolicy } = useEbayPolicies()
 
         switch (type) {
+          case 'payment':
+            await updatePaymentPolicy(policyId, data)
+            break
           case 'shipping':
-            this.shippingPolicies = this.shippingPolicies.filter(p => p.id !== policyId)
+            await updateFulfillmentPolicy(policyId, data)
             break
           case 'return':
-            this.returnPolicies = this.returnPolicies.filter(p => p.id !== policyId)
-            break
-          case 'payment':
-            this.paymentPolicies = this.paymentPolicies.filter(p => p.id !== policyId)
+            await updateReturnPolicy(policyId, data)
             break
         }
+
+        await this.fetchPolicies(marketplaceId)
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    async applyPolicyToOffers(policyType: 'payment' | 'fulfillment' | 'return', policyId: string, marketplaceId: string = 'EBAY_FR') {
+      this.isLoading = true
+
+      try {
+        const { applyPolicyToOffers } = useEbayPolicies()
+        return await applyPolicyToOffers({
+          policy_type: policyType,
+          policy_id: policyId,
+          marketplace_id: marketplaceId
+        })
       } finally {
         this.isLoading = false
       }

@@ -21,7 +21,7 @@
               <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <img src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-8 h-8 object-contain">
+                    <NuxtImg src="/images/platforms/vinted-logo.png" alt="Vinted" class="w-8 h-8 object-contain" />
                   </div>
                   <div>
                     <p class="font-semibold text-secondary-900">Vinted</p>
@@ -43,7 +43,7 @@
               <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <img src="/images/platforms/ebay-logo.png" alt="eBay" class="w-8 h-8 object-contain">
+                    <NuxtImg src="/images/platforms/ebay-logo.png" alt="eBay" class="w-8 h-8 object-contain" />
                   </div>
                   <div>
                     <p class="font-semibold text-secondary-900">eBay</p>
@@ -66,7 +66,7 @@
               <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <img src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-8 h-8 object-contain">
+                    <NuxtImg src="/images/platforms/etsy-logo.png" alt="Etsy" class="w-8 h-8 object-contain" />
                   </div>
                   <div>
                     <p class="font-semibold text-secondary-900">Etsy</p>

@@ -6,7 +6,7 @@
       @click="$emit('toggle')"
     >
       <div class="flex items-center gap-3">
-        <img :src="logo" :alt="label" class="w-5 h-5 object-contain">
+        <NuxtImg :src="logo" :alt="label" class="w-5 h-5 object-contain" />
         <span>{{ label }}</span>
       </div>
       <i :class="['pi pi-chevron-down text-sm transition-transform duration-300', isOpen ? 'rotate-180' : 'rotate-0']"/>

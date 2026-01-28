@@ -26,6 +26,7 @@ from models.public.permission import Permission, RolePermission
 from services.auth_service import AuthService
 from shared.config import settings
 from shared.database import get_db
+from shared.tenant_context import set_current_tenant_id
 from api.dependencies.admin_dependencies import (
     create_attribute_with_audit,
     update_attribute_with_audit,
@@ -497,6 +498,9 @@ def get_user_db(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Database isolation error. Please retry your request."
             )
+
+        # Set tenant context for async-safe access (Issue #16 - Audit)
+        set_current_tenant_id(current_user.id)
 
         yield configured_db, current_user
         configured_db.commit()

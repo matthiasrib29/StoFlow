@@ -122,14 +122,15 @@ class EbayPaymentDisputeService:
                 except Exception as e:
                     logger.error(
                         f"[EbayPaymentDisputeService] Error processing dispute "
-                        f"{dispute_data.get('paymentDisputeId')}: {e}"
+                        f"{dispute_data.get('paymentDisputeId')}: {e}",
+                        exc_info=True,
                     )
                     errors += 1
 
             self.db.commit()
 
         except EbayError as e:
-            logger.error(f"[EbayPaymentDisputeService] API error during sync: {e}")
+            logger.error(f"[EbayPaymentDisputeService] API error during sync: {e}", exc_info=True)
             errors += 1
 
         logger.info(

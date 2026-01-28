@@ -277,7 +277,7 @@ class AdminUserService:
             db.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
             logger.info(f"Admin delete_user: dropped schema {schema_name}")
         except Exception as e:
-            logger.error(f"Admin delete_user: failed to drop schema {schema_name}: {e}")
+            logger.error(f"Admin delete_user: failed to drop schema {schema_name}: {e}", exc_info=True)
             # Continue with user deletion even if schema drop fails
 
         # Delete AI credits if exists

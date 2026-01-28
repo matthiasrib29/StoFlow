@@ -59,7 +59,7 @@
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-4">
               <div :class="['w-16 h-16 rounded-2xl flex items-center justify-center', platform.bgColor, platform.logo ? 'border border-gray-100 p-2' : '']">
-                <img v-if="platform.logo" :src="platform.logo" :alt="platform.name" class="w-full h-full object-contain" >
+                <NuxtImg v-if="platform.logo" :src="platform.logo" :alt="platform.name" class="w-full h-full object-contain" />
                 <i v-else :class="[platform.icon, 'text-3xl', platform.iconColor]"/>
               </div>
               <div>

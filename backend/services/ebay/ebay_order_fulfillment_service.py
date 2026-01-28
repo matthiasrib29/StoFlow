@@ -104,7 +104,7 @@ class EbayOrderFulfillmentService:
 
         # Save changes
         updated_order = EbayOrderRepository.update(self.db, order)
-        self.db.commit()
+        self.db.flush()
 
         logger.info(
             f"[EbayOrderFulfillmentService] Order {order.order_id} status updated: "
@@ -202,7 +202,7 @@ class EbayOrderFulfillmentService:
         order.updated_at = datetime.now(timezone.utc)
 
         EbayOrderRepository.update(self.db, order)
-        self.db.commit()
+        self.db.flush()
 
         logger.info(
             f"[EbayOrderFulfillmentService] Order {order.order_id} tracking added: "

@@ -118,7 +118,7 @@ class WebSocketService:
 
         except asyncio.TimeoutError:
             elapsed = time.time() - start_time
-            logger.error(f"[WebSocket] TIMEOUT after {elapsed:.1f}s for {action} (req={request_id})")
+            logger.error(f"[WebSocket] TIMEOUT after {elapsed:.1f}s for {action} (req={request_id})", exc_info=True)
             raise TimeoutError(f"Plugin command timeout after {timeout}s")
 
         finally:

@@ -279,7 +279,7 @@ class VintedProductEnricher:
                 return PLUGIN_UNAUTHORIZED
 
             # Other HTTP errors - use the generic result code from exception
-            logger.error(f"HTTP error for {product.vinted_id}: {e}")
+            logger.error(f"HTTP error for {product.vinted_id}: {e}", exc_info=True)
             return e.get_result_code()
 
         except TimeoutError:

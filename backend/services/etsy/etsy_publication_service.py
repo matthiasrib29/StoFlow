@@ -144,7 +144,7 @@ class EtsyPublicationService:
                             f"✅ Image {idx + 1} uploaded: image_id={result.get('listing_image_id')}"
                         )
                     except Exception as e:
-                        logger.error(f"❌ Failed to upload image {idx + 1}: {e}")
+                        logger.error(f"❌ Failed to upload image {idx + 1}: {e}", exc_info=True)
                         # Continue with other images
                         continue
             else:
@@ -173,7 +173,7 @@ class EtsyPublicationService:
             }
 
         except ProductValidationError as e:
-            logger.error(f"Validation error: {e}")
+            logger.error(f"Validation error: {e}", exc_info=True)
             return {
                 "success": False,
                 "listing_id": None,
@@ -183,7 +183,7 @@ class EtsyPublicationService:
             }
 
         except Exception as e:
-            logger.error(f"Publication error: {e}")
+            logger.error(f"Publication error: {e}", exc_info=True)
             return {
                 "success": False,
                 "listing_id": None,
@@ -238,7 +238,7 @@ class EtsyPublicationService:
             }
 
         except Exception as e:
-            logger.error(f"Update error: {e}")
+            logger.error(f"Update error: {e}", exc_info=True)
             return {
                 "success": False,
                 "listing_id": None,
@@ -268,7 +268,7 @@ class EtsyPublicationService:
             }
 
         except Exception as e:
-            logger.error(f"Delete error: {e}")
+            logger.error(f"Delete error: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": f"Etsy delete failed: {str(e)}",

@@ -59,7 +59,7 @@ class R2Service:
                 f"[R2Service] Initialized with bucket: {settings.r2_bucket_name}"
             )
         except Exception as e:
-            logger.error(f"[R2Service] Failed to initialize client: {e}")
+            logger.error(f"[R2Service] Failed to initialize client: {e}", exc_info=True)
             self._client = None
 
     @property

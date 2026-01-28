@@ -13,6 +13,11 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
 
+  // Site URL (used by @nuxtjs/sitemap and other modules)
+  site: {
+    url: 'https://www.stoflow.io'
+  },
+
   // SEO Meta Tags
   app: {
     // Disable all transitions to prevent white flash
@@ -28,7 +33,7 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         {
           name: 'description',
-          content: 'Synchronisez vos stocks, automatisez vos publications et gérez vos ventes multi-marketplace en un clic. Essai gratuit 14 jours. Support Vinted, eBay, Etsy.'
+          content: 'Gérez vos ventes Vinted, eBay et Etsy en un seul endroit. Synchronisation des stocks, publication multi-marketplace en un clic. Essai gratuit.'
         },
         { name: 'author', content: 'Stoflow' },
         { name: 'robots', content: 'index, follow' },
@@ -100,21 +105,16 @@ export default defineNuxtConfig({
 
   // SEO - Sitemap configuration
   sitemap: {
-    hostname: 'https://www.stoflow.io',
-    gzip: true,
-    routes: async () => {
-      // Pages statiques publiques
-      return [
-        '/',
-        '/login',
-        '/register',
-        '/legal/privacy',
-        '/legal/mentions',
-        '/legal/cgu',
-        '/legal/cgv',
-        '/docs',
-      ]
-    },
+    urls: [
+      { loc: '/', changefreq: 'weekly', priority: 1.0 },
+      { loc: '/login', changefreq: 'monthly', priority: 0.3 },
+      { loc: '/register', changefreq: 'monthly', priority: 0.5 },
+      { loc: '/legal/privacy', changefreq: 'yearly', priority: 0.2 },
+      { loc: '/legal/mentions', changefreq: 'yearly', priority: 0.2 },
+      { loc: '/legal/cgu', changefreq: 'yearly', priority: 0.2 },
+      { loc: '/legal/cgv', changefreq: 'yearly', priority: 0.2 },
+      { loc: '/docs', changefreq: 'monthly', priority: 0.6 },
+    ],
     exclude: [
       '/dashboard/**',      // Pages privées
       '/auth/**',           // Auth flows
@@ -125,7 +125,7 @@ export default defineNuxtConfig({
   // Image optimization
   image: {
     quality: 80,
-    formats: ['webp', 'jpeg', 'png'],
+    format: ['webp', 'jpeg', 'png'],
     screens: {
       xs: 320,
       sm: 640,
@@ -134,10 +134,6 @@ export default defineNuxtConfig({
       xl: 1280,
       '2xl': 1536,
     },
-    // Enable lazy loading by default
-    loading: 'lazy',
-    // Preload critical images
-    preload: true
   },
 
   build: {
@@ -161,6 +157,14 @@ export default defineNuxtConfig({
   // Security headers (CSP)
   // Protects against XSS attacks by controlling which resources can be loaded
   routeRules: {
+    // SSG: Pre-render public pages as static HTML
+    '/': { prerender: true },
+    '/login': { prerender: true },
+    '/register': { prerender: true },
+    '/legal/**': { prerender: true },
+    '/docs': { prerender: true },
+    '/docs/**': { prerender: true },
+
     '/**': {
       headers: {
         // Content Security Policy

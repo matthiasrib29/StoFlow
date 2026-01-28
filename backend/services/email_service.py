@@ -86,10 +86,10 @@ class EmailService:
                 return False
 
         except httpx.RequestError as e:
-            logger.error("Network error sending email to %s: %s", to_email, str(e))
+            logger.error("Network error sending email to %s: %s", to_email, str(e), exc_info=True)
             return False
         except Exception as e:
-            logger.error("Unexpected error sending email to %s: %s", to_email, str(e))
+            logger.error("Unexpected error sending email to %s: %s", to_email, str(e), exc_info=True)
             return False
 
     @classmethod

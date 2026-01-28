@@ -101,7 +101,7 @@ class EtsyPollingService:
             return receipts
 
         except Exception as e:
-            logger.error(f"Error polling receipts: {e}")
+            logger.error(f"Error polling receipts: {e}", exc_info=True)
             return []
 
     def poll_updated_listings(
@@ -152,7 +152,7 @@ class EtsyPollingService:
             return updated_listings
 
         except Exception as e:
-            logger.error(f"Error polling listings: {e}")
+            logger.error(f"Error polling listings: {e}", exc_info=True)
             return []
 
     def poll_low_stock_listings(
@@ -195,7 +195,7 @@ class EtsyPollingService:
             return low_stock_listings
 
         except Exception as e:
-            logger.error(f"Error polling low stock: {e}")
+            logger.error(f"Error polling low stock: {e}", exc_info=True)
             return []
 
     def run_polling_cycle(
@@ -272,6 +272,6 @@ class EtsyPollingService:
             return results
 
         except Exception as e:
-            logger.error(f"Error in polling cycle: {e}")
+            logger.error(f"Error in polling cycle: {e}", exc_info=True)
             results["error"] = str(e)
             return results

@@ -177,7 +177,7 @@ watch([categorySlug, articleSlug], async ([newCategory, newArticle]) => {
 // Render Markdown content and sanitize it
 const renderedContent = computed(() => {
   if (!article.value?.content) return ''
-  return marked(article.value.content)
+  return marked(article.value.content) as string
 })
 
 const sanitizedContent = computed(() => {

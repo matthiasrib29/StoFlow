@@ -137,7 +137,7 @@ class EbayRefundService:
             )
 
             EbayRefundRepository.create(self.db, refund)
-            self.db.commit()
+            self.db.flush()
 
             logger.info(
                 f"[EbayRefundService] Refund issued successfully: "
@@ -152,7 +152,7 @@ class EbayRefundService:
             }
 
         except EbayError as e:
-            logger.error(f"[EbayRefundService] Failed to issue refund: {e}")
+            logger.error(f"[EbayRefundService] Failed to issue refund: {e}", exc_info=True)
             return {
                 "success": False,
                 "refund_id": None,
@@ -212,7 +212,7 @@ class EbayRefundService:
                 else:
                     skipped += 1
 
-            self.db.commit()
+            self.db.flush()
 
             logger.info(
                 f"[EbayRefundService] Sync complete for order {order_id}: "
@@ -220,7 +220,7 @@ class EbayRefundService:
             )
 
         except EbayError as e:
-            logger.error(f"[EbayRefundService] Failed to sync refunds: {e}")
+            logger.error(f"[EbayRefundService] Failed to sync refunds: {e}", exc_info=True)
 
         return {"created": created, "updated": updated, "skipped": skipped}
 
@@ -379,12 +379,13 @@ class EbayRefundService:
                     total_skipped += result.get("skipped", 0)
                 except Exception as e:
                     logger.error(
-                        f"[EbayRefundService] Error syncing order {order_id}: {e}"
+                        f"[EbayRefundService] Error syncing order {order_id}: {e}",
+                        exc_info=True,
                     )
                     total_errors += 1
 
         except EbayError as e:
-            logger.error(f"[EbayRefundService] Failed to fetch orders: {e}")
+            logger.error(f"[EbayRefundService] Failed to fetch orders: {e}", exc_info=True)
 
         logger.info(
             f"[EbayRefundService] Sync complete: created={total_created}, "

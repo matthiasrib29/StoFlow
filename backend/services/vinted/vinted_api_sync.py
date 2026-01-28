@@ -119,7 +119,7 @@ class VintedApiSyncService:
                     description=f"Sync products page {page}"
                 )
             except Exception as e:
-                logger.error(f"Erreur recuperation page {page}: {e}")
+                logger.error(f"Erreur recuperation page {page}: {e}", exc_info=True)
                 last_error = str(e)
                 break
 
@@ -145,7 +145,7 @@ class VintedApiSyncService:
                         updated += 1
 
                 except Exception as e:
-                    logger.error(f"Erreur sync produit {item.get('id')}: {e}")
+                    logger.error(f"Erreur sync produit {item.get('id')}: {e}", exc_info=True)
                     errors += 1
                     db.rollback()
 
@@ -528,5 +528,5 @@ class VintedApiSyncService:
                 description=f"Delete orphan {vinted_id}"
             )
         except Exception as e:
-            logger.error(f"Erreur suppression orphelin {vinted_id}: {e}")
+            logger.error(f"Erreur suppression orphelin {vinted_id}: {e}", exc_info=True)
 

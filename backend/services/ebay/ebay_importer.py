@@ -11,13 +11,15 @@ Business Rules:
 - Supporte multi-marketplace (détection via offers)
 - Utilise AspectMapping pour extraction multi-langue des aspects
 
+Offer enrichment logic is in ebay_offer_enrichment.py.
+
 Author: Claude
 Date: 2025-12-19
+Updated: 2026-01-27 - Extracted offer enrichment to ebay_offer_enrichment.py
 """
 
 import asyncio
 import json
-from datetime import datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -26,6 +28,7 @@ from models.public.ebay_aspect_mapping import AspectMapping
 from models.user.ebay_product import EbayProduct
 from services.ebay.ebay_inventory_client import EbayInventoryClient
 from services.ebay.ebay_offer_client import EbayOfferClient
+from services.ebay.ebay_offer_enrichment import EbayOfferEnrichment
 from shared.datetime_utils import utc_now
 from shared.logging import get_logger
 
@@ -58,6 +61,13 @@ class EbayImporter:
         # Load aspect reverse mapping from DB (all languages → aspect_key)
         self._aspect_reverse_map = AspectMapping.get_reverse_mapping(db)
         logger.debug(f"Loaded {len(self._aspect_reverse_map)} aspect mappings")
+
+        # Compose enrichment service
+        self.enrichment = EbayOfferEnrichment(
+            db=db,
+            offer_client=self.offer_client,
+            aspect_reverse_map=self._aspect_reverse_map,
+        )
 
     async def fetch_all_inventory_items(self) -> list[dict]:
         """
@@ -94,7 +104,7 @@ class EbayImporter:
                 offset += limit
 
             except Exception as e:
-                logger.error(f"Error fetching inventory items at offset {offset}: {e}")
+                logger.error(f"Error fetching inventory items at offset {offset}: {e}", exc_info=True)
                 break
 
         logger.info(f"Total inventory items fetched: {len(all_items)}")
@@ -114,7 +124,7 @@ class EbayImporter:
             result = self.offer_client.get_offers(sku=sku)
             return result.get("offers", [])
         except Exception as e:
-            logger.warning(f"Could not fetch offers for SKU {sku}: {e}")
+            logger.warning(f"Could not fetch offers for SKU {sku}: {e}", exc_info=True)
             return []
 
     async def import_all_products(self, enrich: bool = False) -> dict:
@@ -169,12 +179,12 @@ class EbayImporter:
                         self.db.commit()
                         logger.info(f"Progress saved: {i + 1}/{len(inventory_items)} items processed")
                     except Exception as e:
-                        logger.error(f"Error committing batch: {e}")
+                        logger.error(f"Error committing batch: {e}", exc_info=True)
                         self.db.rollback()
 
             except Exception as e:
                 sku = item.get("sku", "unknown")
-                logger.error(f"Error importing item {sku}: {e}")
+                logger.error(f"Error importing item {sku}: {e}", exc_info=True)
                 results["errors"] += 1
                 results["details"].append({
                     "sku": sku,
@@ -186,7 +196,7 @@ class EbayImporter:
         try:
             self.db.commit()
         except Exception as e:
-            logger.error(f"Error committing changes: {e}")
+            logger.error(f"Error committing changes: {e}", exc_info=True)
             self.db.rollback()
             raise
 
@@ -235,7 +245,7 @@ class EbayImporter:
 
             # Enrich with offers data (price, listing_id, etc.)
             if enrich:
-                self.enrich_with_offers(existing)
+                self.enrichment.enrich_with_offers(existing)
 
             return {
                 "sku": sku,
@@ -259,7 +269,7 @@ class EbayImporter:
 
         # Enrich with offers data (price, listing_id, etc.)
         if enrich:
-            self.enrich_with_offers(ebay_product)
+            self.enrichment.enrich_with_offers(ebay_product)
 
         return {
             "sku": sku,
@@ -385,125 +395,6 @@ class EbayImporter:
 
         return None
 
-    def enrich_with_offers(self, ebay_product: EbayProduct) -> None:
-        """
-        Enrichit un EbayProduct avec les données de l'Offer API uniquement.
-
-        Cette méthode met à jour TOUS les champs qui viennent de l'Offer API :
-        - price, currency
-        - ebay_offer_id, ebay_listing_id
-        - sold_quantity, available_quantity
-        - status (basé sur offer status + listing status)
-        - listing_format, listing_duration
-        - category_id, secondary_category_id
-        - merchant_location_key
-        - lot_size, quantity_limit_per_buyer
-        - listing_description
-
-        Note: Cette méthode ne met PAS à jour les champs Inventory API (quantity, title, etc.)
-        Pour une sync complète, utiliser full_sync() qui appelle d'abord sync_from_inventory_bulk().
-
-        Args:
-            ebay_product: Produit eBay à enrichir
-        """
-        try:
-            offers = self.fetch_offers_for_sku(ebay_product.ebay_sku)
-
-            if not offers:
-                # No offers - update availability based on current quantity
-                current_qty = ebay_product.quantity or 0
-                ebay_product.availability_type = "IN_STOCK" if current_qty > 0 else "OUT_OF_STOCK"
-                ebay_product.available_quantity = current_qty
-                ebay_product.status = "active" if current_qty > 0 else "inactive"
-                return
-
-            # Try to find offer for configured marketplace first, otherwise take first one
-            selected_offer = None
-            for offer in offers:
-                if offer.get("marketplaceId") == self.marketplace_id:
-                    selected_offer = offer
-                    break
-            if not selected_offer:
-                selected_offer = offers[0]  # Take first available offer
-
-            # Update with offer data
-            ebay_product.ebay_offer_id = selected_offer.get("offerId")
-            ebay_product.marketplace_id = selected_offer.get("marketplaceId", self.marketplace_id)
-
-            # Listing details
-            listing = selected_offer.get("listing", {})
-            ebay_product.ebay_listing_id = listing.get("listingId")
-            ebay_product.sold_quantity = listing.get("soldQuantity")
-
-            # Price from offer
-            pricing = selected_offer.get("pricingSummary", {})
-            price_obj = pricing.get("price", {})
-            if price_obj:
-                ebay_product.price = float(price_obj.get("value", 0))
-                ebay_product.currency = price_obj.get("currency", "EUR")
-
-            # Listing format and duration
-            ebay_product.listing_format = selected_offer.get("format")
-            ebay_product.listing_duration = selected_offer.get("listingDuration")
-
-            # Categories
-            ebay_product.category_id = selected_offer.get("categoryId")
-            ebay_product.secondary_category_id = selected_offer.get("secondaryCategoryId")
-
-            # Location
-            ebay_product.merchant_location_key = selected_offer.get("merchantLocationKey")
-
-            # Quantity details
-            ebay_product.available_quantity = selected_offer.get("availableQuantity")
-
-            # Fallback: If availableQuantity not returned by getOffers (common),
-            # calculate from inventory quantity minus sold quantity
-            if ebay_product.available_quantity is None:
-                current_qty = ebay_product.quantity or 0
-                sold_qty = ebay_product.sold_quantity or 0
-                ebay_product.available_quantity = max(0, current_qty - sold_qty)
-                logger.debug(
-                    f"[Enrich] Calculated available_quantity={ebay_product.available_quantity} "
-                    f"for SKU {ebay_product.ebay_sku} (qty={current_qty}, sold={sold_qty})"
-                )
-
-            ebay_product.lot_size = selected_offer.get("lotSize")
-            ebay_product.quantity_limit_per_buyer = selected_offer.get("quantityLimitPerBuyer")
-
-            # Listing description (may differ from product description)
-            ebay_product.listing_description = selected_offer.get("listingDescription")
-
-            # Update availability_type based on current quantity
-            current_qty = ebay_product.quantity or 0
-            ebay_product.availability_type = "IN_STOCK" if current_qty > 0 else "OUT_OF_STOCK"
-
-            # Status from offer - handle all statuses
-            offer_status = selected_offer.get("status")
-            listing_status = listing.get("listingStatus")
-
-            if offer_status == "PUBLISHED":
-                # Check listingStatus for more granular status
-                if listing_status == "OUT_OF_STOCK":
-                    ebay_product.status = "inactive"
-                else:
-                    ebay_product.status = "active"
-                    ebay_product.published_at = utc_now()
-            elif offer_status == "UNPUBLISHED":
-                # Listing was taken down (sold out, ended by seller, etc.)
-                ebay_product.status = "inactive"
-            elif offer_status == "ENDED":
-                ebay_product.status = "ended"
-            else:
-                # Unknown status - log it
-                logger.warning(
-                    f"[Enrich] Unknown offer status '{offer_status}' for SKU {ebay_product.ebay_sku}"
-                )
-
-            ebay_product.last_synced_at = utc_now()
-
-        except Exception as e:
-            logger.warning(f"Could not enrich product {ebay_product.ebay_sku}: {e}")
-
     def sync_single_product(self, sku: str) -> Optional[EbayProduct]:
         """
         Synchronise un seul produit par SKU.
@@ -528,128 +419,15 @@ class EbayImporter:
 
                 if ebay_product:
                     # Enrich with offer data
-                    self.enrich_with_offers(ebay_product)
-                    self.db.commit()
+                    self.enrichment.enrich_with_offers(ebay_product)
+                    self.db.flush()
                     return ebay_product
 
         except Exception as e:
-            logger.error(f"Error syncing product {sku}: {e}")
+            logger.error(f"Error syncing product {sku}: {e}", exc_info=True)
             self.db.rollback()
 
         return None
-
-    def enrich_products_batch(
-        self,
-        limit: int = 100,
-        only_without_price: bool = True
-    ) -> dict:
-        """
-        Enrichit les produits avec les données des offers par lot.
-
-        Args:
-            limit: Nombre max de produits à enrichir
-            only_without_price: Si True, enrichit seulement les produits sans prix
-
-        Returns:
-            dict: {
-                "enriched": int,
-                "errors": int,
-                "details": [...]
-            }
-        """
-        results = {
-            "enriched": 0,
-            "errors": 0,
-            "remaining": 0,
-            "details": []
-        }
-
-        # Build query
-        query = self.db.query(EbayProduct)
-        if only_without_price:
-            query = query.filter(EbayProduct.price.is_(None))
-
-        # Count remaining
-        results["remaining"] = query.count()
-
-        # Limit to batch size
-        products = query.limit(limit).all()
-
-        for product in products:
-            try:
-                self.enrich_with_offers(product)
-                results["enriched"] += 1
-                results["details"].append({
-                    "sku": product.ebay_sku,
-                    "status": "enriched",
-                    "price": product.price
-                })
-            except Exception as e:
-                logger.warning(f"Error enriching {product.ebay_sku}: {e}")
-                results["errors"] += 1
-                results["details"].append({
-                    "sku": product.ebay_sku,
-                    "status": "error",
-                    "error": str(e)
-                })
-
-        # Commit changes
-        try:
-            self.db.commit()
-            results["remaining"] -= results["enriched"]
-        except Exception as e:
-            logger.error(f"Error committing enrichment: {e}")
-            self.db.rollback()
-            raise
-
-        return results
-
-    def refresh_aspects_batch(self, limit: int = 100) -> dict:
-        """
-        Re-extrait les aspects (brand, color, size, material) des produits existants.
-
-        Utile après mise à jour du mapping multi-langue.
-
-        Args:
-            limit: Nombre max de produits à traiter
-
-        Returns:
-            dict: {"updated": int, "errors": int, "remaining": int}
-        """
-        results = {"updated": 0, "errors": 0, "remaining": 0}
-
-        # Get products with aspects but missing brand
-        query = self.db.query(EbayProduct).filter(
-            EbayProduct.aspects.isnot(None),
-            EbayProduct.brand.is_(None)
-        )
-        results["remaining"] = query.count()
-        products = query.limit(limit).all()
-
-        for product in products:
-            try:
-                aspects = json.loads(product.aspects) if product.aspects else {}
-
-                # Re-extract using DB mapping (multi-language support)
-                product.brand = self._get_aspect_by_key(aspects, "brand")
-                product.color = self._get_aspect_by_key(aspects, "color")
-                product.size = self._get_aspect_by_key(aspects, "size")
-                product.material = self._get_aspect_by_key(aspects, "material")
-
-                results["updated"] += 1
-            except Exception as e:
-                logger.warning(f"Error refreshing aspects for {product.ebay_sku}: {e}")
-                results["errors"] += 1
-
-        try:
-            self.db.commit()
-            results["remaining"] -= results["updated"]
-        except Exception as e:
-            logger.error(f"Error committing aspect refresh: {e}")
-            self.db.rollback()
-            raise
-
-        return results
 
     async def sync_from_inventory_bulk(self) -> dict:
         """
@@ -727,7 +505,7 @@ class EbayImporter:
                 )
 
             except Exception as e:
-                logger.warning(f"[SyncInventory] Error updating {product.ebay_sku}: {e}")
+                logger.warning(f"[SyncInventory] Error updating {product.ebay_sku}: {e}", exc_info=True)
                 results["errors"] += 1
 
         # 5. Commit changes
@@ -738,7 +516,7 @@ class EbayImporter:
                 f"{results['not_found']} not found, {results['errors']} errors"
             )
         except Exception as e:
-            logger.error(f"[SyncInventory] Error committing: {e}")
+            logger.error(f"[SyncInventory] Error committing: {e}", exc_info=True)
             self.db.rollback()
             raise
 
@@ -831,7 +609,7 @@ class EbayImporter:
 
         # Step 2: Enrich with Offer API (one by one)
         logger.info("[FullSync] Step 2/2: Enriching with Offer API...")
-        offers_results = self.enrich_all_with_offers()
+        offers_results = self.enrichment.enrich_all_with_offers()
 
         logger.info("[FullSync] Full sync completed!")
 

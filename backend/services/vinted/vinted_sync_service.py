@@ -114,7 +114,7 @@ class VintedSyncService:
         if not product:
             raise ValueError(f"Produit #{product_id} introuvable")
 
-        logger.info(f"  Produit: {product.title[:50] if product.title else 'Sans titre'}...")
+        logger.debug(f"  Produit: {product.title[:50] if product.title else 'Sans titre'}...")
 
         # Check not already published
         existing = db.query(VintedProduct).filter(
@@ -142,12 +142,12 @@ class VintedSyncService:
         Raises:
             ValueError: If validation fails
         """
-        logger.info(f"  Validation...")
+        logger.debug(f"  Validation...")
         is_valid, error = self.validator.validate_for_creation(product)
         if not is_valid:
             raise ValueError(f"Validation echouee: {error}")
 
-        logger.info(f"  Mapping attributs...")
+        logger.debug(f"  Mapping attributs...")
         mapped_attrs = self.mapping_service.map_all_attributes(db, product)
         is_valid, error = self.validator.validate_mapped_attributes(
             mapped_attrs, product.id
@@ -174,19 +174,19 @@ class VintedSyncService:
         Raises:
             ValueError: If photo upload or validation fails
         """
-        logger.info(f"  Calcul prix...")
+        logger.debug(f"  Calcul prix...")
         prix_vinted = self.pricing_service.calculate_vinted_price(product)
-        logger.info(f"  Prix: {prix_vinted}EUR")
+        logger.debug(f"  Prix: {prix_vinted}EUR")
 
         title = self.title_service.generate_title(product)
         description = self.description_service.generate_description(product)
 
-        logger.info(f"  Upload photos...")
+        logger.debug(f"  Upload photos...")
         photo_ids = await upload_product_images(db, product, user_id=self.user_id, job_id=job_id)
         is_valid, error = self.validator.validate_images(photo_ids)
         if not is_valid:
             raise ValueError(f"Images invalides: {error}")
-        logger.info(f"  {len(photo_ids)} photos uploadees")
+        logger.debug(f"  {len(photo_ids)} photos uploadees")
 
         return prix_vinted, title, description, photo_ids
 
@@ -236,7 +236,7 @@ class VintedSyncService:
         Raises:
             ValueError: If vinted_id missing in response
         """
-        logger.info(f"  Creation listing Vinted...")
+        logger.debug(f"  Creation listing Vinted...")
         result = await PluginWebSocketHelper.call_plugin_http(
             db=db,
             user_id=self.user_id,
@@ -279,7 +279,7 @@ class VintedSyncService:
         Returns:
             Tuple (vinted_id, vinted_url)
         """
-        logger.info(f"  Post-processing...")
+        logger.debug(f"  Post-processing...")
 
         save_new_vinted_product(
             db=db,

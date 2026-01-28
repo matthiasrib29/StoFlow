@@ -12,9 +12,10 @@ Business Rules:
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, Text, func
+from sqlalchemy import BigInteger, DateTime, DECIMAL, ForeignKey, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.database import Base
@@ -77,9 +78,9 @@ class EbayOrder(Base):
     shipping_country: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Amounts
-    total_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    total_price: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 2), nullable=True)
     currency: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    shipping_cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    shipping_cost: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 2), nullable=True)
 
     # Status
     order_fulfillment_status: Mapped[Optional[str]] = mapped_column(
@@ -167,8 +168,8 @@ class EbayOrderProduct(Base):
 
     # Pricing
     quantity: Mapped[Optional[int]] = mapped_column(Integer, default=1, nullable=True)
-    unit_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    total_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    unit_price: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 2), nullable=True)
+    total_price: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 2), nullable=True)
     currency: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Legacy Item ID

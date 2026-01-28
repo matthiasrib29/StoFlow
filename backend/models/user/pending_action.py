@@ -122,6 +122,13 @@ class PendingAction(Base):
         comment="True=confirmed (action applied), False=rejected (restored), None=pending"
     )
 
+    # TTL: auto-expire stale pending actions (Issue #3 - Audit)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Auto-expire unconfirmed actions after this date (default: 7 days)"
+    )
+
     # Relationships
     product = relationship("Product", back_populates="pending_actions", lazy="raise")
 

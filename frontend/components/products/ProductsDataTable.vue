@@ -35,11 +35,11 @@
 
     <Column field="image_url" header="" style="width: 70px">
       <template #body="slotProps">
-        <img
+        <NuxtImg
           :src="getProductImageUrl(slotProps.data)"
           :alt="slotProps.data.title"
           class="w-12 h-12 object-cover rounded-lg"
-        >
+        />
       </template>
     </Column>
 
@@ -85,20 +85,20 @@
     <Column header="Plateformes" style="width: 100px">
       <template #body="slotProps">
         <div class="flex items-center gap-2">
-          <img
+          <NuxtImg
             v-if="slotProps.data.vinted_id"
             src="/images/platforms/vinted-logo.png"
             alt="Vinted"
             class="w-10 h-10 object-contain"
             title="Lié à Vinted"
-          >
-          <img
+          />
+          <NuxtImg
             v-if="slotProps.data.ebay_id"
             src="/images/platforms/ebay-logo.png"
             alt="eBay"
             class="w-10 h-10 object-contain"
             title="Lié à eBay"
-          >
+          />
           <span
             v-if="!slotProps.data.vinted_id && !slotProps.data.ebay_id"
             class="text-xs text-gray-400"

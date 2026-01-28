@@ -107,7 +107,7 @@ class VintedBordereauService:
                 return None
 
         except requests.RequestException as e:
-            logger.error(f"❌ Erreur téléchargement bordereau: {e}")
+            logger.error(f"❌ Erreur téléchargement bordereau: {e}", exc_info=True)
             return None
         except Exception as e:
             logger.error(f"❌ Erreur inattendue: {e}", exc_info=True)
@@ -340,7 +340,7 @@ class VintedBordereauService:
                 deleted_count += 1
                 logger.info(f"🗑️  Bordereau supprimé: {file_path.name}")
             except Exception as e:
-                logger.error(f"❌ Erreur suppression {file_path.name}: {e}")
+                logger.error(f"❌ Erreur suppression {file_path.name}: {e}", exc_info=True)
 
         return deleted_count > 0
 
@@ -390,7 +390,7 @@ class VintedBordereauService:
                     logger.debug(f"🗑️  Bordereau ancien supprimé: {pdf_file.name}")
 
             except Exception as e:
-                logger.error(f"❌ Erreur suppression {pdf_file.name}: {e}")
+                logger.error(f"❌ Erreur suppression {pdf_file.name}: {e}", exc_info=True)
 
         if deleted_count > 0:
             logger.info(f"🧹 Nettoyage: {deleted_count} bordereaux supprimés (>{days} jours)")

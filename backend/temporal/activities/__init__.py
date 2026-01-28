@@ -14,6 +14,7 @@ from temporal.activities.ebay_activities import (
     get_skus_to_enrich,
     detect_ebay_sold_elsewhere,
     delete_ebay_listing,
+    apply_policy_to_single_offer,
     EBAY_ACTIVITIES,
 )
 
@@ -21,13 +22,21 @@ from temporal.activities.vinted_activities import (
     fetch_and_sync_page as vinted_fetch_and_sync_page,
     get_vinted_ids_to_enrich,
     enrich_single_product as vinted_enrich_single_product,
+    scan_pro_sellers_page,
+    save_pro_sellers_batch,
+    get_keyword_scan_logs,
+    update_keyword_scan_log,
+    VINTED_ACTIVITIES,
+)
+
+from temporal.activities.job_state_activities import (
     check_plugin_connection as vinted_check_plugin_connection,
+)
+
+from temporal.activities.vinted_sync_reconciliation_activities import (
     sync_sold_status as vinted_sync_sold_status,
     detect_sold_with_active_listing,
     delete_vinted_listing,
-    scan_pro_sellers_page,
-    save_pro_sellers_batch,
-    VINTED_ACTIVITIES,
 )
 
 # ── Action activities (new — MarketplaceJob replacement) ────────
@@ -75,6 +84,7 @@ __all__ = [
     "get_skus_to_enrich",
     "detect_ebay_sold_elsewhere",
     "delete_ebay_listing",
+    "apply_policy_to_single_offer",
     # Vinted sync activities
     "VINTED_ACTIVITIES",
     "vinted_fetch_and_sync_page",
@@ -86,6 +96,8 @@ __all__ = [
     "delete_vinted_listing",
     "scan_pro_sellers_page",
     "save_pro_sellers_batch",
+    "get_keyword_scan_logs",
+    "update_keyword_scan_log",
     # Vinted action activities
     "VINTED_ACTION_ACTIVITIES",
     "vinted_publish_product",

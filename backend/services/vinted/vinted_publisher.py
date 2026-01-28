@@ -129,7 +129,7 @@ class VintedPublisher:
                 photo_ids.append(result["photo_id"])
 
             except Exception as e:
-                logger.warning(f"Failed to upload image {url}: {e}")
+                logger.warning(f"Failed to upload image {url}: {e}", exc_info=True)
                 # Continue avec les autres images
 
         if not photo_ids:
@@ -166,7 +166,7 @@ class VintedPublisher:
                 return brands[0].get("id")
 
         except Exception as e:
-            logger.warning(f"Failed to search brand {brand_name}: {e}")
+            logger.warning(f"Failed to search brand {brand_name}: {e}", exc_info=True)
 
         return None
 
@@ -196,7 +196,7 @@ class VintedPublisher:
                     return size.get("id")
 
         except Exception as e:
-            logger.warning(f"Failed to search size {size_title}: {e}")
+            logger.warning(f"Failed to search size {size_title}: {e}", exc_info=True)
 
         return None
 
@@ -221,7 +221,7 @@ class VintedPublisher:
                     return color.get("id")
 
         except Exception as e:
-            logger.warning(f"Failed to search color {color_name}: {e}")
+            logger.warning(f"Failed to search color {color_name}: {e}", exc_info=True)
 
         return None
 

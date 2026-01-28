@@ -156,7 +156,7 @@ class VintedItemUploadParser:
             elif isinstance(price_data, (int, float, str)):
                 return Decimal(str(price_data))
         except Exception as e:
-            logger.warning(f"Failed to parse price {price_data}: {e}")
+            logger.warning(f"Failed to parse price {price_data}: {e}", exc_info=True)
 
         return None
 
