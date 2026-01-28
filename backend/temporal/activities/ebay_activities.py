@@ -12,8 +12,6 @@ Activities handle their own DB sessions since they run in the worker process.
 Architecture:
 - fetch_and_sync_page: Fetch one page from eBay and upsert directly to DB
 - cleanup_orphan_products: Delete products not seen in current sync
-- update_job_progress: Update job progress in DB
-- mark_job_completed/failed: Update job status
 
 IMPORTANT: Activities are defined as regular `def` (not `async def`) because:
 - The eBay client uses `requests` (synchronous HTTP library)
@@ -558,117 +556,6 @@ def get_skus_sold_elsewhere(user_id: int, batch_size: int = 500) -> list:
 
 
 @activity.defn
-def update_job_progress(
-    user_id: int,
-    job_id: int,
-    current: int,
-    label: str,
-) -> None:
-    """
-    Update job progress in the database.
-
-    Args:
-        user_id: User ID for schema isolation
-        job_id: MarketplaceJob ID
-        current: Current progress count
-        label: Progress label text
-    """
-    db = SessionLocal()
-    try:
-        schema_name = _get_schema_name(user_id)
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-        import json
-
-        data = json.dumps({"current": current, "label": label})
-
-        db.execute(
-            text("UPDATE marketplace_jobs SET result_data = :data WHERE id = :job_id"),
-            {"data": data, "job_id": job_id},
-        )
-        db.commit()
-
-        activity.logger.debug(f"Job #{job_id} progress: {current} - {label}")
-
-    finally:
-        db.close()
-
-
-@activity.defn
-def mark_job_completed(
-    user_id: int,
-    job_id: int,
-    final_count: int,
-) -> None:
-    """
-    Mark job as completed.
-
-    Args:
-        user_id: User ID for schema isolation
-        job_id: MarketplaceJob ID
-        final_count: Final synced product count
-    """
-    db = SessionLocal()
-    try:
-        schema_name = _get_schema_name(user_id)
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-        import json
-
-        data = json.dumps({"current": final_count, "label": "produits synchronisés"})
-
-        db.execute(
-            text(
-                "UPDATE marketplace_jobs SET status = 'completed', result_data = :data "
-                "WHERE id = :job_id"
-            ),
-            {"data": data, "job_id": job_id},
-        )
-        db.commit()
-
-        activity.logger.info(f"Job #{job_id} completed: {final_count} products")
-
-    finally:
-        db.close()
-
-
-@activity.defn
-def mark_job_failed(
-    user_id: int,
-    job_id: int,
-    error_msg: str,
-) -> None:
-    """
-    Mark job as failed.
-
-    Args:
-        user_id: User ID for schema isolation
-        job_id: MarketplaceJob ID
-        error_msg: Error message
-    """
-    db = SessionLocal()
-    try:
-        schema_name = _get_schema_name(user_id)
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-        safe_error = error_msg[:500]
-
-        db.execute(
-            text(
-                "UPDATE marketplace_jobs SET status = 'failed', error_message = :error "
-                "WHERE id = :job_id"
-            ),
-            {"error": safe_error, "job_id": job_id},
-        )
-        db.commit()
-
-        activity.logger.info(f"Job #{job_id} failed: {safe_error}")
-
-    finally:
-        db.close()
-
-
-@activity.defn
 def detect_ebay_sold_elsewhere(user_id: int) -> dict:
     """
     Detect products SOLD on StoFlow but still listed on eBay (not sold on eBay).
@@ -880,9 +767,6 @@ EBAY_ACTIVITIES = [
     delete_single_product,
     sync_sold_status,
     get_skus_sold_elsewhere,
-    update_job_progress,
-    mark_job_completed,
-    mark_job_failed,
     enrich_single_product,
     get_skus_to_enrich,
     detect_ebay_sold_elsewhere,

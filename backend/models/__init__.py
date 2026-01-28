@@ -76,10 +76,7 @@ from models.user import (
     VintedOrder,
     VintedOrderProduct,
     VintedDeletion,
-    # Marketplace Job System
-    MarketplaceJob,
-    JobStatus,
-    # MarketplaceJobStats,  # Removed (2026-01-20): Not used
+    # MarketplaceJob removed (2026-01-27): Replaced by Temporal workflows
     # eBay
     EbayCredentials,
     # EbayPromotedListing,  # Removed (2026-01-20): Merged into EbayProduct
@@ -146,10 +143,7 @@ __all__ = [
     "VintedOrder",
     "VintedOrderProduct",
     "VintedDeletion",
-    # Marketplace Job System (user)
-    "MarketplaceJob",
-    "JobStatus",
-    # "MarketplaceJobStats",  # Removed (2026-01-20): Not used
+    # MarketplaceJob removed (2026-01-27): Replaced by Temporal workflows
     # eBay
     "EbayCredentials",
     # "EbayPromotedListing",  # Removed (2026-01-20): Merged into EbayProduct

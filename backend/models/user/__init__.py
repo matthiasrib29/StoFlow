@@ -26,10 +26,8 @@ from models.user.vinted_product import VintedProduct
 # Vinted schema models (re-exported for compatibility)
 from models.vinted.vinted_order import VintedOrder, VintedOrderProduct
 from models.vinted.vinted_deletion import VintedDeletion
-from models.user.marketplace_batch import MarketplaceBatch, MarketplaceBatchStatus, BatchJob, BatchJobStatus
-from models.user.marketplace_job import MarketplaceJob, JobStatus
+# MarketplaceBatch, MarketplaceJob removed (2026-01-27): Replaced by Temporal workflows
 from models.user.pending_action import PendingAction, PendingActionType
-# MarketplaceJobStats removed (2026-01-20): Not used
 
 __all__ = [
     "Product",
@@ -58,15 +56,7 @@ __all__ = [
     "VintedOrder",
     "VintedOrderProduct",
     "VintedDeletion",
-    # Marketplace Batch (formerly BatchJob)
-    "MarketplaceBatch",
-    "MarketplaceBatchStatus",
-    "BatchJob",  # Deprecated alias for backward compatibility
-    "BatchJobStatus",  # Deprecated alias for backward compatibility
-    # Marketplace Job
-    "MarketplaceJob",
-    "JobStatus",
-    # "MarketplaceJobStats",  # Removed (2026-01-20): Not used
+    # MarketplaceBatch, MarketplaceJob removed (2026-01-27): Replaced by Temporal workflows
     # Pending Actions
     "PendingAction",
     "PendingActionType",

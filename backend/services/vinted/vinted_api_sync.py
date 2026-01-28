@@ -44,7 +44,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.user.marketplace_job import JobStatus, MarketplaceJob
 from models.user.product import Product, ProductStatus
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import PluginWebSocketHelper  # WebSocket architecture (2026-01-12)
@@ -84,7 +83,6 @@ class VintedApiSyncService:
     async def sync_products_from_api(
         self,
         db: Session,
-        job: MarketplaceJob | None = None
     ) -> dict[str, Any]:
         """
         Synchronise les produits depuis l'API Vinted vers la BDD.
@@ -92,12 +90,10 @@ class VintedApiSyncService:
         Business Rules:
         - Commit apres chaque produit pour eviter perte de donnees
         - Si erreur sur un produit, les precedents sont preserves
-        - Met a jour job.result_data.progress si job fourni (2026-01-14)
         - Marque comme "sold" les produits qui n'apparaissent plus dans l'API (2026-01-19)
 
         Args:
             db: Session SQLAlchemy
-            job: MarketplaceJob optionnel pour mise a jour progress
 
         Returns:
             dict: {"created": int, "updated": int, "errors": int, ...}
@@ -111,34 +107,7 @@ class VintedApiSyncService:
         last_error = None
         synced_vinted_ids: set[int] = set()  # Track all products returned by API
 
-        # Helper pour mettre a jour le progress dans job.result_data (2026-01-14)
-        def update_progress():
-            if job:
-                total_processed = created + updated + errors
-                job.result_data = {
-                    **(job.result_data or {}),
-                    "progress": {
-                        "current": total_processed,
-                        "label": "produits traités"
-                    }
-                }
-                try:
-                    db.commit()
-                    db.expire(job)  # Force refresh from DB
-                except Exception as e:
-                    logger.warning(f"Failed to update progress: {e}", exc_info=True)
-                    db.rollback()  # CRITICAL: Rollback to prevent idle transaction
-
         while True:
-            # CRITICAL: Check if job was cancelled (cooperative pattern - 2026-01-15)
-            if job:
-                db.refresh(job)  # Get latest status from DB
-                if job.cancel_requested or job.status == JobStatus.CANCELLED:
-                    logger.info(f"Job #{job.id} cancellation detected, stopping sync")
-                    # Cleanup: commit current progress before stopping
-                    db.commit()
-                    break
-
             try:
                 # WebSocket architecture (2026-01-12)
                 result = await PluginWebSocketHelper.call_plugin_http(
@@ -161,15 +130,6 @@ class VintedApiSyncService:
             logger.info(f"Page {page}: {len(items)} produits recuperes")
 
             for item in items:
-                # CRITICAL: Check if job was cancelled (cooperative pattern - 2026-01-15)
-                if job:
-                    db.refresh(job)  # Get latest status from DB
-                    if job.cancel_requested or job.status == JobStatus.CANCELLED:
-                        logger.info(f"Job #{job.id} cancellation detected, stopping sync")
-                        # Cleanup: commit current progress before stopping
-                        db.commit()
-                        break
-
                 try:
                     processed = await self._process_api_product(db, item)
                     db.commit()
@@ -184,16 +144,10 @@ class VintedApiSyncService:
                     elif processed == 'synced':
                         updated += 1
 
-                    # Mettre a jour le progress apres chaque produit (2026-01-14)
-                    update_progress()
-
                 except Exception as e:
                     logger.error(f"Erreur sync produit {item.get('id')}: {e}", exc_info=True)
                     errors += 1
                     db.rollback()
-
-                    # Mettre a jour le progress meme en cas d'erreur (2026-01-14)
-                    update_progress()
 
             pagination = result.get('pagination', {})
             if page >= pagination.get('total_pages', 1):
@@ -236,7 +190,6 @@ class VintedApiSyncService:
         # Phase 2: Enrichir les produits sans description via HTML
         enrichment_result = await self.enricher.enrich_products_without_description(
             db,
-            job=job  # Pass job for progress tracking (2026-01-14)
         )
 
         result = {

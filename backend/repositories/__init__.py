@@ -26,7 +26,7 @@ Updated: 2025-12-24 - CategoryMappingRepository désactivé (modèle manquant)
 from .product_attribute_repository import ProductAttributeRepository
 from .product_repository import ProductRepository
 from .user_repository import UserRepository
-from .vinted_job_repository import VintedJobRepository
+# VintedJobRepository removed (2026-01-27): Replaced by Temporal workflows
 from .vinted_mapping_repository import VintedMappingRepository
 from .vinted_product_repository import VintedProductRepository
 # VintedErrorLogRepository removed (2026-01-21): Never used
@@ -38,7 +38,7 @@ __all__ = [
     'ProductAttributeRepository',
     'ProductRepository',
     'UserRepository',
-    'VintedJobRepository',
+    # 'VintedJobRepository',  # REMOVED (2026-01-27): Replaced by Temporal
     'VintedMappingRepository',
     'VintedProductRepository',
     # 'VintedErrorLogRepository',  # REMOVED (2026-01-21): Never used

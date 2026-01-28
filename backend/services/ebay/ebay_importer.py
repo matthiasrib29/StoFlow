@@ -26,7 +26,6 @@ from sqlalchemy.orm import Session
 
 from models.public.ebay_aspect_mapping import AspectMapping
 from models.user.ebay_product import EbayProduct
-from models.user.marketplace_job import JobStatus, MarketplaceJob
 from services.ebay.ebay_inventory_client import EbayInventoryClient
 from services.ebay.ebay_offer_client import EbayOfferClient
 from services.ebay.ebay_offer_enrichment import EbayOfferEnrichment
@@ -44,7 +43,6 @@ class EbayImporter:
         db: Session,
         user_id: int,
         marketplace_id: str = "EBAY_FR",
-        job: Optional[MarketplaceJob] = None
     ):
         """
         Initialise l'importeur avec les credentials OAuth eBay.
@@ -53,12 +51,10 @@ class EbayImporter:
             db: Session SQLAlchemy
             user_id: ID utilisateur Stoflow
             marketplace_id: Marketplace eBay (EBAY_FR, EBAY_GB, etc.)
-            job: Optional MarketplaceJob for cooperative cancellation
         """
         self.db = db
         self.user_id = user_id
         self.marketplace_id = marketplace_id
-        self.job = job
         self.inventory_client = EbayInventoryClient(db, user_id, marketplace_id)
         self.offer_client = EbayOfferClient(db, user_id, marketplace_id)
 
@@ -71,7 +67,6 @@ class EbayImporter:
             db=db,
             offer_client=self.offer_client,
             aspect_reverse_map=self._aspect_reverse_map,
-            job=job,
         )
 
     async def fetch_all_inventory_items(self) -> list[dict]:
@@ -86,17 +81,6 @@ class EbayImporter:
         limit = 100
 
         while True:
-            # Check cancellation every page (cooperative pattern - 2026-01-15)
-            if self.job:
-                self.db.refresh(self.job)
-                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
-                    logger.info(f"Job #{self.job.id} cancelled, stopping import at offset {offset}")
-                    try:
-                        self.db.commit()  # Save partial progress
-                    except Exception:
-                        self.db.rollback()
-                    return all_items
-
             try:
                 # Make blocking call async-compatible
                 result = await asyncio.to_thread(
@@ -177,21 +161,6 @@ class EbayImporter:
             return results
 
         for i, item in enumerate(inventory_items):
-            # Check cancellation every 10 items (cooperative pattern - 2026-01-15)
-            if i % 10 == 0 and self.job:
-                self.db.refresh(self.job)
-                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
-                    logger.info(f"Job #{self.job.id} cancelled, stopping import at item {i}/{len(inventory_items)}")
-                    try:
-                        self.db.commit()  # Save partial progress
-                    except Exception:
-                        self.db.rollback()
-                    return {
-                        **results,
-                        "status": "cancelled",
-                        "imported_count": i
-                    }
-
             try:
                 result = self._import_single_item(item, enrich=enrich)
 
@@ -510,17 +479,6 @@ class EbayImporter:
 
         # 4. Update each product with fresh inventory data
         for product in existing_products:
-            # Check cancellation
-            if self.job:
-                self.db.refresh(self.job)
-                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
-                    logger.info(f"[SyncInventory] Job cancelled, stopping sync")
-                    try:
-                        self.db.commit()
-                    except Exception:
-                        self.db.rollback()
-                    return {**results, "status": "cancelled"}
-
             inventory_item = inventory_map.get(product.ebay_sku)
 
             if not inventory_item:
@@ -559,6 +517,66 @@ class EbayImporter:
             )
         except Exception as e:
             logger.error(f"[SyncInventory] Error committing: {e}", exc_info=True)
+            self.db.rollback()
+            raise
+
+        return results
+
+    def enrich_all_with_offers(self, batch_size: int = 100) -> dict:
+        """
+        Enrichit TOUS les produits avec les données de l'Offer API.
+
+        Cette méthode parcourt tous les produits et appelle enrich_with_offers()
+        pour chacun. C'est la deuxième étape d'un full_sync().
+
+        Args:
+            batch_size: Commit tous les N produits (pour éviter les transactions trop longues)
+
+        Returns:
+            dict: {
+                "enriched": int,
+                "errors": int,
+                "total": int
+            }
+        """
+        results = {
+            "enriched": 0,
+            "errors": 0,
+            "total": 0
+        }
+
+        # Get all products
+        products = self.db.query(EbayProduct).all()
+        results["total"] = len(products)
+
+        logger.info(f"[EnrichOffers] Starting enrichment for {len(products)} products")
+
+        for i, product in enumerate(products):
+            try:
+                self.enrich_with_offers(product)
+                results["enriched"] += 1
+            except Exception as e:
+                logger.warning(f"[EnrichOffers] Error enriching {product.ebay_sku}: {e}")
+                results["errors"] += 1
+
+            # Batch commit
+            if (i + 1) % batch_size == 0:
+                try:
+                    self.db.commit()
+                    logger.info(f"[EnrichOffers] Progress: {i + 1}/{len(products)} products")
+                except Exception as e:
+                    logger.error(f"[EnrichOffers] Error committing batch: {e}")
+                    self.db.rollback()
+
+        # Final commit
+        try:
+            self.db.commit()
+            logger.info(
+                f"[EnrichOffers] Completed: {results['enriched']} enriched, "
+                f"{results['errors']} errors"
+            )
+        except Exception as e:
+            logger.error(f"[EnrichOffers] Error committing: {e}")
             self.db.rollback()
             raise
 

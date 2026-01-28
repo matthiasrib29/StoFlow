@@ -32,9 +32,6 @@ from temporal.activities.ebay_activities import (
     delete_single_product,
     sync_sold_status,
     detect_ebay_sold_elsewhere,
-    update_job_progress,
-    mark_job_completed,
-    mark_job_failed,
     enrich_single_product,
     get_skus_to_enrich,
 )
@@ -45,7 +42,6 @@ class EbaySyncParams:
     """Parameters for eBay sync workflow."""
 
     user_id: int
-    job_id: int
     marketplace_id: str = "EBAY_FR"
     batch_size: int = 100  # Items per page
 
@@ -96,7 +92,7 @@ class EbaySyncWorkflow:
         Execute the eBay sync workflow.
 
         Args:
-            params: Sync parameters (user_id, job_id, marketplace_id, etc.)
+            params: Sync parameters (user_id, marketplace_id, etc.)
 
         Returns:
             Dict with sync results (count, status, etc.)
@@ -136,13 +132,6 @@ class EbaySyncWorkflow:
             total_errors = params.accumulated_errors
             total_items = 0
             pages_processed = 0
-
-            # Initial progress update
-            await workflow.execute_activity(
-                update_job_progress,
-                args=[params.user_id, params.job_id, total_synced, "synchronisation en cours..."],
-                **activity_options,
-            )
 
             # Step 1: First call to get total count
             first_result = await workflow.execute_activity(
@@ -214,12 +203,6 @@ class EbaySyncWorkflow:
                 label = f"{total_synced}/{total_items} produits synchronisés"
                 self._progress.label = label
 
-                await workflow.execute_activity(
-                    update_job_progress,
-                    args=[params.user_id, params.job_id, total_synced, label],
-                    **activity_options,
-                )
-
             # Handle cancellation
             if self._cancelled:
                 return await self._handle_cancellation(params, activity_options, total_synced)
@@ -230,12 +213,6 @@ class EbaySyncWorkflow:
             self._progress.phase = "enrich"
             self._progress.label = "enrichissement en cours..."
             total_enriched = 0
-
-            await workflow.execute_activity(
-                update_job_progress,
-                args=[params.user_id, params.job_id, total_synced, "enrichissement en cours..."],
-                **activity_options,
-            )
 
             # Enrich products: 500 activities launched at once, worker handles 30 concurrent (sliding window)
             enrich_batch_size = 500
@@ -277,13 +254,6 @@ class EbaySyncWorkflow:
                 label = f"{total_synced} synchronisés, {total_enriched} enrichis..."
                 self._progress.label = label
 
-                # Update job progress every batch
-                await workflow.execute_activity(
-                    update_job_progress,
-                    args=[params.user_id, params.job_id, total_synced, label],
-                    **activity_options,
-                )
-
             # Handle cancellation after enrich phase
             if self._cancelled:
                 return await self._handle_cancellation(params, activity_options, total_synced)
@@ -294,12 +264,6 @@ class EbaySyncWorkflow:
             self._progress.phase = "cleanup"
             self._progress.label = "nettoyage en cours..."
             total_deleted = 0
-
-            await workflow.execute_activity(
-                update_job_progress,
-                args=[params.user_id, params.job_id, total_synced, "nettoyage en cours..."],
-                **activity_options,
-            )
 
             # Delete products without listing: 500 activities at once, worker handles 30 concurrent
             delete_batch_size = 500
@@ -336,12 +300,6 @@ class EbaySyncWorkflow:
                 label = f"{total_synced} synchronisés, {total_enriched} enrichis, {total_deleted} supprimés..."
                 self._progress.label = label
 
-                await workflow.execute_activity(
-                    update_job_progress,
-                    args=[params.user_id, params.job_id, total_synced, label],
-                    **activity_options,
-                )
-
             deleted_count = total_deleted
 
             # ═══════════════════════════════════════════════════════════
@@ -358,24 +316,12 @@ class EbaySyncWorkflow:
                 label = f"{total_synced} synchronisés, {total_enriched} enrichis, {deleted_count} supprimés, {sold_updated} vendus..."
                 self._progress.label = label
 
-                await workflow.execute_activity(
-                    update_job_progress,
-                    args=[params.user_id, params.job_id, total_synced, label],
-                    **activity_options,
-                )
-
             # ═══════════════════════════════════════════════════════════
             # PHASE 5: Detect eBay products sold elsewhere (pending actions)
             # Creates pending actions instead of auto-deleting
             # ═══════════════════════════════════════════════════════════
             self._progress.phase = "sold_elsewhere"
             self._progress.label = "détection produits vendus ailleurs..."
-
-            await workflow.execute_activity(
-                update_job_progress,
-                args=[params.user_id, params.job_id, total_synced, "détection produits vendus ailleurs..."],
-                **activity_options,
-            )
 
             sold_elsewhere_result = await workflow.execute_activity(
                 detect_ebay_sold_elsewhere,
@@ -388,13 +334,6 @@ class EbaySyncWorkflow:
             # DONE
             # ═══════════════════════════════════════════════════════════
             final_count = total_synced
-
-            # Mark job as completed
-            await workflow.execute_activity(
-                mark_job_completed,
-                args=[params.user_id, params.job_id, final_count],
-                **activity_options,
-            )
 
             self._progress.status = "completed"
             self._progress.phase = "done"
@@ -416,17 +355,6 @@ class EbaySyncWorkflow:
         except Exception as e:
             self._progress.status = "failed"
             self._progress.error = str(e)
-
-            # Mark job as failed
-            try:
-                await workflow.execute_activity(
-                    mark_job_failed,
-                    args=[params.user_id, params.job_id, str(e)],
-                    start_to_close_timeout=timedelta(minutes=1),
-                )
-            except Exception:
-                pass  # Best effort
-
             raise
 
     async def _handle_cancellation(
@@ -434,11 +362,6 @@ class EbaySyncWorkflow:
     ) -> dict:
         """Handle workflow cancellation."""
         self._progress.status = "cancelled"
-        await workflow.execute_activity(
-            mark_job_failed,
-            args=[params.user_id, params.job_id, "Sync cancelled by user"],
-            **activity_options,
-        )
         return {
             "status": "cancelled",
             "synced_count": synced_count,

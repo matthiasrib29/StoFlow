@@ -32,13 +32,12 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from api.dependencies import get_user_db
-from api.dependencies.vinted_dependencies import create_and_execute_vinted_job
+from api.workflows import WorkflowStartResponse
 from models.user.vinted_product import VintedProduct
 from schemas.vinted_schemas import (
     VintedStatsResponse,
     VintedProductsListResponse,
     VintedProductDetailResponse,
-    VintedJobResponse,
     VintedDeleteResponse,
     VintedLinkResponse,
     VintedUnlinkResponse,
@@ -208,7 +207,7 @@ async def get_product(
     }
 
 
-@router.post("/products/sync", response_model=VintedJobResponse)
+@router.post("/products/sync", response_model=WorkflowStartResponse)
 async def sync_products(
     user_db: tuple = Depends(get_user_db),
 ):
@@ -216,21 +215,23 @@ async def sync_products(
     Synchronise les produits depuis la garde-robe Vinted.
 
     Utilise Temporal workflow (durable, avec progression).
-    Crée un MarketplaceJob pour tracer l'opération dans l'UI.
 
     Returns:
-        VintedJobResponse: Job info avec statut et résultat optionnel
+        WorkflowStartResponse: Workflow ID and status
 
     Raises:
         503: If Temporal is disabled
         409: If a sync is already running for this user
     """
+    from temporal.client import get_temporal_client
+    from temporal.config import get_temporal_config
+    from temporal.workflows.vinted.sync_workflow import VintedSyncParams, VintedSyncWorkflow
+
     db, current_user = user_db
     connection = get_active_vinted_connection(db, current_user.id)
     shop_id = connection.vinted_user_id
 
     # Check Temporal is enabled
-    from temporal.config import get_temporal_config
     config = get_temporal_config()
 
     if not config.temporal_enabled:
@@ -238,11 +239,6 @@ async def sync_products(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Temporal is disabled. Sync requires Temporal workflow.",
         )
-
-    from models.user.marketplace_job import JobStatus
-    from services.marketplace.marketplace_job_service import MarketplaceJobService
-    from temporal.client import get_temporal_client
-    from temporal.workflows.vinted.sync_workflow import VintedSyncParams, VintedSyncWorkflow
 
     # Check if a Vinted sync workflow is already running for this user
     client = await get_temporal_client()
@@ -259,94 +255,79 @@ async def sync_products(
                    f"Attendez qu'il se termine ou annulez-le.",
         )
 
-    # Create job record for tracking in DB
-    job_service = MarketplaceJobService(db)
-    job = job_service.create_job(
-        marketplace="vinted",
-        action_code="sync",
-        product_id=None,
-        input_data={
-            "shop_id": shop_id,
-            "via_temporal": True,
-        },
-    )
-    job.status = JobStatus.RUNNING
-    db.commit()
-
-    # Start Temporal workflow
-    workflow_id = f"vinted-sync-user-{current_user.id}-job-{job.id}"
+    # Start Temporal workflow directly
+    workflow_id = f"vinted-sync-user-{current_user.id}"
 
     params = VintedSyncParams(
         user_id=current_user.id,
-        job_id=job.id,
         shop_id=shop_id,
     )
 
-    handle = await client.start_workflow(
+    await client.start_workflow(
         VintedSyncWorkflow.run,
         params,
         id=workflow_id,
         task_queue=config.temporal_vinted_task_queue,
     )
 
-    # Update job with workflow_id
-    job.input_data = {
-        **job.input_data,
-        "workflow_id": workflow_id,
-        "run_id": handle.result_run_id,
-    }
-    db.commit()
-
     logger.info(
         f"Started Temporal Vinted sync workflow: {workflow_id} for user {current_user.id}"
     )
 
-    return {
-        "job_id": job.id,
-        "status": "running",
-        "result": {
-            "success": True,
-            "message": "Temporal workflow started",
-            "workflow_id": workflow_id,
-        },
-    }
+    return WorkflowStartResponse(workflow_id=workflow_id, status="started")
 
 
 # Note: POST /products/{product_id}/publish is in publishing.py (uses job system)
 
 
-@router.put("/products/{product_id}", response_model=VintedJobResponse)
+@router.put("/products/{product_id}", response_model=WorkflowStartResponse)
 async def update_product(
     product_id: int,
     user_db: tuple = Depends(get_user_db),
-    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
 ):
     """
-    Met à jour un produit Vinted (prix, titre, description).
+    Update a product on Vinted via Temporal workflow.
 
-    Crée un MarketplaceJob pour tracer l'opération dans l'UI.
+    Starts VintedUpdateWorkflow and returns immediately.
+    Track progress via GET /workflows/{workflow_id}/progress.
 
     Args:
-        product_id: ID du produit à mettre à jour
-        process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
+        product_id: ID of the product to update
 
     Returns:
-        VintedJobResponse: Job info avec statut et résultat optionnel
+        WorkflowStartResponse with workflow_id
     """
+    from temporal.client import get_temporal_client
+    from temporal.config import get_temporal_config
+    from temporal.workflows.vinted.update_workflow import VintedUpdateParams, VintedUpdateWorkflow
+
+    config = get_temporal_config()
+    if not config.temporal_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Temporal is disabled",
+        )
+
     db, current_user = user_db
     connection = get_active_vinted_connection(db, current_user.id)
 
-    try:
-        return await create_and_execute_vinted_job(
-            db=db,
-            user_id=current_user.id,
-            shop_id=connection.vinted_user_id,
-            action_code="update",
-            product_id=product_id,
-            process_now=process_now,
-        )
-    except ValueError as e:
-        raise bad_request(str(e))
+    workflow_id = f"vinted-update-user-{current_user.id}-product-{product_id}"
+    params = VintedUpdateParams(
+        user_id=current_user.id,
+        product_id=product_id,
+        shop_id=connection.vinted_user_id,
+    )
+
+    client = await get_temporal_client()
+    await client.start_workflow(
+        VintedUpdateWorkflow.run,
+        params,
+        id=workflow_id,
+        task_queue=config.temporal_vinted_task_queue,
+    )
+
+    logger.info(f"Started workflow: {workflow_id}")
+    return WorkflowStartResponse(workflow_id=workflow_id, status="started")
 
 
 @router.delete("/products/{vinted_id}", response_model=VintedDeleteResponse)

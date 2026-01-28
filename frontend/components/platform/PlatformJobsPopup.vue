@@ -10,14 +10,14 @@
   >
     <template #header>
       <div class="flex items-center gap-3">
-        <i class="pi pi-spin pi-spinner text-primary-400" v-if="hasRunningJobs" />
+        <i class="pi pi-spin pi-spinner text-primary-400" v-if="hasRunningWorkflows" />
         <i class="pi pi-list text-primary-400" v-else />
         <span class="font-semibold text-lg">Tâches {{ platformName }}</span>
         <span
-          v-if="activeJobsCount > 0"
+          v-if="activeWorkflowsCount > 0"
           class="bg-primary-400 text-secondary-900 text-xs font-bold px-2 py-1 rounded-full"
         >
-          {{ activeJobsCount }}
+          {{ activeWorkflowsCount }}
         </span>
         <Button
           icon="pi pi-refresh"
@@ -25,7 +25,7 @@
           severity="secondary"
           text
           rounded
-          @click="fetchActiveJobs"
+          @click="fetchActiveWorkflows"
           :loading="isLoading"
           v-tooltip.top="'Rafraîchir'"
           class="ml-auto"
@@ -34,13 +34,13 @@
     </template>
 
     <!-- Loading state -->
-    <div v-if="isLoading && activeJobs.length === 0" class="flex items-center justify-center py-8">
+    <div v-if="isLoading && workflows.length === 0" class="flex items-center justify-center py-8">
       <i class="pi pi-spin pi-spinner text-2xl text-primary-400" />
     </div>
 
     <!-- Empty state -->
     <div
-      v-else-if="activeJobs.length === 0"
+      v-else-if="workflows.length === 0"
       class="flex flex-col items-center justify-center py-8 text-gray-500"
     >
       <i class="pi pi-check-circle text-4xl mb-3 text-green-500" />
@@ -48,114 +48,71 @@
       <p class="text-sm">Toutes les tâches sont terminées</p>
     </div>
 
-    <!-- Jobs list -->
+    <!-- Workflows list -->
     <div v-else class="flex flex-col gap-3 max-h-96 overflow-y-auto">
       <div
-        v-for="job in activeJobs"
-        :key="job.id"
+        v-for="wf in workflows"
+        :key="wf.workflow_id"
         class="bg-gray-50 rounded-lg p-4 border border-gray-200"
       >
-        <!-- Job header -->
+        <!-- Workflow header -->
         <div class="flex items-start justify-between mb-2">
           <div class="flex-1">
             <div class="flex items-center gap-2">
               <span
                 :class="[
                   'text-xs font-medium px-2 py-0.5 rounded',
-                  getStatusColor(getDisplayStatus(job))
+                  getStatusColor(wf.status)
                 ]"
               >
-                {{ getStatusLabel(getDisplayStatus(job)) }}
+                {{ getStatusLabel(wf.status) }}
               </span>
               <span class="text-sm font-medium text-gray-700">
-                {{ getActionLabel(job.action_code) }}
+                {{ getActionLabel(wf.workflow_type) }}
               </span>
             </div>
-            <p
-              v-if="job.product_title"
-              class="text-sm text-gray-600 mt-1 truncate max-w-xs"
-              :title="job.product_title"
-            >
-              {{ job.product_title }}
-            </p>
           </div>
 
-          <!-- Actions -->
+          <!-- Cancel button -->
           <div class="flex items-center gap-1">
-            <!-- Pause/Resume button -->
-            <Button
-              v-if="job.status === 'running'"
-              icon="pi pi-pause"
-              severity="secondary"
-              text
-              rounded
-              size="small"
-              @click="handlePause(job.id)"
-              v-tooltip.top="'Mettre en pause'"
-              :loading="actionLoading === job.id"
-            />
-            <Button
-              v-else-if="job.status === 'paused'"
-              icon="pi pi-play"
-              severity="secondary"
-              text
-              rounded
-              size="small"
-              @click="handleResume(job.id)"
-              v-tooltip.top="'Reprendre'"
-              :loading="actionLoading === job.id"
-            />
-
-            <!-- Cancel button (disabled if already cancelling - 2026-01-15) -->
             <Button
               icon="pi pi-times"
               severity="danger"
               text
               rounded
               size="small"
-              @click="handleCancel(job.id)"
-              v-tooltip.top="job.cancel_requested ? 'Annulation en cours...' : 'Annuler'"
-              :loading="actionLoading === job.id"
-              :disabled="job.cancel_requested"
+              @click="handleCancel(wf.workflow_id)"
+              v-tooltip.top="'Annuler'"
+              :loading="actionLoading === wf.workflow_id"
             />
           </div>
         </div>
 
-        <!-- Progress info -->
-        <div v-if="job.progress && job.progress.label" class="mt-3">
+        <!-- Progress info (loaded on demand) -->
+        <div v-if="progressMap[wf.workflow_id]" class="mt-3">
           <div class="flex items-center gap-2 text-sm text-gray-600">
-            <i class="pi pi-spin pi-spinner text-primary-400" v-if="job.status === 'running'" />
-            <span>{{ job.progress.label }}</span>
+            <i class="pi pi-spin pi-spinner text-primary-400" v-if="wf.status === 'Running'" />
+            <span>{{ progressMap[wf.workflow_id] }}</span>
           </div>
         </div>
 
-        <!-- Cancelling message (NEW: 2026-01-15) -->
+        <!-- Error message from progress -->
         <div
-          v-if="job.cancel_requested && job.status === 'running'"
-          class="mt-2 flex items-center gap-2 text-xs text-yellow-700 bg-yellow-50 rounded p-2"
-        >
-          <i class="pi pi-clock" />
-          <span>Le job s'arrêtera dans ~30 secondes</span>
-        </div>
-
-        <!-- Error message -->
-        <div
-          v-if="job.error_message"
+          v-if="errorMap[wf.workflow_id]"
           class="mt-2 text-xs text-red-600 bg-red-50 rounded p-2"
         >
           <i class="pi pi-exclamation-triangle mr-1" />
-          {{ job.error_message }}
+          {{ errorMap[wf.workflow_id] }}
         </div>
 
-        <!-- Job meta -->
+        <!-- Workflow meta -->
         <div class="flex items-center gap-4 mt-2 text-xs text-gray-400">
-          <span>
+          <span v-if="wf.start_time">
             <i class="pi pi-clock mr-1" />
-            {{ formatTime(job.created_at) }}
+            {{ formatTime(wf.start_time) }}
           </span>
-          <span v-if="job.retry_count > 0">
-            <i class="pi pi-refresh mr-1" />
-            {{ job.retry_count }} retry
+          <span class="text-gray-300 truncate max-w-[200px]" :title="wf.workflow_id">
+            {{ wf.workflow_id }}
           </span>
         </div>
       </div>
@@ -165,7 +122,7 @@
     <template #footer>
       <div class="flex items-center justify-between w-full">
         <Button
-          v-if="activeJobs.length > 1"
+          v-if="workflows.length > 1"
           label="Tout annuler"
           icon="pi pi-times"
           severity="danger"
@@ -181,7 +138,7 @@
           severity="secondary"
           text
           size="small"
-          @click="() => fetchActiveJobs()"
+          @click="() => fetchActiveWorkflows()"
           :loading="isLoading"
           v-tooltip.top="'Actualiser'"
         />
@@ -192,12 +149,13 @@
 
 <script setup lang="ts">
 /**
- * Generic platform jobs popup component
+ * Platform workflows popup component
  *
- * Displays active jobs for any platform with cancel/pause/resume actions
+ * Displays active Temporal workflows for any platform with cancel action.
+ * Replaces PlatformJobsPopup (MarketplaceJob-based).
  */
 import { useToast } from 'primevue/usetoast'
-import { usePlatformJobs, type PlatformCode } from '~/composables/usePlatformJobs'
+import { useWorkflows, type PlatformCode } from '~/composables/useWorkflows'
 
 const props = defineProps<{
   modelValue: boolean
@@ -212,50 +170,98 @@ const toast = import.meta.client ? useToast() : null
 
 const {
   platformName,
-  activeJobs,
-  activeJobsCount,
+  workflows,
+  activeWorkflowsCount,
   isLoading,
-  fetchActiveJobs,
-  cancelJob,
-  pauseJob,
-  resumeJob,
-  cancelAllJobs,
-  getDisplayStatus,
+  fetchActiveWorkflows,
+  fetchProgress,
+  cancelWorkflow,
+  cancelAllWorkflows,
   getStatusLabel,
   getStatusColor,
   getActionLabel,
-  hasCancellingJobs,
-} = usePlatformJobs(props.platformCode)
+} = useWorkflows(props.platformCode)
 
 const visible = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value),
 })
 
-const actionLoading = ref<number | null>(null)
+const actionLoading = ref<string | null>(null)
 const cancelAllLoading = ref(false)
 
-const hasRunningJobs = computed(() =>
-  activeJobs.value.some(j => j.status === 'running')
+// Progress and error maps (loaded per-workflow)
+const progressMap = ref<Record<string, string>>({})
+const errorMap = ref<Record<string, string>>({})
+
+const hasRunningWorkflows = computed(() =>
+  workflows.value.some(w => w.status === 'Running')
 )
 
-// Fetch jobs when dialog opens (use refresh button for updates)
-watch(visible, (isVisible) => {
+// Fetch workflows and progress when dialog opens
+watch(visible, async (isVisible) => {
   if (isVisible) {
-    fetchActiveJobs()
+    await fetchActiveWorkflows()
+    await loadProgressForAll()
   }
 })
 
-const handleCancel = async (jobId: number) => {
-  actionLoading.value = jobId
-  const success = await cancelJob(jobId)
+/**
+ * Load progress for all active workflows
+ */
+const loadProgressForAll = async () => {
+  const newProgress: Record<string, string> = {}
+  const newErrors: Record<string, string> = {}
+
+  await Promise.all(
+    workflows.value.map(async (wf) => {
+      const progress = await fetchProgress(wf.workflow_id)
+      if (progress) {
+        if (progress.error) {
+          newErrors[wf.workflow_id] = progress.error
+        }
+        // Build progress label from result data
+        if (progress.result) {
+          const label = formatProgressLabel(progress.result)
+          if (label) newProgress[wf.workflow_id] = label
+        }
+      }
+    })
+  )
+
+  progressMap.value = newProgress
+  errorMap.value = newErrors
+}
+
+/**
+ * Format progress result into a human-readable label
+ */
+const formatProgressLabel = (result: Record<string, any>): string => {
+  // FetchUsers / Import workflows: page-based progress
+  if (result.page !== undefined && result.total_saved !== undefined) {
+    return `Page ${result.page} — ${result.total_saved} sauvegardés`
+  }
+  // Sync workflows: counts
+  if (result.synced !== undefined) {
+    return `${result.synced} synchronisés`
+  }
+  // Generic: show status if available
+  if (result.status) {
+    return String(result.status)
+  }
+  return ''
+}
+
+const handleCancel = async (workflowId: string) => {
+  actionLoading.value = workflowId
+  const success = await cancelWorkflow(workflowId)
   actionLoading.value = null
 
   if (success) {
     toast?.add({
       severity: 'success',
       summary: 'Tâche annulée',
-      detail: 'La tâche a été annulée avec succès',
+      detail: 'La demande d\'annulation a été envoyée',
       life: 3000,
     })
   } else {
@@ -268,39 +274,9 @@ const handleCancel = async (jobId: number) => {
   }
 }
 
-const handlePause = async (jobId: number) => {
-  actionLoading.value = jobId
-  const success = await pauseJob(jobId)
-  actionLoading.value = null
-
-  if (success) {
-    toast?.add({
-      severity: 'info',
-      summary: 'Tâche en pause',
-      detail: 'La tâche a été mise en pause',
-      life: 3000,
-    })
-  }
-}
-
-const handleResume = async (jobId: number) => {
-  actionLoading.value = jobId
-  const success = await resumeJob(jobId)
-  actionLoading.value = null
-
-  if (success) {
-    toast?.add({
-      severity: 'info',
-      summary: 'Tâche reprise',
-      detail: 'La tâche va reprendre',
-      life: 3000,
-    })
-  }
-}
-
 const handleCancelAll = async () => {
   cancelAllLoading.value = true
-  const count = await cancelAllJobs()
+  const count = await cancelAllWorkflows()
   cancelAllLoading.value = false
 
   toast?.add({
@@ -333,8 +309,8 @@ const formatTime = (dateStr: string): string => {
 
 // Expose for parent component
 defineExpose({
-  activeJobsCount,
-  fetchActiveJobs,
+  activeWorkflowsCount,
+  fetchActiveWorkflows,
 })
 </script>
 

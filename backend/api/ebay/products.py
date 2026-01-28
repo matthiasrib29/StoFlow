@@ -137,51 +137,56 @@ async def get_ebay_product(
 # ===== IMPORT & ENRICH ENDPOINTS =====
 
 
-@router.post("/import", response_model=ImportResponse)
+@router.post("/import")
 async def import_ebay_products(
     request: ImportRequest = Body(default=ImportRequest()),
     user_db: tuple = Depends(get_user_db),
 ):
     """
-    Import products from eBay Inventory API.
+    Import products from eBay Inventory API via Temporal workflow.
 
-    Creates a tracking job that will be processed by the dedicated worker.
-    The job is visible in the tasks popup and picked up via NOTIFY.
+    Starts EbayImportWorkflow and returns immediately.
+    Track progress via GET /workflows/{workflow_id}/progress.
     """
-    from models.user.marketplace_job import JobStatus
-    from services.marketplace.marketplace_job_service import MarketplaceJobService
+    from temporal.client import get_temporal_client
+    from temporal.config import get_temporal_config
+    from temporal.workflows.ebay.import_workflow import EbayImportParams, EbayImportWorkflow
+
+    config = get_temporal_config()
+    if not config.temporal_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Temporal is disabled",
+        )
 
     db, current_user = user_db
 
+    workflow_id = f"ebay-import-user-{current_user.id}"
+    params = EbayImportParams(
+        user_id=current_user.id,
+        marketplace_id=request.marketplace_id,
+    )
+
     try:
-        job_service = MarketplaceJobService(db)
-        job = job_service.create_job(
-            marketplace="ebay",
-            action_code="import",
-            product_id=None,
-            input_data={"marketplace_id": request.marketplace_id},
+        client = await get_temporal_client()
+        await client.start_workflow(
+            EbayImportWorkflow.run,
+            params,
+            id=workflow_id,
+            task_queue=config.temporal_task_queue,
         )
 
-        # Job stays PENDING - worker will pick it up via NOTIFY
-        job_id = job.id
-        db.commit()
+        logger.info(f"Started eBay import workflow: {workflow_id} for user {current_user.id}")
 
-        logger.info(
-            f"[POST /products/import] Created job #{job_id} for user {current_user.id}, "
-            f"worker will pick it up via NOTIFY"
-        )
-
-        return ImportResponse(
-            imported=0,
-            updated=0,
-            skipped=0,
-            errors=0,
-            details=[{
-                "status": "queued",
-                "job_id": job_id,
-                "message": "Import job queued for worker"
-            }],
-        )
+        return {
+            "workflow_id": workflow_id,
+            "status": "started",
+            "imported": 0,
+            "updated": 0,
+            "skipped": 0,
+            "errors": 0,
+            "details": [{"status": "started", "message": "Import workflow started via Temporal"}],
+        }
 
     except Exception as e:
         logger.error(f"eBay import failed to start for user {current_user.id}: {e}")

@@ -2,6 +2,7 @@
 Temporal workflows for StoFlow.
 """
 
+# Existing workflows
 from temporal.workflows.ebay.sync_workflow import EbaySyncWorkflow
 from temporal.workflows.ebay.cleanup_workflow import EbayCleanupWorkflow, EbayCleanupParams
 from temporal.workflows.ebay.apply_policy_workflow import EbayApplyPolicyWorkflow, ApplyPolicyParams
@@ -14,7 +15,13 @@ from temporal.workflows.vinted.cleanup_workflow import (
 )
 from temporal.workflows.vinted.pro_seller_scan_workflow import VintedProSellerScanWorkflow
 
+# New action workflow lists (for worker registration)
+from temporal.workflows.vinted import VINTED_ACTION_WORKFLOWS
+from temporal.workflows.ebay import EBAY_ACTION_WORKFLOWS
+from temporal.workflows.etsy import ETSY_ACTION_WORKFLOWS
+
 __all__ = [
+    # Existing workflows
     "EbaySyncWorkflow",
     "EbayCleanupWorkflow",
     "EbayCleanupParams",
@@ -26,4 +33,8 @@ __all__ = [
     "VintedBatchCleanupWorkflow",
     "VintedBatchCleanupParams",
     "VintedProSellerScanWorkflow",
+    # New action workflow lists
+    "VINTED_ACTION_WORKFLOWS",
+    "EBAY_ACTION_WORKFLOWS",
+    "ETSY_ACTION_WORKFLOWS",
 ]

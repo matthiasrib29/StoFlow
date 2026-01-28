@@ -87,10 +87,10 @@ class VintedProspectBulkUpdateRequest(BaseModel):
 # ===== Job Response Schemas =====
 
 class VintedProspectFetchJobResponse(BaseModel):
-    """Response after triggering a fetch job."""
+    """Response after triggering a fetch workflow."""
 
-    job_id: int = Field(..., description="MarketplaceJob ID")
-    status: str = Field(..., description="Job status (pending, running, etc.)")
+    workflow_id: str = Field(..., description="Temporal workflow ID")
+    status: str = Field(..., description="Workflow status (started, running, etc.)")
     message: str = Field(..., description="Confirmation message")
 
 

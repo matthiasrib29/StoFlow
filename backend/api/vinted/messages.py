@@ -22,8 +22,6 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_user_db
 from repositories.vinted_conversation_repository import VintedConversationRepository
 from services.vinted.vinted_conversation_service import VintedConversationService
-from services.vinted.vinted_job_service import VintedJobService
-from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
 from .shared import get_active_vinted_connection
 
 router = APIRouter()
@@ -112,7 +110,7 @@ async def sync_conversations(
     sync_all: bool = Query(False, description="Sync all pages (inbox mode)"),
 ) -> dict:
     """
-    Synchronise les conversations Vinted.
+    Synchronise les conversations Vinted via Temporal workflow.
 
     - Sans conversation_id : sync inbox (liste des conversations)
     - Avec conversation_id : sync une conversation spécifique (messages)
@@ -122,41 +120,42 @@ async def sync_conversations(
         page/per_page/sync_all: Options pour sync inbox
 
     Returns:
-        {"job_id": int, "status": str, ...}
+        Workflow result dict
     """
+    from temporal.client import get_temporal_client
+    from temporal.config import get_temporal_config
+    from temporal.workflows.vinted.message_workflow import (
+        VintedMessageParams,
+        VintedMessageWorkflow,
+    )
+
     db, current_user = user_db
 
     vinted_connection = get_active_vinted_connection(db, current_user.id)
+    shop_id = vinted_connection.vinted_user_id
 
     try:
-        job_service = VintedJobService(db)
+        config = get_temporal_config()
+        client = await get_temporal_client()
 
-        # Build job data based on mode
-        if conversation_id:
-            result_data = {"conversation_id": conversation_id}
-        else:
-            result_data = {"page": page, "per_page": per_page, "sync_all": sync_all}
-
-        job = job_service.create_job(
-            action_code="message",
-            result_data=result_data
+        workflow_id = f"vinted-message-user-{current_user.id}-conv-{conversation_id or 'inbox'}"
+        params = VintedMessageParams(
+            user_id=current_user.id,
+            shop_id=shop_id,
+            conversation_id=conversation_id or 0,
         )
 
-        # Store values BEFORE commit (SET LOCAL search_path resets on commit)
-        job_id = job.id
-        shop_id = vinted_connection.vinted_user_id
+        handle = await client.start_workflow(
+            VintedMessageWorkflow.run,
+            params,
+            id=workflow_id,
+            task_queue=config.temporal_vinted_task_queue,
+        )
 
-        db.commit()
-        db.refresh(job)
+        # Messages sync is relatively quick, wait for result
+        result = await handle.result()
 
-        processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
-        result = await processor._execute_job(job)
-
-        return {
-            "job_id": job_id,
-            "status": "completed" if result.get("success") else "failed",
-            **result
-        }
+        return result
 
     except HTTPException:
         raise

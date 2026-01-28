@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import require_admin
 from models.public.user import User
-from models.user.marketplace_job import MarketplaceJob, JobStatus
 from schemas.vinted_prospect_schemas import (
     VintedProspectFetchJobResponse,
     VintedProspectFetchRequest,
@@ -28,6 +27,11 @@ from schemas.vinted_prospect_schemas import (
 from services.vinted_prospect_service import VintedProspectService
 from shared.database import get_db, get_db_context
 from shared.logging import get_logger
+from temporal.client import get_temporal_client
+from temporal.workflows.vinted.fetch_users_workflow import (
+    VintedFetchUsersWorkflow,
+    VintedFetchUsersParams,
+)
 
 logger = get_logger(__name__)
 
@@ -105,43 +109,41 @@ def get_prospect(
 
 
 @router.post("/fetch", response_model=VintedProspectFetchJobResponse)
-def trigger_fetch(
+async def trigger_fetch(
     request: VintedProspectFetchRequest,
-    db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ) -> VintedProspectFetchJobResponse:
     """
-    Trigger a job to fetch Vinted users for prospection.
+    Trigger a Temporal workflow to fetch Vinted users for prospection.
 
-    This creates a MarketplaceJob that will iterate through alphabet
-    characters to search for users and save matching ones as prospects.
+    Starts a VintedFetchUsersWorkflow that iterates through keyword searches
+    to find users and save matching ones as prospects.
 
     Requires ADMIN role.
     """
-    # Create a MarketplaceJob for fetch_users action
-    job = MarketplaceJob(
-        marketplace="vinted",
-        action_code="fetch_users",
-        status=JobStatus.PENDING,
-        priority=4,  # Low priority (background task)
-        params={
-            "min_items": request.min_items,
-            "country_code": request.country_code,
-            "max_pages_per_search": request.max_pages_per_search,
-        },
-        created_by=current_user.id
+    client = await get_temporal_client()
+
+    workflow_id = f"vinted-fetch-users-admin-{current_user.id}"
+    params = VintedFetchUsersParams(
+        user_id=current_user.id,
+        country_code=request.country_code,
+        min_items=request.min_items,
+        max_pages_per_search=request.max_pages_per_search,
     )
 
-    db.add(job)
-    db.commit()
-    db.refresh(job)
+    await client.start_workflow(
+        VintedFetchUsersWorkflow.run,
+        params,
+        id=workflow_id,
+        task_queue="stoflow-vinted-queue",
+    )
 
-    logger.info(f"Admin {current_user.email} triggered fetch_users job #{job.id}")
+    logger.info(f"Admin {current_user.email} triggered fetch_users workflow {workflow_id}")
 
     return VintedProspectFetchJobResponse(
-        job_id=job.id,
-        status=job.status.value,
-        message=f"Fetch job created. Will search for {request.country_code} users with {request.min_items}+ items."
+        workflow_id=workflow_id,
+        status="started",
+        message=f"Fetch workflow started. Will search for {request.country_code} users with {request.min_items}+ items."
     )
 
 

@@ -20,10 +20,9 @@ class TestEbaySyncParams:
 
     def test_default_values(self):
         """Test default parameter values."""
-        params = EbaySyncParams(user_id=1, job_id=100)
+        params = EbaySyncParams(user_id=1)
 
         assert params.user_id == 1
-        assert params.job_id == 100
         assert params.marketplace_id == "EBAY_FR"
         assert params.batch_size == 100
         # Continue-As-New support fields
@@ -36,7 +35,6 @@ class TestEbaySyncParams:
         """Test custom parameter values."""
         params = EbaySyncParams(
             user_id=42,
-            job_id=999,
             marketplace_id="EBAY_DE",
             batch_size=50,
             start_offset=5000,
@@ -46,7 +44,6 @@ class TestEbaySyncParams:
         )
 
         assert params.user_id == 42
-        assert params.job_id == 999
         assert params.marketplace_id == "EBAY_DE"
         assert params.batch_size == 50
         assert params.start_offset == 5000

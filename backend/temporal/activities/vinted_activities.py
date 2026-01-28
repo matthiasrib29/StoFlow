@@ -512,7 +512,9 @@ def _update_product_from_extracted(product, extracted: dict) -> None:
         product.currency = extracted["currency"]
 
 
-# --- Pro Seller Scan Activities (from develop) ---
+
+# --- Pro Seller Scan Activities ---
+
 
 @activity.defn(name="vinted_scan_pro_sellers_page")
 async def scan_pro_sellers_page(

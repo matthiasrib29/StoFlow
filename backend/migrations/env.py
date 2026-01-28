@@ -46,9 +46,7 @@ from models.user.product import Product
 from models.user.vinted_product import VintedProduct
 # PublicationHistory removed (2026-01-21): Obsolete, replaced by MarketplaceJob
 from models.user.ai_generation_log import AIGenerationLog
-from models.user.marketplace_batch import MarketplaceBatch
-from models.user.marketplace_job import MarketplaceJob
-from models.user.marketplace_task import MarketplaceTask
+# MarketplaceBatch, MarketplaceJob, MarketplaceTask removed (2026-01-27): Replaced by Temporal workflows
 from models.user.vinted_connection import VintedConnection
 from models.user.vinted_conversation import VintedConversation, VintedMessage
 # VintedErrorLog removed (2026-01-21): Never used

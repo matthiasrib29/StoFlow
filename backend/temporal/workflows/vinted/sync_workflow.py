@@ -39,11 +39,7 @@ from temporal.activities.vinted_activities import (
     fetch_and_sync_page,
     get_vinted_ids_to_enrich,
     enrich_single_product,
-    update_job_progress,
-    mark_job_completed,
-    mark_job_failed,
     check_plugin_connection,
-    mark_job_paused,
     sync_sold_status,
     detect_sold_with_active_listing,
 )
@@ -54,7 +50,6 @@ class VintedSyncParams:
     """Parameters for Vinted sync workflow."""
 
     user_id: int
-    job_id: int
     shop_id: int  # Vinted shop ID (vinted_user_id)
 
     # Continue-As-New support (for resuming after history limit)
@@ -113,7 +108,7 @@ class VintedSyncWorkflow:
         Execute the Vinted sync workflow.
 
         Args:
-            params: Sync parameters (user_id, job_id, shop_id, etc.)
+            params: Sync parameters (user_id, shop_id, etc.)
 
         Returns:
             Dict with sync results (count, status, etc.)
@@ -152,13 +147,6 @@ class VintedSyncWorkflow:
             total_synced = params.accumulated_synced
             total_errors = params.accumulated_errors
 
-            # Initial progress update
-            await workflow.execute_activity(
-                update_job_progress,
-                args=[params.user_id, params.job_id, total_synced, "synchronisation en cours..."],
-                **activity_options,
-            )
-
             # Fetch pages sequentially (DataDome protection)
             while not self._cancelled:
                 # Check for pause signal
@@ -166,11 +154,6 @@ class VintedSyncWorkflow:
                     if not await self._wait_while_paused(params, activity_options):
                         return await self._handle_cancellation(params, activity_options, total_synced)
                     # Restore running status after resume
-                    await workflow.execute_activity(
-                        update_job_progress,
-                        args=[params.user_id, params.job_id, total_synced, "synchronisation en cours..."],
-                        **activity_options,
-                    )
                     continue
 
                 result = await workflow.execute_activity(
@@ -191,11 +174,6 @@ class VintedSyncWorkflow:
                     if error_type in ("disconnected", "timeout"):
                         workflow.logger.warning(f"Plugin connection issue during sync ({error_type}), waiting for reconnection")
                         if await self._wait_for_reconnection(params, activity_options):
-                            await workflow.execute_activity(
-                                update_job_progress,
-                                args=[params.user_id, params.job_id, total_synced, "reprise de la synchronisation..."],
-                                **activity_options,
-                            )
                             continue
                         else:
                             return {
@@ -243,12 +221,6 @@ class VintedSyncWorkflow:
                 label = f"{total_synced} produits synchronisés (page {page}/{total_pages})"
                 self._progress.label = label
 
-                await workflow.execute_activity(
-                    update_job_progress,
-                    args=[params.user_id, params.job_id, total_synced, label],
-                    **activity_options,
-                )
-
                 # Check if more pages
                 if page >= total_pages:
                     break
@@ -271,12 +243,6 @@ class VintedSyncWorkflow:
             self._progress.label = "enrichissement en cours..."
             total_enriched = 0
             total_enrich_errors = 0
-
-            await workflow.execute_activity(
-                update_job_progress,
-                args=[params.user_id, params.job_id, total_synced, "enrichissement en cours..."],
-                **activity_options,
-            )
 
             # Get all product IDs to enrich
             vinted_ids_to_enrich = await workflow.execute_activity(
@@ -311,11 +277,6 @@ class VintedSyncWorkflow:
                     if error in ("disconnected", "timeout"):
                         workflow.logger.warning(f"Plugin connection issue during enrich ({error}), waiting for reconnection")
                         if await self._wait_for_reconnection(params, activity_options):
-                            await workflow.execute_activity(
-                                update_job_progress,
-                                args=[params.user_id, params.job_id, total_synced, "reprise de l'enrichissement..."],
-                                **activity_options,
-                            )
                             # Retry same product after reconnection
                             continue
                         else:
@@ -366,12 +327,6 @@ class VintedSyncWorkflow:
                     self._progress.label = label
                     self._progress.current_count = total_synced + total_enriched
 
-                    await workflow.execute_activity(
-                        update_job_progress,
-                        args=[params.user_id, params.job_id, total_synced, label],
-                        **activity_options,
-                    )
-
             # Handle cancellation after enrich phase
             if self._cancelled:
                 return await self._handle_cancellation(params, activity_options, total_synced)
@@ -381,12 +336,6 @@ class VintedSyncWorkflow:
             # ═══════════════════════════════════════════════════════════
             self._progress.phase = "sold_sync"
             self._progress.label = "synchronisation des ventes..."
-
-            await workflow.execute_activity(
-                update_job_progress,
-                args=[params.user_id, params.job_id, total_synced, "synchronisation des ventes..."],
-                **activity_options,
-            )
 
             sold_result = await workflow.execute_activity(
                 sync_sold_status,
@@ -407,13 +356,6 @@ class VintedSyncWorkflow:
             # ═══════════════════════════════════════════════════════════
             self._progress.phase = "cleanup_detect"
             self._progress.label = "détection des annonces Vinted à supprimer..."
-
-            await workflow.execute_activity(
-                update_job_progress,
-                args=[params.user_id, params.job_id, total_synced,
-                      "détection des annonces Vinted à supprimer..."],
-                **activity_options,
-            )
 
             cleanup_result = await workflow.execute_activity(
                 detect_sold_with_active_listing,
@@ -437,13 +379,6 @@ class VintedSyncWorkflow:
             # ═══════════════════════════════════════════════════════════
             final_count = total_synced
 
-            # Mark job as completed
-            await workflow.execute_activity(
-                mark_job_completed,
-                args=[params.user_id, params.job_id, final_count],
-                **activity_options,
-            )
-
             self._progress.status = "completed"
             self._progress.phase = "done"
             self._progress.current_count = final_count
@@ -465,16 +400,6 @@ class VintedSyncWorkflow:
             self._progress.status = "failed"
             self._progress.error = str(e)
 
-            # Mark job as failed
-            try:
-                await workflow.execute_activity(
-                    mark_job_failed,
-                    args=[params.user_id, params.job_id, str(e)],
-                    start_to_close_timeout=timedelta(minutes=1),
-                )
-            except Exception:
-                pass  # Best effort
-
             raise
 
     async def _handle_cancellation(
@@ -482,11 +407,6 @@ class VintedSyncWorkflow:
     ) -> dict:
         """Handle workflow cancellation."""
         self._progress.status = "cancelled"
-        await workflow.execute_activity(
-            mark_job_failed,
-            args=[params.user_id, params.job_id, "Sync cancelled by user"],
-            **activity_options,
-        )
         return {
             "status": "cancelled",
             "synced_count": synced_count,
@@ -515,13 +435,6 @@ class VintedSyncWorkflow:
         self._progress.paused_at = workflow.now().isoformat()
         self._progress.pause_reason = "plugin_disconnected"
         self._progress.reconnection_attempts = 0
-
-        # Mark job as paused in DB
-        await workflow.execute_activity(
-            mark_job_paused,
-            args=[params.user_id, params.job_id, "waiting_reconnection"],
-            **activity_options,
-        )
 
         backoff = 5  # Start with 5 seconds
         total_waited = 0
@@ -592,13 +505,6 @@ class VintedSyncWorkflow:
         Returns:
             True if resumed, False if cancelled
         """
-        # Mark job as paused in DB
-        await workflow.execute_activity(
-            mark_job_paused,
-            args=[params.user_id, params.job_id, "user_pause"],
-            **activity_options,
-        )
-
         workflow.logger.info("Workflow paused, waiting for resume signal")
 
         # Wait for resume or cancel signal

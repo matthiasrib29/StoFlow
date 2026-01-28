@@ -225,7 +225,7 @@ async def start_scan(
 
     params = VintedProSellerScanParams(
         user_id=current_user.id,
-        job_id=0,  # No MarketplaceJob tracking for now
+        job_id=0,  # Legacy field, not used by Temporal
         keywords=request.keywords,
         marketplace=request.marketplace,
         per_page=request.per_page,
