@@ -412,7 +412,7 @@ async def vinted_fetch_users_page(
     """
     Fetch a page of Vinted users via plugin and filter for prospection.
 
-    Uses VINTED_FETCH_USERS plugin action to search users, then filters
+    Uses VINTED_API_CALL via call_plugin to search users, then filters
     by country and minimum items count.
 
     Args:
@@ -442,8 +442,9 @@ async def vinted_fetch_users_page(
             result = await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=user_id,
-                action="VINTED_FETCH_USERS",
-                payload={
+                http_method="GET",
+                path="/api/v2/users",
+                params={
                     "search_text": search_text,
                     "page": page,
                     "per_page": per_page,
@@ -622,7 +623,7 @@ async def vinted_check_connection(user_id: int) -> dict:
 
         # Call Vinted API via plugin
         try:
-            result = await PluginWebSocketHelper.call_plugin_http(
+            result = await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=user_id,
                 http_method="GET",

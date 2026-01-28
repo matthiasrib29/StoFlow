@@ -8,6 +8,7 @@ Author: Claude
 Date: 2026-01-08
 """
 from typing import Any, Dict, Optional
+from urllib.parse import urlencode
 
 from sqlalchemy.orm import Session
 
@@ -105,29 +106,75 @@ class PluginWebSocketHelper:
     async def call_plugin(
         db: Session,
         user_id: int,
+        http_method: str,
+        path: str,
+        payload: Optional[dict] = None,
+        params: Optional[dict] = None,
+        timeout: int = 60,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute Vinted API call via plugin.
+
+        Single entry point — always uses VINTED_API_CALL action
+        with rate limiting.
+
+        Args:
+            db: SQLAlchemy session
+            user_id: User ID
+            http_method: GET, POST, PUT, DELETE
+            path: Full URL or API path
+            payload: Request body
+            params: Query parameters
+            timeout: Timeout in seconds
+            description: Description for logs
+
+        Returns:
+            dict: HTTP response data
+
+        Raises:
+            PluginHTTPError: On HTTP errors
+            RuntimeError: On non-HTTP errors
+        """
+        # Apply rate limiting before calling plugin (anti-ban protection)
+        delay = await VintedRateLimiter.for_user(user_id).wait_before_request(path, http_method)
+        if delay > 0:
+            logger.debug(f"[PluginWS] Rate limit: {delay:.2f}s for {http_method} {path[:50]}")
+
+        # Build complete endpoint URL with query params embedded.
+        # The plugin content script doesn't handle params separately,
+        # so we encode them directly into the URL.
+        endpoint = path
+        if params:
+            separator = "&" if "?" in path else "?"
+            endpoint = f"{path}{separator}{urlencode(params, doseq=True)}"
+
+        return await PluginWebSocketHelper._send_to_plugin(
+            db=db,
+            user_id=user_id,
+            action="VINTED_API_CALL",
+            payload={
+                "method": http_method,
+                "endpoint": endpoint,
+                "data": payload,
+            },
+            timeout=timeout,
+            description=description,
+        )
+
+    @staticmethod
+    async def _send_to_plugin(
+        db: Session,
+        user_id: int,
         action: str,
         payload: dict,
         timeout: int = 60,
         description: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Execute plugin action via WebSocket.
+        Internal: send raw action to plugin via WebSocket.
 
-        Args:
-            db: SQLAlchemy session (unused, for compatibility)
-            user_id: User ID
-            action: Plugin action (VINTED_PUBLISH, etc.)
-            payload: Action payload
-            timeout: Timeout in seconds
-            description: Description for logs
-
-        Returns:
-            dict: Plugin response
-
-        Raises:
-            TimeoutError: If no response within timeout
-            RuntimeError: If user not connected
-            PluginHTTPError: On HTTP errors from the plugin
+        Do not call directly — use call_plugin() instead.
         """
         result = await WebSocketService.send_plugin_command(
             user_id=user_id, action=action, payload=payload, timeout=timeout
@@ -150,55 +197,3 @@ class PluginWebSocketHelper:
             raise RuntimeError(error_msg)
 
         return result.get("data", {})
-
-    @staticmethod
-    async def call_plugin_http(
-        db: Session,
-        user_id: int,
-        http_method: str,
-        path: str,
-        payload: Optional[dict] = None,
-        params: Optional[dict] = None,
-        timeout: int = 60,
-        description: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Execute raw HTTP call via plugin.
-
-        Includes rate limiting to prevent Vinted ban.
-
-        Args:
-            db: SQLAlchemy session
-            user_id: User ID
-            http_method: GET, POST, PUT, DELETE
-            path: Full URL
-            payload: Request body
-            params: Query parameters
-            timeout: Timeout in seconds
-            description: Description for logs
-
-        Returns:
-            dict: HTTP response data
-
-        Raises:
-            PluginHTTPError: On HTTP errors
-            RuntimeError: On non-HTTP errors
-        """
-        # Apply rate limiting before calling plugin (anti-ban protection)
-        delay = await VintedRateLimiter.for_user(user_id).wait_before_request(path, http_method)
-        if delay > 0:
-            logger.debug(f"[PluginWS] Rate limit: {delay:.2f}s for {http_method} {path[:50]}")
-
-        return await PluginWebSocketHelper.call_plugin(
-            db=db,
-            user_id=user_id,
-            action="VINTED_API_CALL",
-            payload={
-                "method": http_method,
-                "endpoint": path,
-                "data": payload,
-                "params": params,
-            },
-            timeout=timeout,
-            description=description,
-        )

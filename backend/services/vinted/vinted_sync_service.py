@@ -237,7 +237,7 @@ class VintedSyncService:
             ValueError: If vinted_id missing in response
         """
         logger.debug(f"  Creation listing Vinted...")
-        result = await PluginWebSocketHelper.call_plugin_http(
+        result = await PluginWebSocketHelper.call_plugin(
             db=db,
             user_id=self.user_id,
             http_method="POST",
@@ -471,7 +471,7 @@ class VintedSyncService:
                 f"  Mise a jour listing Vinted "
                 f"(prix: {prix_actuel}EUR -> {prix_vinted}EUR)..."
             )
-            await PluginWebSocketHelper.call_plugin_http(
+            await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=self.user_id,
                 http_method="PUT",
@@ -547,7 +547,7 @@ class VintedSyncService:
 
             # 4. Supprimer via plugin (WebSocket 2026-01-12)
             logger.info(f"  Suppression listing Vinted...")
-            await PluginWebSocketHelper.call_plugin_http(
+            await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=self.user_id,
                 http_method="POST",

@@ -169,7 +169,7 @@ class VintedDeletionService:
         description: str
     ) -> dict:
         """Call plugin via WebSocket helper."""
-        result = await PluginWebSocketHelper.call_plugin_http(
+        result = await PluginWebSocketHelper.call_plugin(
             db=self.db,
             user_id=user_id,
             http_method=http_method,

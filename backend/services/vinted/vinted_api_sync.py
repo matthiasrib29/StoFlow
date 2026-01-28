@@ -110,7 +110,7 @@ class VintedApiSyncService:
         while True:
             try:
                 # WebSocket architecture (2026-01-12)
-                result = await PluginWebSocketHelper.call_plugin_http(
+                result = await PluginWebSocketHelper.call_plugin(
                     db=db,
                     user_id=self.user_id,
                     http_method="GET",
@@ -519,7 +519,7 @@ class VintedApiSyncService:
         """
         try:
             # WebSocket architecture (2026-01-12)
-            await PluginWebSocketHelper.call_plugin_http(
+            await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=self.user_id,
                 http_method="POST",

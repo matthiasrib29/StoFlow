@@ -308,7 +308,7 @@ class TestSendPluginCommand:
         mock_sio.emit.side_effect = resolve_with_data
 
         result = await WebSocketService.send_plugin_command(
-            user_id=1, action="VINTED_PUBLISH", payload=small_payload, timeout=5
+            user_id=1, action="VINTED_API_CALL", payload=small_payload, timeout=5
         )
 
         assert result["success"] is True
@@ -596,13 +596,13 @@ class TestMessageStructure:
         mock_sio.emit.side_effect = capture_message
 
         await WebSocketService.send_plugin_command(
-            user_id=1, action="VINTED_PUBLISH", payload=small_payload, timeout=5
+            user_id=1, action="VINTED_API_CALL", payload=small_payload, timeout=5
         )
 
         assert "request_id" in captured_message
         assert "action" in captured_message
         assert "payload" in captured_message
-        assert captured_message["action"] == "VINTED_PUBLISH"
+        assert captured_message["action"] == "VINTED_API_CALL"
         assert captured_message["payload"] == small_payload
 
     @pytest.mark.asyncio

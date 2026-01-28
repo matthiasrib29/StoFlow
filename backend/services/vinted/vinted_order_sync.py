@@ -79,7 +79,7 @@ class VintedOrderSyncService:
     ) -> dict | None:
         """Fetch single page of invoices. Returns None on error."""
         try:
-            result = await PluginWebSocketHelper.call_plugin_http(
+            result = await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=self.user_id,
                 http_method="GET",
@@ -113,7 +113,7 @@ class VintedOrderSyncService:
     ) -> int | None:
         """Fetch transaction_id from conversation (1 API call)."""
         try:
-            conv_result = await PluginWebSocketHelper.call_plugin_http(
+            conv_result = await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=self.user_id,
                 http_method="GET",
@@ -145,7 +145,7 @@ class VintedOrderSyncService:
         Only call this AFTER checking for duplicates to save API calls.
         """
         try:
-            tx_result = await PluginWebSocketHelper.call_plugin_http(
+            tx_result = await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=self.user_id,
                 http_method="GET",
@@ -171,7 +171,7 @@ class VintedOrderSyncService:
     ) -> dict | None:
         """Fetch single page of orders. Returns None on error."""
         try:
-            result = await PluginWebSocketHelper.call_plugin_http(
+            result = await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=self.user_id,
                 http_method="GET",

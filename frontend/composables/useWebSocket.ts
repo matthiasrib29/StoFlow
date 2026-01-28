@@ -78,23 +78,8 @@ function createWebSocketComposable() {
       let result: any
 
       switch (data.action) {
-        case 'VINTED_PUBLISH':
-          result = await vintedBridge.publishProduct(data.payload)
-          break
-        case 'VINTED_UPDATE':
-          result = await vintedBridge.updateProduct(data.payload.vintedId, data.payload.updates)
-          break
-        case 'VINTED_DELETE':
-          result = await vintedBridge.deleteProduct(data.payload.vintedId)
-          break
-        case 'VINTED_GET_WARDROBE':
-          result = await vintedBridge.getWardrobe(data.payload.userId, data.payload.page, data.payload.perPage)
-          break
         case 'VINTED_API_CALL':
           result = await vintedBridge.executeApiCall(data.payload)
-          break
-        case 'VINTED_FETCH_USERS':
-          result = await vintedBridge.fetchUsers(data.payload.search_text, data.payload.page, data.payload.per_page)
           break
         default:
           throw new Error(`Unknown action: ${data.action}`)

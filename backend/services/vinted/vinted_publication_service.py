@@ -318,15 +318,14 @@ class VintedPublicationService:
         description: str
     ) -> dict:
         """Call plugin via WebSocket helper."""
-        result = await PluginWebSocketHelper.call_plugin_action(
+        result = await PluginWebSocketHelper.call_plugin(
+            db=self.db,
             user_id=user_id,
-            job_id=job_id,
             http_method=http_method,
             path=path,
             payload=payload,
-            product_id=product_id,
             timeout=timeout,
-            description=description
+            description=description,
         )
         return result
 

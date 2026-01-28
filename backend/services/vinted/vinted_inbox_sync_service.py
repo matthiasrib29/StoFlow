@@ -79,7 +79,7 @@ class VintedInboxSyncService:
                 logger.info(f"[VintedInboxSyncService] Fetching inbox page {current_page}")
 
                 # Call Vinted API via WebSocket (2026-01-12)
-                api_result = await PluginWebSocketHelper.call_plugin_http(
+                api_result = await PluginWebSocketHelper.call_plugin(
                     db=db,
                     user_id=self.user_id,
                     http_method="GET",
