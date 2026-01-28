@@ -42,21 +42,22 @@
     >
       <!-- Preview slot -->
       <template #preview>
-        <span v-if="fit" class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
+        <span v-if="fit && visibleClothingAttributes.includes('fit')" class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
           <i class="pi pi-tag text-[10px]" />
           Coupe: {{ fit }}
         </span>
-        <span v-if="season" class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
+        <span v-if="season && visibleClothingAttributes.includes('season')" class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
           <i class="pi pi-sun text-[10px]" />
           Saison: {{ season }}
         </span>
-        <span v-if="sport" class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
+        <span v-if="sport && visibleClothingAttributes.includes('sport')" class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
           <i class="pi pi-bolt text-[10px]" />
           Sport: {{ sport }}
         </span>
       </template>
 
       <ProductsFormsCharacteristicsClothingAttributesSection
+        :visible-attributes="visibleClothingAttributes"
         :fit="fit"
         :season="season"
         :sport="sport"
@@ -213,8 +214,14 @@ const {
   filterMaterials,
   ensureBrandInOptions,
   ensureColorInOptions,
-  ensureMaterialInOptions
+  ensureMaterialInOptions,
+  getVisibleClothingAttributes
 } = useProductAttributes()
+
+// Visible clothing attributes based on selected category
+const visibleClothingAttributes = computed(() =>
+  getVisibleClothingAttributes(props.category)
+)
 
 // Ensure current values are in options when props change (edit mode)
 // Note: Not using immediate:true because loadAllAttributes would overwrite the values
@@ -256,14 +263,30 @@ const detailsOptions = computed(() => ({
   uniqueFeatures: options.uniqueFeatures
 }))
 
-// Computed: count filled clothing attributes
+// Mapping from config attribute names to prop keys
+const clothingAttrToProp: Record<string, keyof Props> = {
+  fit: 'fit',
+  season: 'season',
+  sport: 'sport',
+  neckline: 'neckline',
+  length: 'length',
+  pattern: 'pattern',
+  rise: 'rise',
+  closure: 'closure',
+  sleeve_length: 'sleeveLength',
+  stretch: 'stretch',
+  lining: 'lining'
+}
+
+// Computed: count filled clothing attributes (only visible ones)
 const clothingFilledCount = computed(() => {
-  const clothingFields = [
-    props.fit, props.season, props.sport, props.neckline,
-    props.length, props.pattern, props.rise, props.closure, props.sleeveLength,
-    props.stretch, props.lining
-  ]
-  return clothingFields.filter(v => v !== null && v !== undefined && v !== '').length
+  const visible = visibleClothingAttributes.value
+  return visible.filter(attr => {
+    const propKey = clothingAttrToProp[attr]
+    if (!propKey) return false
+    const val = props[propKey]
+    return val !== null && val !== undefined && val !== ''
+  }).length
 })
 
 // Computed: count filled vintage attributes

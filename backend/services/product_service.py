@@ -36,6 +36,7 @@ from services.pricing_service import PricingService
 from services.product_image_service import ProductImageService
 from services.product_status_manager import ProductStatusManager
 from services.product_utils import ProductUtils
+from services.size_resolution_service import SizeResolutionService
 from services.validators import AttributeValidator
 from shared.datetime_utils import utc_now
 from shared.exceptions import ConcurrentModificationError
@@ -91,6 +92,17 @@ class ProductService:
         if size_original:
             from repositories.size_original_repository import SizeOriginalRepository
             SizeOriginalRepository.get_or_create(db, size_original)
+
+        # ===== 2.5. RESOLVE SIZE_LENGTH FROM COMPOSITE SIZES (Business Rule 2026-01-28) =====
+        # If size_length not explicitly provided, try to extract from size_original/size_normalized
+        size_length = product_data.size_length
+        if not size_length and SizeResolutionService.is_bottoms_category(product_data.category):
+            # Try to extract length from size_original or size_normalized
+            size_length = SizeResolutionService.extract_length_from_existing(
+                product_data.size_normalized,
+                size_original,
+                product_data.category
+            )
 
         # ===== 3. CALCULATE PRICE IF ABSENT (Business Rule 2025-12-09) =====
         price = product_data.price
@@ -148,6 +160,7 @@ class ProductService:
             brand=product_data.brand,
             condition=product_data.condition,
             size_original=size_original,
+            size_length=size_length,  # Auto-extracted from composite sizes (2026-01-28)
             # ✂️ REMOVED: color=..., material=..., condition_sup=... (use M2M only)
             # All M2M data goes via product_colors, product_materials, product_condition_sups tables
             fit=product_data.fit,
@@ -354,6 +367,24 @@ class ProductService:
                     from repositories.size_original_repository import SizeOriginalRepository
                     SizeOriginalRepository.get_or_create(db, size_original_value)
                     update_dict['size_original'] = size_original_value
+
+        # Auto-resolve size_length from composite sizes (Business Rule 2026-01-28)
+        # Only if size_length not explicitly provided and category is bottoms
+        category_to_check = update_dict.get('category', product.category)
+        if 'size_length' not in update_dict and SizeResolutionService.is_bottoms_category(category_to_check):
+            size_to_parse = (
+                update_dict.get('size_original', product.size_original)
+                or update_dict.get('size_normalized', product.size_normalized)
+            )
+            if size_to_parse:
+                extracted_length = SizeResolutionService.extract_length_from_existing(
+                    update_dict.get('size_normalized', product.size_normalized),
+                    update_dict.get('size_original', product.size_original),
+                    category_to_check
+                )
+                if extracted_length and not product.size_length:
+                    # Only auto-set if not already set
+                    update_dict['size_length'] = extracted_length
 
         # Validate M2M attributes
         validated_colors = None

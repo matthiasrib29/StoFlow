@@ -20,8 +20,8 @@ export interface AttributeOption {
 }
 
 export interface CategoryOption extends AttributeOption {
-  parent?: string | null
-  default_gender?: string | null
+  parent_category?: string | null
+  genders?: string | null
 }
 
 export interface ConditionOption extends AttributeOption {

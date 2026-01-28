@@ -137,6 +137,13 @@ class Product(Base):
             ondelete="SET NULL",
             name="fk_products_size_original",
         ),
+        ForeignKeyConstraint(
+            ["size_length"],
+            ["size_lengths.name_en"] if os.getenv('TESTING') else ["product_attributes.size_lengths.name_en"],
+            onupdate="CASCADE",
+            ondelete="SET NULL",
+            name="fk_products_size_length",
+        ),
         # Removed: fk_products_color (column dropped, replaced by product_colors M2M)
         # Removed: fk_products_material (column dropped, replaced by product_materials M2M)
         ForeignKeyConstraint(
@@ -275,6 +282,9 @@ class Product(Base):
     )
     size_original: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Taille originale (FK product_attributes.sizes_original, auto-créée)"
+    )
+    size_length: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, comment="Leg length for bottoms (FK product_attributes.size_lengths)"
     )
     # Removed: color (column dropped, replaced by product_colors M2M table)
     # Removed: material (column dropped, replaced by product_materials M2M table)
