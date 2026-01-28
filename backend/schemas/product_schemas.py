@@ -109,6 +109,7 @@ class ProductCreate(BaseModel):
     brand: str | None = Field(None, max_length=100, description="Marque (FK product_attributes.brands)")
     size_normalized: str | None = Field(None, max_length=100, description="Taille standardisée (FK product_attributes.sizes_normalized)")
     size_original: str | None = Field(None, max_length=100, description="Taille originale (FK product_attributes.sizes_original, auto-créée)")
+    size_length: str | None = Field(None, max_length=20, description="Leg length for bottoms - e.g., '32', '34' (FK product_attributes.size_lengths)")
 
     # DEPRECATED: Use colors (list) instead - Kept for backward compatibility during migration
     color: str | None = Field(None, max_length=100, description="Couleur (FK product_attributes.colors) - DEPRECATED, use colors")
@@ -306,6 +307,7 @@ class ProductUpdate(BaseModel):
     brand: str | None = Field(None, max_length=100)
     size_normalized: str | None = Field(None, max_length=100)
     size_original: str | None = Field(None, max_length=100)
+    size_length: str | None = Field(None, max_length=20, description="Leg length for bottoms")
 
     # DEPRECATED: Use colors (list) instead - Kept for backward compatibility
     color: str | None = Field(None, max_length=100, description="DEPRECATED, use colors")
@@ -459,6 +461,7 @@ class ProductResponse(BaseModel):
     condition: int | None  # Optional for DRAFT products (validated on publish)
     size_normalized: str | None
     size_original: str | None
+    size_length: str | None = Field(None, description="Leg length for bottoms (e.g., '32', '34')")
 
     # M2M: Multiple colors support
     colors: list[str] = Field(default_factory=list, description="List of all colors")
