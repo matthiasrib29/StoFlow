@@ -2,170 +2,163 @@
 Vinted Publishing Routes
 
 Endpoints pour la publication des produits:
-- POST /products/{product_id}/publish: Publication unitaire via système de jobs
-- POST /products/publish/batch: Publication batch via système de jobs
+- POST /products/{product_id}/publish: Publication via Temporal workflow
+- POST /products/{product_id}/update: Update via Temporal workflow
+- POST /products/{product_id}/delete: Delete from marketplace via Temporal workflow
 
 Updated: 2025-12-19 - Intégration système de jobs
 Updated: 2026-01-05 - Suppression endpoint prepare
+Updated: 2026-01-27 - Migration vers Temporal workflows
 
 Author: Claude
 Date: 2025-12-17
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.dependencies import get_user_db
-from models.user.product import Product
-from services.vinted import VintedJobService
-from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
+from api.workflows import WorkflowStartResponse
+from shared.logging import get_logger
 from .shared import get_active_vinted_connection
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.post("/products/{product_id}/publish")
-async def publish_single_product(
+async def _start_vinted_workflow(
+    workflow_class,
+    params,
+    workflow_id: str,
+    task_queue: str,
+) -> WorkflowStartResponse:
+    """Start a Vinted Temporal workflow and return standard response."""
+    from temporal.client import get_temporal_client
+
+    client = await get_temporal_client()
+
+    await client.start_workflow(
+        workflow_class.run,
+        params,
+        id=workflow_id,
+        task_queue=task_queue,
+    )
+
+    logger.info(f"Started workflow: {workflow_id}")
+
+    return WorkflowStartResponse(workflow_id=workflow_id, status="started")
+
+
+def _check_temporal_enabled():
+    """Check Temporal is enabled, raise 503 if not."""
+    from temporal.config import get_temporal_config
+
+    config = get_temporal_config()
+    if not config.temporal_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Temporal is disabled",
+        )
+    return config
+
+
+@router.post("/products/{product_id}/publish", response_model=WorkflowStartResponse)
+async def publish_product(
     product_id: int,
     user_db: tuple = Depends(get_user_db),
-    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
-) -> dict:
+):
     """
-    Publie un produit unique sur Vinted.
+    Publish a product to Vinted via Temporal workflow.
+
+    Starts VintedPublishWorkflow and returns immediately.
+    Track progress via GET /workflows/{workflow_id}/progress.
 
     Args:
-        product_id: ID du produit à publier
-        process_now: Si True, exécute immédiatement. Sinon, crée juste le job.
+        product_id: ID of the product to publish
 
     Returns:
-        {
-            "job_id": int,
-            "status": str,
-            "result": dict | None (si process_now=True)
-        }
+        WorkflowStartResponse with workflow_id
     """
+    config = _check_temporal_enabled()
     db, current_user = user_db
-
     connection = get_active_vinted_connection(db, current_user.id)
 
-    try:
-        job_service = VintedJobService(db)
+    from temporal.workflows.vinted.publish_workflow import VintedPublishParams, VintedPublishWorkflow
 
-        # Créer le job
-        job = job_service.create_job(
-            action_code="publish",
-            product_id=product_id
-        )
+    workflow_id = f"vinted-publish-user-{current_user.id}-product-{product_id}"
+    params = VintedPublishParams(
+        user_id=current_user.id,
+        product_id=product_id,
+        shop_id=connection.vinted_user_id,
+    )
 
-        # Store values BEFORE commit (SET LOCAL search_path resets on commit)
-        job_id = job.id
-        job_status = job.status.value
-        shop_id = connection.vinted_user_id
-
-        db.commit()
-        db.refresh(job)
-
-        response = {
-            "job_id": job_id,
-            "status": job_status,
-            "product_id": product_id,
-        }
-
-        # Exécuter immédiatement si demandé
-        if process_now:
-            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
-            result = await processor._execute_job(job)
-            response["result"] = result
-            response["status"] = "completed" if result.get("success") else "failed"
-
-        return response
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur publication: {str(e)}"
-        )
+    return await _start_vinted_workflow(
+        VintedPublishWorkflow, params, workflow_id, config.temporal_vinted_task_queue,
+    )
 
 
-@router.post("/products/publish/batch")
-async def publish_batch(
-    product_ids: list[int],
+@router.post("/products/{product_id}/update", response_model=WorkflowStartResponse)
+async def update_product_on_marketplace(
+    product_id: int,
     user_db: tuple = Depends(get_user_db),
-    process_now: bool = Query(False, description="Exécuter immédiatement ou créer jobs uniquement"),
-) -> dict:
+):
     """
-    Crée des jobs de publication pour plusieurs produits.
+    Update a product on Vinted via Temporal workflow.
+
+    Starts VintedUpdateWorkflow and returns immediately.
 
     Args:
-        product_ids: Liste des IDs produits à publier
-        process_now: Si True, exécute tous les jobs immédiatement.
-                     Si False (défaut), crée les jobs et retourne le batch_id.
+        product_id: ID of the product to update
 
     Returns:
-        {
-            "batch_id": str,
-            "jobs_created": int,
-            "status": str,
-            "results": list (si process_now=True)
-        }
+        WorkflowStartResponse with workflow_id
     """
+    config = _check_temporal_enabled()
     db, current_user = user_db
-
     connection = get_active_vinted_connection(db, current_user.id)
 
-    # Store BEFORE any potential commit (SET LOCAL search_path resets on commit)
-    shop_id = connection.vinted_user_id
+    from temporal.workflows.vinted.update_workflow import VintedUpdateParams, VintedUpdateWorkflow
 
-    try:
-        job_service = VintedJobService(db)
+    workflow_id = f"vinted-update-user-{current_user.id}-product-{product_id}"
+    params = VintedUpdateParams(
+        user_id=current_user.id,
+        product_id=product_id,
+        shop_id=connection.vinted_user_id,
+    )
 
-        # Créer le batch de jobs
-        batch_id, jobs = job_service.create_batch_jobs(
-            action_code="publish",
-            product_ids=product_ids
-        )
-
-        response = {
-            "batch_id": batch_id,
-            "jobs_created": len(jobs),
-            "status": "pending",
-            "jobs": [
-                {
-                    "job_id": job.id,
-                    "product_id": job.product_id,
-                    "status": job.status.value
-                }
-                for job in jobs
-            ]
-        }
-
-        # Exécuter immédiatement si demandé
-        if process_now:
-            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
-            batch_result = await processor.process_batch(batch_id)
-            response["status"] = "processed"
-            response["success_count"] = batch_result["success_count"]
-            response["failed_count"] = batch_result["failed_count"]
-            response["results"] = batch_result["results"]
-
-        return response
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur batch: {str(e)}"
-        )
+    return await _start_vinted_workflow(
+        VintedUpdateWorkflow, params, workflow_id, config.temporal_vinted_task_queue,
+    )
 
 
-# Note: fetch-description endpoints removed (2025-12-18)
-# Description enrichment is now done automatically during sync_products_from_api
-# See VintedApiSyncService._enrich_products_without_description()
+@router.post("/products/{product_id}/delete-listing", response_model=WorkflowStartResponse)
+async def delete_product_from_marketplace(
+    product_id: int,
+    user_db: tuple = Depends(get_user_db),
+):
+    """
+    Delete a product listing from Vinted via Temporal workflow.
+
+    This deletes the listing on Vinted (not the local DB record).
+
+    Args:
+        product_id: ID of the product to delete from marketplace
+
+    Returns:
+        WorkflowStartResponse with workflow_id
+    """
+    config = _check_temporal_enabled()
+    db, current_user = user_db
+    connection = get_active_vinted_connection(db, current_user.id)
+
+    from temporal.workflows.vinted.delete_workflow import VintedDeleteParams, VintedDeleteWorkflow
+
+    workflow_id = f"vinted-delete-user-{current_user.id}-product-{product_id}"
+    params = VintedDeleteParams(
+        user_id=current_user.id,
+        product_id=product_id,
+        shop_id=connection.vinted_user_id,
+    )
+
+    return await _start_vinted_workflow(
+        VintedDeleteWorkflow, params, workflow_id, config.temporal_vinted_task_queue,
+    )

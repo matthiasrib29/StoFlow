@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session
 
 from models.public.ebay_aspect_mapping import AspectMapping
 from models.user.ebay_product import EbayProduct
-from models.user.marketplace_job import JobStatus, MarketplaceJob
 from services.ebay.ebay_inventory_client import EbayInventoryClient
 from services.ebay.ebay_offer_client import EbayOfferClient
 from shared.datetime_utils import utc_now
@@ -41,7 +40,6 @@ class EbayImporter:
         db: Session,
         user_id: int,
         marketplace_id: str = "EBAY_FR",
-        job: Optional[MarketplaceJob] = None
     ):
         """
         Initialise l'importeur avec les credentials OAuth eBay.
@@ -50,12 +48,10 @@ class EbayImporter:
             db: Session SQLAlchemy
             user_id: ID utilisateur Stoflow
             marketplace_id: Marketplace eBay (EBAY_FR, EBAY_GB, etc.)
-            job: Optional MarketplaceJob for cooperative cancellation
         """
         self.db = db
         self.user_id = user_id
         self.marketplace_id = marketplace_id
-        self.job = job
         self.inventory_client = EbayInventoryClient(db, user_id, marketplace_id)
         self.offer_client = EbayOfferClient(db, user_id, marketplace_id)
 
@@ -75,14 +71,6 @@ class EbayImporter:
         limit = 100
 
         while True:
-            # Check cancellation every page (cooperative pattern - 2026-01-15)
-            if self.job:
-                self.db.refresh(self.job)
-                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
-                    logger.info(f"Job #{self.job.id} cancelled, stopping import at offset {offset}")
-                    self.db.commit()  # Save partial progress
-                    return all_items
-
             try:
                 # Make blocking call async-compatible
                 result = await asyncio.to_thread(
@@ -163,18 +151,6 @@ class EbayImporter:
             return results
 
         for i, item in enumerate(inventory_items):
-            # Check cancellation every 10 items (cooperative pattern - 2026-01-15)
-            if i % 10 == 0 and self.job:
-                self.db.refresh(self.job)
-                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
-                    logger.info(f"Job #{self.job.id} cancelled, stopping import at item {i}/{len(inventory_items)}")
-                    self.db.commit()  # Save partial progress
-                    return {
-                        **results,
-                        "status": "cancelled",
-                        "imported_count": i
-                    }
-
             try:
                 result = self._import_single_item(item, enrich=enrich)
 
@@ -725,14 +701,6 @@ class EbayImporter:
 
         # 4. Update each product with fresh inventory data
         for product in existing_products:
-            # Check cancellation
-            if self.job:
-                self.db.refresh(self.job)
-                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
-                    logger.info(f"[SyncInventory] Job cancelled, stopping sync")
-                    self.db.commit()
-                    return {**results, "status": "cancelled"}
-
             inventory_item = inventory_map.get(product.ebay_sku)
 
             if not inventory_item:
@@ -806,14 +774,6 @@ class EbayImporter:
         logger.info(f"[EnrichOffers] Starting enrichment for {len(products)} products")
 
         for i, product in enumerate(products):
-            # Check cancellation
-            if self.job:
-                self.db.refresh(self.job)
-                if self.job.cancel_requested or self.job.status == JobStatus.CANCELLED:
-                    logger.info(f"[EnrichOffers] Job cancelled at {i}/{len(products)}")
-                    self.db.commit()
-                    return {**results, "status": "cancelled"}
-
             try:
                 self.enrich_with_offers(product)
                 results["enriched"] += 1

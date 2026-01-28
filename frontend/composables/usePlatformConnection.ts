@@ -5,7 +5,7 @@
  * for any marketplace platform (Vinted, eBay, Etsy)
  */
 import { platformLogger } from '~/utils/logger'
-import type { PlatformCode } from './usePlatformJobs'
+import type { PlatformCode } from './useWorkflows'
 
 interface PlatformConnectionConfig {
   name: string

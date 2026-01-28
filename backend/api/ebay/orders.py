@@ -41,7 +41,6 @@ from schemas.ebay_order_schemas import (
 from services.ebay.ebay_order_fulfillment_service import (
     EbayOrderFulfillmentService,
 )
-from services.ebay.ebay_order_sync_service import EbayOrderSyncService
 from shared.logging import get_logger
 
 logger = get_logger(__name__)
@@ -57,21 +56,19 @@ router = APIRouter()
 @router.post("/orders/sync", response_model=SyncOrdersResponse)
 async def sync_orders(
     request: SyncOrdersRequest = Body(default=SyncOrdersRequest()),
-    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
     db_user: Tuple[Session, User] = Depends(get_user_db),
 ):
     """
-    Synchronize orders from eBay Fulfillment API to local database.
+    Synchronize orders from eBay Fulfillment API to local database via Temporal workflow.
 
     **Workflow:**
-    1. Create a marketplace job for tracking
-    2. If process_now=True (default), execute immediately
+    1. Start a Temporal workflow for durable execution
+    2. Wait for the workflow result
     3. Return statistics (created, updated, errors)
 
     **Default behavior:**
     - Syncs orders modified in the last 24 hours
     - All fulfillment statuses (NOT_STARTED, IN_PROGRESS, FULFILLED)
-    - Executes immediately (process_now=True)
 
     **Request Body:**
     ```json
@@ -81,27 +78,17 @@ async def sync_orders(
     }
     ```
 
-    **Query Parameters:**
-    - process_now: bool (default: True) - Execute immediately or queue for later
-
     **Example:**
     ```bash
-    # Sync last 24 hours (immediate execution)
-    curl -X POST "http://localhost:8000/api/ebay/orders/sync?process_now=true" \\
+    # Sync last 24 hours
+    curl -X POST "http://localhost:8000/api/ebay/orders/sync" \\
       -H "Authorization: Bearer YOUR_TOKEN" \\
       -H "Content-Type: application/json" \\
       -d '{}'
-
-    # Create job without executing (for batch processing)
-    curl -X POST "http://localhost:8000/api/ebay/orders/sync?process_now=false" \\
-      -H "Authorization: Bearer YOUR_TOKEN" \\
-      -H "Content-Type: application/json" \\
-      -d '{"hours": 168}'
     ```
 
     Args:
         request: Sync request with hours and optional status filter
-        process_now: Execute immediately or create job only
         db_user: DB session and authenticated user
 
     Returns:
@@ -110,87 +97,84 @@ async def sync_orders(
     Raises:
         400: Invalid request parameters
         500: Sync operation failed
+        503: Temporal is disabled
     """
     db, current_user = db_user
 
     logger.info(
         f"[POST /orders/sync] user_id={current_user.id}, "
-        f"hours={request.hours}, status_filter={request.status_filter}, "
-        f"process_now={process_now}"
+        f"hours={request.hours}, status_filter={request.status_filter}"
     )
 
     try:
-        # Create marketplace job for tracking
-        from services.marketplace.marketplace_job_service import MarketplaceJobService
-        job_service = MarketplaceJobService(db)
-
-        job = job_service.create_job(
-            marketplace="ebay",
-            action_code="sync_orders",
-            product_id=None,  # Operation-level job (not product-specific)
-            input_data={
-                "hours": request.hours,
-                "status_filter": request.status_filter
-            },
+        from temporal.client import get_temporal_client
+        from temporal.config import get_temporal_config
+        from temporal.workflows.ebay.orders_sync_workflow import (
+            EbayOrdersSyncParams,
+            EbayOrdersSyncWorkflow,
         )
 
-        # Store values BEFORE commit (SET LOCAL search_path resets on commit)
-        job_id = job.id
+        config = get_temporal_config()
 
-        db.commit()
-        db.refresh(job)
+        if not config.temporal_enabled:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Temporal is disabled. Cannot sync orders.",
+            )
+
+        # Start Temporal workflow
+        client = await get_temporal_client()
+        workflow_id = f"ebay-orders-sync-user-{current_user.id}"
+
+        params = EbayOrdersSyncParams(
+            user_id=current_user.id,
+            marketplace_id="EBAY_FR",
+        )
+
+        handle = await client.start_workflow(
+            EbayOrdersSyncWorkflow.run,
+            params,
+            id=workflow_id,
+            task_queue=config.temporal_task_queue,
+        )
 
         logger.info(
-            f"[POST /orders/sync] Created job #{job_id} for user {current_user.id}"
+            f"[POST /orders/sync] Started Temporal workflow {workflow_id} "
+            f"for user {current_user.id}"
         )
 
-        # Execute immediately if requested
-        if process_now:
-            from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
-            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=current_user.id, marketplace="ebay")
-            result = await processor._execute_job(job)
+        # Wait for the workflow result
+        result = await handle.result()
 
-            if result.get("success"):
-                job_result = result.get("result", {})
-                stats = {
-                    "created": job_result.get("created", 0),
-                    "updated": job_result.get("updated", 0),
-                    "skipped": job_result.get("skipped", 0),
-                    "errors": job_result.get("errors", 0),
-                    "total_fetched": job_result.get("total_fetched", 0),
-                    "details": job_result.get("details", [])
-                }
+        if result.get("success"):
+            stats = {
+                "created": result.get("created", 0),
+                "updated": result.get("updated", 0),
+                "skipped": result.get("skipped", 0),
+                "errors": result.get("errors", 0),
+                "total_fetched": result.get("total_fetched", 0),
+                "details": result.get("details", []),
+            }
 
-                logger.info(
-                    f"[POST /orders/sync] Job #{job_id} completed: "
-                    f"created={stats['created']}, updated={stats['updated']}, "
-                    f"errors={stats['errors']}"
-                )
-
-                return SyncOrdersResponse(**stats)
-            else:
-                error = result.get("error", "Job execution failed")
-                logger.error(
-                    f"[POST /orders/sync] Job #{job_id} failed: {error}"
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Sync job failed: {error}",
-                )
-        else:
-            # Job created but not executed yet
             logger.info(
-                f"[POST /orders/sync] Job #{job_id} queued for later processing"
-            )
-            return SyncOrdersResponse(
-                created=0,
-                updated=0,
-                skipped=0,
-                errors=0,
-                total_fetched=0,
-                details=[]
+                f"[POST /orders/sync] Workflow {workflow_id} completed: "
+                f"created={stats['created']}, updated={stats['updated']}, "
+                f"errors={stats['errors']}"
             )
 
+            return SyncOrdersResponse(**stats)
+        else:
+            error = result.get("error", "Workflow execution failed")
+            logger.error(
+                f"[POST /orders/sync] Workflow {workflow_id} failed: {error}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Sync workflow failed: {error}",
+            )
+
+    except HTTPException:
+        raise
     except ValueError as e:
         logger.error(
             f"[POST /orders/sync] Validation error for user {current_user.id}: {e}"

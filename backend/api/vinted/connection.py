@@ -2,28 +2,26 @@
 Vinted Connection Routes
 
 Endpoints pour la gestion de la connexion au compte Vinted:
-- POST /check-connection: Verify connection via MarketplaceJob + WebSocket
+- POST /check-connection: Verify connection via Temporal workflow
 - GET /status: Statut de connexion
 - DELETE /disconnect: Déconnecter
 - POST /notify-disconnect: Notification auto par le plugin
 
-Flow via Jobs (2026-01-21):
-1. Frontend → POST /check-connection → Creates MarketplaceJob
-2. Backend → WebSocket → Frontend → Plugin → GET /api/v2/users/current
-3. Backend processes result and updates VintedConnection
-4. Frontend receives job result
+Flow via Temporal (2026-01-27):
+1. Frontend → POST /check-connection → Starts VintedCheckConnectionWorkflow
+2. Temporal → Activity → Plugin → GET /api/v2/users/current
+3. Activity processes result and updates VintedConnection
+4. Frontend receives workflow result
 
 Author: Claude
 Date: 2025-12-17
-Updated: 2026-01-21 (migrated to MarketplaceJob + WebSocket, removed pending_instructions)
+Updated: 2026-01-27 (migrated to Temporal workflows)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.dependencies import get_user_db
 from models.user.vinted_connection import VintedConnection
-from services.vinted import VintedJobService
-from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
 
 router = APIRouter()
 
@@ -33,16 +31,15 @@ async def check_vinted_connection(
     user_db: tuple = Depends(get_user_db),
 ) -> dict:
     """
-    Verify Vinted connection via MarketplaceJob system.
+    Verify Vinted connection via Temporal workflow.
 
-    Creates a check_connection job that:
-    1. Calls GET /api/v2/users/current via WebSocket → Plugin
+    Starts VintedCheckConnectionWorkflow that:
+    1. Calls GET /api/v2/users/current via Plugin
     2. Creates/updates VintedConnection based on result
     3. Returns connection status
 
     Returns:
         {
-            "job_id": int,
             "connected": bool,
             "vinted_user_id": int | None,
             "login": str | None,
@@ -50,46 +47,42 @@ async def check_vinted_connection(
         }
 
     Raises:
-        500: Job execution failed
+        500: Workflow execution failed
     """
+    from temporal.client import get_temporal_client
+    from temporal.config import get_temporal_config
+    from temporal.workflows.vinted.check_connection_workflow import (
+        VintedCheckConnectionParams,
+        VintedCheckConnectionWorkflow,
+    )
+
     db, current_user = user_db
 
     try:
-        # 1. Create check_connection job
-        job_service = VintedJobService(db)
-        job = job_service.create_job(
-            action_code="check_connection",
-            product_id=None  # No product for connection check
+        config = get_temporal_config()
+        client = await get_temporal_client()
+
+        workflow_id = f"vinted-check-connection-user-{current_user.id}"
+        params = VintedCheckConnectionParams(user_id=current_user.id)
+
+        handle = await client.start_workflow(
+            VintedCheckConnectionWorkflow.run,
+            params,
+            id=workflow_id,
+            task_queue=config.temporal_vinted_task_queue,
         )
 
-        # Store values BEFORE commit
-        job_id = job.id
-        user_id = current_user.id
+        # Connection check is quick, wait for result (1 min timeout)
+        result = await handle.result()
 
-        db.commit()
-        db.refresh(job)
-
-        # 2. Execute job immediately (connection check is quick)
-        # shop_id is None because we don't know if user is connected yet
-        processor = MarketplaceJobProcessor(
-            db,
-            user_id=user_id,
-            shop_id=None,
-            marketplace="vinted"
-        )
-        result = await processor._execute_job(job)
-
-        # 3. Return result
         return {
-            "job_id": job_id,
             "connected": result.get("connected", False),
             "vinted_user_id": result.get("vinted_user_id"),
             "login": result.get("login"),
-            "error": result.get("error")
+            "error": result.get("error"),
         }
 
     except Exception as e:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Connection check failed: {str(e)}"

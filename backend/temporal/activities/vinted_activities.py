@@ -14,8 +14,6 @@ Architecture:
 - mark_missing_as_sold: Mark products not seen in current sync as sold
 - get_vinted_ids_to_enrich: Get batch of vinted_ids to enrich
 - enrich_single_product: Enrich one product via item_upload API
-- update_job_progress: Update job progress in DB
-- mark_job_completed/failed: Update job status
 
 Key differences from eBay:
 - Uses WebSocket plugin for API calls (not direct HTTP)
@@ -577,113 +575,6 @@ def _update_product_from_extracted(product, extracted: dict) -> None:
         product.currency = extracted["currency"]
 
 
-@activity.defn(name="vinted_update_job_progress")
-async def update_job_progress(
-    user_id: int,
-    job_id: int,
-    current: int,
-    label: str,
-) -> None:
-    """
-    Update job progress in the database.
-
-    Args:
-        user_id: User ID for schema isolation
-        job_id: MarketplaceJob ID
-        current: Current progress count
-        label: Progress label text
-    """
-    db = SessionLocal()
-    try:
-        schema_name = _get_schema_name(user_id)
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-        data = json.dumps({"current": current, "label": label})
-
-        db.execute(
-            text("UPDATE marketplace_jobs SET result_data = :data WHERE id = :job_id"),
-            {"data": data, "job_id": job_id},
-        )
-        db.commit()
-
-        activity.logger.debug(f"Job #{job_id} progress: {current} - {label}")
-
-    finally:
-        db.close()
-
-
-@activity.defn(name="vinted_mark_job_completed")
-async def mark_job_completed(
-    user_id: int,
-    job_id: int,
-    final_count: int,
-) -> None:
-    """
-    Mark job as completed.
-
-    Args:
-        user_id: User ID for schema isolation
-        job_id: MarketplaceJob ID
-        final_count: Final synced product count
-    """
-    db = SessionLocal()
-    try:
-        schema_name = _get_schema_name(user_id)
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-        data = json.dumps({"current": final_count, "label": "produits synchronisés"})
-
-        db.execute(
-            text(
-                "UPDATE marketplace_jobs SET status = 'completed', result_data = :data "
-                "WHERE id = :job_id"
-            ),
-            {"data": data, "job_id": job_id},
-        )
-        db.commit()
-
-        activity.logger.info(f"Job #{job_id} completed: {final_count} products")
-
-    finally:
-        db.close()
-
-
-@activity.defn(name="vinted_mark_job_failed")
-async def mark_job_failed(
-    user_id: int,
-    job_id: int,
-    error_msg: str,
-) -> None:
-    """
-    Mark job as failed.
-
-    Args:
-        user_id: User ID for schema isolation
-        job_id: MarketplaceJob ID
-        error_msg: Error message
-    """
-    db = SessionLocal()
-    try:
-        schema_name = _get_schema_name(user_id)
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-        safe_error = error_msg[:500]
-
-        db.execute(
-            text(
-                "UPDATE marketplace_jobs SET status = 'failed', error_message = :error "
-                "WHERE id = :job_id"
-            ),
-            {"error": safe_error, "job_id": job_id},
-        )
-        db.commit()
-
-        activity.logger.info(f"Job #{job_id} failed: {safe_error}")
-
-    finally:
-        db.close()
-
-
 @activity.defn(name="vinted_check_plugin_connection")
 async def check_plugin_connection(user_id: int) -> bool:
     """
@@ -716,45 +607,6 @@ async def check_plugin_connection(user_id: int) -> bool:
     except Exception as e:
         activity.logger.warning(f"Error checking plugin connection for user {user_id}: {e}")
         return False
-
-
-@activity.defn(name="vinted_mark_job_paused")
-async def mark_job_paused(
-    user_id: int,
-    job_id: int,
-    reason: str,
-) -> None:
-    """
-    Mark job as paused in the database.
-
-    Updates the job status to 'paused' and stores the reason.
-    Used when waiting for plugin reconnection or user pause.
-
-    Args:
-        user_id: User ID for schema isolation
-        job_id: MarketplaceJob ID
-        reason: Reason for pausing (e.g., 'waiting_reconnection', 'user_pause')
-    """
-    db = SessionLocal()
-    try:
-        schema_name = _get_schema_name(user_id)
-        db.execute(text(f"SET search_path TO {schema_name}, public"))
-
-        data = json.dumps({"paused_reason": reason})
-
-        db.execute(
-            text(
-                "UPDATE marketplace_jobs SET status = 'paused', result_data = :data "
-                "WHERE id = :job_id"
-            ),
-            {"data": data, "job_id": job_id},
-        )
-        db.commit()
-
-        activity.logger.info(f"Job #{job_id} paused: {reason}")
-
-    finally:
-        db.close()
 
 
 @activity.defn(name="vinted_sync_sold_status")
@@ -1209,11 +1061,7 @@ VINTED_ACTIVITIES = [
     fetch_and_sync_page,
     get_vinted_ids_to_enrich,
     enrich_single_product,
-    update_job_progress,
-    mark_job_completed,
-    mark_job_failed,
     check_plugin_connection,
-    mark_job_paused,
     sync_sold_status,
     detect_sold_with_active_listing,
     delete_vinted_listing,

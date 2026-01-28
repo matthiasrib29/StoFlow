@@ -115,8 +115,6 @@ async def start_sync(
 
     Returns immediately with workflow_id for progress tracking.
     """
-    from models.user.marketplace_job import JobStatus
-    from services.marketplace.marketplace_job_service import MarketplaceJobService
     from temporal.client import get_temporal_client
     from temporal.config import get_temporal_config
     from temporal.workflows.ebay.sync_workflow import EbaySyncParams, EbaySyncWorkflow
@@ -131,28 +129,13 @@ async def start_sync(
         )
 
     try:
-        # Create a job record for tracking in DB
-        job_service = MarketplaceJobService(db)
-        job = job_service.create_job(
-            marketplace="ebay",
-            action_code="sync",
-            product_id=None,
-            input_data={
-                "marketplace_id": request.marketplace_id,
-                "via_temporal": True,
-            },
-        )
-        job.status = JobStatus.RUNNING
-        db.commit()
-
-        # Start Temporal workflow
+        # Start Temporal workflow directly (no job record needed)
         client = await get_temporal_client()
 
-        workflow_id = f"ebay-sync-user-{current_user.id}-job-{job.id}"
+        workflow_id = f"ebay-sync-user-{current_user.id}"
 
         params = EbaySyncParams(
             user_id=current_user.id,
-            job_id=job.id,
             marketplace_id=request.marketplace_id,
         )
 
@@ -162,14 +145,6 @@ async def start_sync(
             id=workflow_id,
             task_queue=config.temporal_task_queue,
         )
-
-        # Update job with workflow_id for cancellation support
-        job.input_data = {
-            **job.input_data,
-            "workflow_id": workflow_id,
-            "run_id": handle.result_run_id,
-        }
-        db.commit()
 
         logger.info(
             f"Started Temporal sync workflow: {workflow_id} for user {current_user.id}"

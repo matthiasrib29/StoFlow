@@ -20,8 +20,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from models.user.marketplace_job import JobStatus, MarketplaceJob
-from shared.advisory_locks import AdvisoryLockHelper
 from models.user.vinted_product import VintedProduct
 from services.plugin_websocket_helper import (
     PluginWebSocketHelper,
@@ -68,48 +66,9 @@ class VintedProductEnricher:
         self.user_id = user_id
         self.parser = VintedItemUploadParser()
 
-    def _is_job_cancelled(self, db: Session, job_id: int) -> bool:
-        """
-        Check if job cancellation was signaled using advisory locks (2026-01-19).
-
-        Primary check: Advisory lock (instant, non-blocking)
-        Fallback: ORM query for cancel_requested flag
-
-        Args:
-            db: SQLAlchemy session
-            job_id: Job ID to check
-
-        Returns:
-            True if job should stop
-        """
-        try:
-            # Primary: Check advisory lock signal (instant, non-blocking)
-            if AdvisoryLockHelper.is_cancel_signaled(db, job_id):
-                return True
-
-            # Fallback: Check cancel_requested flag via ORM (uses schema_translate_map)
-            job = db.query(MarketplaceJob).filter(
-                MarketplaceJob.id == job_id
-            ).first()
-
-            if job:
-                return job.cancel_requested or job.status == JobStatus.CANCELLED
-            return False
-        except Exception as e:
-            # If transaction is aborted, try to rollback and check again
-            try:
-                db.rollback()
-                # After rollback, just check advisory lock (simplest)
-                return AdvisoryLockHelper.is_cancel_signaled(db, job_id)
-            except Exception:
-                pass
-            logger.warning(f"Error checking job cancellation: {e}")
-            return False
-
     async def enrich_products_without_description(
         self,
         db: Session,
-        job: MarketplaceJob | None = None,
         batch_size: int = 15,           # Reduced from 30 to avoid DataDome 403
         batch_pause_min: float = 20.0,  # Increased from 10s
         batch_pause_max: float = 30.0   # Increased from 15s
@@ -163,40 +122,7 @@ class VintedProductEnricher:
         disconnected = 0   # Plugin/WebSocket disconnected
         server_errors = 0  # Server errors (5xx like 524 Cloudflare timeout)
 
-        # Helper pour mettre a jour le progress dans job.result_data (2026-01-14)
-        def update_enrichment_progress():
-            if job:
-                # Initialiser result_data si None
-                if job.result_data is None:
-                    job.result_data = {}
-
-                # Récupérer le compteur de sync (produits API importés)
-                existing_progress = job.result_data.get("progress", {})
-                sync_count = existing_progress.get("current", 0)
-
-                # Ajouter les produits enrichis au compteur
-                job.result_data = {
-                    **job.result_data,
-                    "progress": {
-                        "current": sync_count + enriched,
-                        "label": "produits enrichis"
-                    }
-                }
-                try:
-                    db.commit()
-                    db.expire(job)  # Force refresh from DB
-                except Exception as e:
-                    logger.warning(f"Failed to update enrichment progress: {e}")
-                    db.rollback()  # CRITICAL: Rollback to prevent idle transaction
-
         for i, product in enumerate(products_to_enrich):
-            # CRITICAL: Check if job was cancelled via advisory lock (2026-01-19)
-            if job and self._is_job_cancelled(db, job.id):
-                logger.info(f"Job #{job.id} cancel signal received, stopping enrichment")
-                # Cleanup: commit enriched products before stopping
-                db.commit()
-                break
-
             if i > 0 and i % batch_size == 0:
                 pause = random.uniform(batch_pause_min, batch_pause_max)
                 logger.info(
@@ -215,8 +141,6 @@ class VintedProductEnricher:
                         f"  [{i+1}/{total}] Enrichi: {product.vinted_id} - "
                         f"{product.title[:30] if product.title else 'N/A'}..."
                     )
-                    # Mettre a jour le progress apres chaque enrichissement (2026-01-14)
-                    update_enrichment_progress()
 
                 elif result == PLUGIN_NOT_FOUND:
                     not_found += 1

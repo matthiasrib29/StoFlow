@@ -142,16 +142,7 @@ class TestTenantModelSchemaPlaceholder:
             schema_dict = table_args[-1] if isinstance(table_args[-1], dict) else {}
             assert schema_dict.get("schema") == "tenant"
 
-    def test_marketplace_job_model_has_tenant_schema(self):
-        """MarketplaceJob model should declare schema='tenant'."""
-        from models.user.marketplace_job import MarketplaceJob
-
-        table_args = MarketplaceJob.__table_args__
-        if isinstance(table_args, dict):
-            assert table_args.get("schema") == "tenant"
-        elif isinstance(table_args, tuple):
-            schema_dict = table_args[-1] if isinstance(table_args[-1], dict) else {}
-            assert schema_dict.get("schema") == "tenant"
+    # test_marketplace_job_model removed (2026-01-27): Model deleted, replaced by Temporal
 
     def test_ebay_product_model_has_tenant_schema(self):
         """EbayProduct model should declare schema='tenant'."""

@@ -106,14 +106,6 @@ class VintedStatsResponse(BaseModel):
     totalProducts: int = Field(..., description="Nombre total de produits")
 
 
-class VintedJobResponse(BaseModel):
-    """Response schema pour opérations avec job (sync, update, etc.)."""
-
-    job_id: int = Field(..., description="ID du job MarketplaceJob")
-    status: str = Field(..., description="Statut du job (pending, running, completed, failed)")
-    result: Optional[dict] = Field(None, description="Résultat de l'exécution si process_now=True")
-
-
 class VintedDeleteResponse(BaseModel):
     """Response schema pour suppression de produit."""
 

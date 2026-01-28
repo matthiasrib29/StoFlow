@@ -27,7 +27,6 @@ from api.admin_vinted_pro_sellers import router as admin_vinted_pro_sellers_rout
 from api.admin_vinted_prospects import router as admin_vinted_prospects_router
 from api.auth import router as auth_router
 from api.attributes import router as attributes_router
-from api.batches import router as batches_router
 from api.pending_actions import router as pending_actions_router
 from api.docs import router as docs_router
 # eBay routers (re-enabled 2026-01-03)
@@ -46,6 +45,7 @@ from api.user_settings import router as user_settings_router
 from api.stripe_routes import router as stripe_router
 from api.subscription import router as subscription_router
 from api.vinted import router as vinted_router  # Now from api/vinted/__init__.py
+from api.workflows import router as workflows_router
 from middleware.csrf import CSRFMiddleware
 from middleware.error_handler import (
     stoflow_error_handler,
@@ -67,22 +67,18 @@ from shared.exceptions import StoflowError
 # Note: SessionLocal removed - no longer needed after plugin tasks cleanup removal
 from shared.logging import setup_logging
 
-# Job Dispatcher (2026-01-21) - Multi-tenant job processing
-from worker.dispatcher import JobDispatcher
-from worker.dispatcher_config import DispatcherConfig
-
 # Temporal Workflow Orchestration (2026-01-21)
 from temporal.config import get_temporal_config
 from temporal.worker import get_worker_manager
-from temporal.workflows import EbaySyncWorkflow, EbayCleanupWorkflow, VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow
-from temporal.activities import EBAY_ACTIVITIES, VINTED_ACTIVITIES
+from temporal.workflows import (
+    EbaySyncWorkflow, EbayCleanupWorkflow,
+    VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow,
+    EBAY_ACTION_WORKFLOWS, ETSY_ACTION_WORKFLOWS, VINTED_ACTION_WORKFLOWS,
+)
+from temporal.activities import EBAY_ACTIVITIES, VINTED_ACTIVITIES, EBAY_ACTION_ACTIVITIES, VINTED_ACTION_ACTIVITIES, ETSY_ACTION_ACTIVITIES
 
 # Configuration du logging
 logger = setup_logging()
-
-# Global dispatcher instance (managed by lifespan)
-_dispatcher: JobDispatcher | None = None
-
 
 # =============================================================================
 # LIFESPAN CONTEXT MANAGER (replaces @app.on_event)
@@ -146,27 +142,6 @@ async def lifespan(app: FastAPI):
     # TODO: Réactiver quand la logique de ping par nombre de requêtes sera implémentée
     logger.info("🛡️ DataDome scheduler DISABLED (stand-by)")
 
-    # ===== JOB DISPATCHER (2026-01-21) =====
-    # Multi-tenant job dispatcher integrated into backend process
-    global _dispatcher
-
-    if settings.dispatcher_enabled:
-        try:
-            config = DispatcherConfig.from_settings()
-            _dispatcher = JobDispatcher(config)
-            await _dispatcher.start()
-            logger.info(
-                f"🔧 Job dispatcher started (multi-tenant, "
-                f"global_max={config.global_max_concurrent}, "
-                f"per_client_max={config.per_client_max_concurrent})"
-            )
-        except Exception as e:
-            logger.exception(f"❌ Failed to start job dispatcher: {e}")
-            # Don't fail startup - jobs will just queue until dispatcher is fixed
-            _dispatcher = None
-    else:
-        logger.info("🔧 Job dispatcher DISABLED (dispatcher_enabled=false)")
-
     # ===== TEMPORAL WORKERS (2026-01-21) =====
     # Workflow orchestration for durable import operations
     temporal_config = get_temporal_config()
@@ -174,12 +149,16 @@ async def lifespan(app: FastAPI):
 
     if temporal_config.temporal_enabled:
         try:
-            # --- Main worker: eBay only (high concurrency) ---
+            # --- Main worker: eBay + Etsy (high concurrency) ---
             worker_manager = get_worker_manager()
 
             worker_manager.register_workflow(EbaySyncWorkflow)
             worker_manager.register_workflow(EbayCleanupWorkflow)
+            for wf in EBAY_ACTION_WORKFLOWS + ETSY_ACTION_WORKFLOWS:
+                worker_manager.register_workflow(wf)
             worker_manager.register_activities(EBAY_ACTIVITIES)
+            worker_manager.register_activities(EBAY_ACTION_ACTIVITIES)
+            worker_manager.register_activities(ETSY_ACTION_ACTIVITIES)
 
             await worker_manager.start()
             logger.info(
@@ -201,8 +180,8 @@ async def lifespan(app: FastAPI):
             _vinted_worker = Worker(
                 vinted_client,
                 task_queue=temporal_config.temporal_vinted_task_queue,
-                workflows=[VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow],
-                activities=VINTED_ACTIVITIES,
+                workflows=[VintedSyncWorkflow, VintedCleanupWorkflow, VintedBatchCleanupWorkflow, VintedProSellerScanWorkflow] + VINTED_ACTION_WORKFLOWS,
+                activities=VINTED_ACTIVITIES + VINTED_ACTION_ACTIVITIES,
                 activity_executor=_vinted_executor,
                 identity=f"{temporal_config.worker_identity}-vinted",
                 max_concurrent_workflow_tasks=5,
@@ -241,15 +220,6 @@ async def lifespan(app: FastAPI):
             except asyncio.CancelledError:
                 pass
             logger.info("⏱️ Temporal Vinted worker stopped")
-
-    # Stop job dispatcher
-    if _dispatcher:
-        try:
-            await _dispatcher.stop()
-            logger.info("🔧 Job dispatcher stopped")
-        except Exception as e:
-            logger.exception(f"Error stopping job dispatcher: {e}")
-        _dispatcher = None
 
     # Note: DataDome scheduler shutdown is currently disabled (stand-by mode)
 
@@ -370,7 +340,6 @@ app.include_router(admin_stats_router, prefix="/api")
 app.include_router(admin_vinted_pro_sellers_router, prefix="/api")
 app.include_router(admin_vinted_prospects_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
-app.include_router(batches_router, prefix="/api")  # Generic batch jobs (multi-marketplace)
 app.include_router(pending_actions_router, prefix="/api")  # Pending actions confirmation queue
 app.include_router(docs_router, prefix="/api")  # Public documentation (no auth required)
 app.include_router(admin_docs_router, prefix="/api")  # Admin documentation CRUD (admin only)
@@ -396,6 +365,7 @@ app.include_router(ebay_dashboard_router, prefix="/api")
 app.include_router(ebay_temporal_router, prefix="/api")  # Temporal import routes (2026-01-21)
 app.include_router(ebay_oauth_router, prefix="/api")
 app.include_router(ebay_webhook_router, prefix="/api")
+app.include_router(workflows_router, prefix="/api")  # Unified Temporal workflow management (2026-01-27)
 # TEMPORARILY DISABLED - Etsy uses PlatformMapping model (not yet implemented)
 # app.include_router(etsy_router, prefix="/api")
 # app.include_router(etsy_oauth_router, prefix="/api")

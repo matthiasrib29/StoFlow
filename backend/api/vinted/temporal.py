@@ -156,8 +156,6 @@ async def start_sync(
 
     Returns immediately with workflow_id for progress tracking.
     """
-    from models.user.marketplace_job import JobStatus
-    from services.marketplace.marketplace_job_service import MarketplaceJobService
     from temporal.client import get_temporal_client
     from temporal.config import get_temporal_config
     from temporal.workflows.vinted.sync_workflow import VintedSyncParams, VintedSyncWorkflow
@@ -202,26 +200,11 @@ async def start_sync(
                        f"Attendez qu'il se termine ou annulez-le.",
             )
 
-        # Create a job record for tracking in DB
-        job_service = MarketplaceJobService(db)
-        job = job_service.create_job(
-            marketplace="vinted",
-            action_code="sync",
-            product_id=None,
-            input_data={
-                "shop_id": shop_id,
-                "via_temporal": True,
-            },
-        )
-        job.status = JobStatus.RUNNING
-        db.commit()
-
-        # Start Temporal workflow (client already obtained above)
-        workflow_id = f"vinted-sync-user-{current_user.id}-job-{job.id}"
+        # Start Temporal workflow directly
+        workflow_id = f"vinted-sync-user-{current_user.id}"
 
         params = VintedSyncParams(
             user_id=current_user.id,
-            job_id=job.id,
             shop_id=shop_id,
         )
 
@@ -231,14 +214,6 @@ async def start_sync(
             id=workflow_id,
             task_queue=config.temporal_vinted_task_queue,
         )
-
-        # Update job with workflow_id for cancellation support
-        job.input_data = {
-            **job.input_data,
-            "workflow_id": workflow_id,
-            "run_id": handle.result_run_id,
-        }
-        db.commit()
 
         logger.info(
             f"Started Temporal Vinted sync workflow: {workflow_id} for user {current_user.id}"
@@ -251,6 +226,8 @@ async def start_sync(
             message=f"Sync workflow started. Track progress with workflow_id: {workflow_id}",
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to start Temporal Vinted sync for user {current_user.id}: {e}")
         raise HTTPException(

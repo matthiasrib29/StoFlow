@@ -111,7 +111,7 @@
 
 <script setup lang="ts">
 import { useToast } from 'primevue/usetoast'
-import { usePlatformJobs, type PlatformCode } from '~/composables/usePlatformJobs'
+import { useWorkflows, type PlatformCode } from '~/composables/useWorkflows'
 import { usePlatformConnection } from '~/composables/usePlatformConnection'
 
 const authStore = useAuthStore()
@@ -124,20 +124,20 @@ const nav = useDashboardNavigation()
 // Breadcrumbs composable
 const { breadcrumbs } = useBreadcrumbs()
 
-// Platform Jobs composables
-const vintedJobs = usePlatformJobs('vinted')
-const ebayJobs = usePlatformJobs('ebay')
-const etsyJobs = usePlatformJobs('etsy')
+// Platform Workflows composables (Temporal)
+const vintedWorkflows = useWorkflows('vinted')
+const ebayWorkflows = useWorkflows('ebay')
+const etsyWorkflows = useWorkflows('etsy')
 
 // Platform Connection composables
 const vintedConnection = usePlatformConnection('vinted')
 const ebayConnection = usePlatformConnection('ebay')
 const etsyConnection = usePlatformConnection('etsy')
 
-// Jobs counts
-const vintedJobsCount = computed(() => vintedJobs.activeJobsCount.value)
-const ebayJobsCount = computed(() => ebayJobs.activeJobsCount.value)
-const etsyJobsCount = computed(() => etsyJobs.activeJobsCount.value)
+// Workflow counts
+const vintedJobsCount = computed(() => vintedWorkflows.activeWorkflowsCount.value)
+const ebayJobsCount = computed(() => ebayWorkflows.activeWorkflowsCount.value)
+const etsyJobsCount = computed(() => etsyWorkflows.activeWorkflowsCount.value)
 
 // Connection status
 const vintedConnected = computed(() => vintedConnection.isConnected.value)
@@ -185,20 +185,35 @@ const disconnectPlatform = async (platform: PlatformCode) => {
   }
 }
 
-// Platform watchers: Fetch status when on platform route
+// Platform watchers: Fetch status + start workflow polling when on platform route
 watch(nav.isVintedRoute, (isActive) => {
   if (!import.meta.client) return
-  if (isActive) vintedConnection.fetchStatus()
+  if (isActive) {
+    vintedConnection.fetchStatus()
+    vintedWorkflows.startPolling()
+  } else {
+    vintedWorkflows.stopPolling()
+  }
 }, { immediate: true })
 
 watch(nav.isEbayRoute, (isActive) => {
   if (!import.meta.client) return
-  if (isActive) ebayConnection.fetchStatus()
+  if (isActive) {
+    ebayConnection.fetchStatus()
+    ebayWorkflows.startPolling()
+  } else {
+    ebayWorkflows.stopPolling()
+  }
 }, { immediate: true })
 
 watch(nav.isEtsyRoute, (isActive) => {
   if (!import.meta.client) return
-  if (isActive) etsyConnection.fetchStatus()
+  if (isActive) {
+    etsyConnection.fetchStatus()
+    etsyWorkflows.startPolling()
+  } else {
+    etsyWorkflows.stopPolling()
+  }
 }, { immediate: true })
 
 // Logout handler

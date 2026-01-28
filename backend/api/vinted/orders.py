@@ -25,10 +25,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_user_db
+from api.workflows import WorkflowStartResponse
 from models.vinted.vinted_order import VintedOrder
-from services.vinted import VintedJobService
-from services.marketplace.marketplace_job_processor import MarketplaceJobProcessor
+from shared.logging import get_logger
 from .shared import get_active_vinted_connection
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -95,82 +97,58 @@ async def list_orders(
         )
 
 
-@router.post("/orders/sync")
+@router.post("/orders/sync", response_model=WorkflowStartResponse)
 async def sync_orders(
     user_db: tuple = Depends(get_user_db),
-    year: Optional[int] = Query(None, ge=2020, le=2100, description="Année (optionnel, défaut: actuel)"),
-    month: Optional[int] = Query(None, ge=1, le=12, description="Mois 1-12 (optionnel, défaut: actuel)"),
-    process_now: bool = Query(True, description="Exécuter immédiatement ou créer job uniquement"),
-) -> dict:
+    year: Optional[int] = Query(None, ge=2020, le=2100, description="Year (optional)"),
+    month: Optional[int] = Query(None, ge=1, le=12, description="Month 1-12 (optional)"),
+):
     """
-    Synchronise les commandes depuis Vinted.
+    Sync orders from Vinted via Temporal workflow.
 
-    - Sans year/month : sync via /my_orders (ALL completed orders)
-    - Avec year+month : sync via /wallet/invoices (wallet transactions only)
+    - Without year/month: sync via /my_orders (ALL completed orders)
+    - With year+month: sync via /wallet/invoices (wallet transactions only)
 
-    /my_orders est la méthode par défaut car /wallet/invoices ne capture
-    pas les paiements par carte directe.
+    Starts VintedOrdersSyncWorkflow and returns immediately.
 
     Args:
-        year: Année (optionnel, si fourni avec month: utilise /wallet/invoices)
-        month: Mois 1-12 (optionnel, si fourni avec year: utilise /wallet/invoices)
-        process_now: Si True, exécute immédiatement
+        year: Year (optional, if provided with month: uses /wallet/invoices)
+        month: Month 1-12 (optional, if provided with year: uses /wallet/invoices)
 
     Returns:
-        {"job_id": int, "status": str, "result": dict | None}
+        WorkflowStartResponse with workflow_id
     """
-    db, current_user = user_db
+    from temporal.client import get_temporal_client
+    from temporal.config import get_temporal_config
+    from temporal.workflows.vinted.orders_sync_workflow import VintedOrdersSyncParams, VintedOrdersSyncWorkflow
 
+    config = get_temporal_config()
+    if not config.temporal_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Temporal is disabled",
+        )
+
+    db, current_user = user_db
     connection = get_active_vinted_connection(db, current_user.id)
 
-    try:
-        job_service = VintedJobService(db)
+    workflow_id = f"vinted-orders-sync-user-{current_user.id}"
+    params = VintedOrdersSyncParams(
+        user_id=current_user.id,
+        shop_id=connection.vinted_user_id,
+        year=year or 0,
+        month=month or 0,
+    )
 
-        # Build job data
-        result_data = None
-        if year and month:
-            result_data = {"year": year, "month": month, "mode": "monthly"}
+    client = await get_temporal_client()
+    await client.start_workflow(
+        VintedOrdersSyncWorkflow.run,
+        params,
+        id=workflow_id,
+        task_queue=config.temporal_vinted_task_queue,
+    )
 
-        job = job_service.create_job(
-            action_code="orders",
-            product_id=None,
-            result_data=result_data
-        )
-
-        # Store values BEFORE commit (SET LOCAL search_path resets on commit)
-        job_id = job.id
-        job_status = job.status.value
-        shop_id = connection.vinted_user_id
-
-        db.commit()
-        db.refresh(job)
-
-        response = {
-            "job_id": job_id,
-            "status": job_status,
-        }
-        if year and month:
-            response["month"] = f"{year}-{month:02d}"
-
-        if process_now:
-            processor = MarketplaceJobProcessor(db, user_id=current_user.id, shop_id=shop_id, marketplace="vinted")
-            result = await processor._execute_job(job)
-            response["result"] = result.get("result", result)
-            response["status"] = "completed" if result.get("success") else "failed"
-
-        return response
-
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur sync commandes: {str(e)}"
-        )
+    logger.info(f"Started workflow: {workflow_id}")
+    return WorkflowStartResponse(workflow_id=workflow_id, status="started")
 
 

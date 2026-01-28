@@ -21,7 +21,6 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from models.user.marketplace_job import JobStatus, MarketplaceJob
 from services.ebay.ebay_importer import EbayImporter
 from shared.database import SessionLocal
 from shared.datetime_utils import utc_now
@@ -53,30 +52,20 @@ class EbayBackgroundImportService:
         self.marketplace_id = marketplace_id
         self.schema_name = f"user_{user_id}"
 
-    def run_import(self, job_id: int) -> None:
+    def run_import(self) -> dict:
         """
         Execute import in background task with its own DB session.
 
         Optimized: imports products first, then enriches in parallel batches.
+        Job tracking is handled by Temporal workflows.
 
-        Args:
-            job_id: MarketplaceJob ID for progress tracking
+        Returns:
+            dict: {"imported": int, "deleted": int, "final_count": int}
         """
         db = SessionLocal()
         try:
             self._configure_schema(db)
             logger.info(f"[Background Import] Schema configured: {self.schema_name}")
-
-            # Get the job
-            job = db.query(MarketplaceJob).filter(MarketplaceJob.id == job_id).first()
-            if not job:
-                logger.error(f"[Background Import] Job #{job_id} not found")
-                return
-
-            # Initialize progress
-            job.result_data = {"current": 0, "label": "initialisation..."}
-            db.commit()
-            self._configure_schema(db)
 
             # Create importer
             importer = EbayImporter(
@@ -86,23 +75,27 @@ class EbayBackgroundImportService:
             )
 
             # Process inventory page by page
-            imported_count = self._import_all_pages(db, importer, job_id)
+            imported_count = self._import_all_pages(db, importer)
 
             # Cleanup: delete products without listing_id
             deleted_count = self._cleanup_products_without_listing(db)
 
-            # Mark job as completed
             final_count = imported_count - deleted_count
-            self._update_job_completed(db, job_id, final_count)
 
             logger.info(
                 f"[Background Import] eBay import completed for user {self.user_id}: "
                 f"{final_count} products (deleted {deleted_count} without listing)"
             )
 
+            return {
+                "imported": imported_count,
+                "deleted": deleted_count,
+                "final_count": final_count,
+            }
+
         except Exception as e:
             logger.error(f"[Background Import] eBay import failed for user {self.user_id}: {e}")
-            self._mark_job_failed(db, job_id, str(e))
+            raise
 
         finally:
             db.close()
@@ -145,7 +138,7 @@ class EbayBackgroundImportService:
         configure_schema_translate_map(db, self.schema_name)
         db.execute(text(f"SET search_path TO {self.schema_name}, public"))
 
-    def _import_all_pages(self, db: Session, importer: EbayImporter, job_id: int) -> int:
+    def _import_all_pages(self, db: Session, importer: EbayImporter) -> int:
         """
         Import all inventory pages and enrich products.
 
@@ -176,9 +169,7 @@ class EbayBackgroundImportService:
                 self._enrich_products_parallel(importer, batch, db)
                 self._configure_schema(db)
 
-                # Update progress
                 imported_count += len(batch)
-                self._update_job_progress(db, job_id, imported_count)
                 logger.info(f"[Background Import] Progress: {imported_count} products enriched")
 
             # Check if more pages
@@ -373,49 +364,13 @@ class EbayBackgroundImportService:
 
         return deleted_count
 
-    def _update_job_progress(self, db: Session, job_id: int, current: int) -> None:
-        """Update job progress in database."""
-        db.execute(
-            text("UPDATE marketplace_jobs SET result_data = :data WHERE id = :job_id"),
-            {"data": f'{{"current": {current}, "label": "produits importés"}}', "job_id": job_id},
-        )
-        db.commit()
-
-    def _update_job_completed(self, db: Session, job_id: int, final_count: int) -> None:
-        """Mark job as completed."""
-        db.execute(
-            text(
-                "UPDATE marketplace_jobs SET status = 'completed', result_data = :data "
-                "WHERE id = :job_id"
-            ),
-            {
-                "data": f'{{"current": {final_count}, "label": "produits importés"}}',
-                "job_id": job_id,
-            },
-        )
-        db.commit()
-
-    def _mark_job_failed(self, db: Session, job_id: int, error_msg: str) -> None:
-        """Mark job as failed."""
-        try:
-            safe_error = error_msg[:500].replace("'", "''")
-            db.execute(
-                text(
-                    "UPDATE marketplace_jobs SET status = 'failed', error_message = :error "
-                    "WHERE id = :job_id"
-                ),
-                {"error": safe_error, "job_id": job_id},
-            )
-            db.commit()
-        except Exception as inner_e:
-            logger.error(f"[Background Import] Could not mark job as failed: {inner_e}")
 
 
 # Convenience functions for backward compatibility with router
-def run_import_in_background(job_id: int, user_id: int, marketplace_id: str) -> None:
+def run_import_in_background(user_id: int, marketplace_id: str) -> dict:
     """Run import in background (convenience function for router)."""
     service = EbayBackgroundImportService(user_id, marketplace_id)
-    service.run_import(job_id)
+    return service.run_import()
 
 
 def run_enrichment_in_background(user_id: int, marketplace_id: str) -> None:

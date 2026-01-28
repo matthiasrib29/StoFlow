@@ -251,9 +251,7 @@ def _run_cleanup():
             schema = f"user_{user_id}"
             # Execute each TRUNCATE separately to avoid cascading failures
             tables_to_truncate = [
-                "marketplace_tasks",  # Must be before marketplace_jobs (FK)
-                "marketplace_jobs",
-                "batch_jobs",
+                # marketplace_tasks/jobs/batches removed (2026-01-27): Replaced by Temporal
                 "vinted_products",
                 "products",
                 "product_images",

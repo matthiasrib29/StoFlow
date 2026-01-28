@@ -584,7 +584,6 @@ class VintedSyncService:
         db: Session,
         shop_id: int,
         user_id: int,
-        job=None
     ) -> dict[str, Any]:
         """
         Synchronize products from Vinted API (standard interface).
@@ -595,7 +594,6 @@ class VintedSyncService:
             db: SQLAlchemy session
             shop_id: Shop ID
             user_id: User ID
-            job: Optional MarketplaceJob instance
 
         Returns:
             dict: {
@@ -615,7 +613,7 @@ class VintedSyncService:
                 self.user_id = user_id
 
             # Delegate to existing method
-            result = await self.api_sync.sync_products_from_api(db, job=job)
+            result = await self.api_sync.sync_products_from_api(db)
 
             # Normalize response
             return {
@@ -633,9 +631,9 @@ class VintedSyncService:
                 "error": str(e)
             }
 
-    async def sync_products_from_api(self, db: Session, job=None) -> dict[str, Any]:
+    async def sync_products_from_api(self, db: Session) -> dict[str, Any]:
         """Delegue a VintedApiSyncService."""
-        return await self.api_sync.sync_products_from_api(db, job=job)
+        return await self.api_sync.sync_products_from_api(db)
 
     async def sync_orders(
         self,
