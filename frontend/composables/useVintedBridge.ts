@@ -3,7 +3,7 @@
  *
  * This composable handles ALL communication with the StoFlow browser extension:
  * 1. Authentication sync (SSO tokens)
- * 2. Vinted actions (getUserInfo, getWardrobe, publish, update, delete, etc.)
+ * 2. Vinted actions (getUserInfo, getUserProfile, executeApiCall)
  *
  * Architecture:
  * - Chrome: Uses chrome.runtime.sendMessage (externally_connectable)
@@ -432,33 +432,6 @@ export function useVintedBridge() {
   }
 
   /**
-   * Get user's wardrobe items from Vinted
-   */
-  async function getWardrobe(userId: string, page = 1, perPage = 96): Promise<BridgeResponse> {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const response = await sendMessage({
-        action: 'VINTED_GET_WARDROBE',
-        payload: { userId, page, perPage }
-      })
-
-      if (!response.success) {
-        error.value = response.error || 'Failed to get wardrobe'
-        lastError.value = response
-      }
-
-      return response
-    } catch (err: any) {
-      error.value = err.message
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  /**
    * Execute a generic Vinted API call
    */
   async function executeApiCall(options: VintedApiCallOptions): Promise<BridgeResponse> {
@@ -473,116 +446,6 @@ export function useVintedBridge() {
 
       if (!response.success) {
         error.value = response.error || 'API call failed'
-        lastError.value = response
-      }
-
-      return response
-    } catch (err: any) {
-      error.value = err.message
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  /**
-   * Fetch Vinted users for prospection
-   */
-  async function fetchUsers(searchText: string, page = 1, perPage = 100): Promise<BridgeResponse> {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const response = await sendMessage({
-        action: 'VINTED_FETCH_USERS',
-        search_text: searchText,
-        page,
-        per_page: perPage
-      }, 60000) // 60s timeout for user searches
-
-      if (!response.success) {
-        error.value = response.error || 'Failed to fetch users'
-        lastError.value = response
-      }
-
-      return response
-    } catch (err: any) {
-      error.value = err.message
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  /**
-   * Publish a product to Vinted
-   */
-  async function publishProduct(productData: any): Promise<BridgeResponse> {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const response = await sendMessage({
-        action: 'VINTED_PUBLISH',
-        payload: productData
-      })
-
-      if (!response.success) {
-        error.value = response.error || 'Failed to publish product'
-        lastError.value = response
-      }
-
-      return response
-    } catch (err: any) {
-      error.value = err.message
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  /**
-   * Update a product on Vinted
-   */
-  async function updateProduct(vintedId: string, updates: any): Promise<BridgeResponse> {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const response = await sendMessage({
-        action: 'VINTED_UPDATE',
-        payload: { vintedId, updates }
-      })
-
-      if (!response.success) {
-        error.value = response.error || 'Failed to update product'
-        lastError.value = response
-      }
-
-      return response
-    } catch (err: any) {
-      error.value = err.message
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  /**
-   * Delete a product from Vinted
-   */
-  async function deleteProduct(vintedId: string): Promise<BridgeResponse> {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      const response = await sendMessage({
-        action: 'VINTED_DELETE',
-        payload: { vintedId }
-      })
-
-      if (!response.success) {
-        error.value = response.error || 'Failed to delete product'
         lastError.value = response
       }
 
@@ -739,12 +602,7 @@ export function useVintedBridge() {
     // Vinted actions
     getUserInfo,
     getUserProfile,
-    getWardrobe,
     executeApiCall,
-    fetchUsers,
-    publishProduct,
-    updateProduct,
-    deleteProduct,
 
     // Lifecycle (for manual control if needed)
     init,

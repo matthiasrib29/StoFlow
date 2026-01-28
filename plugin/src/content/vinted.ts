@@ -317,67 +317,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   /**
-   * EXECUTE_VINTED_API - New architecture (2025-12-11)
-   * Utilise window.postMessage pour communiquer avec le script injecté stoflow-vinted-api.js
-   * Le script injecté gère les headers automatiquement via le hook Axios de Vinted
-   */
-  if (action === 'EXECUTE_VINTED_API') {
-    const { url, method, params, body } = message;
-
-    if (!url || !method) {
-      sendResponse({ success: false, error: 'Invalid EXECUTE_VINTED_API: missing url or method' });
-      return true;
-    }
-
-    VintedLogger.debug(`🌐 [VINTED] EXECUTE_VINTED_API: ${method} ${url}`);
-
-    // Extract endpoint from URL (complete or relative)
-    let endpoint: string;
-    try {
-      const urlObj = new URL(url);
-      endpoint = urlObj.pathname + urlObj.search;
-    } catch {
-      endpoint = url;
-    }
-
-    // Remove /api/v2 prefix if present (avoid duplication)
-    if (endpoint.startsWith('/api/v2')) {
-      endpoint = endpoint.replace('/api/v2', '');
-    }
-
-    (async () => {
-      const response = await sendPostMessageRequest({
-        messageType: 'STOFLOW_API_CALL',
-        responseType: 'STOFLOW_API_RESPONSE',
-        payload: {
-          method: method.toUpperCase(),
-          endpoint,
-          params,
-          data: body,
-          config: {}
-        },
-        logContext: '🌐 [API]'
-      });
-
-      if (response.success) {
-        sendResponse({
-          success: true,
-          status: response.status || 200,
-          data: response.data
-        });
-      } else {
-        sendResponse({
-          success: false,
-          status: response.status || 500,
-          error: response.error || 'Unknown error'
-        });
-      }
-    })();
-
-    return true; // Async response
-  }
-
-  /**
    * REFRESH_VINTED_SESSION - Refresh Vinted session cookies
    * Called by backend when a task returns 401
    * Uses /web/api/auth/refresh endpoint to regenerate session
@@ -402,54 +341,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Async response
   }
 
-  /**
-   * VINTED_FETCH_USERS - Search for Vinted users via the users API
-   * Used by admin prospect feature to find power sellers
-   * Calls: GET /api/v2/users?search_text=X&per_page=100&page=Y
-   */
-  if (action === 'VINTED_FETCH_USERS') {
-    const { search_text, page, per_page } = message;
-
-    VintedLogger.debug(`👥 [VINTED] VINTED_FETCH_USERS: search="${search_text}", page=${page}, per_page=${per_page}`);
-
-    (async () => {
-      const response = await sendPostMessageRequest({
-        messageType: 'STOFLOW_API_CALL',
-        responseType: 'STOFLOW_API_RESPONSE',
-        payload: {
-          method: 'GET',
-          endpoint: '/users',
-          params: {
-            search_text: search_text || '',
-            page: page || 1,
-            per_page: per_page || 100
-          },
-          data: null,
-          config: {}
-        },
-        timeout: 30000,
-        logContext: '👥 [USERS]'
-      });
-
-      if (response.success) {
-        VintedLogger.debug(`👥 ✅ Users found: ${response.data?.users?.length || 0}`);
-        sendResponse({
-          success: true,
-          status: response.status || 200,
-          data: response.data
-        });
-      } else {
-        VintedLogger.error(`👥 ❌ VINTED_FETCH_USERS error:`, response.error);
-        sendResponse({
-          success: false,
-          status: response.status || 500,
-          error: response.error || 'Unknown error'
-        });
-      }
-    })();
-
-    return true; // Async response
-  }
 });
 
 VintedLogger.debug('[Stoflow] Content script loaded');

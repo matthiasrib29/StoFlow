@@ -74,7 +74,7 @@ async def upload_product_images(
             )
 
             # WebSocket architecture (2026-01-12)
-            result = await PluginWebSocketHelper.call_plugin_http(
+            result = await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=user_id,
                 http_method="POST",

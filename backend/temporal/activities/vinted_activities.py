@@ -81,7 +81,7 @@ async def _call_vinted_api(
     from services.plugin_websocket_helper import PluginWebSocketHelper, PluginHTTPError
 
     try:
-        result = await PluginWebSocketHelper.call_plugin_http(
+        result = await PluginWebSocketHelper.call_plugin(
             db=db,
             user_id=user_id,
             http_method=http_method,
@@ -530,7 +530,7 @@ async def scan_pro_sellers_page(
     """
     Fetch a page of Vinted users via plugin and filter for business accounts.
 
-    Uses VINTED_FETCH_USERS plugin action to search users, then filters
+    Uses VINTED_API_CALL via call_plugin to search users, then filters
     for business=true accounts on the backend side.
 
     Args:
@@ -557,8 +557,9 @@ async def scan_pro_sellers_page(
             result = await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=user_id,
-                action="VINTED_FETCH_USERS",
-                payload={
+                http_method="GET",
+                path="/api/v2/users",
+                params={
                     "search_text": search_text,
                     "page": page,
                     "per_page": per_page,

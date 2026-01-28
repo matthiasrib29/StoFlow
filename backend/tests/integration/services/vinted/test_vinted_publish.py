@@ -106,7 +106,7 @@ class TestVintedImageUploadWithLabels:
 
         # Mock plugin WebSocket call to return fake Vinted photo IDs
         with patch(
-            'services.vinted.vinted_product_helpers.PluginWebSocketHelper.call_plugin_http',
+            'services.vinted.vinted_product_helpers.PluginWebSocketHelper.call_plugin',
             new_callable=AsyncMock
         ) as mock_call:
             # Return fake Vinted photo IDs (12345, 12346, 12347)
@@ -195,7 +195,7 @@ class TestVintedImageUploadWithLabels:
 
         # Mock plugin call
         with patch(
-            'services.vinted.vinted_product_helpers.PluginWebSocketHelper.call_plugin_http',
+            'services.vinted.vinted_product_helpers.PluginWebSocketHelper.call_plugin',
             new_callable=AsyncMock
         ) as mock_call:
             # Execute upload
@@ -242,7 +242,7 @@ class TestVintedImageUploadWithLabels:
 
         # Mock plugin call
         with patch(
-            'services.vinted.vinted_product_helpers.PluginWebSocketHelper.call_plugin_http',
+            'services.vinted.vinted_product_helpers.PluginWebSocketHelper.call_plugin',
             new_callable=AsyncMock
         ) as mock_call:
             # Execute upload
@@ -280,7 +280,7 @@ class TestVintedImageUploadWithLabels:
 
         # Mock plugin call
         with patch(
-            'services.vinted.vinted_product_helpers.PluginWebSocketHelper.call_plugin_http',
+            'services.vinted.vinted_product_helpers.PluginWebSocketHelper.call_plugin',
             new_callable=AsyncMock
         ) as mock_call:
             # Return fake Vinted photo IDs in order

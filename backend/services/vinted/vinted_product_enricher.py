@@ -331,7 +331,7 @@ class VintedProductEnricher:
         api_path = self.ITEM_UPLOAD_API.format(vinted_id=product.vinted_id)
 
         # WebSocket architecture (2026-01-12)
-        result = await PluginWebSocketHelper.call_plugin_http(
+        result = await PluginWebSocketHelper.call_plugin(
             db=db,
             user_id=self.user_id,
             http_method="GET",

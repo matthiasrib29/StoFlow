@@ -48,7 +48,7 @@ class WebSocketService:
         # Send command to plugin via frontend
         result = await WebSocketService.send_plugin_command(
             user_id=123,
-            action="VINTED_PUBLISH",
+            action="VINTED_API_CALL",
             payload={...},
             timeout=60
         )
@@ -63,7 +63,7 @@ class WebSocketService:
 
         Args:
             user_id: User ID (for room targeting)
-            action: Plugin action (VINTED_PUBLISH, VINTED_UPDATE, etc.)
+            action: Plugin action (e.g. VINTED_API_CALL)
             payload: Action payload
             timeout: Timeout in seconds
 

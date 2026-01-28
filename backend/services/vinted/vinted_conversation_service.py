@@ -123,7 +123,7 @@ class VintedConversationService:
             logger.info(f"[VintedConversationService] Syncing conversation {conversation_id}")
 
             # Call Vinted API via WebSocket (2026-01-12)
-            api_result = await PluginWebSocketHelper.call_plugin_http(
+            api_result = await PluginWebSocketHelper.call_plugin(
                 db=db,
                 user_id=self.user_id,
                 http_method="GET",

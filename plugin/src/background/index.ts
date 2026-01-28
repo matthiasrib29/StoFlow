@@ -232,10 +232,6 @@ class BackgroundService {
       case 'VINTED_API_CALL':
       case 'VINTED_GET_USER_INFO':
       case 'VINTED_GET_USER_PROFILE':
-      case 'VINTED_GET_WARDROBE':
-      case 'VINTED_PUBLISH':
-      case 'VINTED_UPDATE':
-      case 'VINTED_DELETE':
       case 'VINTED_BATCH':
       case 'CHECK_VINTED_TAB':
       case 'OPEN_VINTED_TAB':
